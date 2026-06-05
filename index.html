@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tapowan Public School — Management System</title>
+  <meta name="description" content="Tapowan Public School management system for students, fees, attendance, exams, and more." />
+  
+  <!-- PWA Setup -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#1e293b" />
+  <link rel="apple-touch-icon" href="logo.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  
+  <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+  <script src="https://cdn.lordicon.com/lordicon.js"></script>
+  <link rel="stylesheet" href="style.css?v=202604061230" />
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+  <div id="authOverlay" class="auth-overlay hidden">
+    <button id="closeAuthBtn" style="position:absolute; top:20px; right:20px; background:rgba(255,255,255,0.1); border:none; color:#fff; font-size:1.5rem; cursor:pointer; z-index:10; width:40px; height:40px; border-radius:50%; display:grid; place-items:center;">✕</button>
+    <div class="auth-dots"></div>
+    <div class="auth-card">
+      <div class="auth-logo">
+        <div class="auth-logo-icon" style="background:transparent; box-shadow:none;"><img src="logo.png" alt="TPS Logo" style="width:100%; height:100%; object-fit:contain;" /></div>
+        <div>
+          <h1>EduCore</h1>
+          <p>Tapowan Public School</p>
+        </div>
+      </div>
+      <p id="authSubtitle">Sign in to continue</p>
+      <div class="auth-switch">
+        <button id="showLoginBtn" class="dark" type="button">Login</button>
+        <button id="showSignupBtn" class="dark" type="button">Sign Up</button>
+      </div>
+      <form id="loginForm" class="auth-form">
+        <div class="field">
+          <label for="loginUsername">Username</label>
+          <input id="loginUsername" name="username" placeholder="Enter username" required />
+        </div>
+
+        <div class="field">
+          <label for="loginPassword">Password</label>
+          <input id="loginPassword" name="password" type="password" placeholder="Enter password" required />
+        </div>
+
+        <button type="submit">Login</button>
+      </form>
+      <form id="signupForm" class="auth-form hidden">
+        <div class="field">
+          <label for="signupFullName">Full Name</label>
+          <input id="signupFullName" name="fullName" placeholder="Aatif Khan" required />
+        </div>
+        <div class="field">
+          <label for="signupAdmissionNo">Admission Number</label>
+          <input id="signupAdmissionNo" name="admissionNo" placeholder="E.g. TPS-1024" required />
+        </div>
+        <div class="field">
+          <label for="signupUsername">Username</label>
+          <input id="signupUsername" name="username" placeholder="aatif_user" required />
+        </div>
+        <div class="field">
+          <label for="signupEmail">Email</label>
+          <input id="signupEmail" name="email" type="email" placeholder="name@example.com" required />
+        </div>
+        <div class="field">
+          <label for="signupPassword">Password</label>
+          <input id="signupPassword" name="password" type="password" placeholder="StrongPass@123" required />
+        </div>
+        <button type="submit">Create Account</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Mobile sidebar backdrop -->
+  <div id="mobileSidebarBackdrop" class="mobile-sidebar-backdrop hidden"></div>
+
+  <div class="app">
+    <aside id="sidebar" class="sidebar">
+      <div class="brand">
+        <div class="brand-inner">
+          <div class="brand-icon" style="background:transparent; box-shadow:none;"><img src="logo.png" alt="TPS Logo" style="width:100%; height:100%; object-fit:contain;" /></div>
+          <div>
+            <h1>EduCore</h1>
+            <p>School Management</p>
+          </div>
+        </div>
+        <div class="brand-school">📍 <span>Tapowan Public School</span></div>
+      </div>
+      <nav id="moduleNav"></nav>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <!-- Mobile menu button -->
+        <button id="mobileMenuBtn" class="mobile-menu-btn" aria-label="Toggle menu" aria-expanded="false">
+          <span class="hamburger">
+            <span></span><span></span><span></span>
+          </span>
+        </button>
+        <div class="topbar-title">
+          <h2 id="moduleTitle">Dashboard</h2>
+          <p id="moduleSubtitle">School overview and quick statistics</p>
+        </div>
+        <div class="topbar-actions">
+          <div class="user-profile-menu">
+            <div class="user-avatar" id="userAvatarIcon">
+              <span class="material-symbols-outlined">person</span>
+            </div>
+            <div class="user-info">
+              <div id="activeUserBadgeName">Guest</div>
+              <div id="activeUserBadgeRole">Unknown</div>
+            </div>
+          </div>
+          <button id="logoutBtn" class="dark">Logout</button>
+
+        </div>
+      </header>
+
+      <div class="content-area">
+      <section id="statsCards" class="stats-grid"></section>
+
+      <section class="panel">
+        <h3>Add New Record</h3>
+        <form id="dynamicForm" class="form-grid"></form>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h3>Module Data</h3>
+          <div class="panel-actions">
+            <select id="classFilter" class="hidden" style="padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.9rem; margin-right: 8px;"><option value="">All Classes</option></select>
+            <select id="dayFilter" class="hidden" style="padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.9rem; margin-right: 8px;">
+                <option value="Monday">Monday</option>
+                <option value="Tuesday">Tuesday</option>
+                <option value="Wednesday">Wednesday</option>
+                <option value="Thursday">Thursday</option>
+                <option value="Friday">Friday</option>
+                <option value="Saturday">Saturday</option>
+              </select>
+            <input type="search" id="searchInput" placeholder="Search records..." />
+            <input type="file" id="importFile" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" class="hidden" />
+            <button id="importDataBtn" class="dark hidden">Import Data</button>
+            <button id="smartGenerateBtn" class="dark hidden">⚡ Smart Generate</button>
+            <button id="freeTeachersBtn" class="dark hidden" onclick="if(window.openFreeTeachersModal) window.openFreeTeachersModal()">Directions_run Leisure</button>
+            <button id="exportCsvBtn" class="dark">Export CSV</button>
+            <button id="exportPdfBtn" class="dark">Export PDF</button>
+            <button id="printDocBtn" class="dark">Print Document</button>
+            <button id="print4in1Btn" class="dark hidden">Print 4-in-1</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead id="tableHead"></thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+      </section>
+      <section id="facePanel" class="panel hidden">
+        <div class="panel-head">
+          <h3>Face Recognition Attendance</h3>
+          <div class="panel-actions">
+            <button id="startCameraBtn" class="dark">Start Camera</button>
+            <button id="captureFaceBtn" class="dark">Capture Face</button>
+            <button id="markFaceAttendanceBtn" class="dark">Mark Attendance</button>
+            <button id="enrollFaceBtn" class="dark hidden">Enroll Face</button>
+            <div style="display:flex;align-items:center;gap:6px;margin-right:6px;">
+              <label style="font-size:0.85rem;color:#cbd5e1;">Camera:</label>
+              <select id="cameraSourceSelect" style="padding:4px 8px;border-radius:6px;border:1px solid #475569;background:#1e293b;color:#e2e8f0;font-size:0.82rem;">
+                <option value="local">💻 Local</option>
+                <option value="ip">🌐 IP Camera</option>
+              </select>
+            </div>
+            <div id="ipCameraControls" style="display:none;align-items:center;gap:6px;margin-right:6px;">
+              <input id="ipCameraUrl" type="text" placeholder="http://192.168.1.100:8080/video" style="padding:4px 8px;border-radius:6px;border:1px solid #475569;background:#1e293b;color:#e2e8f0;font-size:0.82rem;width:280px;" />
+            </div>
+            <div id="faceAutoControls">
+              <label style="display:flex;align-items:center;gap:8px;margin-left:10px;">
+                <input id="autoCaptureToggle" type="checkbox" />
+                <span style="font-size:0.9rem;color:#cbd5e1;">Auto Capture &amp; Mark</span>
+              </label>
+              <div style="display:flex;align-items:center;gap:8px;margin-left:6px;">
+                <span style="font-size:0.9rem;color:#cbd5e1;">Every</span>
+                <input id="autoCaptureIntervalMs" type="number" value="2000" min="500" step="500" style="width:92px;" />
+                <span style="font-size:0.9rem;color:#cbd5e1;">ms</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;margin-left:6px;">
+                <span style="font-size:0.9rem;color:#cbd5e1;">Min Conf</span>
+                <input id="autoMinConfidence" type="number" value="0.65" min="0.45" max="0.99" step="0.01" style="width:92px;" />
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;margin-left:6px;">
+                <span style="font-size:0.9rem;color:#cbd5e1;">Stable</span>
+                <input id="autoStableCount" type="number" value="3" min="1" max="10" step="1" style="width:72px;" />
+                <span style="font-size:0.9rem;color:#cbd5e1;">ticks</span>
+              </div>
+
+              <label style="display:flex;align-items:center;gap:8px;margin-left:6px;">
+                <input id="autoBatchMultiFaceToggle" type="checkbox" />
+                <span style="font-size:0.9rem;color:#cbd5e1;">Batch Mark (multi-face)</span>
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="face-grid">
+          <div id="localCamWrapper" style="position:relative;display:block;">
+            <video id="faceVideo" autoplay muted playsinline style="width:100%;display:block;border-radius:12px;"></video>
+            <canvas id="faceCanvas" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;"></canvas>
+          </div>
+          <div id="ipCamWrapper" style="display:none;position:relative;width:100%;">
+            <img id="ipCameraImg" style="width:100%;display:block;border-radius:12px;background:#000;" alt="IP Camera Feed" />
+            <canvas id="ipOverlayCanvas" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;"></canvas>
+          </div>
+          <div id="liveLog" class="live-log"></div>
+        </div>
+        <div class="form-grid">
+          <div class="field">
+            <label for="faceTargetType">Target Type</label>
+            <select id="faceTargetType">
+              <option value="students">Students</option>
+              <option value="teachers">Teachers</option>
+            </select>
+          </div>
+          <div class="field hidden" id="faceEnrollStudentField">
+            <label for="faceEnrollStudentSelect">Select Student</label>
+            <select id="faceEnrollStudentSelect"></select>
+          </div>
+          <div class="field" id="faceManualNameField">
+            <label for="faceTargetName">Name</label>
+            <input id="faceTargetName" placeholder="Aarav Sharma" />
+          </div>
+          <div class="field" id="faceManualClassField">
+            <label for="faceClassName">Class/Dept</label>
+            <input id="faceClassName" placeholder="10-A or Science" />
+          </div>
+          <div class="field" id="faceStatusField">
+            <label for="faceStatus">Status</label>
+            <select id="faceStatus">
+              <option value="Present">Present</option>
+              <option value="Late">Late</option>
+              <option value="Leave">Leave</option>
+            </select>
+          </div>
+        </div>
+        <p id="faceStatusText" class="small-note">Load camera and capture face embedding to mark attendance.</p>
+      </section>
+
+      <!-- Exam Management Panel -->
+      <section id="examPanel" class="panel hidden">
+        <div class="panel-head">
+          <h3>Exam Management</h3>
+          <div class="panel-actions">
+            <button id="examTabEntryBtn" class="dark active">Marks Entry</button>
+            <button id="examTabAdmitBtn" class="dark">Admit Cards</button>
+            <button id="examTabResultBtn" class="dark">Results</button>
+          </div>
+        </div>
+        <div id="examPanelContent" style="margin-top: 15px;"></div>
+      </section>
+
+      <section id="assistantPanel" class="panel hidden assistant-panel">
+        <div class="panel-head">
+          <h3>AI Assistant</h3>
+          <button id="assistantCloseBtn" class="dark">Close</button>
+        </div>
+
+        <div class="assistant-body">
+          <input id="assistantInput" placeholder="Ask: Attendance, ID card, reports, how to use modules..." />
+          <div class="assistant-actions">
+            <button id="assistantSendBtn" class="dark">Send</button>
+            <button id="assistantAutoAttendanceBtn" class="dark">Auto Attendance</button>
+            <button id="assistantPrintIdBtn" class="dark">Print ID Cards</button>
+          </div>
+          <div class="assistant-actions">
+            <input id="apiBaseInput" placeholder="Backend URL (Render). Example: https://your-render.onrender.com" />
+            <button id="apiSaveBtn" class="dark">Save API URL</button>
+          </div>
+          <div id="assistantOutput" class="assistant-output"></div>
+        </div>
+      </section>
+      </div><!-- /content-area -->
+    </main>
+  </div>
+
+  <!-- Student Profile Modal -->
+  <div id="studentProfileBackdrop" class="student-profile-backdrop hidden"></div>
+  <div id="studentProfileModal" class="student-profile-modal hidden">
+    <div class="student-profile-header">
+      <div class="student-profile-title">
+        <h3 id="studentProfileName">Student Name</h3>
+        <p id="studentProfileSub">Class &amp; Roll</p>
+      </div>
+      <button id="studentProfileCloseBtn" class="student-profile-close">✕ Close</button>
+    </div>
+    <div class="student-profile-tabs">
+      <button class="student-profile-tab active" data-tab="profile">Profile</button>
+      <button class="student-profile-tab" data-tab="fees">Fees</button>
+      <button class="student-profile-tab" data-tab="feeCard">Fee Card</button>
+      <button class="student-profile-tab" data-tab="exams">Exams</button>
+      <button class="student-profile-tab" data-tab="attendance">Attendance</button>
+    </div>
+    <div id="studentProfileContent" class="student-profile-content"></div>
+  </div>
+
+  <div id="print4in1Backdrop" class="student-profile-backdrop hidden"></div>
+  <div id="print4in1Modal" class="student-profile-modal hidden" style="max-width:550px;">
+    <div class="student-profile-header">
+      <div class="student-profile-title">
+        <h3>Print 4 Records on 1 A4</h3>
+        <p>Select receipts/slips for each quadrant</p>
+      </div>
+      <button id="print4in1CloseBtn" class="student-profile-close">✕ Close</button>
+    </div>
+    <div class="student-profile-content print-grid-4">
+      <div class="field">
+        <label>Top Left (Box 1)</label>
+        <select id="box1Select"><option value="">Select Record</option></select>
+      </div>
+      <div class="field">
+        <label>Top Right (Box 2)</label>
+        <select id="box2Select"><option value="">Select Record</option></select>
+      </div>
+      <div class="field">
+        <label>Bottom Left (Box 3)</label>
+        <select id="box3Select"><option value="">Select Record</option></select>
+      </div>
+      <div class="field">
+        <label>Bottom Right (Box 4)</label>
+        <select id="box4Select"><option value="">Select Record</option></select>
+      </div>
+    </div>
+    <div style="padding:15px;text-align:right;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:10px;">
+      <button id="executePrint4in1Btn" class="dark" style="padding:8px 16px;">Print Receipts Grid</button>
+      <button id="executePrint4in1SlipBtn" class="dark" style="padding:8px 16px;">Print Slips Grid</button>
+    </div>
+  </div>
+  <template id="emptyState">
+    <tr>
+      <td colspan="99" class="empty">No records found.</td>
+    </tr>
+  </template>
+
+  <div id="toastContainer"></div>
+
+  <!-- Image Viewer Modal (Lightbox) -->
+  <div id="imageViewer" class="image-viewer-backdrop hidden" onclick="if(event.target===this) closeImageViewer()">
+    <button class="image-viewer-close" onclick="closeImageViewer()">✕</button>
+    <div class="image-viewer-content">
+      <img id="imageViewerImg" src="" alt="Preview">
+      <div id="imageViewerTitle" style="text-align:center; margin-top:12px; font-weight:800; color:#1e293b; font-size:1rem;"></div>
+    </div>
+  </div>
+
+  <!-- Hidden Input for Data Import -->
+  <input type="file" id="importFile" accept=".csv, .xls, .xlsx" style="display:none;" />
+
+  <!-- Fix for CDN libraries failing in Electron with nodeIntegration -->
+  <script>
+    if (typeof module === 'object') {
+      window.electronModule = module;
+      module = undefined;
+    }
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+
+  <script>
+    if (window.electronModule) {
+      module = window.electronModule;
+    }
+  </script>
+  <script src="https://cdn.lordicon.com/lordicon.js"></script>
+  <script src="api-config.js"></script>
+  <script src="app.js?v=22"></script>
+  <script src="exam_module.js?v=20"></script>
+  
+  <!-- Register PWA Service Worker -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js')
+          .then(registration => {
+            console.log('ServiceWorker registration successful with scope: ', registration.scope);
+          }, err => {
+            console.log('ServiceWorker registration failed: ', err);
+          });
+      });
+    }
+  </script>
+
+  <!-- Hidden buffer for taking snapshots of Slips/Receipts for WhatsApp -->
+  <div id="waSlipSnapshotBuffer" style="position:fixed; left:-5000px; top:0; width:600px; padding:20px; background:#fff; z-index:-1000; overflow:hidden;"></div>
+</body>
+</html>
+

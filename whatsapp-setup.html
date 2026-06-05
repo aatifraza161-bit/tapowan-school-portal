@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WhatsApp API Setup</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background: #f0f4f8; padding: 50px; }
+        .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); max-width: 500px; margin: 0 auto; }
+        button { background: #25d366; color: white; border: none; padding: 12px 24px; font-size: 16px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #128c7e; }
+        #qrCode { margin-top: 20px; max-width: 300px; display: none; }
+        #status { margin-top: 20px; font-weight: bold; color: #555; }
+        .success { color: #16a34a !important; }
+        .error { color: #dc2626 !important; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>📱 WhatsApp API Setup</h2>
+    <p>Click below to generate your WhatsApp QR Code. Once it appears, scan it with your phone using <b>Linked Devices</b>.</p>
+    
+    <button id="connectBtn" onclick="createInstance()">1. Generate QR Code</button>
+    <button id="resetBtn" onclick="deleteInstance()" style="background: #dc2626; margin-left: 10px;">Reset Connection</button>
+    <br><br>
+    <img id="qrCode" alt="Scan me!" />
+    <div id="status"></div>
+    <pre id="debugOutput" style="text-align: left; background: #eee; padding: 10px; border-radius: 5px; font-size: 11px; display: none; overflow-x: auto; margin-top: 20px;"></pre>
+</div>
+
+<script>
+const API_URL = "http://localhost:8080";
+const API_KEY = "TapowanSecretKey123";
+const INSTANCE_NAME = "SchoolWA";
+
+function logDebug(title, data) {
+    const dbg = document.getElementById("debugOutput");
+    dbg.style.display = "block";
+    dbg.innerHTML += `<b>${title}</b>\n${JSON.stringify(data, null, 2)}\n\n`;
+}
+
+async function deleteInstance() {
+    const status = document.getElementById("status");
+    document.getElementById("debugOutput").innerHTML = "";
+    try {
+        const response = await fetch(`${API_URL}/instance/delete/${INSTANCE_NAME}`, {
+            method: "DELETE",
+            headers: { "apikey": API_KEY }
+        });
+        const data = await response.json();
+        logDebug("Delete Response", data);
+        status.innerHTML = "🗑️ Connection reset successfully! Click Generate QR Code to start fresh.";
+        status.className = "success";
+        document.getElementById("qrCode").style.display = "none";
+        document.getElementById("connectBtn").disabled = false;
+    } catch(e) {
+        status.innerHTML = "❌ Error resetting connection.";
+        status.className = "error";
+    }
+}
+
+async function createInstance() {
+    const status = document.getElementById("status");
+    const qrImg = document.getElementById("qrCode");
+    const btn = document.getElementById("connectBtn");
+    
+    document.getElementById("debugOutput").innerHTML = "";
+    status.innerHTML = "Creating connection... Please wait (this takes a few seconds)...";
+    status.className = "";
+    qrImg.style.display = "none";
+    btn.disabled = true;
+
+    try {
+        const response = await fetch(`${API_URL}/instance/create`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "apikey": API_KEY
+            },
+            body: JSON.stringify({
+                instanceName: INSTANCE_NAME,
+                qrcode: true
+            })
+        });
+
+        const data = await response.json();
+        logDebug("Create Response", data);
+        
+        if (response.status >= 400) {
+            const errMsg = data.response?.message?.[0] || data.response?.message || data.error || "";
+            if (typeof errMsg === 'string' && errMsg.includes("already in use")) {
+                // It already exists! Just fetch the QR code for it.
+                logDebug("Create info", "Instance exists, skipping to fetch QR...");
+                fetchQR();
+                return;
+            }
+            status.innerHTML = `❌ API Error: ${errMsg || 'Unknown Error'}`;
+            status.className = "error";
+            btn.disabled = false;
+            return;
+        }
+
+        if (data.qrcode && data.qrcode.base64) {
+            qrImg.src = data.qrcode.base64;
+            qrImg.style.display = "inline-block";
+            status.innerHTML = "✅ Scan this QR code with your phone!";
+            status.className = "success";
+            checkStatus(); 
+        } else if (data.qrcode && typeof data.qrcode === "string" && data.qrcode.startsWith("data:")) {
+            qrImg.src = data.qrcode;
+            qrImg.style.display = "inline-block";
+            status.innerHTML = "✅ Scan this QR code with your phone!";
+            status.className = "success";
+            checkStatus(); 
+        } else if (data.instance?.state === "open" || data.state === "open" || data.status === "open") {
+            status.innerHTML = "✅ WhatsApp is already connected and ready!";
+            status.className = "success";
+        } else {
+            fetchQR();
+        }
+    } catch (e) {
+        status.innerHTML = "❌ Failed to connect to API. See debug below.";
+        status.className = "error";
+        logDebug("Create Exception", e.message);
+        btn.disabled = false;
+    }
+}
+
+async function fetchQR() {
+    const status = document.getElementById("status");
+    const qrImg = document.getElementById("qrCode");
+    status.innerHTML = "Loading WhatsApp engine... Generating QR... Please wait...";
+    
+    let attempts = 0;
+    const interval = setInterval(async () => {
+        try {
+            attempts++;
+            const response = await fetch(`${API_URL}/instance/connect/${INSTANCE_NAME}`, {
+                method: "GET",
+                headers: { "apikey": API_KEY }
+            });
+            const data = await response.json();
+
+            if (data.base64) {
+                clearInterval(interval);
+                logDebug("Fetch QR Success", "QR Code generated.");
+                qrImg.src = data.base64;
+                qrImg.style.display = "inline-block";
+                status.innerHTML = "✅ Scan this QR code with your phone!";
+                status.className = "success";
+                checkStatus();
+            } else if (data.qrcode?.base64) {
+                clearInterval(interval);
+                logDebug("Fetch QR Success", "QR Code generated.");
+                qrImg.src = data.qrcode.base64;
+                qrImg.style.display = "inline-block";
+                status.innerHTML = "✅ Scan this QR code with your phone!";
+                status.className = "success";
+                checkStatus();
+            } else if (response.status >= 400) {
+                clearInterval(interval);
+                status.innerHTML = `❌ Error: ${data.response?.message || data.error}`;
+                status.className = "error";
+                document.getElementById("connectBtn").disabled = false;
+            } else if (data.instance?.state === "open" || data.state === "open" || data.status === "open") {
+                clearInterval(interval);
+                status.innerHTML = "✅ WhatsApp is already connected and ready!";
+                status.className = "success";
+            } else {
+                status.innerHTML = `Loading WhatsApp engine... Generating QR... (${attempts}/15)`;
+                if (attempts >= 15) {
+                    clearInterval(interval);
+                    status.innerHTML = "❌ Timed out waiting for QR code. Please click Reset Connection and try again.";
+                    status.className = "error";
+                    document.getElementById("connectBtn").disabled = false;
+                }
+            }
+        } catch(e) {
+            clearInterval(interval);
+            status.innerHTML = "❌ Error fetching QR code.";
+            status.className = "error";
+            logDebug("Fetch QR Exception", e.message);
+            document.getElementById("connectBtn").disabled = false;
+        }
+    }, 2000);
+}
+
+async function checkStatus() {
+    const interval = setInterval(async () => {
+        try {
+            const res = await fetch(`${API_URL}/instance/connectionState/${INSTANCE_NAME}`, {
+                headers: { "apikey": API_KEY }
+            });
+            const data = await res.json();
+            if (data?.instance?.state === "open" || data?.state === "open") {
+                clearInterval(interval);
+                document.getElementById("qrCode").style.display = "none";
+                document.getElementById("status").innerHTML = "🎉 Successfully Connected! You can now close this page.";
+                document.getElementById("status").className = "success";
+            }
+        } catch(e) {}
+    }, 3000);
+}
+</script>
+</body>
+</html>

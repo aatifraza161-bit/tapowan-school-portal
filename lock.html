@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Verification</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            color: #fff;
+        }
+
+        .auth-overlay {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at top right, rgba(59, 130, 246, 0.15), transparent 50%),
+                        radial-gradient(circle at bottom left, rgba(16, 185, 129, 0.1), transparent 50%);
+            z-index: 0;
+        }
+
+        .lock-container {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            padding: 50px 40px;
+            width: 100%;
+            max-width: 420px;
+            text-align: center;
+            z-index: 1;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(40px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .icon-wrapper {
+            width: 80px;
+            height: 80px;
+            background: rgba(59, 130, 246, 0.1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px auto;
+            border: 2px solid rgba(59, 130, 246, 0.3);
+        }
+
+        .icon-wrapper svg {
+            width: 40px;
+            height: 40px;
+            fill: #3b82f6;
+        }
+
+        h2 {
+            margin: 0 0 10px 0;
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        p {
+            color: #94a3b8;
+            margin: 0 0 30px 0;
+            font-size: 15px;
+            line-height: 1.5;
+        }
+
+        .input-group {
+            position: relative;
+            margin-bottom: 25px;
+            text-align: left;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #cbd5e1;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        input {
+            width: 100%;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff;
+            padding: 16px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-family: inherit;
+            outline: none;
+            transition: all 0.3s ease;
+            box-sizing: border-box;
+            letter-spacing: 2px;
+        }
+
+        input:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+        }
+
+        button {
+            width: 100%;
+            background: #3b82f6;
+            color: #fff;
+            border: none;
+            padding: 16px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+        }
+
+        button:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .error-message {
+            color: #ef4444;
+            font-size: 14px;
+            margin-top: 15px;
+            min-height: 20px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="auth-overlay"></div>
+
+    <div class="lock-container">
+        <div class="icon-wrapper">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+            </svg>
+        </div>
+        <h2>Device Authorization</h2>
+        <p>This application has been moved or copied to a new location. Please enter the master password to authorize this device.</p>
+
+        <div class="input-group">
+            <label>Master Password</label>
+            <input type="password" id="passwordInput" placeholder="••••••••••" autocomplete="off" autofocus>
+        </div>
+
+        <button id="unlockBtn">Authorize Device</button>
+        <div class="error-message" id="errorMsg"></div>
+    </div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+
+        const btn = document.getElementById('unlockBtn');
+        const input = document.getElementById('passwordInput');
+        const errorMsg = document.getElementById('errorMsg');
+
+        function attemptUnlock() {
+            const pwd = input.value.trim();
+            if(!pwd) return;
+            
+            btn.disabled = true;
+            btn.innerText = "Verifying...";
+            errorMsg.innerText = "";
+
+            ipcRenderer.send('unlock-attempt', pwd);
+        }
+
+        btn.addEventListener('click', attemptUnlock);
+        input.addEventListener('keypress', (e) => {
+            if(e.key === 'Enter') attemptUnlock();
+        });
+
+        ipcRenderer.on('unlock-success', () => {
+            btn.style.background = "#10b981";
+            btn.innerText = "Authorized!";
+        });
+
+        ipcRenderer.on('unlock-failed', () => {
+            btn.disabled = false;
+            btn.innerText = "Authorize Device";
+            errorMsg.innerText = "Incorrect password. Please try again.";
+            input.value = "";
+            input.focus();
+        });
+    </script>
+</body>
+</html>
