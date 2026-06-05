@@ -488,7 +488,12 @@ let API_BASE_URL = getApiBaseUrl();
 
 async function api(path, options = {}) {
   const controller = new AbortController();
-  const timeoutMs = Number(options.timeoutMs) > 0 ? Number(options.timeoutMs) : 70000; // Render free tier can take ~50s to wake
+  const timeoutMs = Number(options.timeoutMs) > 0 ? Number(options.timeoutMs) : 70000;
+  const token = localStorage.getItem("token");
+  if (token) {
+    options.headers = options.headers || {};
+    options.headers["Authorization"] = "Bearer " + token;
+  } // Render free tier can take ~50s to wake
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   let response;
   try {
@@ -551,6 +556,7 @@ async function loadStore() {
     }
   } catch (err) {
     console.error("loadStore failed:", err);
+    throw err;
     // Keep existing serverStore intact on failure rather than wiping it
     if (!serverStore || typeof serverStore !== "object") {
       serverStore = {};
@@ -587,6 +593,7 @@ function cleanupOrphanedFaces() {
 }
 
 function applyAuthUI(session) {
+  if (!session) localStorage.removeItem("token");
   const loggedIn = !!session;
   currentUser = session || null;
   
@@ -635,10 +642,12 @@ function applyAuthUI(session) {
 
 async function getSessionUser() {
   const data = await api("/api/auth/me");
+  if (data.token) localStorage.setItem("token", data.token);
   return data.user;
 }
 
 async function login(username, password) {
+  localStorage.removeItem("token");
   const data = await api("/api/auth/login", {
     method: "POST",
     body: JSON.stringify({ username, password })
@@ -647,6 +656,7 @@ async function login(username, password) {
 }
 
 async function signup(payload) {
+  localStorage.removeItem("token");
   const data = await api("/api/auth/signup", {
     method: "POST",
     body: JSON.stringify(payload)
@@ -655,6 +665,7 @@ async function signup(payload) {
 }
 
 async function logout() {
+  localStorage.removeItem("token");
   await api("/api/auth/logout", { method: "POST" });
 }
 
@@ -7642,6 +7653,7 @@ refs.loginForm.addEventListener("submit", async (e) => {
     renderAll();
     
     // Hide auth overlay and landing page on success
+    // Fix: Wait for store to load before hiding overlay.
     const authOverlay = document.getElementById("authOverlay");
     if (authOverlay) authOverlay.classList.add("hidden");
     const landingPage = document.getElementById("landingPage");
