@@ -156,6 +156,7 @@ const refs = {
   sidebar: document.getElementById("sidebar"),
   mobileMenuBtn: document.getElementById("mobileMenuBtn"),
   mobileSidebarBackdrop: document.getElementById("mobileSidebarBackdrop"),
+  authOverlay: document.getElementById("authOverlay"),
   moduleNav: document.getElementById("moduleNav"),
   moduleTitle: document.getElementById("moduleTitle"),
   moduleSubtitle: document.getElementById("moduleSubtitle"),
