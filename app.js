@@ -493,7 +493,11 @@ async function api(path, options = {}) {
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
       credentials: "include",
-      headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+      headers: { 
+        "Content-Type": "application/json", 
+        "Bypass-Tunnel-Reminder": "true",
+        ...(options.headers || {}) 
+      },
       signal: controller.signal,
       ...options
     });
