@@ -481,6 +481,14 @@ function getApiBaseUrl() {
   if (fromQuery) localStorage.setItem("API_BASE_URL", fromQuery);
   const fromStorage = normalizeApiBaseUrl(localStorage.getItem("API_BASE_URL"));
   const fromWindow = normalizeApiBaseUrl(window.API_BASE_URL);
+  
+  if (fromWindow && (fromWindow.includes("serveo") || fromWindow.includes("lhr.life"))) {
+      if (fromStorage && fromStorage !== fromWindow) {
+          localStorage.removeItem("API_BASE_URL");
+      }
+      return fromQuery || fromWindow;
+  }
+  
   return fromQuery || fromStorage || fromWindow || "";
 }
 
