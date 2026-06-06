@@ -660,6 +660,7 @@ async function login(username, password) {
     method: "POST",
     body: JSON.stringify({ username, password })
   });
+  if (data.token) localStorage.setItem("token", data.token);
   return data.user;
 }
 
@@ -669,6 +670,7 @@ async function signup(payload) {
     method: "POST",
     body: JSON.stringify(payload)
   });
+  if (data.token) localStorage.setItem("token", data.token);
   return data.user;
 }
 
