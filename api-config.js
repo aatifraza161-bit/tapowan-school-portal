@@ -1,2 +1,2 @@
 // Auto-updated by Tapowan Server
-window.API_BASE_URL = "https://dbf8c4be0a00cf50-117-214-76-102.serveousercontent.com";
+window.API_BASE_URL = "https://93db3bdc34ba5c44-117-214-76-102.serveousercontent.com";
