@@ -1124,6 +1124,7 @@ function getVisibleModules() {
   }
   
   // Ensure admissions is visible for all roles except Student
+  if (!userIsStudent()) { if (!mods.includes("appLiveUsers")) mods.push("appLiveUsers"); }
   if (moduleConfig.admissions && !userIsStudent()) {
     if (!mods.includes("admissions")) mods.push("admissions");
   }

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'educore-tps-v35';
+const CACHE_NAME = 'educore-tps-v1787467130555';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
