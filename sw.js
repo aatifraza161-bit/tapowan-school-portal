@@ -1,4 +1,4 @@
-const CACHE_NAME = 'educore-tps-v36';
+const CACHE_NAME = 'educore-tps-v35';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -31,9 +31,8 @@ self.addEventListener('activate', event => {
 
 // Fetch event: Network-first approach to ensure fresh data
 self.addEventListener('fetch', event => {
-  // If it's an API call, we definitely want network only
+  // Bypassing service worker entirely for API calls so they are handled natively by the browser
   if (event.request.url.includes('/api/')) {
-    event.respondWith(fetch(event.request)); 
     return;
   }
 

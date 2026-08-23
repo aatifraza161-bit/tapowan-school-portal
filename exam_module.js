@@ -3,11 +3,25 @@
   let activeExamTab = 'entry'; // 'entry', 'admit', 'result'
   const SCHOOL_NAME = "Tapowan Public School";
 
+  const formatParentName = (name) => {
+    if (!name) return '';
+    const lower = String(name).trim().toLowerCase();
+    if (lower === '0' || lower === '00' || lower === 'nil' || lower === 'na' || lower === 'n/a' || lower === 'none' || lower === '-') {
+      return '';
+    }
+    return name;
+  };
+
   // Inject Custom CSS for Exam Module
   if (!document.getElementById("examCustomStyles")) {
     const style = document.createElement("style");
     style.id = "examCustomStyles";
     style.innerHTML = `
+      @media print {
+        @page { margin: 0; }
+        body { margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        #admitPreviewContainer, #resultPreviewContainer { padding: 0 !important; gap: 0 !important; background: transparent !important; border-radius: 0 !important; min-height: auto !important; }
+      }
       #examPanel { background: transparent; padding: 0; box-shadow: none; }
       .exam-card { background: white; border-radius: 16px; padding: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); margin-bottom: 25px; border: 1px solid #e2e8f0; }
       .exam-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 15px; }
@@ -91,6 +105,24 @@
 
   function getSubjectsForClass(className) {
     const cl = (className || "").toLowerCase();
+    
+    // Check custom subjects from database first
+    if (typeof getStore !== 'undefined') {
+        const store = getStore();
+        if (store && store.subjects && store.subjects.length > 0) {
+            // Exact or case-insensitive match for className
+            const classSubjects = store.subjects.filter(s => {
+                const sCl = (s.className || "").toLowerCase();
+                // A subject might be assigned to multiple classes or just one
+                return sCl === cl || sCl === "all" || sCl.includes(cl);
+            });
+            
+            if (classSubjects.length > 0) {
+                return Array.from(new Set(classSubjects.map(s => s.subjectName).filter(Boolean)));
+            }
+        }
+    }
+
     if (cl.includes('9') || cl.includes('10') || cl.includes('ix') || cl.includes('x')) return defaultSubjects.high;
     if (cl.includes('6') || cl.includes('7') || cl.includes('8') || cl.includes('vi') || cl.includes('vii') || cl.includes('viii')) return defaultSubjects.middle;
     return defaultSubjects.primary;
@@ -109,6 +141,7 @@
           <h3>Exam Management</h3>
           <div class="exam-tabs">
             <button id="examTabEntryBtn" class="exam-tab-btn active">Marks Entry</button>
+            <button id="examTabScheduleBtn" class="exam-tab-btn">Exam Schedule</button>
             <button id="examTabAdmitBtn" class="exam-tab-btn">Admit Cards</button>
             <button id="examTabResultBtn" class="exam-tab-btn">Results</button>
           </div>
@@ -118,6 +151,7 @@
     `;
 
     document.getElementById("examTabEntryBtn").onclick = () => { activeExamTab = 'entry'; updateExamTabs(); renderExamContent(); };
+    document.getElementById("examTabScheduleBtn").onclick = () => { activeExamTab = 'schedule'; updateExamTabs(); renderExamContent(); };
     document.getElementById("examTabAdmitBtn").onclick = () => { activeExamTab = 'admit'; updateExamTabs(); renderExamContent(); };
     document.getElementById("examTabResultBtn").onclick = () => { activeExamTab = 'result'; updateExamTabs(); renderExamContent(); };
 
@@ -126,15 +160,17 @@
 
   function updateExamTabs() {
     document.getElementById("examTabEntryBtn").classList.toggle("active", activeExamTab === 'entry');
+    document.getElementById("examTabScheduleBtn").classList.toggle("active", activeExamTab === 'schedule');
     document.getElementById("examTabAdmitBtn").classList.toggle("active", activeExamTab === 'admit');
     document.getElementById("examTabResultBtn").classList.toggle("active", activeExamTab === 'result');
   }
 
   function renderExamContent() {
-    const container = document.getElementById("examPanelContent");
-    if (activeExamTab === 'entry') renderMarksEntry(container);
-    else if (activeExamTab === 'admit') renderAdmitCards(container);
-    else if (activeExamTab === 'result') renderResults(container);
+    const content = document.getElementById("examPanelContent");
+    if (activeExamTab === 'entry') renderMarksEntry(content);
+    else if (activeExamTab === 'schedule') renderExamSchedule(content);
+    else if (activeExamTab === 'admit') renderAdmitCards(content);
+    else if (activeExamTab === 'result') renderResults(content);
   }
 
   // ==========================================
@@ -166,11 +202,6 @@
         </div>
       </div>
       <div id="examEntryTableContainer">
-         <div class="empty-state">
-           <i>📋</i>
-           <h4>Ready to enter marks</h4>
-           <p>Select a class and click "Load Students" to begin.</p>
-         </div>
       </div>
     `;
 
@@ -183,7 +214,118 @@
       if(!cls || !examName) return window.showToast ? showToast("Please fill all fields", "warning") : alert("Fill all fields");
       loadStudentsForMarksEntry(cls, examName, session);
     };
+
+    loadPreviousExams(document.getElementById("examEntryTableContainer"));
   }
+
+  function loadPreviousExams(container) {
+    const store = typeof getStore !== 'undefined' ? getStore() : {};
+    const exams = store.exams || [];
+    
+    if(exams.length === 0) {
+      container.innerHTML = `
+         <div class="empty-state">
+           <i>📋</i>
+           <h4>Ready to enter marks</h4>
+           <p>Select a class and click "Load Students" to begin.</p>
+         </div>
+      `;
+      return;
+    }
+
+    // Group by className, examName, session
+    const grouped = {};
+    exams.forEach(e => {
+        const key = `${e.className}|${e.examName}|${e.session}`;
+        if (!grouped[key]) {
+            grouped[key] = { className: e.className, examName: e.examName, session: e.session, count: 0, ids: [] };
+        }
+        grouped[key].count++;
+        grouped[key].ids.push(e.id);
+    });
+
+    const groups = Object.values(grouped);
+
+    let html = `
+      <div style="margin-top: 10px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px;">
+            <h4 style="margin:0; color: inherit; font-size:1.1rem;">Previous Marks Entries</h4>
+        </div>
+        <div style="overflow-x:auto;">
+          <table style="width:100%; border-collapse: collapse; text-align: left; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+            <thead style="background: #f1f5f9; color: #475569; font-size: 0.9rem;">
+              <tr>
+                <th style="padding: 12px 15px; font-weight: 600;">Class</th>
+                <th style="padding: 12px 15px; font-weight: 600;">Exam Name</th>
+                <th style="padding: 12px 15px; font-weight: 600;">Session</th>
+                <th style="padding: 12px 15px; font-weight: 600;">Students Graded</th>
+                <th style="padding: 12px 15px; font-weight: 600; text-align:right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+    `;
+
+    groups.forEach((g) => {
+        const idsJson = JSON.stringify(g.ids).replace(/"/g, '&quot;');
+        html += `
+            <tr style="border-bottom: 1px solid #e2e8f0; transition: background 0.2s;">
+                <td style="padding: 12px 15px; font-weight: 500;">${g.className}</td>
+                <td style="padding: 12px 15px;">${g.examName}</td>
+                <td style="padding: 12px 15px;">${g.session}</td>
+                <td style="padding: 12px 15px;"><span style="background:#e0f2fe; color:#0369a1; padding:3px 8px; border-radius:12px; font-size:0.8rem; font-weight:bold;">${g.count} Students</span></td>
+                <td style="padding: 12px 15px; text-align:right;">
+                    <button class="exam-btn exam-btn-secondary" style="padding: 6px 12px; font-size: 0.8rem; margin-right: 5px;" onclick="window.loadPreviousExamStudents('${g.className}', '${g.examName}', '${g.session}')">Edit Marks</button>
+                    <button class="exam-btn" style="padding: 6px 12px; background: #ef4444; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem;" onclick="window.deleteEntireExam(this)" data-ids="${idsJson}">Delete</button>
+                </td>
+            </tr>
+        `;
+    });
+
+    html += `
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+
+    container.innerHTML = html;
+  }
+
+  window.loadPreviousExamStudents = function(cls, examName, session) {
+      document.getElementById("examEntryClassSelect").value = cls;
+      document.getElementById("examEntryName").value = examName;
+      document.getElementById("examEntrySession").value = session;
+      document.getElementById("examEntryLoadBtn").click();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  window.deleteEntireExam = async function(btn) {
+      if (!confirm("Are you sure you want to delete ALL marks for this exam? This cannot be undone.")) return;
+      const idsStr = btn.getAttribute("data-ids");
+      const ids = JSON.parse(idsStr);
+      const baseUrl = typeof getApiBaseUrl === 'function' ? getApiBaseUrl() : 'http://localhost:3000';
+      
+      btn.textContent = "Deleting...";
+      btn.disabled = true;
+
+      try {
+          for (const id of ids) {
+              await fetch(baseUrl + '/api/modules/exams/' + id, { method: 'DELETE' });
+          }
+          
+          const dbResp = await fetch('http://localhost:3000/api/db');
+          const dbData = await dbResp.json();
+          localStorage.setItem('tps_db', JSON.stringify(dbData));
+          
+          if (typeof showToast !== 'undefined') showToast("Entire exam deleted", "info");
+          loadPreviousExams(document.getElementById("examEntryTableContainer"));
+      } catch (e) {
+          console.error(e);
+          alert("Error deleting exam");
+          btn.textContent = "Delete";
+          btn.disabled = false;
+      }
+  };
 
   function loadStudentsForMarksEntry(className, examName, session) {
     const container = document.getElementById("examEntryTableContainer");
@@ -222,6 +364,11 @@
       const isEntered = !!existingExam;
       const statusHtml = isEntered ? '<span class="status-badge status-entered">Entered</span>' : '<span class="status-badge status-pending">Pending</span>';
       const btnText = isEntered ? 'Edit Marks' : 'Enter Marks';
+      let actionButtons = `<button class="exam-btn exam-btn-secondary" onclick="window.openMarksModal('${s.id}', '${examName}', '${session}', '${className}')">${btnText}</button>`;
+      
+      if (isEntered && existingExam && existingExam.id) {
+          actionButtons += ` <button class="exam-btn" style="background:#ef4444; color:#fff; border:none; padding:8px 12px; margin-left:5px; border-radius:4px; font-weight:600; cursor:pointer;" onclick="window.deleteMarksEntry('${existingExam.id}', '${className}', '${examName}', '${session}')">Delete</button>`;
+      }
 
       html += `
         <tr>
@@ -232,7 +379,7 @@
           </td>
           <td>${statusHtml}</td>
           <td style="text-align:right;">
-             <button class="exam-btn exam-btn-secondary" onclick="window.openMarksModal('${s.id}', '${examName}', '${session}', '${className}')">${btnText}</button>
+             ${actionButtons}
           </td>
         </tr>
       `;
@@ -241,6 +388,26 @@
     html += `</tbody></table>`;
     container.innerHTML = html;
   }
+
+  window.deleteMarksEntry = async function(id, className, examName, session) {
+    if (!confirm("Are you sure you want to delete this marks entry?")) return;
+    const baseUrl = typeof getApiBaseUrl === 'function' ? getApiBaseUrl() : 'http://localhost:3000';
+    try {
+        const resp = await fetch(baseUrl + '/api/modules/exams/' + id, { method: 'DELETE' });
+        if (resp.ok) {
+            const dbResp = await fetch('http://localhost:3000/api/db');
+            const dbData = await dbResp.json();
+            localStorage.setItem('tps_db', JSON.stringify(dbData));
+            if (typeof showToast !== 'undefined') showToast("Marks entry deleted", "info");
+            loadStudentsForMarksEntry(className, examName, session);
+        } else {
+            alert("Failed to delete marks entry");
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Error deleting marks entry");
+    }
+  };
 
   window.openMarksModal = function(studentId, examName, session, className) {
     const store = typeof getStore !== 'undefined' ? getStore() : {};
@@ -453,6 +620,190 @@
   };
 
   // ==========================================
+  // TAB EXAM SCHEDULE
+  // ==========================================
+  function renderExamSchedule(container) {
+    container.innerHTML = `
+      <div style="margin-bottom: 25px;">
+        <h4 style="margin:0 0 5px 0; color: inherit; font-size:1.2rem;">Exam Schedule Setup</h4>
+        <p style="margin:0; color: inherit; font-size:0.9rem;">Set subject exam dates for admit cards class-wise.</p>
+      </div>
+      <div class="exam-form-grid" style="margin-bottom: 30px;">
+        <div class="exam-field">
+          <label>Select Class</label>
+          <select id="scheduleClassSelect"></select>
+        </div>
+        <div class="exam-field">
+          <label>Exam Name</label>
+          <input id="scheduleExamName" value="Annual Examination 2026-27" />
+        </div>
+        <div class="exam-field" style="grid-column: 1 / -1; background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0;" id="scheduleDateSetupContainer">
+            <label style="color: #0f172a; font-size: 1rem; border-bottom: 2px solid #cbd5e1; padding-bottom: 5px; margin-bottom: 15px;">Exam Schedule (Subject Dates)</label>
+            <div id="scheduleDateInputs" style="display:flex; flex-wrap:wrap; gap:15px;">
+            </div>
+        </div>
+        <div class="exam-field">
+          <button id="scheduleSaveBtn" class="exam-btn exam-btn-primary" style="width:100%;">Save Schedule</button>
+        </div>
+      </div>
+      
+      <div style="margin-top: 40px;">
+        <h4 style="margin:0 0 15px 0; color: inherit; font-size:1.1rem; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px;">Saved Schedules</h4>
+        <div style="overflow-x:auto;">
+          <table style="width:100%; border-collapse: collapse; text-align: left; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+            <thead style="background: #f1f5f9; color: #475569; font-size: 0.9rem;">
+              <tr>
+                <th style="padding: 12px 15px; font-weight: 600;">Class</th>
+                <th style="padding: 12px 15px; font-weight: 600;">Exam Name</th>
+                <th style="padding: 12px 15px; font-weight: 600;">Subjects Scheduled</th>
+                <th style="padding: 12px 15px; font-weight: 600; text-align:right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="savedSchedulesTableBody">
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+
+    populateClassSelect("scheduleClassSelect");
+
+    const refreshScheduleDates = () => {
+        const cls = document.getElementById("scheduleClassSelect").value;
+        const examName = document.getElementById("scheduleExamName").value;
+        const inputsDiv = document.getElementById("scheduleDateInputs");
+        
+        if (cls) {
+            const subjects = getSubjectsForClass(cls);
+            const store = typeof getStore !== 'undefined' ? getStore() : {};
+            const existingSchedule = (store.examSchedules || []).find(s => s.className === cls && s.examName === examName) || {};
+            let existingDates = {};
+            try { existingDates = typeof existingSchedule.dates === 'string' ? JSON.parse(existingSchedule.dates) : (existingSchedule.dates || {}); } catch(e) {}
+
+            inputsDiv.innerHTML = subjects.map(sub => `
+                <div style="flex: 1 1 200px; display:flex; flex-direction:column; gap:5px;">
+                    <label style="font-size:0.8rem; font-weight:700;">${sub}</label>
+                    <input type="date" class="sched-subj-date-input" data-subject="${sub}" value="${existingDates[sub] || ''}" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: inherit;">
+                </div>
+            `).join('');
+        }
+    };
+
+    document.getElementById("scheduleClassSelect").addEventListener("change", refreshScheduleDates);
+    document.getElementById("scheduleExamName").addEventListener("input", refreshScheduleDates);
+    refreshScheduleDates();
+
+    const refreshSavedSchedulesTable = () => {
+        const store = typeof getStore !== 'undefined' ? getStore() : {};
+        const schedules = store.examSchedules || [];
+        const tbody = document.getElementById("savedSchedulesTableBody");
+        if (!tbody) return;
+        
+        if (schedules.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4" style="padding: 20px; text-align: center; color: #94a3b8;">No schedules saved yet.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = schedules.map(s => {
+            let parsedDates = {};
+            try { parsedDates = typeof s.dates === 'string' ? JSON.parse(s.dates) : (s.dates || {}); } catch(e) {}
+            const numSubjects = Object.keys(parsedDates).length;
+            return `
+            <tr style="border-bottom: 1px solid #e2e8f0; transition: background 0.2s;">
+                <td style="padding: 12px 15px; font-weight: 500;">${s.className}</td>
+                <td style="padding: 12px 15px;">${s.examName}</td>
+                <td style="padding: 12px 15px;"><span style="background:#e0f2fe; color:#0369a1; padding:3px 8px; border-radius:12px; font-size:0.8rem; font-weight:bold;">${numSubjects} Subjects</span></td>
+                <td style="padding: 12px 15px; text-align:right;">
+                    <button class="sched-edit-btn" data-id="${s.id}" style="padding: 6px 12px; background: #3b82f6; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem; margin-right: 5px;">Edit</button>
+                    <button class="sched-del-btn" data-id="${s.id}" style="padding: 6px 12px; background: #ef4444; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Delete</button>
+                </td>
+            </tr>
+            `;
+        }).join('');
+
+        tbody.querySelectorAll('.sched-edit-btn').forEach(btn => {
+            btn.onclick = () => {
+                const id = btn.dataset.id;
+                const schedule = (typeof getStore !== 'undefined' ? getStore().examSchedules || [] : []).find(s => String(s.id) === String(id));
+                if (schedule) {
+                    document.getElementById("scheduleClassSelect").value = schedule.className;
+                    document.getElementById("scheduleExamName").value = schedule.examName;
+                    refreshScheduleDates();
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+            };
+        });
+
+        tbody.querySelectorAll('.sched-del-btn').forEach(btn => {
+            btn.onclick = async () => {
+                if (!confirm("Are you sure you want to delete this schedule?")) return;
+                const id = btn.dataset.id;
+                const baseUrl = typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : 'http://localhost:3000';
+                try {
+                    const resp = await fetch(baseUrl + '/api/modules/examSchedules/' + id, { method: 'DELETE' });
+                    if (resp.ok) {
+                        const dbResp = await fetch('http://localhost:3000/api/db');
+                        const dbData = await dbResp.json();
+                        localStorage.setItem('tps_db', JSON.stringify(dbData));
+                        if (window.showToast) showToast("Schedule deleted", "info");
+                        refreshSavedSchedulesTable();
+                    }
+                } catch(e) {
+                    console.error(e);
+                    alert("Error deleting schedule");
+                }
+            };
+        });
+    };
+    
+    // Initial load
+    setTimeout(refreshSavedSchedulesTable, 100);
+
+    document.getElementById("scheduleSaveBtn").onclick = async () => {
+        const cls = document.getElementById("scheduleClassSelect").value;
+        const examName = document.getElementById("scheduleExamName").value;
+        if (!cls) return alert("Select Class");
+        
+        const dates = {};
+        document.querySelectorAll('.sched-subj-date-input').forEach(input => {
+            if (input.value) dates[input.dataset.subject] = input.value;
+        });
+
+        const store = typeof getStore !== 'undefined' ? getStore() : {};
+        const existingSchedule = (store.examSchedules || []).find(s => s.className === cls && s.examName === examName);
+        
+        const payload = {
+            className: cls,
+            examName: examName,
+            dates: JSON.stringify(dates)
+        };
+
+        const baseUrl = typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : 'http://localhost:3000';
+        const url = existingSchedule ? baseUrl + '/api/modules/examSchedules/' + existingSchedule.id : baseUrl + '/api/modules/examSchedules';
+        const method = existingSchedule ? 'PUT' : 'POST';
+
+        try {
+            const resp = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if(resp.ok) {
+                if (window.showToast) showToast("Schedule saved successfully", "success");
+                else alert("Saved successfully!");
+                const dbResp = await fetch('http://localhost:3000/api/db');
+                const dbData = await dbResp.json();
+                localStorage.setItem('tps_db', JSON.stringify(dbData));
+                refreshSavedSchedulesTable();
+            }
+        } catch(err) {
+            console.error(err);
+            alert("Error saving schedule");
+        }
+    };
+  }
+
+  // ==========================================
   // TAB 2: ADMIT CARDS
   // ==========================================
   function renderAdmitCards(container) {
@@ -466,9 +817,15 @@
           <label>Select Class</label>
           <select id="admitClassSelect"></select>
         </div>
+        <div class="exam-field" style="grid-column: span 2;">
+          <label>Select Specific Students</label>
+          <div id="admitStudentCheckboxes" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; max-height: 200px; overflow-y: auto; background: #fff; padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px;">
+              <div style="grid-column: 1 / -1; font-size: 0.9rem; color: #64748b;">Select a class first...</div>
+          </div>
+        </div>
         <div class="exam-field">
           <label>Exam Name</label>
-          <input id="admitExamName" value="Annual Examination 2026-27" />
+          <select id="admitExamName"></select>
         </div>
           <div class="exam-field">
             <label>Template Style</label>
@@ -528,6 +885,7 @@
             <option value="none">None</option>
           </select>
         </div>
+        
         <div class="exam-field">
           <button id="admitGenerateBtn" class="exam-btn exam-btn-primary" style="width:100%;">Generate</button>
         </div>
@@ -545,11 +903,75 @@
     `;
 
     populateClassSelect("admitClassSelect");
+    
+    const refreshAdmitStudents = () => {
+        const cls = document.getElementById("admitClassSelect").value;
+        const store = typeof getStore !== 'undefined' ? getStore() : {};
+        const studentsInClass = (store.students || []).filter(s => s.className === cls && s.status !== "Left");
+        
+        const container = document.getElementById("admitStudentCheckboxes");
+        if (container) {
+            if (studentsInClass.length === 0) {
+                container.innerHTML = `<div style="grid-column: 1 / -1; font-size: 0.9rem; color: #64748b;">No active students found in this class.</div>`;
+                return;
+            }
+            container.innerHTML = `
+                <div style="grid-column: 1 / -1; display:flex; gap: 10px; margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
+                    <button id="btnCheckAllStudents" style="padding: 4px 10px; font-size: 0.8rem; cursor: pointer; border-radius: 4px; border: 1px solid #cbd5e1; background: #f8fafc; font-weight:bold;">Select All</button>
+                    <button id="btnUncheckAllStudents" style="padding: 4px 10px; font-size: 0.8rem; cursor: pointer; border-radius: 4px; border: 1px solid #cbd5e1; background: #f8fafc; font-weight:bold;">Unselect All</button>
+                </div>
+            ` + studentsInClass.map(s => `
+                <label style="display:flex; align-items:center; gap: 8px; font-size: 0.9rem; cursor: pointer; text-transform:none; font-weight:500;">
+                    <input type="checkbox" class="admit-student-cb" value="${s.admissionNo}" checked style="width:16px; height:16px; margin:0;" />
+                    <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${s.fullName}">${s.fullName}</span> 
+                    <span style="color:#64748b; font-size:0.8rem;">(${s.rollNo || '-'})</span>
+                </label>
+            `).join('');
+
+            const btnCheckAll = document.getElementById("btnCheckAllStudents");
+            const btnUncheckAll = document.getElementById("btnUncheckAllStudents");
+            if(btnCheckAll) btnCheckAll.onclick = (e) => { e.preventDefault(); container.querySelectorAll('.admit-student-cb').forEach(cb => cb.checked = true); };
+            if(btnUncheckAll) btnUncheckAll.onclick = (e) => { e.preventDefault(); container.querySelectorAll('.admit-student-cb').forEach(cb => cb.checked = false); };
+        }
+    };
+
+    const refreshAdmitExamNames = () => {
+        const cls = document.getElementById("admitClassSelect").value;
+        const examNameSelect = document.getElementById("admitExamName");
+        if (!examNameSelect) return;
+        
+        const store = typeof getStore !== 'undefined' ? getStore() : {};
+        const schedules = (store.examSchedules || []).filter(s => s.className === cls);
+        
+        let uniqueExamNames = Array.from(new Set(schedules.map(s => s.examName).filter(Boolean)));
+        if (uniqueExamNames.length === 0) {
+            uniqueExamNames = ["Annual Examination 2026-27"]; // fallback if no schedules exist
+        }
+        
+        const currentValue = examNameSelect.value;
+        examNameSelect.innerHTML = uniqueExamNames.map(name => `<option value="${name}">${name}</option>`).join('');
+        
+        if (uniqueExamNames.includes(currentValue)) {
+            examNameSelect.value = currentValue;
+        }
+    };
+
+    document.getElementById("admitClassSelect").addEventListener("change", () => {
+        refreshAdmitStudents();
+        refreshAdmitExamNames();
+    });
+
+    // Initialize exam names
+    setTimeout(refreshAdmitExamNames, 50);
 
     document.getElementById("admitGenerateBtn").onclick = () => {
       const cls = document.getElementById("admitClassSelect").value;
       const examName = document.getElementById("admitExamName").value;
       const style = document.getElementById("admitTemplateStyle").value;
+      
+      const store = typeof getStore !== 'undefined' ? getStore() : {};
+      const existingSchedule = (store.examSchedules || []).find(s => s.className === cls && s.examName === examName) || {};
+
       const config = {
           color: document.getElementById("admitColor").value,
           font: document.getElementById("admitFont").value,
@@ -559,10 +981,16 @@
           bgType: document.getElementById("admitBgType").value,
           fontColor: document.getElementById("admitFontColor").value,
           bgOpacity: document.getElementById("admitBgOpacity").value,
-          bgImage: document.getElementById("admitBgImage").value
+          bgImage: document.getElementById("admitBgImage").value,
+          subjectDates: (function() {
+              try { return typeof existingSchedule.dates === 'string' ? JSON.parse(existingSchedule.dates) : (existingSchedule.dates || {}); }
+              catch(e) { return {}; }
+          })()
         };
+
       if(!cls) return window.showToast ? showToast("Please select a class", "warning") : alert("Select Class");
-      generateAdmitCards(cls, examName, style, config);
+      const selectedStudentIds = Array.from(document.querySelectorAll('.admit-student-cb:checked')).map(cb => cb.value);
+      generateAdmitCards(cls, examName, style, config, selectedStudentIds);
     };
 
     document.getElementById("admitPrintBtn").onclick = () => {
@@ -596,10 +1024,14 @@
     };
   }
 
-  function generateAdmitCards(className, examName, requestedStyle, config) {
+  function generateAdmitCards(className, examName, requestedStyle, config, selectedStudentIds) {
     const container = document.getElementById("admitPreviewContainer");
     const store = typeof getStore !== 'undefined' ? getStore() : {};
-    const students = (store.students || []).filter(s => s.className === className && s.status !== "Left");
+    let students = (store.students || []).filter(s => s.className === className && s.status !== "Left");
+    
+    if (selectedStudentIds) {
+        students = students.filter(s => selectedStudentIds.includes(s.admissionNo));
+    }
     
     if(students.length === 0) {
       container.innerHTML = `<div class="empty-state"><h4>No active students found in ${className}.</h4></div>`;
@@ -611,12 +1043,13 @@
 
     let html = ``;
       for (let i = 0; i < students.length; i += 2) {
-          html += `<div style="width: 210mm; height: 297mm; page-break-after: always; display: flex; flex-direction: column; justify-content: space-between; padding: 10mm; box-sizing: border-box; background: white; margin: 0 auto; box-shadow: 0 0 10px rgba(0,0,0,0.1);">`;
+          html += `<div style="width: 210mm; height: 297mm; page-break-after: always; display: flex; flex-direction: column; padding: 0; box-sizing: border-box; background: white; margin: 0 auto; box-shadow: 0 0 10px rgba(0,0,0,0.1);">`;
           for (let j = 0; j < 2; j++) {
               if (i + j < students.length) {
                   const student = students[i + j];
                   let cardHtml = '';
                   if (style === 'custom_blank') cardHtml = getCustomAdmitCardHtml(student, examName, config);
+                  else if (style === 'jac12') cardHtml = getJac12AdmitCardHtml(student, examName, config);
                   else if (style.startsWith('dyn_')) cardHtml = generateDynamicAdmitCard(student, examName, style, config);
                   else if (style === 'primary') cardHtml = getPrimaryAdmitCardHtml(student, examName, config);
                   else if (style === 'state') cardHtml = getMiddleAdmitCardHtml(student, examName, config);
@@ -630,11 +1063,13 @@
                   const overlayHtml = `<div style="position: absolute; inset: 0; background: rgba(255,255,255,${1 - config.bgOpacity}); pointer-events: none; z-index: 0; border-radius: inherit;"></div><div style="position: relative; z-index: 1;">`;
                   cardHtml = cardHtml.replace('">', `">${overlayHtml}`) + '</div>';
 
-                  html += `<div style="height: 130mm; position: relative; display: flex; align-items: center; justify-content: center; padding: 10mm 0; box-sizing: border-box;">
-                               <div style="transform: scale(0.95); transform-origin: center center;">${cardHtml}</div>
+                  const isFirst = (j === 0);
+                  const borderBottom = isFirst ? 'border-bottom: 1px dashed #94a3b8;' : '';
+                  html += `<div style="width: 100%; height: 50%; position: relative; display: flex; align-items: stretch; justify-content: stretch; box-sizing: border-box; padding: 3mm; ${borderBottom} overflow: hidden;">
+                               <div style="flex: 1; position: relative;">${cardHtml}</div>
                            </div>`;
               } else {
-                  html += `<div style="height: 130mm;"></div>`; 
+                  html += `<div style="width: 100%; height: 50%;"></div>`; 
               }
           }
           html += `</div>`;
@@ -649,7 +1084,7 @@
   const DEFAULT_SCHOOL_LOGO = 'school_logo.png';
   
   function getOptions500(prefix) {
-      let opts = '<option value="custom_blank">Blank A4 (Design Your Own)</option><option value="detailed_graph">Detailed Graph (Watermark & Chart)</option><option value="primary">Primary Format (Colorful)</option><option value="cbse">CBSE Format Layout</option><option value="state">State Board Layout</option><option value="tho">Talent Hunt Olympiad (THO)</option>';
+      let opts = '<option value="jac12">JAC 11th/12th Admit Card</option><option value="consolidated_cbse">2-Page Annual Consolidated (Multiple Exams)</option><option value="custom_blank">Blank A4 (Design Your Own)</option><option value="detailed_graph">Detailed Graph (Watermark & Chart)</option><option value="primary">Primary Format (Colorful)</option><option value="cbse">CBSE Format Layout</option><option value="state">State Board Layout</option><option value="tho">Talent Hunt Olympiad (THO)</option>';
       for(let i=1; i<=500; i++) {
           opts += `<option value="dyn_${i}">Premium Theme ${i}</option>`;
       }
@@ -701,22 +1136,22 @@
       if(t.headerAlign === 'center') {
           headerHtml = `<div style="text-align:center; padding-bottom: 15px; border-bottom: 2px solid ${c.color};">
               <img src="${DEFAULT_SCHOOL_LOGO}" style="width: 60px; height: 60px; margin-bottom: 5px;" />
-              <h1 style="margin:0; font-size:24px; color:${c.color}; text-transform:uppercase;">Tapowan Public School</h1>
-              <div style="background: ${c.color}; color: ${c.fontColor || '#fff'}; display:inline-block; padding:3px 15px; border-radius:20px; font-weight:bold; margin-top:8px;">ADMIT CARD - <span contenteditable="true">${examName}</span></div>
+              <h1 style="margin:0; font-size:28px; color:${c.color}; text-transform:uppercase;">Tapowan Public School</h1>
+              <div style="background: ${c.color}; color: ${c.fontColor || '#fff'}; display:inline-block; padding:3px 15px; border-radius:20px; font-weight:bold; margin-top:8px; font-size: 18px;">ADMIT CARD - <span contenteditable="true">${examName}</span></div>
           </div>`;
       } else if (t.headerAlign === 'left') {
           headerHtml = `<div style="display:flex; align-items:center; gap: 15px; padding-bottom: 15px; border-bottom: 2px solid ${c.color};">
               <img src="${DEFAULT_SCHOOL_LOGO}" style="width: 70px; height: 70px;" />
               <div>
-                  <h1 style="margin:0; font-size:22px; color:${c.color}; text-transform:uppercase;">Tapowan Public School</h1>
-                  <div style="font-weight:bold; color: inherit; margin-top:4px;">ADMIT CARD - <span contenteditable="true">${examName}</span></div>
+                  <h1 style="margin:0; font-size:26px; color:${c.color}; text-transform:uppercase;">Tapowan Public School</h1>
+                  <div style="font-weight:bold; color: inherit; margin-top:4px; font-size: 16px;">ADMIT CARD - <span contenteditable="true">${examName}</span></div>
               </div>
           </div>`;
       } else {
           headerHtml = `<div style="display:flex; justify-content:space-between; align-items:center; padding-bottom: 15px; border-bottom: 2px solid ${c.color}; background:${c.color}11; padding: 15px; border-radius: 8px;">
               <div>
-                  <h1 style="margin:0; font-size:20px; color:${c.color}; text-transform:uppercase;">Tapowan Public School</h1>
-                  <div style="font-weight:bold; margin-top:4px;">ADMIT CARD - <span contenteditable="true">${examName}</span></div>
+                  <h1 style="margin:0; font-size:24px; color:${c.color}; text-transform:uppercase;">Tapowan Public School</h1>
+                  <div style="font-weight:bold; margin-top:4px; font-size: 16px;">ADMIT CARD - <span contenteditable="true">${examName}</span></div>
               </div>
               <img src="${DEFAULT_SCHOOL_LOGO}" style="width: 60px; height: 60px;" />
           </div>`;
@@ -740,24 +1175,27 @@
       }
 
       return `
-        <div style="width: 180mm; background: transparent; color: inherit; ${fontColorStyle} border: ${borderCss}; font-family: ${c.font}; border-radius: ${t.tableStyle==='rounded'?15:0}px; padding: 20px; position: relative; overflow: hidden; page-break-inside: avoid; box-shadow: 0 8px 20px rgba(0,0,0,0.1);">
+        <div style="width: 100%; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; background: transparent; color: inherit; ${fontColorStyle} border: ${borderCss}; font-family: ${c.font}; border-radius: ${t.tableStyle==='rounded'?15:0}px; padding: 20px; position: relative; overflow: hidden; page-break-inside: avoid; box-shadow: 0 8px 20px rgba(0,0,0,0.1);">
            ${t.bgTexture === 'watermark' ? `<img src="${DEFAULT_SCHOOL_LOGO}" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); opacity:0.05; width:300px; height:300px; z-index:0;" />` : ''}
-           <div style="position:relative; z-index:1;">
+           <div style="position:relative; z-index:1; display: flex; flex-direction: column; justify-content: space-between; flex: 1;">
                ${headerHtml}
                <div style="display: flex; gap: 20px; margin-top:20px;">
                    <div style="flex: 1;">
-                       <table style="width:100%; border-collapse:collapse; font-size: 15px; font-weight:600;">
-                           <tr><td style="padding:10px; border-bottom:${s.tableBorder};">Student Name:</td><td style="padding:10px; border-bottom:${s.tableBorder}; color:${c.color}; font-weight:800;" contenteditable="true">${student.fullName}</td></tr>
-                           <tr><td style="padding:10px; border-bottom:${s.tableBorder};">Father's Name:</td><td style="padding:10px; border-bottom:${s.tableBorder};" contenteditable="true">${student.fatherName || '-'}</td></tr>
-                           <tr><td style="padding:10px; border-bottom:${s.tableBorder};">Class & Sec:</td><td style="padding:10px; border-bottom:${s.tableBorder};" contenteditable="true">${student.className}</td></tr>
-                           <tr><td style="padding:10px; border-bottom:${s.tableBorder};">Roll No:</td><td style="padding:10px; border-bottom:${s.tableBorder}; font-size:18px; font-weight:800;" contenteditable="true">${student.rollNo || '-'}</td></tr>
-                           <tr><td style="padding:10px; border-bottom:${s.tableBorder};">Admission No:</td><td style="padding:10px; border-bottom:${s.tableBorder};" contenteditable="true">${admNo}</td></tr>
+                       <table style="width:100%; border-collapse:collapse; font-size: 18px; font-weight:600;">
+                           <tr><td style="padding:12px; border-bottom:${s.tableBorder};">Student Name:</td><td style="padding:12px; border-bottom:${s.tableBorder}; color:${c.color}; font-weight:800;" contenteditable="true">${student.fullName}</td></tr>
+                           <tr><td style="padding:12px; border-bottom:${s.tableBorder};">Father's Name:</td><td style="padding:12px; border-bottom:${s.tableBorder};" contenteditable="true">${formatParentName(student.fatherName)}</td></tr>
+                           <tr><td style="padding:12px; border-bottom:${s.tableBorder};">Class & Sec:</td><td style="padding:12px; border-bottom:${s.tableBorder};" contenteditable="true">${student.className}</td></tr>
+                           <tr><td style="padding:12px; border-bottom:${s.tableBorder};">Roll No:</td><td style="padding:12px; border-bottom:${s.tableBorder}; font-size:22px; font-weight:800;" contenteditable="true">${student.rollNo || '-'}</td></tr>
+                           <tr><td style="padding:12px; border-bottom:${s.tableBorder};">Admission No:</td><td style="padding:12px; border-bottom:${s.tableBorder};" contenteditable="true">${admNo}</td></tr>
                        </table>
                    </div>
                    <div style="width: 120px; text-align:center;">
                        <img src="${photoUrl}" style="width: 110px; height: 130px; object-fit: cover; border: 3px solid ${c.color}; border-radius: ${t.tableStyle==='rounded'?12:0}px;" />
                    </div>
                </div>
+               
+               ${buildScheduleTableHtml(student, config, c.color, s.tableBorder)}
+
                ${footerHtml}
                <div style="margin-top: 15px; text-align:center; font-size: 10px; color: inherit;">Theme ID: ${t.num} • Tapowan Public School System</div>
            </div>
@@ -871,6 +1309,140 @@
       </div>`;
   }
   
+  // --- JAC 12th Admit Card Template ---
+  function getJac12AdmitCardHtml(student, examName, config) {
+      const store = typeof getStore !== 'undefined' ? getStore() : {};
+      const schoolName = store.schoolProfile ? store.schoolProfile.schoolName : "JHARKHAND ACADEMIC COUNCIL, RANCHI"; 
+      const photoUrl = student.photo || DEFAULT_SCHOOL_LOGO;
+      
+      const c = config || { color: '#000000', font: "'Times New Roman', serif", border: 'solid', bgOpacity: 1 };
+      const fontColorStyle = c.fontColor ? `color: ${c.fontColor};` : 'color: #000;';
+      
+      let groupedDates = {};
+      const subjects = getSubjectsForClass(student.className);
+      subjects.forEach(sub => {
+          // Format date input if present. e.g. "2026-05-02" to "02.05.2026"
+          let rawDate = (config.subjectDates && config.subjectDates[sub]) ? config.subjectDates[sub] : "";
+          let dt = rawDate;
+          if (rawDate && rawDate.includes('-')) {
+              const parts = rawDate.split('-');
+              if (parts.length === 3) dt = `${parts[2]}.${parts[1]}.${parts[0]}`;
+          }
+          const key = dt || 'TBD';
+          if (!groupedDates[key]) groupedDates[key] = [];
+          
+          let shortName = sub.split(' ')[0].toUpperCase();
+          if (shortName.length > 5) shortName = shortName.substring(0, 5);
+          groupedDates[key].push(shortName);
+      });
+      
+      let dateKeys = Object.keys(groupedDates);
+      let subjectColsHtml = '';
+      dateKeys.forEach((dt, idx) => {
+          let subs = groupedDates[dt];
+          let subString = subs.join('/');
+          
+          subjectColsHtml += `
+          <td style="border: 1px solid #000; text-align: center; padding: 4px; vertical-align: top; width: ${100/(dateKeys.length+2)}%;">
+              <div style="font-size: 9px; font-weight: bold;">PAPER ${idx + 1}</div>
+              <div style="font-size: 11px; font-weight: bold; margin: 8px 0;">${subString}</div>
+              <div style="font-size: 9px; font-weight: bold;">${dt}</div>
+          </td>`;
+      });
+      
+      const admCardNo = 'A' + new Date().getFullYear() + String(student.id || Math.floor(Math.random()*10000)).padStart(4, '0');
+      
+      return `
+      <div style="width: 100%; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; page-break-inside: avoid; color: #000; ${fontColorStyle} font-family: ${c.font}; background: transparent; padding: 10px;">
+          
+          <div style="display: flex; align-items: center; justify-content: center; text-align: center; margin-bottom: 5px; position: relative;">
+              <div style="width: 60px; height: 60px; position: absolute; left: 0;">
+                  <img src="${DEFAULT_SCHOOL_LOGO}" style="width: 100%; height: 100%; object-fit: contain;" />
+              </div>
+              <div>
+                  <h2 style="margin: 0; font-size: 18px; font-weight: 900;">${schoolName.toUpperCase()}</h2>
+                  <h3 style="margin: 2px 0 0 0; font-size: 13px; font-weight: 600;">${examName.toUpperCase()}</h3>
+                  <h4 style="margin: 2px 0 0 0; font-size: 14px; font-weight: bold;">ADMISSION CARD</h4>
+                  <div style="margin-top: 2px; font-size: 12px; font-weight: bold;">Class ${student.className}</div>
+              </div>
+          </div>
+          
+          <table style="width: 100%; border-collapse: collapse; border: 2px solid #000; font-size: 11px; margin-bottom: 0;">
+              <tr>
+                  <td style="border: 1px solid #000; padding: 4px; vertical-align: top; width: 25%;">
+                      <div style="font-size: 8px;">ADM NO.</div>
+                      <div style="font-weight: bold; margin-top: 4px; text-align: center;">${student.admissionNo || '-'}</div>
+                  </td>
+                  <td style="border: 1px solid #000; padding: 4px; vertical-align: top; width: 25%;">
+                      <div style="font-size: 8px;">ROLL NO</div>
+                      <div style="font-weight: bold; margin-top: 4px; text-align: center;">${student.rollNo || '-'}</div>
+                  </td>
+                  <td style="border: 1px solid #000; padding: 4px; vertical-align: top; width: 30%;">
+                      <div style="font-size: 8px;">ADMISSION CARD NO</div>
+                      <div style="font-weight: bold; margin-top: 4px; text-align: center;">${admCardNo}</div>
+                  </td>
+                  <td rowspan="5" style="border: 1px solid #000; padding: 5px; width: 20%; text-align: center; vertical-align: middle;">
+                      <img src="${photoUrl}" style="width: 80px; height: 100px; border: 1px solid #000; object-fit: cover;" />
+                  </td>
+              </tr>
+              <tr>
+                  <td colspan="3" style="border: 1px solid #000; padding: 4px; vertical-align: top;">
+                      <div style="font-size: 8px;">NAME OF THE COLLEGE/SCHOOL</div>
+                      <div style="font-weight: bold; margin-top: 2px;">${schoolName.toUpperCase()}</div>
+                  </td>
+              </tr>
+              <tr>
+                  <td colspan="2" style="border: 1px solid #000; padding: 4px; vertical-align: top;">
+                      <div style="font-size: 8px;">NAME OF CANDIDATE</div>
+                      <div style="font-weight: bold; margin-top: 2px;">${(student.fullName || '-').toUpperCase()}</div>
+                  </td>
+                  <td style="border: 1px solid #000; padding: 4px; vertical-align: top;">
+                      <div style="font-size: 8px;">CATEGORY</div>
+                      <div style="font-weight: bold; margin-top: 2px;">REGULAR</div>
+                  </td>
+              </tr>
+              <tr>
+                  <td colspan="2" style="border: 1px solid #000; padding: 4px; vertical-align: top;">
+                      <div style="font-size: 8px;">NAME OF MOTHER</div>
+                      <div style="font-weight: bold; margin-top: 2px;">${(student.motherName || '-').toUpperCase()}</div>
+                  </td>
+                  <td style="border: 1px solid #000; padding: 4px; vertical-align: top;">
+                      <div style="font-size: 8px;">UID NO OF CANDIDATE</div>
+                      <div style="font-weight: bold; margin-top: 2px;">${student.phone || student.admissionNo || '-'}</div>
+                  </td>
+              </tr>
+              <tr>
+                  <td colspan="3" style="border: 1px solid #000; padding: 4px; vertical-align: top;">
+                      <div style="font-size: 8px;">NAME OF FATHER / HUSBAND</div>
+                      <div style="font-weight: bold; margin-top: 2px;">${(formatParentName(student.fatherName || student.parentName)).toUpperCase()}</div>
+                  </td>
+              </tr>
+          </table>
+          
+          <table style="width: 100%; border-collapse: collapse; border: 2px solid #000; border-top: none; font-size: 11px;">
+              <tr>
+                  <td style="border: 1px solid #000; padding: 4px; width: 15%; vertical-align: middle;">
+                      <div style="font-size: 8px; text-align: center; margin-bottom: 10px;">SUBJECTS<br>OFFERED</div>
+                      <div style="font-size: 8px; text-align: center;">DATE OF<br>EXAMINATION</div>
+                  </td>
+                  ${subjectColsHtml}
+                  <td style="border: 1px solid #000; width: 15%; text-align: center; vertical-align: middle; padding: 5px;">
+                      <img src="qr.png" style="width: 50px; height: 50px; opacity: 0.8;" />
+                  </td>
+              </tr>
+          </table>
+          
+          <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 30px; padding: 0 10px;">
+              <div style="text-align: center;">
+                  <div style="border-top: 1px solid #000; width: 150px; padding-top: 5px; font-weight: bold; font-size: 11px;">Signature of the Principal</div>
+              </div>
+              <div style="text-align: center;">
+                  <div style="border-top: 1px solid #000; width: 150px; padding-top: 5px; font-weight: bold; font-size: 11px;">Controller of Examinations</div>
+              </div>
+          </div>
+      </div>`;
+  }
+  
   // --- Custom Admit Card Template Engine ---
   function getCustomAdmitCardHtml(student, examName, config) {
       const store = typeof getStore !== 'undefined' ? getStore() : {};
@@ -887,7 +1459,7 @@
       template = template.replace(/{className}/g, student.className || '-');
       template = template.replace(/{rollNo}/g, student.rollNo || '-');
       template = template.replace(/{admissionNo}/g, student.admissionNo || '-');
-      template = template.replace(/{fatherName}/g, student.fatherName || student.parentName || '-');
+      template = template.replace(/{fatherName}/g, formatParentName(student.fatherName || student.parentName));
       template = template.replace(/{motherName}/g, student.motherName || '-');
       template = template.replace(/{examName}/g, examName || '-');
       
@@ -909,8 +1481,60 @@
           ${template}
       </div>`;
   }
-
   // --- Admit Card Templates ---
+  function buildScheduleTableHtml(student, config, tableColor, borderCss) {
+      if (!config || !config.subjectDates || Object.keys(config.subjectDates).length === 0) return '';
+      const subjects = getSubjectsForClass(student.className);
+      let groupedDates = {};
+      let hasDates = false;
+
+      subjects.forEach(sub => {
+          let rawDate = config.subjectDates[sub];
+          if (rawDate) {
+              hasDates = true;
+              let dt = rawDate;
+              if (rawDate.includes('-')) {
+                  const parts = rawDate.split('-');
+                  if (parts.length === 3) dt = `${parts[2]}.${parts[1]}.${parts[0]}`;
+              }
+              if (!groupedDates[dt]) groupedDates[dt] = [];
+              let shortName = sub.split(' ')[0].toUpperCase();
+              if (shortName.length > 5) shortName = shortName.substring(0, 5);
+              groupedDates[dt].push(shortName);
+          }
+      });
+
+      if (!hasDates) return '';
+
+      let dateKeys = Object.keys(groupedDates);
+      let subjectColsHtml = '';
+      dateKeys.forEach((dt, idx) => {
+          let subs = groupedDates[dt];
+          let subString = subs.join('/');
+          subjectColsHtml += `
+          <td style="border: ${borderCss}; text-align: center; padding: 4px; vertical-align: top; width: ${100/(dateKeys.length+1)}%;">
+              <div style="font-size: 11px; font-weight: bold; color: inherit;">PAPER ${idx + 1}</div>
+              <div style="font-size: 13px; font-weight: 900; margin: 8px 0; color: ${tableColor};">${subString}</div>
+              <div style="font-size: 12px; font-weight: bold; color: inherit;">${dt}</div>
+          </td>`;
+      });
+
+      return `
+        <div style="margin-top: 15px;">
+            <div style="text-align: center; font-size: 14px; font-weight: bold; margin-bottom: 5px; color: ${tableColor}; text-decoration: underline;">EXAM SCHEDULE</div>
+            <table style="width: 100%; border-collapse: collapse; border: ${borderCss}; color: inherit;">
+              <tr>
+                  <td style="border: ${borderCss}; padding: 4px; width: 15%; vertical-align: middle; background: ${tableColor}11;">
+                      <div style="font-size: 11px; text-align: center; margin-bottom: 10px; font-weight: bold; color: inherit;">SUBJECTS<br>OFFERED</div>
+                      <div style="font-size: 11px; text-align: center; font-weight: bold; color: inherit;">DATE OF<br>EXAMINATION</div>
+                  </td>
+                  ${subjectColsHtml}
+              </tr>
+            </table>
+        </div>
+      `;
+  }
+
   function getPrimaryAdmitCardHtml(student, examName, config) {
       const c = config || { color: '#3b82f6', font: "'Inter', sans-serif", border: 'solid' };
       const borderCss = c.border === 'none' ? 'none' : `4px ${c.border} ${c.color}`;
@@ -918,7 +1542,7 @@
       const admNo = student.admissionNo || '-';
       
       return `
-        <div style="width: 180mm; background: transparent; border: ${borderCss}; font-family: ${c.font}; border-radius: 20px; padding: 20px; position: relative; overflow: hidden; page-break-inside: avoid; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
+        <div style="width: 100%; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; background: transparent; border: ${borderCss}; font-family: ${c.font}; border-radius: 20px; padding: 20px; position: relative; overflow: hidden; page-break-inside: avoid; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
            <div style="position: absolute; top: -50px; right: -50px; width: 150px; height: 150px; background: ${c.color}33; border-radius: 50%; opacity: 0.5;"></div>
            <div style="display:flex; align-items:center; justify-content:center; border-bottom: 2px dashed ${c.color}; padding-bottom: 15px; margin-bottom: 20px;">
                <div style="text-align:center;">
@@ -930,7 +1554,7 @@
                <div style="flex: 1;">
                    <table style="width:100%; border-collapse:collapse; font-size: 16px; color: inherit; font-weight:600;">
                        <tr><td style="padding: 8px;">Student Name:</td><td style="padding: 8px; border-bottom: 2px solid #cbd5e1; color: ${c.color}; font-weight:800;" contenteditable="true">${student.fullName}</td></tr>
-                       <tr><td style="padding: 8px;">Father's Name:</td><td style="padding: 8px; border-bottom: 2px solid #cbd5e1;" contenteditable="true">${student.fatherName || '-'}</td></tr>
+                       <tr><td style="padding: 8px;">Father's Name:</td><td style="padding: 8px; border-bottom: 2px solid #cbd5e1;" contenteditable="true">${formatParentName(student.fatherName)}</td></tr>
                        <tr><td style="padding: 8px;">Class & Sec:</td><td style="padding: 8px; border-bottom: 2px solid #cbd5e1;" contenteditable="true">${student.className}</td></tr>
                        <tr><td style="padding: 8px;">Roll No:</td><td style="padding: 8px; border-bottom: 2px solid #cbd5e1; color: inherit; font-size: 18px; font-weight: 800;" contenteditable="true">${student.rollNo || '-'}</td></tr>
                        <tr><td style="padding: 8px;">Admission No:</td><td style="padding: 8px; border-bottom: 2px solid #cbd5e1;" contenteditable="true">${admNo}</td></tr>
@@ -940,6 +1564,9 @@
                    <img src="${photoUrl}" style="width: 110px; height: 130px; object-fit: cover; border: 3px solid ${c.color}; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);" />
                </div>
            </div>
+           
+           ${buildScheduleTableHtml(student, config, c.color, `1px solid ${c.color}`)}
+
            <div style="margin-top: 30px; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 30px;">
                <div style="text-align:center; width: 150px;">
                    <div style="border-bottom: 2px solid #1e293b; height: 40px;"></div>
@@ -960,7 +1587,7 @@
       const admNo = student.admissionNo || '-';
       
       return `
-        <div style="width: 180mm; border: ${borderCss}; font-family: ${c.font}; padding: 20px; background: transparent; page-break-inside: avoid; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
+        <div style="width: 100%; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; border: ${borderCss}; font-family: ${c.font}; padding: 20px; background: transparent; page-break-inside: avoid; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
             <div style="text-align:center; border-bottom: 2px solid ${c.color}; padding-bottom: 15px; margin-bottom: 20px;">
                 <img src="${DEFAULT_SCHOOL_LOGO}" style="width: 60px; height: 60px; margin-bottom: 5px; display:inline-block;" /><br/>\n                 <h2 style="margin:0; color: ${c.color}; font-size: 24px; font-family: serif; text-transform: uppercase; display:inline-block;">Tapowan Public School</h2>
                 <h3 style="margin:10px 0 0 0; color: inherit; font-size: 18px; text-decoration: underline;">ADMIT CARD - <span contenteditable="true">${examName}</span></h3>
@@ -969,7 +1596,7 @@
                 <div style="flex: 1;">
                     <table style="width:100%; border-collapse:collapse; font-size: 15px; color: inherit; ">
                         <tr><td style="padding: 10px; font-weight:700; width: 150px;">Candidate Name:</td><td style="padding: 10px; border-bottom: 1px dotted #64748b; font-weight: bold; text-transform: uppercase;" contenteditable="true">${student.fullName}</td></tr>
-                        <tr><td style="padding: 10px; font-weight:700;">Father's Name:</td><td style="padding: 10px; border-bottom: 1px dotted #64748b;" contenteditable="true">${student.fatherName || '-'}</td></tr>
+                        <tr><td style="padding: 10px; font-weight:700;">Father's Name:</td><td style="padding: 10px; border-bottom: 1px dotted #64748b;" contenteditable="true">${formatParentName(student.fatherName)}</td></tr>
                         <tr><td style="padding: 10px; font-weight:700;">Class / Section:</td><td style="padding: 10px; border-bottom: 1px dotted #64748b;" contenteditable="true">${student.className}</td></tr>
                         <tr><td style="padding: 10px; font-weight:700;">Roll Number:</td><td style="padding: 10px; border-bottom: 1px dotted #64748b; font-weight: bold;" contenteditable="true">${student.rollNo || '-'}</td></tr>
                         <tr><td style="padding: 10px; font-weight:700;">Admission No:</td><td style="padding: 10px; border-bottom: 1px dotted #64748b;" contenteditable="true">${admNo}</td></tr>
@@ -979,6 +1606,9 @@
                     <img src="${photoUrl}" style="width: 110px; height: 135px; object-fit: cover; border: 1px solid #1e293b;" />
                 </div>
             </div>
+            
+            ${buildScheduleTableHtml(student, config, '#333333', '1px solid #cbd5e1')}
+
             <div style="margin-top: 30px; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 40px;">
                 <div style="text-align:center; width: 160px;">
                     <div style="border-bottom: 1px solid ${c.color}; height: 40px;"></div>
@@ -999,36 +1629,40 @@
       const admNo = student.admissionNo || '-';
       
       return `
-        <div style="width: 180mm; border: ${borderCss}; font-family: ${c.font}; padding: 15px; background: transparent; page-break-inside: avoid; font-family: 'Times New Roman', Times, serif; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
-            <div style="border: 1px solid ${c.color}; padding: 15px; position: relative;">
-                <div style="text-align:center; border-bottom: 2px solid ${c.color}; padding-bottom: 10px; margin-bottom: 15px;">
-                    <img src="${DEFAULT_SCHOOL_LOGO}" style="width: 60px; height: 60px; margin-bottom: 5px; display:inline-block;" /><br/>\n                     <h1 style="margin:0; color: inherit; font-size: 26px; text-transform: uppercase; display:inline-block;">Tapowan Public School</h1>
-                    <div style="margin-top:10px; display:inline-block; background: ${c.color}; color: ${c.fontColor || '#fff'}; padding:5px 20px; font-weight:bold; font-size:16px;">
+        <div style="width: 100%; height: 100%; box-sizing: border-box; border: ${borderCss}; font-family: ${c.font}; padding: 15px; background: transparent; page-break-inside: avoid; font-family: 'Times New Roman', Times, serif; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
+            <div style="padding: 10px; position: relative; flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
+                <div style="text-align:center; padding-bottom: 5px; margin-bottom: 10px;">
+                    <img src="${DEFAULT_SCHOOL_LOGO}" style="width: 50px; height: 50px; margin-bottom: 3px; display:inline-block;" /><br/>
+                     <h1 style="margin:0; color: inherit; font-size: 20px; text-transform: uppercase; display:inline-block;">Tapowan Public School</h1>
+                    <div style="margin-top:10px; display:block; width:100%; box-sizing:border-box; background: ${c.color}; color: ${c.fontColor || '#fff'}; padding:5px 15px; font-weight:bold; font-size:14px; text-align:center;">
                         ADMIT CARD - ${examName.toUpperCase()}
                     </div>
                 </div>
                 <div style="display: flex; gap: 15px;">
                     <div style="flex: 1;">
-                        <table style="width:100%; border-collapse:collapse; font-size: 15px; color: inherit; ">
-                            <tr><td style="padding: 6px; font-weight:bold; width: 160px;">Roll No.</td><td style="padding: 6px;">: <span style="font-weight:bold; font-size:18px;">${student.rollNo || '-'}</span></td></tr>
-                            <tr><td style="padding: 6px; font-weight:bold;">Admission No.</td><td style="padding: 6px;">: ${admNo}</td></tr>
-                            <tr><td style="padding: 6px; font-weight:bold;">Candidate's Name</td><td style="padding: 6px;">: <span style="text-transform:uppercase; font-weight:bold;">${student.fullName}</span></td></tr>
-                            <tr><td style="padding: 6px; font-weight:bold;">Father's Name</td><td style="padding: 6px;">: ${student.fatherName || '-'}</td></tr>
-                            <tr><td style="padding: 6px; font-weight:bold;">Class</td><td style="padding: 6px;">: ${student.className}</td></tr>
+                        <table style="width:100%; border-collapse:collapse; font-size: 13px; color: inherit; ">
+                            <tr><td style="padding: 4px; font-weight:bold; width: 140px;">Roll No.</td><td style="padding: 4px;">: <span style="font-weight:bold; font-size:15px;">${student.rollNo || '-'}</span></td></tr>
+                            <tr><td style="padding: 4px; font-weight:bold;">Admission No.</td><td style="padding: 4px;">: ${admNo}</td></tr>
+                            <tr><td style="padding: 4px; font-weight:bold;">Candidate's Name</td><td style="padding: 4px;">: <span style="text-transform:uppercase; font-weight:bold;">${student.fullName}</span></td></tr>
+                            <tr><td style="padding: 4px; font-weight:bold;">Father's Name</td><td style="padding: 4px;">: ${formatParentName(student.fatherName)}</td></tr>
+                            <tr><td style="padding: 4px; font-weight:bold;">Class</td><td style="padding: 4px;">: ${student.className}</td></tr>
                         </table>
                     </div>
-                    <div style="width: 120px; text-align:center;">
-                        <img src="${photoUrl}" style="width: 110px; height: 135px; object-fit: cover; border: 1px solid ${c.color};" />
+                    <div style="width: 90px; text-align:center;">
+                        <img src="${photoUrl}" style="width: 80px; height: 100px; object-fit: cover; border: 1px solid ${c.color};" />
                     </div>
                 </div>
-                <div style="margin-top: 30px; display: flex; justify-content: space-between; align-items: flex-end;">
-                    <div style="text-align:center; width: 160px;">
-                        <div style="border-bottom: 1px solid ${c.color}; height: 40px;"></div>
-                        <p style="margin: 5px 0 0 0; font-size: 13px; font-weight: bold;">Signature of Class Teacher</p>
+                
+                ${buildScheduleTableHtml(student, config, c.color, `1px solid ${c.color}`)}
+
+                <div style="margin-top: 10px; display: flex; justify-content: space-between; align-items: flex-end;">
+                    <div style="text-align:center; width: 140px;">
+                        <div style="border-bottom: 1px solid ${c.color}; height: 30px;"></div>
+                        <p style="margin: 5px 0 0 0; font-size: 11px; font-weight: bold;">Signature of Class Teacher</p>
                     </div>
-                    <div style="text-align:center; width: 160px;">
-                        <div style="border-bottom: 1px solid ${c.color}; height: 40px;"></div>
-                        <p style="margin: 5px 0 0 0; font-size: 13px; font-weight: bold;">Signature of Principal</p>
+                    <div style="text-align:center; width: 140px;">
+                        <div style="border-bottom: 1px solid ${c.color}; height: 30px;"></div>
+                        <p style="margin: 5px 0 0 0; font-size: 11px; font-weight: bold;">Signature of Principal</p>
                     </div>
                 </div>
             </div>
@@ -1130,8 +1764,9 @@
   function getDetailedGraphResultHtml(exam, theme, config) {
     const store = typeof getStore !== 'undefined' ? getStore() : {};
     const schoolName = store.schoolName || "TAPOWAN PUBLIC SCHOOL";
-    const c = config || { color: '#0f172a', font: "'Times New Roman', serif", border: 'solid' };
+    const c = config || { color: '#0f172a', font: "'Times New Roman', serif", border: 'solid', bgColor: '#ffffff', bgType: 'solid', bgImage: 'none' };
     const fontColorStyle = c.fontColor ? `color: ${c.fontColor} !important;` : '';
+    const bgStyle = c.bgImage && c.bgImage !== 'none' ? `background-image: url('${c.bgImage}'); background-size: cover; background-position: center;` : (c.bgType === 'gradient' ? `background: linear-gradient(135deg, ${c.bgColor}, ${c.bgColor2});` : `background-color: ${c.bgColor};`);
 
     const watermarkText = encodeURIComponent(schoolName);
     const watermarkSvg = `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><text x='50%' y='50%' transform='rotate(-35 150 150)' text-anchor='middle' font-family='Arial' font-size='20' font-weight='bold' fill='%23000'>${watermarkText}</text></svg>`;
@@ -1211,15 +1846,22 @@
     <style>
       @media print {
         @page { size: A4 portrait !important; margin: 0 !important; }
+        * {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
         .perfect-print-wrapper {
           width: 188mm !important;
           height: 275mm !important;
           max-height: 275mm !important;
           margin: 10mm auto !important;
+          page-break-inside: avoid !important;
+          page-break-after: avoid !important;
+          overflow: hidden !important;
         }
       }
     </style>
-    <div class="perfect-print-wrapper" style="width: 100%; height: 285mm; overflow: hidden; box-sizing: border-box; page-break-inside: avoid; color: #000; border: 3px double ${c.color}; padding: 15px; padding-bottom: 25px; font-family: 'Times New Roman', serif; position: relative; background: #fff; display: flex; flex-direction: column;">
+    <div class="perfect-print-wrapper" style="width: 100%; height: 285mm; overflow: hidden; box-sizing: border-box; page-break-inside: avoid; color: #000; border: 3px double ${c.color}; padding: 15px; padding-bottom: 25px; font-family: 'Times New Roman', serif; position: relative; ${bgStyle} -webkit-print-color-adjust: exact; print-color-adjust: exact; display: flex; flex-direction: column;">
         
         <div style="position: relative; z-index: 1; display: flex; flex-direction: column; height: 100%;">
             
@@ -1234,10 +1876,10 @@
                 <div style="margin: 0 90px;">
                     <h1 style="margin: 0; font-size: 20px; font-weight: bold; color: ${c.color}; text-transform: uppercase;">${schoolName}</h1>
                     <div style="font-weight: bold; font-size: 12px; margin: 2px 0;">U-DISE NO. ${store.schoolDise || '20241202412'}</div>
-                    <div style="font-size: 10px; font-style: italic; margin-bottom: 2px;">${store.schoolAddress || 'Address details here'}</div>
+                    <div style="font-size: 10px; font-style: italic; margin-bottom: 2px;">${store.schoolAddress || 'Prem Nagar, Tapin North, Ramgarh Jharkhand.'}</div>
                     <div style="font-size: 10px;">
-                        <span style="margin-right: 15px;">E-mail: ${store.schoolEmail || 'school@gmail.com'}</span>
-                        <span>Contact: ${store.schoolPhone || '9999999999'}</span>
+                        <span style="margin-right: 15px;">E-mail: ${store.schoolEmail || 'thetapowanpublicschool@gmail.com'}</span>
+                        <span>Contact: ${store.schoolPhone || '+91 62011 67306'}</span>
                     </div>
                 </div>
 
@@ -1269,7 +1911,7 @@
                 </tr>
                 <tr>
                     <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Father's Name:</td>
-                    <td style="border: 1px solid #000; padding: 4px 8px;" colspan="3" contenteditable="true">${exam.fatherName || ''}</td>
+                    <td style="border: 1px solid #000; padding: 4px 8px;" colspan="3" contenteditable="true">${formatParentName(exam.fatherName)}</td>
                 </tr>
                 <tr>
                     <td style="border: 1px solid #000; padding: 4px 8px; font-weight: bold;">Mother's Name:</td>
@@ -1600,7 +2242,7 @@ function getMarksheetHtml(exam, theme, config) {
         </div>
         <div class="exam-field">
           <label>Exam Name</label>
-          <input id="resultExamName" value="Mid Term Exam" />
+          <select id="resultExamName"></select>
         </div>
           <div class="exam-field">
             <label>Layout Theme</label>
@@ -1685,6 +2327,36 @@ function getMarksheetHtml(exam, theme, config) {
 
     populateClassSelect("resultClassSelect");
     
+    const refreshResultExamNames = () => {
+        const cls = document.getElementById("resultClassSelect").value;
+        const examNameSelect = document.getElementById("resultExamName");
+        if (!examNameSelect) return;
+        
+        const store = typeof getStore !== 'undefined' ? getStore() : {};
+        const marksEntries = (store.exams || []).filter(e => e.className === cls);
+        let uniqueExamNames = Array.from(new Set(marksEntries.map(e => e.examName).filter(Boolean)));
+        
+        const schedules = (store.examSchedules || []).filter(s => s.className === cls);
+        schedules.forEach(s => {
+            if (s.examName && !uniqueExamNames.includes(s.examName)) {
+                uniqueExamNames.push(s.examName);
+            }
+        });
+        
+        if (uniqueExamNames.length === 0) {
+            uniqueExamNames = ["Mid Term Exam"];
+        }
+        
+        const currentValue = examNameSelect.value;
+        examNameSelect.innerHTML = uniqueExamNames.map(name => `<option value="${name}">${name}</option>`).join('');
+        
+        if (uniqueExamNames.includes(currentValue)) {
+            examNameSelect.value = currentValue;
+        }
+    };
+
+    document.getElementById("resultClassSelect").addEventListener("change", refreshResultExamNames);
+    setTimeout(refreshResultExamNames, 50);
     // Grading Scale Logic
     const defaultScale = [
       { min: 91, max: 100, grade: 'A+' },
@@ -1821,6 +2493,43 @@ function getMarksheetHtml(exam, theme, config) {
     const container = document.getElementById("resultPreviewContainer");
     const store = typeof getStore !== 'undefined' ? getStore() : {};
     
+    if (theme === 'consolidated_cbse') {
+        const reqExams = examName.split(',').map(e => e.trim()).filter(Boolean);
+        const allExams = (store.exams || []).filter(e => e.className === className && e.session === session && reqExams.includes(e.examName));
+        
+        if(allExams.length === 0) {
+          container.innerHTML = `<div class="empty-state"><h4>No marks data found for these combined exams.</h4><p>Ensure the exam names are spelled correctly.</p></div>`;
+          document.getElementById("resultPrintActions").style.display = "none";
+          return;
+        }
+
+        const studentMap = {};
+        allExams.forEach(ex => {
+            if(!studentMap[ex.studentName]) {
+                studentMap[ex.studentName] = { exams: [], studentName: ex.studentName, rollNo: ex.rollNo, className: ex.className, session: ex.session };
+            }
+            studentMap[ex.studentName].exams.push(ex);
+        });
+
+        let html = '';
+        Object.values(studentMap).forEach(stdGroup => {
+            const student = (store.students || []).find(s => s.fullName === stdGroup.studentName && s.className === stdGroup.className) || {};
+            html += getConsolidatedResultHtml(stdGroup, reqExams, student, config);
+        });
+        
+        container.innerHTML = html;
+        document.getElementById("resultPrintActions").style.display = "flex";
+        
+        // Render Charts after DOM injection
+        setTimeout(() => {
+            Object.values(studentMap).forEach(stdGroup => {
+                const canvas = document.getElementById(`consolidatedChart_${stdGroup.rollNo}`);
+                if (canvas) renderConsolidatedChart(canvas, stdGroup, reqExams);
+            });
+        }, 100);
+        return;
+    }
+    
     // Find all exams matching
     const matchingExams = (store.exams || []).filter(e => e.className === className && e.session === session && e.examName === examName);
     
@@ -1841,7 +2550,7 @@ function getMarksheetHtml(exam, theme, config) {
               cardHtml = getCustomResultHtml({
                 examName: ex.examName, session: ex.session, className: ex.className,
                 studentName: ex.studentName, rollNo: ex.rollNo, admissionNo: student.admissionNo || ex.admissionNo || '',
-                fatherName: student.fatherName || student.parentName || '', motherName: student.motherName || '',
+                fatherName: formatParentName(student.fatherName || student.parentName), motherName: student.motherName || '',
                 studentPhoto: student.photo || ex.studentPhoto || '', subjectMarks: ex.subjectMarks,
                 totalMarks: ex.totalMarks, percentage: ex.percentage, grade: ex.grade, resultStatus: ex.resultStatus
               }, theme, config);
@@ -1849,7 +2558,7 @@ function getMarksheetHtml(exam, theme, config) {
               cardHtml = getDetailedGraphResultHtml({
                 examName: ex.examName, session: ex.session, className: ex.className,
                 studentName: ex.studentName, rollNo: ex.rollNo, admissionNo: student.admissionNo || ex.admissionNo || '',
-                fatherName: student.fatherName || student.parentName || '', motherName: student.motherName || '',
+                fatherName: formatParentName(student.fatherName || student.parentName), motherName: student.motherName || '',
                 dob: student.dob || '', address: student.address || '',
                 studentPhoto: student.photo || ex.studentPhoto || '', subjectMarks: ex.subjectMarks,
                 totalMarks: ex.totalMarks, percentage: ex.percentage, grade: ex.grade, resultStatus: ex.resultStatus
@@ -2945,4 +3654,213 @@ function getThoAdmitCardHtml(student, examName, config) {
         </div>
     </div>
     `;
+}
+
+
+function getConsolidatedResultHtml(stdGroup, reqExams, student, config) {
+    const c = config || { color: '#0f172a', font: "'Times New Roman', serif", border: 'solid' };
+    const borderVal = c.border === 'none' ? 'none' : `4px ${c.border} ${c.color}`;
+    const photoUrl = student.photo || stdGroup.exams[0]?.studentPhoto || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='%23e2e8f0' viewBox='0 0 24 24'><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>";
+    const schoolName = "Tapowan Public School";
+    const bgStyle = config.bgImage !== 'none' ? `background-image: url('${config.bgImage}'); background-size: cover; background-position: center;` : (config.bgType === 'gradient' ? `background: linear-gradient(135deg, ${config.bgColor}, ${config.bgColor2});` : `background-color: ${config.bgColor};`);
+    const fontColorStyle = config.fontColor ? `color: ${config.fontColor} !important;` : '';
+    
+    // Split exams into Term 1 (first half of requested exams) and Term 2 (remaining)
+    const term1Exams = reqExams.slice(0, Math.ceil(reqExams.length / 2));
+    const term2Exams = reqExams.slice(Math.ceil(reqExams.length / 2));
+
+    function renderExamTable(examName) {
+        const ex = stdGroup.exams.find(e => e.examName === examName);
+        if (!ex) return `<div style="text-align:center; padding: 20px; border: 1px dashed #ccc; margin-bottom: 20px;">${examName} marks not entered</div>`;
+        
+        let subs = [];
+        try { subs = JSON.parse(ex.subjectMarks); } catch(e) {}
+        
+        let rows = '';
+        subs.forEach(sub => {
+            rows += `<tr>
+                <td style="padding:8px; border:1px solid rgba(0,0,0,0.15); font-weight:bold;">${sub.subject}</td>
+                <td style="padding:8px; border:1px solid rgba(0,0,0,0.15); text-align:center;">${sub.max || 100}</td>
+                <td style="padding:8px; border:1px solid rgba(0,0,0,0.15); text-align:center;">${sub.total || 0}</td>
+            </tr>`;
+        });
+        
+        return `<div style="margin-bottom: 25px;">
+            <div style="background: ${c.color}; color: #fff; padding: 8px 15px; font-weight: bold; border-radius: 6px 6px 0 0; text-align:center;">${examName.toUpperCase()}</div>
+            <table style="width:100%; border-collapse: collapse; font-size: 14px; background: transparent;">
+                <tr style="background: rgba(0,0,0,0.05);">
+                    <th style="padding:8px; border:1px solid rgba(0,0,0,0.15); text-align:left;">Subject</th>
+                    <th style="padding:8px; border:1px solid rgba(0,0,0,0.15); text-align:center; width:80px;">Max</th>
+                    <th style="padding:8px; border:1px solid rgba(0,0,0,0.15); text-align:center; width:80px;">Obtained</th>
+                </tr>
+                ${rows}
+            </table>
+            <div style="display:flex; justify-content:flex-end; padding: 8px; border:1px solid rgba(0,0,0,0.15); border-top:none; font-weight:bold; font-size: 14px;">
+                Total: ${ex.totalMarks} | Grade: ${ex.grade}
+            </div>
+        </div>`;
+    }
+
+    // Generate Final Grand Total Table
+    let allSubjectsMap = {};
+    stdGroup.exams.forEach(ex => {
+        let subs = [];
+        try { subs = JSON.parse(ex.subjectMarks); } catch(e) {}
+        subs.forEach(sub => {
+            if (!allSubjectsMap[sub.subject]) allSubjectsMap[sub.subject] = { max: 0, obtained: 0 };
+            allSubjectsMap[sub.subject].max += parseFloat(sub.max) || 100;
+            allSubjectsMap[sub.subject].obtained += parseFloat(sub.total) || 0;
+        });
+    });
+
+    let grandTableRows = '';
+    let superMax = 0;
+    let superObtained = 0;
+    
+    Object.keys(allSubjectsMap).forEach(subName => {
+        const sData = allSubjectsMap[subName];
+        superMax += sData.max;
+        superObtained += sData.obtained;
+        const subPerc = sData.max > 0 ? ((sData.obtained / sData.max) * 100).toFixed(1) : 0;
+        grandTableRows += `<tr>
+            <td style="padding:10px; border:1px solid rgba(0,0,0,0.15); font-weight:bold; font-size: 15px;">${subName}</td>
+            <td style="padding:10px; border:1px solid rgba(0,0,0,0.15); text-align:center; font-size: 15px;">${sData.max}</td>
+            <td style="padding:10px; border:1px solid rgba(0,0,0,0.15); text-align:center; font-size: 15px; font-weight:bold; color:${c.color};">${sData.obtained}</td>
+            <td style="padding:10px; border:1px solid rgba(0,0,0,0.15); text-align:center; font-size: 15px;">${subPerc}%</td>
+        </tr>`;
+    });
+
+    const superPercentage = superMax > 0 ? ((superObtained / superMax) * 100).toFixed(1) : 0;
+    let superGrade = 'E';
+    if(superPercentage >= 91) superGrade = 'A+';
+    else if(superPercentage >= 81) superGrade = 'A';
+    else if(superPercentage >= 71) superGrade = 'B+';
+    else if(superPercentage >= 61) superGrade = 'B';
+    else if(superPercentage >= 51) superGrade = 'C';
+    else if(superPercentage >= 33) superGrade = 'D';
+
+    const overlayHtml = `<div style="position: absolute; inset: 0; background: rgba(255,255,255,${1 - config.bgOpacity}); pointer-events: none; z-index: 0;"></div>`;
+
+    // ── PAGE 1 (FRONT) ──
+    const page1 = `
+    <div style="width: 210mm; min-height: 297mm; page-break-after: always; padding: 15mm; box-sizing: border-box; position: relative; overflow: hidden; margin: 0 auto; margin-bottom: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); border: ${borderVal}; font-family: ${c.font}; ${fontColorStyle} ${bgStyle}">
+        ${overlayHtml}
+        <div style="position: relative; z-index: 1;">
+            <div style="text-align:center; border-bottom: 3px double ${c.color}; padding-bottom: 15px; margin-bottom: 25px;">
+                <h1 style="margin:0; font-size: 32px; text-transform: uppercase; color: ${c.color}; font-weight: 900;">${schoolName}</h1>
+                <p style="margin:8px 0; font-size: 16px; font-weight: bold; letter-spacing: 1px;">CONSOLIDATED ANNUAL REPORT CARD</p>
+                <div style="background: ${c.color}; color: ${config.fontColor || '#fff'}; display:inline-block; padding: 6px 25px; font-weight:bold; margin-top:5px; border-radius: 20px; font-size: 14px;">ACADEMIC SESSION: ${stdGroup.session}</div>
+            </div>
+            
+            <div style="display:flex; justify-content: space-between; margin-bottom: 30px; background: rgba(255,255,255,0.7); padding: 15px; border-radius: 12px; border: 1px solid rgba(0,0,0,0.1);">
+                <table style="width:75%; font-size: 16px; line-height:1.8;">
+                    <tr><td style="font-weight:bold; width: 150px;">Student Name:</td><td contenteditable="true" style="font-weight:900; font-size: 18px; color: ${c.color};">${stdGroup.studentName}</td></tr>
+                    <tr><td style="font-weight:bold;">Class & Section:</td><td contenteditable="true">${stdGroup.className}</td></tr>
+                    <tr><td style="font-weight:bold;">Roll No:</td><td contenteditable="true">${stdGroup.rollNo}</td></tr>
+                    <tr><td style="font-weight:bold;">Admission No:</td><td contenteditable="true">${student.admissionNo || '-'}</td></tr>
+                    <tr><td style="font-weight:bold;">Father's Name:</td><td contenteditable="true">${formatParentName(student.fatherName)}</td></tr>
+                </table>
+                <div style="width: 110px; height: 130px; border: 3px solid ${c.color}; border-radius: 8px; overflow: hidden; background: #fff; display:flex; justify-content:center; align-items:center;">
+                    <img src="${photoUrl}" style="width: 100%; height: 100%; object-fit: cover;" />
+                </div>
+            </div>
+
+            <div style="text-align:center; font-weight:bold; font-size: 18px; margin-bottom: 15px; color: ${c.color}; border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 5px;">TERM 1 EVALUATIONS</div>
+            ${term1Exams.map(renderExamTable).join('')}
+        </div>
+    </div>`;
+
+    // ── PAGE 2 (BACK) ──
+    const page2 = `
+    <div style="width: 210mm; min-height: 297mm; page-break-after: always; padding: 15mm; box-sizing: border-box; position: relative; overflow: hidden; margin: 0 auto; margin-bottom: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); border: ${borderVal}; font-family: ${c.font}; ${fontColorStyle} ${bgStyle}">
+        ${overlayHtml}
+        <div style="position: relative; z-index: 1; height: 100%; display: flex; flex-direction: column;">
+            
+            <div style="text-align:center; font-weight:bold; font-size: 18px; margin-bottom: 15px; color: ${c.color}; border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 5px;">TERM 2 & FINAL EVALUATIONS</div>
+            ${term2Exams.map(renderExamTable).join('')}
+
+            <div style="margin-top: 20px; margin-bottom: 20px;">
+                <div style="background: ${c.color}; color: #fff; padding: 10px; font-weight: bold; border-radius: 8px 8px 0 0; text-align:center; font-size: 18px; text-transform: uppercase;">Final Grand Aggregate (All Exams)</div>
+                <table style="width:100%; border-collapse: collapse; font-size: 15px; background: rgba(255,255,255,0.8);">
+                    <tr style="background: rgba(0,0,0,0.05);">
+                        <th style="padding:10px; border:1px solid rgba(0,0,0,0.15); text-align:left;">Subject</th>
+                        <th style="padding:10px; border:1px solid rgba(0,0,0,0.15); text-align:center;">Total Max</th>
+                        <th style="padding:10px; border:1px solid rgba(0,0,0,0.15); text-align:center;">Total Obtained</th>
+                        <th style="padding:10px; border:1px solid rgba(0,0,0,0.15); text-align:center;">Subject %</th>
+                    </tr>
+                    ${grandTableRows}
+                </table>
+                <div style="display:flex; justify-content:space-around; align-items:center; padding: 15px; border:1px solid rgba(0,0,0,0.15); border-top:none; background: rgba(255,255,255,0.9);">
+                    <div style="text-align:center;"><div style="font-size:12px; font-weight:bold; color:#666;">GRAND TOTAL</div><div style="font-size:24px; font-weight:900; color:${c.color};" contenteditable="true">${superObtained} / ${superMax}</div></div>
+                    <div style="text-align:center;"><div style="font-size:12px; font-weight:bold; color:#666;">FINAL PERCENTAGE</div><div style="font-size:24px; font-weight:900; color:${c.color};" contenteditable="true">${superPercentage}%</div></div>
+                    <div style="text-align:center;"><div style="font-size:12px; font-weight:bold; color:#666;">OVERALL GRADE</div><div style="font-size:24px; font-weight:900; color:${c.color};" contenteditable="true">${superGrade}</div></div>
+                </div>
+            </div>
+
+            <div style="width: 100%; border: 1px solid rgba(0,0,0,0.15); padding: 10px; background: rgba(255,255,255,0.8); border-radius: 8px; margin-bottom: 20px;">
+                <div style="font-weight: bold; font-size: 12px; text-align:center; margin-bottom: 10px; color:${c.color};">Performance Graph</div>
+                <div style="width: 100%; height: 160px; position: relative;">
+                    <canvas id="consolidatedChart_${stdGroup.rollNo}" style="width: 100%; height: 100%;"></canvas>
+                </div>
+            </div>
+
+            <div style="margin-top: auto; display:flex; justify-content: space-between; align-items: flex-end; padding-top: 30px;">
+                <div style="text-align: center; width: 180px;">
+                    <div style="border-top: 1px solid #000; padding-top: 5px; font-weight: bold; font-size: 14px;">Class Teacher</div>
+                </div>
+                <div style="text-align: center; width: 180px;">
+                    <div style="border-top: 1px solid #000; padding-top: 5px; font-weight: bold; font-size: 14px;">Principal</div>
+                </div>
+            </div>
+        </div>
+    </div>`;
+
+    return page1 + page2;
+}
+
+function renderConsolidatedChart(canvas, stdGroup, reqExams) {
+    if (!window.Chart) return;
+    
+    // Calculate final subject percentages
+    let allSubjectsMap = {};
+    stdGroup.exams.forEach(ex => {
+        let subs = [];
+        try { subs = JSON.parse(ex.subjectMarks); } catch(e) {}
+        subs.forEach(sub => {
+            if (!allSubjectsMap[sub.subject]) allSubjectsMap[sub.subject] = { max: 0, obtained: 0 };
+            allSubjectsMap[sub.subject].max += parseFloat(sub.max) || 100;
+            allSubjectsMap[sub.subject].obtained += parseFloat(sub.total) || 0;
+        });
+    });
+
+    const labels = Object.keys(allSubjectsMap);
+    const dataPoints = labels.map(sub => {
+        const d = allSubjectsMap[sub];
+        return d.max > 0 ? ((d.obtained / d.max) * 100).toFixed(1) : 0;
+    });
+
+    new Chart(canvas, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Final Subject Percentage',
+                data: dataPoints,
+                borderColor: '#10b981',
+                backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { beginAtZero: true, max: 100, ticks: { callback: function(value) { return value + "%" } } },
+                x: { ticks: { autoSkip: false, maxRotation: 45, minRotation: 45, font: { size: 10 } } }
+            },
+            plugins: { legend: { display: false } }
+        }
+    });
 }
