@@ -1,10 +1,10 @@
 {
-  "bundleVersion": "2.4.8",
-  "bundleVersionCode": 148,
+  "bundleVersion": "2.4.16",
+  "bundleVersionCode": 156,
   "bundleUrl": "https://tapowan-school.vercel.app/bundles/index.android.bundle",
-  "bundleSize": 5753142,
+  "bundleSize": 5800145,
   "minAppVersionCode": 141,
-  "releaseNotes": "Standardized student records to fatherName, cleaned registration, and improved database syncing",
-  "releaseDate": "2026-09-27T06:02:25.257Z",
+  "releaseNotes": "Fix closed-app and background incoming call answering: seamless instant auto-connect without duplicate answer prompt.",
+  "releaseDate": "2026-09-27T15:55:39.410Z",
   "isActive": true
 }
