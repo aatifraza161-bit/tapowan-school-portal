@@ -16,8 +16,8 @@ if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
 }
 
 // New database for Quiz and Dues Breakdown
-const SUPABASE_QUIZ_URL = 'https://onfdgdevtuyaarhomvmo.supabase.co';
-const SUPABASE_QUIZ_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uZmRnZGV2dHV5YWFyaG9tdm1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3Mjc2NjY2OSwiZXhwIjoyMDg4MzQyNjY5fQ.7Dkm1DN5pUZgKlLrxQUrl8UsYbgrla3Yf8ogR4DJvR8';
+const SUPABASE_QUIZ_URL = process.env.SUPABASE_QUIZ_URL || 'https://onfdgdevtuyaarhomvmo.supabase.co';
+const SUPABASE_QUIZ_KEY = process.env.SUPABASE_QUIZ_KEY || '';
 const supabaseQuiz = createClient(SUPABASE_QUIZ_URL, SUPABASE_QUIZ_KEY, {
     auth: { persistSession: false }
 });

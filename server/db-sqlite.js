@@ -43,17 +43,13 @@ function isNetworkError(e) {
 
 // Unified Turso Cloud Database Credentials
 const DEFAULT_TURSO_URL = 'https://tapowan-v2-tapowan.aws-ap-south-1.turso.io';
-const DEFAULT_TURSO_TOKEN = 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODkwOTIyMTUsImlkIjoiMDFhMDhlMzQtODMwMS03MDI0LTk5ZWQtMGQ0MmYwMGJiNjFlIiwia2lkIjoiVFRPdk5ISlFYZVAtX1FsNG9ZUXM4cTBTYXRiZzJ1UmVhYjlUbjFyem1tcyIsInJpZCI6ImVjNjc2YzExLTRhNGUtNGZhNi1hMTM1LTJmZDk4YTIxNzliMSJ9.RmzczPOvgV3Hd83byF7fMfQsCzlJnF8r9MCGtzTfZDj8k--VqtItniZN5GCiPfv4-dCEmDZaIWDGPOnM-EknDA';
 
 let rawTursoUrl = process.env.TURSO_DATABASE_URL;
 if (!rawTursoUrl || rawTursoUrl.includes('tapowan-im-aatif') || rawTursoUrl.includes('tpsfee')) {
   rawTursoUrl = DEFAULT_TURSO_URL;
 }
 let tursoHttpUrl = rawTursoUrl.replace(/^libsql:\/\//i, 'https://');
-let tursoAuthToken = process.env.TURSO_AUTH_TOKEN;
-if (!tursoAuthToken || !tursoAuthToken.includes('RmzczPOvgV3Hd83byF7fMfQsCzlJnF8r9MCGtzTfZDj8k') || tursoAuthToken.includes('a-w2gyEau')) {
-  tursoAuthToken = DEFAULT_TURSO_TOKEN;
-}
+let tursoAuthToken = process.env.TURSO_AUTH_TOKEN || '';
 
 function formatPipelineArgs(args) {
   if (!args || !Array.isArray(args)) return [];

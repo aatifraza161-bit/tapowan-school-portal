@@ -59,10 +59,10 @@ const CLASS_STANDARD_OPTIONS = ["Nursery", "LKG", "UKG", "I", "II", "III", "IV",
 
 function getImageUrl(moduleName, id, fieldName, val) {
   if (!val) return '';
-  if (val === true || val === "true" || val === "1") return `/api/photo/${moduleName}/${id}?col=${fieldName}`;
+  if (val === true || val === "true" || val === "1") return `/api/photo/${moduleName}/${id}?col=${fieldName}&_v=${Math.floor(Date.now() / 30000)}`;
   if (typeof val === 'string') {
     if (val.startsWith('data:image') || val.startsWith('http://') || val.startsWith('https://')) return val;
-    if (val.startsWith('/api/photo/') || val.startsWith('/api/image/')) return `/api/photo/${moduleName}/${id}?col=${fieldName}`;
+    if (val.startsWith('/api/photo/') || val.startsWith('/api/image/')) return `/api/photo/${moduleName}/${id}?col=${fieldName}&_v=${Math.floor(Date.now() / 30000)}`;
   }
   return val;
 }
@@ -6342,42 +6342,28 @@ function printDocumentByModule() {
 
 
 
-// --- Turso Cloud DB Direct Pipeline ---
-const TURSO_DIRECT_URL = 'https://tapowan-im-aatif.aws-ap-northeast-1.turso.io/v2/pipeline';
-const TURSO_DIRECT_TOKEN = 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODY1MTcyOTQsImlkIjoiMDE5ZmY0YWUtM2YwMS03YTYwLWI4NTgtMWQ4M2JlYjJkNzJkIiwia2lkIjoiblRLTmdsNnYyaFQ4LTlhT09uQV9JdERDc3BTdk9iejhSYzNuY0hSNUhOVSIsInJpZCI6ImZmMWI4YTE5LWFhZTgtNGM5MS1hNjFhLTlkMTY1NTQ1OTEyOCJ9.a-w2gyEauZrfLwqWAMh2QLqHmqOxIsziDu9WRBrCPmLaoZThvoDlPdW4VjQ6ST5hRYJj1E1R0sJELyNPg4zrBQ';
-
+// --- Secure Proxy Database Pipeline (Zero Secrets in Frontend) ---
 async function fetchDirectFromTurso(sql, args = []) {
   try {
-    const typedArgs = args.map(arg => {
-      if (typeof arg === 'number') return { type: 'integer', value: String(arg) };
-      return { type: 'text', value: String(arg) };
-    });
-    const res = await fetch(TURSO_DIRECT_URL, {
+    const res = await fetch('/api/db/query', {
       method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + TURSO_DIRECT_TOKEN,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        requests: [
-          { type: 'execute', stmt: { sql, args: typedArgs } },
-          { type: 'close' }
-        ]
-      })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sql, args: Array.isArray(args) ? args : [] })
     });
-    if (!res.ok) return [];
+    if (!res.ok) {
+      const empty = [];
+      empty.rows = [];
+      return empty;
+    }
     const data = await res.json();
-    const result = data.results?.[0]?.response?.result;
-    if (!result || !result.rows) return [];
-    const cols = result.cols.map(c => c.name);
-    return result.rows.map(row => {
-      const obj = {};
-      row.forEach((cell, idx) => { obj[cols[idx]] = cell.value; });
-      return obj;
-    });
+    const rows = Array.isArray(data.rows) ? data.rows : [];
+    rows.rows = rows;
+    return rows;
   } catch (e) {
-    console.warn("Direct Turso fetch failed:", e);
-    return [];
+    console.warn("Proxy Turso fetch failed:", e);
+    const empty = [];
+    empty.rows = [];
+    return empty;
   }
 }
 
