@@ -1,7 +1,43 @@
 {
   "version": 2,
+  "regions": ["bom1"],
+  "functions": {
+    "api/index.js": {
+      "memory": 1024,
+      "maxDuration": 60
+    }
+  },
   "outputDirectory": "public",
+  "crons": [
+    {
+      "path": "/api/cron/daily-quiz",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/generate-monthly-dues",
+      "schedule": "0 0 * * *"
+    }
+  ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index.js" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)\\.apk",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/vnd.android.package-archive"
+        },
+        {
+          "key": "Content-Disposition",
+          "value": "attachment; filename=\"TPS-Original-App.apk\""
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    }
   ]
 }

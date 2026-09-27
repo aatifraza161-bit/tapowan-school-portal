@@ -941,7 +941,7 @@ async function getStore(forceRefresh = false) {
 
   const store = {};
   const moduleKeys = Object.keys(MODULES);
-  const BATCH_SIZE = 5; // Safe limit for Turso
+  const BATCH_SIZE = 12; // High-concurrency batching for Mumbai edge pipeline
 
   try {
     for (let i = 0; i < moduleKeys.length; i += BATCH_SIZE) {
