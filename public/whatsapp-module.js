@@ -14,7 +14,7 @@
     const student = (store.students || []).find(s => s.fullName === f.studentName || s.admissionNo === f.admissionNo);
     if (student) {
       if (!f.admissionNo) f.admissionNo = student.admissionNo || "";
-      if (!f.fatherName) f.fatherName = student.parentName || "";
+      if (!f.fatherName) f.fatherName = student.fatherName || "";
       if (!f.phone) f.phone = student.phone || "";
       if (!f.rollNo) f.rollNo = student.rollNo || student.roll || "";
     }

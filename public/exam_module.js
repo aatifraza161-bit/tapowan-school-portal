@@ -65,15 +65,25 @@
       .exam-close-btn { background: #f1f5f9; color: inherit; border: none; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; font-size: 1.2rem; }
       .exam-close-btn:hover { background: #fee2e2; color: inherit; }
 
-      .marks-subject-header { display: grid; grid-template-columns: 2fr 60px 60px 1fr 1fr 1fr 40px; gap: 8px; padding: 0 15px 10px 15px; font-weight: 700; color: inherit; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; }
-      .marks-subject-row { display: grid; grid-template-columns: 2fr 60px 60px 1fr 1fr 1fr 40px; gap: 8px; align-items: center; padding: 15px; background: transparent; border-radius: 12px; margin-bottom: 12px; border: 1px solid #e2e8f0; transition: border-color 0.2s; }
+      .marks-subject-header { display: grid; grid-template-columns: 2fr 95px 72px 48px 1fr 1fr 1fr 36px; gap: 8px; padding: 0 15px 10px 15px; font-weight: 700; color: inherit; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; }
+      .marks-subject-row { display: grid; grid-template-columns: 2fr 95px 72px 48px 1fr 1fr 1fr 36px; gap: 8px; align-items: center; padding: 15px; background: transparent; border-radius: 12px; margin-bottom: 12px; border: 1px solid #e2e8f0; transition: border-color 0.2s; }
+    .marks-subject-header.cbse-mode { grid-template-columns: 2fr 90px 70px 48px 65px 80px 115px 80px 60px 36px; }
+    .marks-subject-row.cbse-mode { grid-template-columns: 2fr 90px 70px 48px 65px 80px 115px 80px 60px 36px; }
       .marks-subject-row:hover { border-color: inherit; }
-      .marks-subject-row input { width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px; font-weight: 700; text-align: center; color: inherit; font-size: 1rem; box-sizing: border-box; }
+      .marks-subject-row input { width: 100%; padding: 10px 4px; border: 2px solid #e2e8f0; border-radius: 8px; font-weight: 700; text-align: center; color: inherit; font-size: 0.95rem; box-sizing: border-box; }
+      .marks-subject-row input[type=number]::-webkit-inner-spin-button, .marks-subject-row input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+      .marks-subject-row input[type=number] { -moz-appearance: textfield; }
       .marks-subject-row input[type="text"] { text-align: left; }
       .marks-subject-row input:focus { border-color: inherit; outline: none; background: white; }
       .marks-subject-row .total-cell { font-weight: 800; text-align: center; color: inherit; font-size: 1.1rem; }
       .del-row-btn { background: #fee2e2; color: inherit; border: none; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-weight: bold; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
       .del-row-btn:hover { background: #ef4444; color: white; }
+
+      .sub-role-toggle { padding: 6px 10px; border-radius: 8px; font-size: 0.75rem; font-weight: 800; cursor: pointer; border: 1.5px solid; transition: all 0.2s ease; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+      .sub-role-toggle.role-main { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; }
+      .sub-role-toggle.role-main:hover { background: #dbeafe; transform: translateY(-1px); }
+      .sub-role-toggle.role-additional { background: #fffbeb; border-color: #fde68a; color: #b45309; }
+      .sub-role-toggle.role-additional:hover { background: #fef3c7; transform: translateY(-1px); }
 
       /* Summary Box */
       .marks-summary-box { background: linear-gradient(135deg, #0f172a, #1e293b); color: white; padding: 20px; border-radius: 16px; margin-top: 25px; display: flex; justify-content: space-around; text-align: center; box-shadow: 0 10px 25px rgba(15,23,42,0.2); }
@@ -104,17 +114,17 @@
   };
 
   function getSubjectsForClass(className) {
-    const cl = (className || "").toLowerCase();
+    const normFunc = typeof normalizeCanonicalClass === 'function' ? normalizeCanonicalClass : (x => (x || '').trim());
+    const canonicalTarget = normFunc(className).toLowerCase();
     
     // Check custom subjects from database first
     if (typeof getStore !== 'undefined') {
         const store = getStore();
         if (store && store.subjects && store.subjects.length > 0) {
-            // Exact or case-insensitive match for className
+            // Match canonical class or 'all'
             const classSubjects = store.subjects.filter(s => {
-                const sCl = (s.className || "").toLowerCase();
-                // A subject might be assigned to multiple classes or just one
-                return sCl === cl || sCl === "all" || sCl.includes(cl);
+                const sNorm = normFunc(s.className || '').toLowerCase();
+                return sNorm === canonicalTarget || sNorm === "all";
             });
             
             if (classSubjects.length > 0) {
@@ -123,37 +133,639 @@
         }
     }
 
+    const cl = canonicalTarget;
     if (cl.includes('9') || cl.includes('10') || cl.includes('ix') || cl.includes('x')) return defaultSubjects.high;
     if (cl.includes('6') || cl.includes('7') || cl.includes('8') || cl.includes('vi') || cl.includes('vii') || cl.includes('viii')) return defaultSubjects.middle;
     return defaultSubjects.primary;
   }
 
-  window.renderExamModule = function() {
+  // =========================================================================
+  // MAIN VS ADDITIONAL SUBJECTS RULES & PASS/FAIL CALCULATION ENGINE
+  // Only Main subjects decide Pass or Fail. Additional subjects NEVER fail a student!
+  // =========================================================================
+
+  const DEFAULT_SUBJECT_RULES = {
+    mainKeywords: [
+      'hindi', 'english', 'mathematics', 'math', 'maths', 'science',
+      'social science', 'social studies', 'sst', 'evs', 'environmental',
+      'physics', 'chemistry', 'biology', 'accountancy', 'business', 'economics',
+      'history', 'geography', 'civics', 'political science'
+    ],
+    additionalKeywords: [
+      'computer', 'information tech', 'infotech', 'it (402)', 'sanskrit', 'urdu',
+      'moral science', 'moral', 'drawing', 'art', 'craft', 'gk', 'g.k',
+      'general knowledge', 'physical education', 'physical ed', 'phe', 'pe',
+      'sports', 'yoga', 'music', 'dance', 'work education', 'life skills'
+    ],
+    passingPercentage: 33
+  };
+
+  function isSubjectMain(subjectName, className, subjectObj) {
+    if (subjectObj) {
+      if (typeof subjectObj.isMain === 'boolean') return subjectObj.isMain;
+      if (subjectObj.isMain === 'true' || subjectObj.isMain === '1') return true;
+      if (subjectObj.isMain === 'false' || subjectObj.isMain === '0') return false;
+      if (subjectObj.subjectType === 'additional' || subjectObj.subjectType === 'optional') return false;
+      if (subjectObj.subjectType === 'main' || subjectObj.subjectType === 'core') return true;
+    }
+
+    const sName = String(subjectName || '').trim().toLowerCase();
+    if (!sName) return true;
+
+    // Check custom rules saved in settings
+    const store = typeof getStore !== 'undefined' ? getStore() : {};
+    let customRules = null;
+    if (store && store.settings) {
+      const s = store.settings.find(x => x.key === "exam_main_subjects_rules");
+      if (s && s.value) {
+        try { customRules = JSON.parse(s.value); } catch(e){}
+      }
+    }
+
+    if (customRules) {
+      const normFunc = typeof normalizeCanonicalClass === 'function' ? normalizeCanonicalClass : (x => (x || '').trim());
+      const cNorm = normFunc(className || '').toLowerCase();
+
+      // Check class-specific rules first
+      if (cNorm && customRules.classRules && customRules.classRules[cNorm]) {
+        const cr = customRules.classRules[cNorm];
+        if (Array.isArray(cr.main) && cr.main.some(m => String(m).trim().toLowerCase() === sName)) return true;
+        if (Array.isArray(cr.additional) && cr.additional.some(a => String(a).trim().toLowerCase() === sName)) return false;
+      }
+
+      // Check global rules
+      if (Array.isArray(customRules.mainSubjects) && customRules.mainSubjects.some(m => String(m).trim().toLowerCase() === sName)) return true;
+      if (Array.isArray(customRules.additionalSubjects) && customRules.additionalSubjects.some(a => String(a).trim().toLowerCase() === sName)) return false;
+    }
+
+    // Heuristic matching against additional keywords
+    for (const kw of DEFAULT_SUBJECT_RULES.additionalKeywords) {
+      if (sName === kw || sName.includes(kw)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  // ─── CLASS 9 & 10 SOCIAL SCIENCE 4-PART CONSTANTS & HELPERS ───
+  function isClass9or10(className) {
+    if (!className) return false;
+    const normFunc = typeof normalizeCanonicalClass === 'function' ? normalizeCanonicalClass : (x => (x || '').trim());
+    const cl = normFunc(className).toLowerCase();
+    return cl.includes('9') || cl.includes('10') || cl.includes('ix') || cl.includes('x');
+  }
+
+  function isSocialSciencePart(subName) {
+    return false;
+  }
+
+  function isSocialScience(subName) {
+    if (!subName) return false;
+    const s = String(subName).trim().toLowerCase();
+    return s.includes('social science') || s.includes('social studies') || s.includes('sst') || s.includes('087');
+  }
+
+  function normalizeSSTPartKey(subName) {
+    return '';
+  }
+
+  function getDefaultMaxMarksForSubject(subjectName, className) {
+    const sName = String(subjectName || '').trim().toLowerCase();
+    if (!sName) return { max: 100, min: 33 };
+
+    // 1. Check custom rules saved in settings
+    const store = typeof getStore !== 'undefined' ? getStore() : {};
+    if (store && store.settings) {
+      const s = store.settings.find(x => x.key === "exam_main_subjects_rules");
+      if (s && s.value) {
+        try {
+          const rules = JSON.parse(s.value);
+          const normFunc = typeof normalizeCanonicalClass === 'function' ? normalizeCanonicalClass : (x => (x || '').trim());
+          const cNorm = normFunc(className || '').toLowerCase();
+
+          // Check class-specific max rules
+          if (cNorm && rules.classRules && rules.classRules[cNorm] && rules.classRules[cNorm].maxMarks) {
+            const mm = rules.classRules[cNorm].maxMarks;
+            for (const [k, v] of Object.entries(mm)) {
+              if (k.toLowerCase() === sName || sName.includes(k.toLowerCase()) || k.toLowerCase().includes(sName)) {
+                const max = parseInt(v, 10) || 100;
+                return { max, min: Math.round(max * 0.33) };
+              }
+            }
+          }
+
+          // Check global max rules
+          if (rules.maxMarks) {
+            for (const [k, v] of Object.entries(rules.maxMarks)) {
+              if (k.toLowerCase() === sName || sName.includes(k.toLowerCase()) || k.toLowerCase().includes(sName)) {
+                const max = parseInt(v, 10) || 100;
+                return { max, min: Math.round(max * 0.33) };
+              }
+            }
+          }
+        } catch(e){}
+      }
+    }
+
+    // 2. Known standard 50-mark subjects
+    if (
+      sName.includes('moral') ||
+      sName.includes('g.k') ||
+      sName.includes('gk') ||
+      sName.includes('general knowledge') ||
+      sName.includes('drawing') ||
+      sName.includes('craft') ||
+      sName.includes('conversation')
+    ) {
+      return { max: 50, min: 17 };
+    }
+
+    return { max: 100, min: 33 };
+  }
+
+  window.getDefaultMaxMarksForSubject = getDefaultMaxMarksForSubject;
+
+  function evalStudentResultStatus(subjects, className) {
+    if (!Array.isArray(subjects) || subjects.length === 0) {
+      return {
+        resultStatus: "PASS",
+        failedMainSubjects: [],
+        mainStats: { grandTotal: 0, maxTotal: 0, percentage: 0 },
+        overallStats: { grandTotal: 0, maxTotal: 0, percentage: 0 }
+      };
+    }
+
+    let evalSubs = subjects;
+
+    let mainGrandTotal = 0;
+    let mainMaxTotal = 0;
+    let overallGrandTotal = 0;
+    let overallMaxTotal = 0;
+    const failedMainSubjects = [];
+    let mainSubjectsCount = 0;
+
+    evalSubs.forEach(sub => {
+      if (!sub || !sub.subject) return;
+      const subName = String(sub.subject).trim();
+      if (!subName) return;
+
+      const isMain = isSubjectMain(subName, className, sub);
+      const maxMarks = parseFloat(sub.max) > 0 ? parseFloat(sub.max) : 100;
+      const minMarks = parseFloat(sub.min) > 0 ? parseFloat(sub.min) : Math.round(maxMarks * 0.33);
+
+      let total = 0;
+      if (sub.total !== undefined && sub.total !== '' && !isNaN(parseFloat(sub.total))) {
+        total = parseFloat(sub.total);
+      } else {
+        const pa = parseFloat(sub.pa1 || sub.pa2) || 0;
+        const nb = parseFloat(sub.notebook) || 0;
+        const enr = parseFloat(sub.enrichment) || 0;
+        const th = parseFloat(sub.theory !== undefined ? sub.theory : sub.subjective) || 0;
+        const pr = parseFloat(sub.practical) || 0;
+        total = Math.min(maxMarks, Math.round((pa + nb + enr + th + pr) * 10) / 10);
+      }
+
+      overallGrandTotal += total;
+      overallMaxTotal += maxMarks;
+
+      if (isMain) {
+        mainSubjectsCount++;
+        mainGrandTotal += total;
+        mainMaxTotal += maxMarks;
+
+        // Failing mark in a Main subject
+        if (total < minMarks) {
+          failedMainSubjects.push({
+            subject: subName,
+            obtained: total,
+            min: minMarks,
+            max: maxMarks
+          });
+        }
+      } else {
+        // Additional Subject: marks are recorded but NEVER added to failedMainSubjects!
+      }
+    });
+
+    const mainPercentage = mainMaxTotal > 0 ? parseFloat(((mainGrandTotal / mainMaxTotal) * 100).toFixed(1)) : 0;
+    const overallPercentage = overallMaxTotal > 0 ? parseFloat(((overallGrandTotal / overallMaxTotal) * 100).toFixed(1)) : 0;
+
+    // Student PASSES if and only if all Main subjects pass and main percentage >= 33%
+    const isPassed = (failedMainSubjects.length === 0) && (mainSubjectsCount === 0 || mainPercentage >= 33);
+
+    return {
+      resultStatus: isPassed ? "PASS" : "FAIL",
+      failedMainSubjects,
+      mainStats: {
+        grandTotal: mainGrandTotal,
+        maxTotal: mainMaxTotal,
+        percentage: mainPercentage
+      },
+      overallStats: {
+        grandTotal: overallGrandTotal,
+        maxTotal: overallMaxTotal,
+        percentage: overallPercentage
+      }
+    };
+  }
+
+  window.DEFAULT_SUBJECT_RULES = DEFAULT_SUBJECT_RULES;
+  window.isSubjectMain = isSubjectMain;
+  window.evalStudentResultStatus = evalStudentResultStatus;
+
+  window.toggleSubjectRoleInRow = function(btn) {
+    const currentIsMain = btn.getAttribute('data-is-main') === '1';
+    const newIsMain = !currentIsMain;
+    btn.setAttribute('data-is-main', newIsMain ? '1' : '0');
+    if (newIsMain) {
+      btn.className = 'sub-role-toggle role-main';
+      btn.innerHTML = '⭐ Main';
+      btn.title = 'Main Subject: Marks strictly decide Pass or Fail';
+    } else {
+      btn.className = 'sub-role-toggle role-additional';
+      btn.innerHTML = '➕ Addl';
+      btn.title = 'Additional Subject: Marks recorded, but NEVER fails student';
+    }
+    if (typeof window.calcExamTotals === 'function') {
+      window.calcExamTotals();
+    }
+  };
+
+  window.setRuleSubjectType = function(btn, type) {
+    const parent = btn.parentElement;
+    parent.querySelectorAll(".rule-btn").forEach(b => {
+      b.classList.remove("active");
+      b.style.background = "transparent";
+      b.style.color = "#64748b";
+    });
+    btn.classList.add("active");
+    if (type === "main") {
+      btn.style.background = "#2563eb";
+      btn.style.color = "#ffffff";
+    } else {
+      btn.style.background = "#d97706";
+      btn.style.color = "#ffffff";
+    }
+  };
+
+  window.openSubjectRulesModal = function(initialClass) {
+    const store = typeof getStore !== 'undefined' ? getStore() : {};
+    let customRules = {
+      passingPercentage: 33,
+      mainSubjects: ['Hindi', 'English', 'Mathematics', 'Science', 'Social Science', 'EVS'],
+      additionalSubjects: ['Computer', 'Information Tech', 'Sanskrit', 'Urdu', 'Moral Science', 'Drawing', 'G.K', 'Physical Education'],
+      maxMarks: { 'Moral Science': 50, 'G.K': 50, 'Drawing': 50 },
+      classRules: {}
+    };
+
+    if (store && store.settings) {
+      const s = store.settings.find(x => x.key === "exam_main_subjects_rules");
+      if (s && s.value) {
+        try {
+          const parsed = JSON.parse(s.value);
+          customRules = Object.assign(customRules, parsed);
+        } catch(e){}
+      }
+    }
+
+    const oldModal = document.getElementById("examSubjectRulesModal");
+    if (oldModal) oldModal.remove();
+
+    const overlay = document.createElement("div");
+    overlay.className = "exam-modal-overlay active";
+    overlay.id = "examSubjectRulesModal";
+
+    const normFunc = typeof normalizeCanonicalClass === 'function' ? normalizeCanonicalClass : (x => (x || '').trim());
+    const allClasses = Array.from(new Set([
+      'Nursery-A', 'LKG-A', 'UKG-A', 'I-A', 'II-A', 'III-A', 'IV-A', 'V-A', 'VI-A', 'VII-A', 'VIII-A', 'IX-A', 'X-A',
+      ...(store.classes || []).map(c => [c.className, c.section].filter(Boolean).join('-'))
+    ]));
+
+    let selectedClass = initialClass || "all";
+
+    function renderModalBody() {
+      let subjectsForSelection = [];
+      if (selectedClass === "all") {
+        subjectsForSelection = Array.from(new Set([
+          'Hindi', 'English', 'Mathematics', 'Science', 'Social Science', 'EVS',
+          'Computer', 'Information Tech', 'Sanskrit', 'Urdu', 'Moral Science', 'Drawing', 'G.K', 'Physical Education',
+          ...(store.subjects || []).map(s => s.subjectName).filter(Boolean)
+        ]));
+      } else {
+        subjectsForSelection = Array.from(new Set([
+          ...getSubjectsForClass(selectedClass),
+          ...(store.subjects || []).filter(s => normFunc(s.className).toLowerCase() === normFunc(selectedClass).toLowerCase() || s.className === 'all').map(s => s.subjectName).filter(Boolean)
+        ]));
+      }
+
+      const cNorm = normFunc(selectedClass).toLowerCase();
+      if (selectedClass !== "all" && customRules.classRules && customRules.classRules[cNorm]) {
+        const cr = customRules.classRules[cNorm];
+        if (Array.isArray(cr.main)) cr.main.forEach(m => { if (!subjectsForSelection.includes(m)) subjectsForSelection.push(m); });
+        if (Array.isArray(cr.additional)) cr.additional.forEach(a => { if (!subjectsForSelection.includes(a)) subjectsForSelection.push(a); });
+      }
+
+      let subjectRowsHtml = subjectsForSelection.map((subName) => {
+        const isMain = isSubjectMain(subName, selectedClass === "all" ? "" : selectedClass);
+        const defMax = getDefaultMaxMarksForSubject(subName, selectedClass === "all" ? "" : selectedClass).max;
+        return `
+          <div class="rules-subject-row" data-subject="${subName}" style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; margin-bottom:8px; flex-wrap:wrap; gap:8px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span style="font-weight:700; color:#0f172a; font-size:0.95rem;">${subName}</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <div style="display:flex; align-items:center; gap:5px; background:#ffffff; padding:4px 8px; border:1px solid #cbd5e1; border-radius:8px;">
+                <span style="font-size:0.75rem; font-weight:700; color:#64748b;">Max:</span>
+                <select class="rule-sub-max" style="border:none; background:transparent; font-size:0.8rem; font-weight:700; color:#0f172a; cursor:pointer;">
+                  <option value="100" ${defMax == 100 ? 'selected' : ''}>100 (Pass: 33)</option>
+                  <option value="50" ${defMax == 50 ? 'selected' : ''}>50 (Pass: 17)</option>
+                  <option value="80" ${defMax == 80 ? 'selected' : ''}>80 (Pass: 26)</option>
+                  <option value="40" ${defMax == 40 ? 'selected' : ''}>40 (Pass: 13)</option>
+                  <option value="25" ${defMax == 25 ? 'selected' : ''}>25 (Pass: 8)</option>
+                </select>
+              </div>
+              <div style="display:flex; gap:6px; background:#e2e8f0; padding:3px; border-radius:8px;">
+                <button type="button" class="rule-btn rule-btn-main ${isMain ? 'active' : ''}" onclick="window.setRuleSubjectType(this, 'main')" style="padding:6px 14px; border:none; border-radius:6px; font-weight:800; font-size:0.8rem; cursor:pointer; transition:all 0.2s; background:${isMain ? '#2563eb' : 'transparent'}; color:${isMain ? '#ffffff' : '#64748b'};">⭐ Main</button>
+                <button type="button" class="rule-btn rule-btn-additional ${!isMain ? 'active' : ''}" onclick="window.setRuleSubjectType(this, 'additional')" style="padding:6px 14px; border:none; border-radius:6px; font-weight:800; font-size:0.8rem; cursor:pointer; transition:all 0.2s; background:${!isMain ? '#d97706' : 'transparent'}; color:${!isMain ? '#ffffff' : '#64748b'};">➕ Additional</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <div style="margin-bottom:18px;">
+          <label style="display:block; font-size:0.8rem; font-weight:800; color:#475569; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;">Select Target Class</label>
+          <select id="rulesClassDropdown" style="width:100%; padding:10px 14px; border:2px solid #cbd5e1; border-radius:10px; font-size:0.95rem; font-weight:700; background:#ffffff;">
+            <option value="all" ${selectedClass === 'all' ? 'selected' : ''}>🌟 All Classes (Global Default Rules)</option>
+            ${allClasses.map(c => `<option value="${c}" ${selectedClass === c ? 'selected' : ''}>Class: ${c}</option>`).join('')}
+          </select>
+        </div>
+
+        <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:12px; padding:12px 16px; margin-bottom:20px; font-size:0.85rem; color:#1e40af; line-height:1.45;">
+          <div style="font-weight:800; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+            <span class="material-symbols-outlined" style="font-size:18px;">info</span>
+            Subject Configuration & Maximum Marks:
+          </div>
+          <div>• <strong>⭐ Main Subjects</strong>: Academic core subjects deciding Pass or Fail (score &ge; 33% required).</div>
+          <div style="margin-top:2px;">• <strong>➕ Additional Subjects</strong>: Non-failing subjects (e.g. Moral Science, Computer, Drawing). Low marks never fail a student!</div>
+          <div style="margin-top:2px;">• <strong>Max Marks</strong>: Set standard scale (100, 50, etc.). 50-mark subjects auto-scale passing marks to 17.</div>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <h5 style="margin:0; font-size:0.95rem; font-weight:800; color:#0f172a;">Subject Rules & Maximum Marks for ${selectedClass === 'all' ? 'All Classes' : selectedClass}:</h5>
+          <span style="font-size:0.8rem; color:#64748b;">Set Max (100 or 50) and Role per subject</span>
+        </div>
+
+        <div id="rulesSubjectsList" style="max-height:340px; overflow-y:auto; padding-right:4px;">
+          ${subjectRowsHtml}
+        </div>
+
+        <div style="margin-top:15px; padding:12px; background:#f1f5f9; border-radius:10px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <input type="text" id="newRuleSubjectInput" placeholder="Add custom subject (e.g. Urdu, Art, Yoga)" style="flex:1; min-width:160px; padding:8px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:0.85rem;" />
+          <select id="newRuleSubjectMax" style="padding:8px 10px; border:1px solid #cbd5e1; border-radius:8px; font-size:0.85rem; font-weight:700;">
+            <option value="100">100 Marks (Pass: 33)</option>
+            <option value="50">50 Marks (Pass: 17)</option>
+            <option value="80">80 Marks (Pass: 26)</option>
+            <option value="40">40 Marks (Pass: 13)</option>
+            <option value="25">25 Marks (Pass: 8)</option>
+          </select>
+          <select id="newRuleSubjectType" style="padding:8px 10px; border:1px solid #cbd5e1; border-radius:8px; font-size:0.85rem; font-weight:700;">
+            <option value="main">⭐ Main Subject</option>
+            <option value="additional" selected>➕ Additional Subject</option>
+          </select>
+          <button type="button" id="btnAddSubjectToRulesBtn" style="padding:8px 16px; background:#2563eb; color:#fff; border:none; border-radius:8px; font-weight:700; font-size:0.85rem; cursor:pointer;">+ Add</button>
+        </div>
+      `;
+    }
+
+    overlay.innerHTML = `
+      <div class="exam-modal" style="max-width:780px;">
+        <div class="exam-modal-header">
+          <h2 style="display:flex; align-items:center; gap:10px;">
+            <span class="material-symbols-outlined" style="font-size:28px; color:#2563eb;">rule</span>
+            <div>
+              Configure Subject Rules & Maximum Marks
+              <span style="font-size:0.85rem; color:#64748b; font-weight:500;">Set which subjects decide Pass/Fail and configure Default Max Marks (100 or 50)</span>
+            </div>
+          </h2>
+          <button class="exam-close-btn" onclick="document.getElementById('examSubjectRulesModal').remove()">×</button>
+        </div>
+
+        <div id="subjectRulesModalBody">
+          ${renderModalBody()}
+        </div>
+
+        <div style="margin-top:25px; display:flex; justify-content:space-between; align-items:center; border-top:1px solid #e2e8f0; padding-top:16px;">
+          <button type="button" id="btnResetSubjectRules" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; padding:9px 16px; border-radius:8px; font-weight:700; cursor:pointer; font-size:0.85rem;">🔄 Reset to Standard Rules</button>
+          <div style="display:flex; gap:10px;">
+            <button class="exam-btn exam-btn-secondary" onclick="document.getElementById('examSubjectRulesModal').remove()">Cancel</button>
+            <button id="btnSaveSubjectRules" class="exam-btn exam-btn-primary" style="padding:10px 24px; font-size:0.95rem;">💾 Save Subject Rules</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    function attachModalEvents() {
+      const clsDropdown = document.getElementById("rulesClassDropdown");
+      if (clsDropdown) {
+        clsDropdown.onchange = (e) => {
+          selectedClass = e.target.value;
+          document.getElementById("subjectRulesModalBody").innerHTML = renderModalBody();
+          attachModalEvents();
+        };
+      }
+
+      const addBtn = document.getElementById("btnAddSubjectToRulesBtn");
+      if (addBtn) {
+        addBtn.onclick = () => {
+          const inp = document.getElementById("newRuleSubjectInput");
+          const typeSel = document.getElementById("newRuleSubjectType");
+          const maxSel = document.getElementById("newRuleSubjectMax");
+          const subName = (inp?.value || '').trim();
+          if (!subName) return;
+
+          const listEl = document.getElementById("rulesSubjectsList");
+          const isMain = typeSel.value === "main";
+          const chosenMax = parseInt(maxSel?.value, 10) || 100;
+          const newRow = document.createElement("div");
+          newRow.className = "rules-subject-row";
+          newRow.setAttribute("data-subject", subName);
+          newRow.style.cssText = "display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; margin-bottom:8px; flex-wrap:wrap; gap:8px;";
+          newRow.innerHTML = `
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span style="font-weight:700; color:#0f172a; font-size:0.95rem;">${subName}</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <div style="display:flex; align-items:center; gap:5px; background:#ffffff; padding:4px 8px; border:1px solid #cbd5e1; border-radius:8px;">
+                <span style="font-size:0.75rem; font-weight:700; color:#64748b;">Max:</span>
+                <select class="rule-sub-max" style="border:none; background:transparent; font-size:0.8rem; font-weight:700; color:#0f172a; cursor:pointer;">
+                  <option value="100" ${chosenMax == 100 ? 'selected' : ''}>100 (Pass: 33)</option>
+                  <option value="50" ${chosenMax == 50 ? 'selected' : ''}>50 (Pass: 17)</option>
+                  <option value="80" ${chosenMax == 80 ? 'selected' : ''}>80 (Pass: 26)</option>
+                  <option value="40" ${chosenMax == 40 ? 'selected' : ''}>40 (Pass: 13)</option>
+                  <option value="25" ${chosenMax == 25 ? 'selected' : ''}>25 (Pass: 8)</option>
+                </select>
+              </div>
+              <div style="display:flex; gap:6px; background:#e2e8f0; padding:3px; border-radius:8px;">
+                <button type="button" class="rule-btn rule-btn-main ${isMain ? 'active' : ''}" onclick="window.setRuleSubjectType(this, 'main')" style="padding:6px 14px; border:none; border-radius:6px; font-weight:800; font-size:0.8rem; cursor:pointer; transition:all 0.2s; background:${isMain ? '#2563eb' : 'transparent'}; color:${isMain ? '#ffffff' : '#64748b'};">⭐ Main</button>
+                <button type="button" class="rule-btn rule-btn-additional ${!isMain ? 'active' : ''}" onclick="window.setRuleSubjectType(this, 'additional')" style="padding:6px 14px; border:none; border-radius:6px; font-weight:800; font-size:0.8rem; cursor:pointer; transition:all 0.2s; background:${!isMain ? '#d97706' : 'transparent'}; color:${!isMain ? '#ffffff' : '#64748b'};">➕ Additional</button>
+              </div>
+            </div>
+          `;
+          listEl.appendChild(newRow);
+          inp.value = "";
+        };
+      }
+
+      const saveBtn = document.getElementById("btnSaveSubjectRules");
+      if (saveBtn) {
+        saveBtn.onclick = async () => {
+          saveBtn.disabled = true;
+          saveBtn.textContent = "Saving Rules...";
+
+          try {
+            const rows = document.querySelectorAll("#rulesSubjectsList .rules-subject-row");
+            const mainArr = [];
+            const addlArr = [];
+            const maxMap = {};
+
+            rows.forEach(r => {
+              const sName = r.getAttribute("data-subject");
+              const isMain = r.querySelector(".rule-btn-main.active") !== null;
+              const maxVal = parseInt(r.querySelector(".rule-sub-max")?.value, 10) || 100;
+              maxMap[sName] = maxVal;
+              if (isMain) mainArr.push(sName);
+              else addlArr.push(sName);
+            });
+
+            if (selectedClass === "all") {
+              customRules.mainSubjects = mainArr;
+              customRules.additionalSubjects = addlArr;
+              customRules.maxMarks = maxMap;
+            } else {
+              const cNorm = normFunc(selectedClass).toLowerCase();
+              if (!customRules.classRules) customRules.classRules = {};
+              customRules.classRules[cNorm] = {
+                main: mainArr,
+                additional: addlArr,
+                maxMarks: maxMap
+              };
+            }
+
+            const payload = {
+              key: "exam_main_subjects_rules",
+              value: JSON.stringify(customRules),
+              category: "Academic",
+              updatedBy: (store.user && store.user.fullName) || "Web Portal"
+            };
+
+            const existingSetting = (store.settings || []).find(s => s.key === "exam_main_subjects_rules");
+            if (existingSetting && existingSetting.id) {
+              if (typeof api === 'function') {
+                await api(`/api/modules/settings/${existingSetting.id}`, { method: "PUT", body: JSON.stringify(payload) });
+              } else {
+                await fetch(`/api/modules/settings/${existingSetting.id}`, {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (localStorage.getItem("token") || "") },
+                  body: JSON.stringify(payload)
+                });
+              }
+              existingSetting.value = payload.value;
+            } else {
+              let res = null;
+              if (typeof api === 'function') {
+                res = await api("/api/modules/settings", { method: "POST", body: JSON.stringify(payload) });
+              } else {
+                const r = await fetch("/api/modules/settings", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (localStorage.getItem("token") || "") },
+                  body: JSON.stringify(payload)
+                });
+                res = await r.json();
+              }
+              if (!store.settings) store.settings = [];
+              store.settings.push({ id: res?.id || Date.now(), ...payload });
+            }
+
+            if (typeof showToast !== 'undefined') showToast("Subject rules saved successfully! Results now strictly decided by Main subjects.", "success");
+            document.getElementById("examSubjectRulesModal").remove();
+
+            if (typeof window.calcExamTotals === 'function') {
+              window.calcExamTotals();
+            }
+          } catch(err) {
+            console.error("Save subject rules error:", err);
+            alert("Error saving rules: " + (err.message || err));
+            saveBtn.disabled = false;
+            saveBtn.textContent = "💾 Save Subject Rules";
+          }
+        };
+      }
+
+      const resetBtn = document.getElementById("btnResetSubjectRules");
+      if (resetBtn) {
+        resetBtn.onclick = () => {
+          if (!confirm("Reset to default CBSE rules? (Maths, Science, Hindi, English, SST as Main; Computer, Sanskrit, Drawing, GK as Additional)")) return;
+          customRules = {
+            passingPercentage: 33,
+            mainSubjects: ['Hindi', 'English', 'Mathematics', 'Science', 'Social Science', 'EVS'],
+            additionalSubjects: ['Computer', 'Information Tech', 'Sanskrit', 'Urdu', 'Moral Science', 'Drawing', 'G.K', 'Physical Education'],
+            maxMarks: { 'Moral Science': 50, 'G.K': 50, 'Drawing': 50 },
+            classRules: {}
+          };
+          document.getElementById("subjectRulesModalBody").innerHTML = renderModalBody();
+          attachModalEvents();
+        };
+      }
+    }
+
+    attachModalEvents();
+  };
+
+  window.renderExamModule = function(options = {}) {
     const examPanel = document.getElementById("examPanel");
     if (!examPanel) return;
 
     examPanel.classList.remove("hidden");
     examPanel.style.display = "block";
 
+    const contentEl = document.getElementById("examPanelContent");
+    const hasExamCard = examPanel.querySelector(".exam-card");
+    const isPopulated = contentEl && contentEl.children.length > 0;
+
+    if (hasExamCard && isPopulated && !options.forceRebuild) {
+      updateExamTabs();
+      return;
+    }
+
     examPanel.innerHTML = `
       <div class="exam-card">
         <div class="exam-header">
           <h3>Exam Management</h3>
           <div class="exam-tabs">
-            <button id="examTabEntryBtn" class="exam-tab-btn active">Marks Entry</button>
-            <button id="examTabScheduleBtn" class="exam-tab-btn">Exam Schedule</button>
-            <button id="examTabAdmitBtn" class="exam-tab-btn">Admit Cards</button>
-            <button id="examTabResultBtn" class="exam-tab-btn">Results</button>
+            <button id="examTabEntryBtn" class="exam-tab-btn ${activeExamTab === 'entry' ? 'active' : ''}">Marks Entry</button>
+            <button id="examTabScheduleBtn" class="exam-tab-btn ${activeExamTab === 'schedule' ? 'active' : ''}">Exam Schedule</button>
+            <button id="examTabAdmitBtn" class="exam-tab-btn ${activeExamTab === 'admit' ? 'active' : ''}">Admit Cards</button>
+            <button id="examTabResultBtn" class="exam-tab-btn ${activeExamTab === 'result' ? 'active' : ''}">Results</button>
           </div>
         </div>
         <div id="examPanelContent"></div>
       </div>
     `;
 
-    document.getElementById("examTabEntryBtn").onclick = () => { activeExamTab = 'entry'; updateExamTabs(); renderExamContent(); };
-    document.getElementById("examTabScheduleBtn").onclick = () => { activeExamTab = 'schedule'; updateExamTabs(); renderExamContent(); };
-    document.getElementById("examTabAdmitBtn").onclick = () => { activeExamTab = 'admit'; updateExamTabs(); renderExamContent(); };
-    document.getElementById("examTabResultBtn").onclick = () => { activeExamTab = 'result'; updateExamTabs(); renderExamContent(); };
+    const entryBtn = document.getElementById("examTabEntryBtn");
+    const schedBtn = document.getElementById("examTabScheduleBtn");
+    const admitBtn = document.getElementById("examTabAdmitBtn");
+    const resultBtn = document.getElementById("examTabResultBtn");
+
+    if (entryBtn) entryBtn.onclick = () => { activeExamTab = 'entry'; updateExamTabs(); renderExamContent(); };
+    if (schedBtn) schedBtn.onclick = () => { activeExamTab = 'schedule'; updateExamTabs(); renderExamContent(); };
+    if (admitBtn) admitBtn.onclick = () => { activeExamTab = 'admit'; updateExamTabs(); renderExamContent(); };
+    if (resultBtn) resultBtn.onclick = () => { activeExamTab = 'result'; updateExamTabs(); renderExamContent(); };
 
     renderExamContent();
   };
@@ -174,13 +786,359 @@
   }
 
   // ==========================================
+  // ADMIN: DELETE EXAM MARKS (CLASS & SUBJECT WISE)
+  // ==========================================
+  window.openDeleteClassSubjectMarksModal = function(prefillClass, prefillExam) {
+    const isAllowed = (typeof userIsAdmin === 'function' && userIsAdmin()) || 
+                      (typeof currentUser !== 'undefined' && currentUser && String(currentUser.role).toLowerCase() === 'administrator') ||
+                      (typeof window !== 'undefined' && window.currentUser && String(window.currentUser.role).toLowerCase() === 'administrator');
+    if (!isAllowed) {
+      if (typeof showToast !== 'undefined') showToast("Only administrators can delete class and subject marks.", "error");
+      else alert("Only administrators can delete class and subject marks.");
+      return;
+    }
+
+    const store = typeof getStore !== 'undefined' ? getStore() : {};
+    const normFunc = typeof normalizeCanonicalClass === 'function' ? normalizeCanonicalClass : (x => (x || '').trim());
+
+    // Gather unique classes
+    const classList = Array.from(new Set([
+      'Nursery-A', 'LKG-A', 'UKG-A', 'I-A', 'II-A', 'III-A', 'IV-A', 'V-A', 'VI-A', 'VII-A', 'VIII-A', 'IX-A', 'X-A',
+      ...(store.classes || []).map(c => [c.className, c.section].filter(Boolean).join('-')),
+      ...(store.students || []).map(s => s.className).filter(Boolean)
+    ])).filter(Boolean);
+
+    // Gather unique exam names
+    const distinctExams = Array.from(new Set([
+      ...(store.exams || []).map(e => e.examName).filter(Boolean),
+      'Mid Term Exam', 'Half Yearly Examination', 'Half Yearly Examination 2026-27', 'Annual Exam', 'Pre-Board Exam'
+    ])).filter(Boolean);
+
+    let selClass = prefillClass || (document.getElementById("examEntryClassSelect")?.value) || classList[0] || 'I-A';
+    let selExam = prefillExam || (document.getElementById("examEntryName")?.value) || distinctExams[0] || 'Half Yearly Examination 2026-27';
+    let selSession = (document.getElementById("examEntrySession")?.value) || '2026-27';
+
+    const oldModal = document.getElementById("examDeleteClassSubjectMarksModal");
+    if (oldModal) oldModal.remove();
+
+    const overlay = document.createElement("div");
+    overlay.className = "exam-modal-overlay active";
+    overlay.id = "examDeleteClassSubjectMarksModal";
+
+    overlay.innerHTML = `
+      <div class="exam-modal" style="max-width: 650px; border-radius: 20px; border: 1.5px solid #fecaca; box-shadow: 0 25px 50px -12px rgba(220, 38, 38, 0.25);">
+        <div class="exam-modal-header" style="border-bottom: 2px solid #fee2e2; padding-bottom: 16px; margin-bottom: 20px;">
+          <div>
+            <div style="display:inline-flex; align-items:center; gap:6px; background:#fee2e2; color:#b91c1c; padding:3px 10px; border-radius:20px; font-size:0.75rem; font-weight:800; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.05em;">
+              <span class="material-symbols-outlined" style="font-size:16px;">admin_panel_settings</span>
+              Administrator Exclusive
+            </div>
+            <h2 style="color: #991b1b; font-size: 1.4rem; font-weight: 800; margin:0;">
+              Delete Marks (Class & Subject Wise)
+            </h2>
+            <span style="color:#64748b; font-size:0.85rem; font-weight:500;">
+              Permanently delete entered marks for a specific class and subject across all students.
+            </span>
+          </div>
+          <button type="button" class="exam-close-btn" id="closeDelMarksModalBtn" style="color:#dc2626;">&times;</button>
+        </div>
+
+        <div style="background:#fff1f2; border:1px solid #fecdd3; border-radius:12px; padding:14px 16px; margin-bottom:20px; display:flex; gap:12px; align-items:flex-start;">
+          <span class="material-symbols-outlined" style="color:#e11d48; font-size:24px; flex-shrink:0; margin-top:2px;">warning</span>
+          <div style="font-size:0.85rem; color:#881337; line-height:1.45;">
+            <strong>High-Impact Operation:</strong> This action will permanently erase subject mark records from both Web and Mobile databases for every student in the selected class and exam. Affected report card totals and percentages will be automatically recomputed.
+          </div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:16px;">
+          <!-- Class Select -->
+          <div class="exam-field">
+            <label style="color:#334155; font-size:0.8rem; font-weight:700;">1. Select Class</label>
+            <select id="delMarksClassSelect" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:10px 12px; font-weight:600;">
+              ${classList.map(c => `<option value="${c}" ${c === selClass ? 'selected' : ''}>${c}</option>`).join('')}
+            </select>
+          </div>
+
+          <!-- Exam Name Select -->
+          <div class="exam-field">
+            <label style="color:#334155; font-size:0.8rem; font-weight:700;">2. Select Exam Name</label>
+            <div style="display:flex; gap:8px;">
+              <select id="delMarksExamSelect" style="flex:1; border:1.5px solid #cbd5e1; border-radius:8px; padding:10px 12px; font-weight:600;">
+                ${distinctExams.map(e => `<option value="${e}" ${e === selExam ? 'selected' : ''}>${e}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+
+          <!-- Subject Select -->
+          <div class="exam-field">
+            <label style="color:#334155; font-size:0.8rem; font-weight:700;">3. Select Subject to Delete</label>
+            <select id="delMarksSubjectSelect" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:10px 12px; font-weight:700; color:#b91c1c;">
+              <option value="">Loading subjects...</option>
+            </select>
+          </div>
+
+          <!-- Live Record Count Preview -->
+          <div id="delMarksLivePreview" style="background:#f8fafc; border:1.5px dashed #cbd5e1; border-radius:10px; padding:14px 16px; text-align:center;">
+            <div style="display:flex; align-items:center; justify-content:center; gap:8px; color:#64748b; font-size:0.85rem; font-weight:600;">
+              <span class="material-symbols-outlined" style="font-size:18px;">hourglass_empty</span>
+              Checking marks recorded in database...
+            </div>
+          </div>
+
+          <!-- Confirmation Checkbox -->
+          <div style="margin-top:4px; padding:12px 14px; background:#fff; border:1px solid #e2e8f0; border-radius:10px;">
+            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:0.85rem; color:#334155; font-weight:600; margin:0;">
+              <input type="checkbox" id="delMarksConfirmCheckbox" style="width:18px; height:18px; accent-color:#dc2626; cursor:pointer;" />
+              <span>I confirm that I want to permanently delete all marks for this subject.</span>
+            </label>
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:25px; border-top:1px solid #e2e8f0; padding-top:18px;">
+          <button type="button" class="exam-btn exam-btn-secondary" id="cancelDelMarksBtn" style="padding:10px 20px;">
+            Cancel
+          </button>
+          <button type="button" class="exam-btn" id="executeDelMarksBtn" style="background:#dc2626; color:white; padding:10px 24px; font-weight:700; display:inline-flex; align-items:center; gap:8px; opacity:0.5; cursor:not-allowed;" disabled>
+            <span class="material-symbols-outlined" style="font-size:18px;">delete_forever</span>
+            Permanently Delete Marks
+          </button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    const classEl = overlay.querySelector("#delMarksClassSelect");
+    const examEl = overlay.querySelector("#delMarksExamSelect");
+    const subjectEl = overlay.querySelector("#delMarksSubjectSelect");
+    const previewEl = overlay.querySelector("#delMarksLivePreview");
+    const checkEl = overlay.querySelector("#delMarksConfirmCheckbox");
+    const delBtn = overlay.querySelector("#executeDelMarksBtn");
+    const closeBtn = overlay.querySelector("#closeDelMarksModalBtn");
+    const cancelBtn = overlay.querySelector("#cancelDelMarksBtn");
+
+    const closeModal = () => { overlay.remove(); };
+    closeBtn.onclick = closeModal;
+    cancelBtn.onclick = closeModal;
+    overlay.onclick = (e) => { if (e.target === overlay) closeModal(); };
+
+    function updateSubjectsDropdown() {
+      const cls = classEl.value;
+      const ex = examEl.value;
+      
+      const classSubjects = getSubjectsForClass(cls);
+
+      const enteredSubs = new Set();
+      (store.exams || []).forEach(e => {
+        if ((normFunc(e.className || '')).toLowerCase() === (normFunc(cls || '')).toLowerCase() &&
+            (e.examName || '').trim().toLowerCase() === (ex || '').trim().toLowerCase()) {
+          try {
+            const list = typeof e.subjectMarks === 'string' ? JSON.parse(e.subjectMarks) : e.subjectMarks;
+            if (Array.isArray(list)) {
+              list.forEach(s => { if (s && s.subject) enteredSubs.add(s.subject.trim()); });
+            }
+          } catch(err) {}
+        }
+      });
+
+      const extraParts = isClass9or10(cls) ? ['Geography', 'Economics', 'Civics', 'History', 'Social Science'] : [];
+      const combined = Array.from(new Set([...classSubjects, ...enteredSubs, ...extraParts])).filter(Boolean);
+      combined.sort((a,b) => a.localeCompare(b));
+
+      subjectEl.innerHTML = combined.map(s => {
+        const hasMarks = enteredSubs.has(s);
+        return `<option value="${s}">${s}${hasMarks ? ' (Has Entered Marks)' : ''}</option>`;
+      }).join('');
+
+      fetchMarksCount();
+    }
+
+    let countAbortCtrl = null;
+    async function fetchMarksCount() {
+      const cls = classEl.value;
+      const ex = examEl.value;
+      const sub = subjectEl.value;
+
+      if (!cls || !ex || !sub) {
+        previewEl.innerHTML = `<span style="color:#64748b; font-size:0.85rem;">Select a class, exam, and subject.</span>`;
+        updateBtnState();
+        return;
+      }
+
+      previewEl.innerHTML = `
+        <div style="display:flex; align-items:center; justify-content:center; gap:8px; color:#64748b; font-size:0.85rem;">
+          <span class="material-symbols-outlined" style="font-size:18px;">hourglass_empty</span>
+          Checking database for <strong>${sub}</strong> in <strong>${cls}</strong>...
+        </div>
+      `;
+
+      try {
+        if (countAbortCtrl) countAbortCtrl.abort();
+        countAbortCtrl = new AbortController();
+
+        const token = localStorage.getItem('token') || '';
+        const url = `/api/exams/count-subject-marks?className=${encodeURIComponent(cls)}&examName=${encodeURIComponent(ex)}&subject=${encodeURIComponent(sub)}`;
+        
+        let count = 0;
+        if (typeof api === 'function') {
+          const res = await api(url, { signal: countAbortCtrl.signal });
+          count = res?.count || 0;
+        } else {
+          const res = await fetch(url, {
+            headers: { 'Authorization': 'Bearer ' + token },
+            signal: countAbortCtrl.signal
+          });
+          const data = await res.json();
+          count = data?.count || 0;
+        }
+
+        if (count > 0) {
+          previewEl.innerHTML = `
+            <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:10px 14px; color:#b91c1c;">
+              <div style="font-weight:700; font-size:0.95rem; display:flex; align-items:center; justify-content:center; gap:6px;">
+                <span class="material-symbols-outlined" style="font-size:20px;">delete</span>
+                Found ${count} student mark records for "${sub}"
+              </div>
+              <div style="font-size:0.8rem; color:#991b1b; margin-top:3px;">
+                Class: <strong>${cls}</strong> &bull; Exam: <strong>${ex}</strong>
+              </div>
+            </div>
+          `;
+        } else {
+          previewEl.innerHTML = `
+            <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:10px 14px; color:#15803d;">
+              <div style="font-weight:600; font-size:0.85rem; display:flex; align-items:center; justify-content:center; gap:6px;">
+                <span class="material-symbols-outlined" style="font-size:18px;">check_circle</span>
+                0 records found in app_exam_marks (Subject may already be clear or in exams table only)
+              </div>
+            </div>
+          `;
+        }
+      } catch (err) {
+        if (err.name === 'AbortError') return;
+        previewEl.innerHTML = `<span style="color:#64748b; font-size:0.85rem;">Ready to delete ${sub} for ${cls}.</span>`;
+      }
+
+      updateBtnState();
+    }
+
+    function updateBtnState() {
+      const isReady = checkEl.checked && subjectEl.value;
+      delBtn.disabled = !isReady;
+      delBtn.style.opacity = isReady ? '1' : '0.5';
+      delBtn.style.cursor = isReady ? 'pointer' : 'not-allowed';
+    }
+
+    classEl.onchange = () => { updateSubjectsDropdown(); };
+    examEl.onchange = () => { updateSubjectsDropdown(); };
+    subjectEl.onchange = () => { fetchMarksCount(); };
+    checkEl.onchange = () => { updateBtnState(); };
+
+    updateSubjectsDropdown();
+
+    delBtn.onclick = async () => {
+      const cls = classEl.value;
+      const ex = examEl.value;
+      const sub = subjectEl.value;
+      const sessionVal = (document.getElementById("examEntrySession")?.value) || '2026-27';
+
+      if (!cls || !ex || !sub) return;
+
+      const confirmMsg = `⚠️ CRITICAL CONFIRMATION ⚠️\n\nAre you ABSOLUTELY sure you want to permanently delete all marks for:\n\n• Subject: ${sub}\n• Class: ${cls}\n• Exam: ${ex}\n\nThis will remove marks for ALL students in this class and update their report card totals. This cannot be undone!`;
+      if (!confirm(confirmMsg)) return;
+
+      delBtn.disabled = true;
+      delBtn.innerHTML = `
+        <span class="material-symbols-outlined" style="font-size:18px;">hourglass_empty</span>
+        Deleting Marks from Database...
+      `;
+
+      try {
+        const payload = { className: cls, examName: ex, subject: sub, session: sessionVal };
+        const token = localStorage.getItem('token') || '';
+        let resData = null;
+
+        if (typeof api === 'function') {
+          resData = await api('/api/exams/delete-subject-marks', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+          });
+        } else {
+          const resp = await fetch('/api/exams/delete-subject-marks', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify(payload)
+          });
+          resData = await resp.json();
+          if (!resp.ok) throw new Error(resData.error || 'Deletion failed');
+        }
+
+        if (typeof showToast !== 'undefined') {
+          showToast(`Marks for ${sub} in Class ${cls} deleted successfully!`, "success");
+        } else {
+          alert(`Marks for ${sub} in Class ${cls} deleted successfully!`);
+        }
+
+        closeModal();
+
+        if (typeof loadStore === 'function') {
+          await loadStore();
+        }
+
+        const currentSelectedClass = document.getElementById("examEntryClassSelect")?.value;
+        const currentExamName = document.getElementById("examEntryName")?.value;
+        if (currentSelectedClass === cls && currentExamName === ex) {
+          loadStudentsForMarksEntry(cls, ex, sessionVal);
+        } else {
+          loadPreviousExams(document.getElementById("examEntryTableContainer"));
+        }
+      } catch (err) {
+        console.error("Delete marks error:", err);
+        alert("Failed to delete marks: " + (err.message || "Network error"));
+        delBtn.disabled = false;
+        delBtn.innerHTML = `
+          <span class="material-symbols-outlined" style="font-size:18px;">delete_forever</span>
+          Permanently Delete Marks
+        `;
+      }
+    };
+  };
+
+  // ==========================================
   // TAB 1: MARKS ENTRY
   // ==========================================
   function renderMarksEntry(container) {
+    const isAllowedAdmin = (typeof userIsAdmin === 'function' && userIsAdmin()) || 
+                           (typeof currentUser !== 'undefined' && currentUser && String(currentUser.role).toLowerCase() === 'administrator') ||
+                           (typeof window !== 'undefined' && window.currentUser && String(window.currentUser.role).toLowerCase() === 'administrator');
+
+    const adminDeleteButtonHtml = isAllowedAdmin ? `
+      <button type="button" class="exam-btn" onclick="window.openDeleteClassSubjectMarksModal()" style="padding: 9px 16px; font-size: 0.85rem; display:inline-flex; align-items:center; gap:6px; cursor:pointer; background:#fef2f2; color:#dc2626; border:1.5px solid #fecaca; font-weight:700;" title="Delete all marks for a specific class and subject (Admin Only)">
+        <span class="material-symbols-outlined" style="font-size:18px;">delete_sweep</span>
+        Delete Marks (Class & Subject Wise)
+      </button>
+    ` : '';
+
     container.innerHTML = `
-      <div style="margin-bottom: 25px;">
-        <h4 style="margin:0 0 5px 0; color: inherit; font-size:1.2rem;">Enter Student Marks</h4>
-        <p style="margin:0; color: inherit; font-size:0.9rem;">Record subject-wise marks for examinations.</p>
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 25px; flex-wrap: wrap; gap: 12px;">
+        <div>
+          <h4 style="margin:0 0 5px 0; color: inherit; font-size:1.2rem;">Enter Student Marks</h4>
+          <p style="margin:0; color: inherit; font-size:0.9rem;">Record subject-wise marks for examinations.</p>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          ${adminDeleteButtonHtml}
+          <button type="button" class="exam-btn" onclick="window.openSubjectRulesModal()" style="padding: 9px 16px; font-size: 0.85rem; display:inline-flex; align-items:center; gap:6px; cursor:pointer; background:#eff6ff; color:#2563eb; border:1.5px solid #bfdbfe; font-weight:700;" title="Configure Subject Max Marks (100 or 50) and select which subjects decide Pass/Fail">
+            <span class="material-symbols-outlined" style="font-size:18px;">tune</span>
+            Configure Subject Rules & Max Marks (100 / 50)
+          </button>
+          <button type="button" class="exam-btn exam-btn-secondary" onclick="if(window.navigateToModule){window.navigateToModule('subjects');}else{location.hash='#subjects';}" style="padding: 9px 16px; font-size: 0.85rem; display:inline-flex; align-items:center; gap:6px; cursor:pointer;" title="View, edit, or delete class subjects">
+            <span class="material-symbols-outlined" style="font-size:18px;">menu_book</span>
+            Manage Subjects (Edit / Delete)
+          </button>
+        </div>
       </div>
       <div class="exam-form-grid" style="margin-bottom: 30px;">
         <div class="exam-field">
@@ -265,6 +1223,10 @@
             <tbody>
     `;
 
+    const isAllowedAdmin = (typeof userIsAdmin === 'function' && userIsAdmin()) || 
+                           (typeof currentUser !== 'undefined' && currentUser && String(currentUser.role).toLowerCase() === 'administrator') ||
+                           (typeof window !== 'undefined' && window.currentUser && String(window.currentUser.role).toLowerCase() === 'administrator');
+
     groups.forEach((g) => {
         const idsJson = JSON.stringify(g.ids).replace(/"/g, '&quot;');
         html += `
@@ -275,7 +1237,8 @@
                 <td style="padding: 12px 15px;"><span style="background:#e0f2fe; color:#0369a1; padding:3px 8px; border-radius:12px; font-size:0.8rem; font-weight:bold;">${g.count} Students</span></td>
                 <td style="padding: 12px 15px; text-align:right;">
                     <button class="exam-btn exam-btn-secondary" style="padding: 6px 12px; font-size: 0.8rem; margin-right: 5px;" onclick="window.loadPreviousExamStudents('${g.className}', '${g.examName}', '${g.session}')">Edit Marks</button>
-                    <button class="exam-btn" style="padding: 6px 12px; background: #ef4444; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem;" onclick="window.deleteEntireExam(this)" data-ids="${idsJson}">Delete</button>
+                    ${isAllowedAdmin ? `<button class="exam-btn" style="padding: 6px 10px; background: #fff1f2; color: #dc2626; border: 1px solid #fecaca; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight:600; margin-right: 5px;" onclick="window.openDeleteClassSubjectMarksModal('${g.className}', '${g.examName}')" title="Delete a specific subject marks for this class (Admin Only)">Delete Subject</button>` : ''}
+                    ${isAllowedAdmin ? `<button class="exam-btn" style="padding: 6px 12px; background: #ef4444; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem;" onclick="window.deleteEntireExam(this)" data-ids="${idsJson}">Delete All</button>` : ''}
                 </td>
             </tr>
         `;
@@ -303,25 +1266,34 @@
       if (!confirm("Are you sure you want to delete ALL marks for this exam? This cannot be undone.")) return;
       const idsStr = btn.getAttribute("data-ids");
       const ids = JSON.parse(idsStr);
-      const baseUrl = typeof getApiBaseUrl === 'function' ? getApiBaseUrl() : 'http://localhost:3000';
       
       btn.textContent = "Deleting...";
       btn.disabled = true;
 
       try {
           for (const id of ids) {
-              await fetch(baseUrl + '/api/modules/exams/' + id, { method: 'DELETE' });
+              if (typeof api === 'function') {
+                  await api('/api/modules/exams/' + id, { method: 'DELETE' });
+              } else {
+                  await fetch('/api/modules/exams/' + id, { 
+                      method: 'DELETE',
+                      headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': 'Bearer ' + (localStorage.getItem('token') || '')
+                      }
+                  });
+              }
           }
           
-          const dbResp = await fetch('http://localhost:3000/api/db');
-          const dbData = await dbResp.json();
-          localStorage.setItem('tps_db', JSON.stringify(dbData));
+          if (typeof loadStore === 'function') {
+              await loadStore();
+          }
           
-          if (typeof showToast !== 'undefined') showToast("Entire exam deleted", "info");
+          if (typeof showToast !== 'undefined') showToast("Entire exam deleted successfully", "info");
           loadPreviousExams(document.getElementById("examEntryTableContainer"));
       } catch (e) {
-          console.error(e);
-          alert("Error deleting exam");
+          console.error("Error deleting exam:", e);
+          alert("Error deleting exam: " + (e.message || "Network error"));
           btn.textContent = "Delete";
           btn.disabled = false;
       }
@@ -330,7 +1302,8 @@
   function loadStudentsForMarksEntry(className, examName, session) {
     const container = document.getElementById("examEntryTableContainer");
     const store = typeof getStore !== 'undefined' ? getStore() : {};
-    const students = (store.students || []).filter(s => s.className === className && s.status !== "Left");
+    const normFunc = typeof normalizeCanonicalClass === 'function' ? normalizeCanonicalClass : (x => x);
+    const students = (store.students || []).filter(s => (normFunc(s.className) === normFunc(className) || s.className === className) && s.status !== "Left");
     
     if(students.length === 0) {
       container.innerHTML = `
@@ -345,7 +1318,24 @@
     // Sort students by roll no
     students.sort((a,b) => parseInt(a.rollNo||0) - parseInt(b.rollNo||0));
 
+    const isAllowedAdmin = (typeof userIsAdmin === 'function' && userIsAdmin()) || 
+                           (typeof currentUser !== 'undefined' && currentUser && String(currentUser.role).toLowerCase() === 'administrator') ||
+                           (typeof window !== 'undefined' && window.currentUser && String(window.currentUser.role).toLowerCase() === 'administrator');
+
     let html = `
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px 18px; flex-wrap:wrap; gap:10px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span class="material-symbols-outlined" style="color:#2563eb; font-size:22px;">assignment</span>
+          <span style="font-weight:700; font-size:0.95rem; color:#1e293b;">${className} &bull; ${examName} (${session || '2026-27'})</span>
+          <span style="background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:12px; font-size:0.75rem; font-weight:700;">${students.length} Students</span>
+        </div>
+        ${isAllowedAdmin ? `
+          <button type="button" class="exam-btn" onclick="window.openDeleteClassSubjectMarksModal('${className}', '${examName}')" style="padding: 7px 14px; font-size: 0.8rem; display:inline-flex; align-items:center; gap:5px; cursor:pointer; background:#fef2f2; color:#dc2626; border:1px solid #fecaca; font-weight:700; border-radius:8px;" title="Delete all marks for a subject in ${className} (Admin Only)">
+            <span class="material-symbols-outlined" style="font-size:16px;">delete_sweep</span>
+            Delete Subject Marks
+          </button>
+        ` : ''}
+      </div>
       <table class="exam-data-table">
         <thead>
           <tr>
@@ -359,8 +1349,28 @@
     `;
 
     students.forEach(s => {
-      // Check if marks already entered
-      const existingExam = (store.exams || []).find(e => e.studentName === s.fullName && e.className === className && e.examName === examName && e.session === session);
+      const normFunc = typeof normalizeCanonicalClass === 'function' ? normalizeCanonicalClass : (x => (x || '').trim());
+      const existingExam = (store.exams || []).find(e => {
+        const matchClass = (normFunc(e.className || '')).toLowerCase() === (normFunc(className || '')).toLowerCase();
+        const matchExam = (e.examName || '').trim().toLowerCase() === (examName || '').trim().toLowerCase();
+        const matchSession = !session || (e.session || '').trim().toLowerCase() === (session || '').trim().toLowerCase();
+        
+        if (!matchClass || !matchExam || !matchSession) return false;
+
+        const nameA = (e.studentName || '').trim().toLowerCase();
+        const nameB = (s.fullName || '').trim().toLowerCase();
+        const matchName = nameA && nameB && nameA === nameB;
+
+        const rollA = String(e.rollNo || '').trim().replace(/^0+/, '');
+        const rollB = String(s.rollNo || '').trim().replace(/^0+/, '');
+        const matchRoll = rollA && rollB && rollA === rollB;
+
+        const admA = (e.admissionNo || '').trim().toLowerCase();
+        const admB = (s.admissionNo || '').trim().toLowerCase();
+        const matchAdm = admA && admB && admA === admB;
+
+        return matchName || matchAdm || matchRoll;
+      });
       const isEntered = !!existingExam;
       const statusHtml = isEntered ? '<span class="status-badge status-entered">Entered</span>' : '<span class="status-badge status-pending">Pending</span>';
       const btnText = isEntered ? 'Edit Marks' : 'Enter Marks';
@@ -391,41 +1401,128 @@
 
   window.deleteMarksEntry = async function(id, className, examName, session) {
     if (!confirm("Are you sure you want to delete this marks entry?")) return;
-    const baseUrl = typeof getApiBaseUrl === 'function' ? getApiBaseUrl() : 'http://localhost:3000';
     try {
-        const resp = await fetch(baseUrl + '/api/modules/exams/' + id, { method: 'DELETE' });
-        if (resp.ok) {
-            const dbResp = await fetch('http://localhost:3000/api/db');
-            const dbData = await dbResp.json();
-            localStorage.setItem('tps_db', JSON.stringify(dbData));
-            if (typeof showToast !== 'undefined') showToast("Marks entry deleted", "info");
-            loadStudentsForMarksEntry(className, examName, session);
+        if (typeof api === 'function') {
+            await api('/api/modules/exams/' + id, { method: 'DELETE' });
         } else {
-            alert("Failed to delete marks entry");
+            await fetch('/api/modules/exams/' + id, { 
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + (localStorage.getItem('token') || '')
+                }
+            });
         }
+        if (typeof loadStore === 'function') {
+            await loadStore();
+        }
+        if (typeof showToast !== 'undefined') showToast("Marks entry deleted", "info");
+        loadStudentsForMarksEntry(className, examName, session);
     } catch (e) {
-        console.error(e);
-        alert("Error deleting marks entry");
+        console.error("Error deleting marks entry:", e);
+        alert("Error deleting marks entry: " + (e.message || "Network error"));
     }
   };
+
+  window.calcSSTTheoryRow = function() {};
 
   window.openMarksModal = function(studentId, examName, session, className) {
     const store = typeof getStore !== 'undefined' ? getStore() : {};
     const student = (store.students || []).find(s => String(s.id) === String(studentId));
     if(!student) return;
 
-    let existingExam = (store.exams || []).find(e => e.studentName === student.fullName && e.className === className && e.examName === examName && e.session === session);
+    const isHalfYearly = /half|mid|term-1|term 1|pa1/i.test(examName);
+    const isAnnual = !isHalfYearly && /annual|term-2|term 2|\byearly\b|final|session ending|pa2/i.test(examName);
+    const isCBSE = isHalfYearly || isAnnual;
+    const paLabel = isAnnual ? 'PA2 (10)' : 'PA1 (10)';
+    const examLabel = isAnnual ? 'Annual Exam (80)' : 'Half Yearly (80)';
+
+    const normFunc = typeof normalizeCanonicalClass === 'function' ? normalizeCanonicalClass : (x => (x || '').trim());
+    let existingExam = (store.exams || []).find(e => {
+      const matchClass = (normFunc(e.className || '')).toLowerCase() === (normFunc(className || '')).toLowerCase();
+      const matchExam = (e.examName || '').trim().toLowerCase() === (examName || '').trim().toLowerCase();
+      const matchSession = !session || (e.session || '').trim().toLowerCase() === (session || '').trim().toLowerCase();
+      
+      if (!matchClass || !matchExam || !matchSession) return false;
+
+      const nameA = (e.studentName || '').trim().toLowerCase();
+      const nameB = (student.fullName || '').trim().toLowerCase();
+      const matchName = nameA && nameB && nameA === nameB;
+
+      const rollA = String(e.rollNo || '').trim().replace(/^0+/, '');
+      const rollB = String(student.rollNo || '').trim().replace(/^0+/, '');
+      const matchRoll = rollA && rollB && rollA === rollB;
+
+      const admA = (e.admissionNo || '').trim().toLowerCase();
+      const admB = (student.admissionNo || '').trim().toLowerCase();
+      const matchAdm = admA && admB && admA === admB;
+
+      return matchName || matchAdm || matchRoll;
+    });
     
-    let subjectData = [];
+    let existingSubjects = [];
     if (existingExam && existingExam.subjectMarks) {
       try {
-        subjectData = JSON.parse(existingExam.subjectMarks);
-      } catch(e) { console.error("Parse error", e); }
-    } else {
-      // Initialize with default subjects
-      const defaults = getSubjectsForClass(className);
-      subjectData = defaults.map(sub => ({ subject: sub, max: 100, min: 33, theory: '', practical: '', total: 0 }));
+        existingSubjects = typeof existingExam.subjectMarks === 'string'
+          ? JSON.parse(existingExam.subjectMarks)
+          : existingExam.subjectMarks;
+        if (!Array.isArray(existingSubjects)) existingSubjects = [];
+      } catch(e) {
+        console.error("Parse error", e);
+        existingSubjects = [];
+      }
     }
+
+    const defaults = getSubjectsForClass(className);
+    const allSubjectNames = [];
+    defaults.forEach(sub => {
+      if (sub && !allSubjectNames.some(n => n.trim().toLowerCase() === sub.trim().toLowerCase())) {
+        allSubjectNames.push(sub.trim());
+      }
+    });
+    existingSubjects.forEach(s => {
+      if (s && s.subject && !allSubjectNames.some(n => n.trim().toLowerCase() === s.subject.trim().toLowerCase())) {
+        allSubjectNames.push(s.subject.trim());
+      }
+    });
+
+    let subjectData = allSubjectNames.map(subName => {
+      const found = existingSubjects.find(s => s && s.subject && s.subject.trim().toLowerCase() === subName.trim().toLowerCase());
+      const isMain = isSubjectMain(subName, className, found);
+      const defMaxMin = getDefaultMaxMarksForSubject(subName, className);
+      if (found) {
+        const foundMax = found.max !== undefined && found.max !== '' ? parseFloat(found.max) : defMaxMin.max;
+        const foundMin = found.min !== undefined && found.min !== '' ? parseFloat(found.min) : defMaxMin.min;
+        return {
+          subject: found.subject || subName,
+          isMain: isMain,
+          max: foundMax,
+          min: foundMin,
+          pa1: found.pa1 !== undefined && found.pa1 !== '' ? found.pa1 : (found.pa2 !== undefined && found.pa2 !== '' ? found.pa2 : ''),
+          pa2: found.pa2 !== undefined && found.pa2 !== '' ? found.pa2 : (found.pa1 !== undefined && found.pa1 !== '' ? found.pa1 : ''),
+          notebook: found.notebook !== undefined && found.notebook !== '' ? found.notebook : '',
+          enrichment: found.enrichment !== undefined && found.enrichment !== '' ? found.enrichment : '',
+          theory: found.theory !== undefined && found.theory !== '' ? found.theory : (found.subjective !== undefined && found.subjective !== '' ? found.subjective : ''),
+          practical: found.practical !== undefined ? found.practical : '',
+          total: found.total !== undefined ? found.total : 0,
+          components: found.components || null
+        };
+      }
+      return {
+        subject: subName,
+        isMain: isMain,
+        max: defMaxMin.max,
+        min: defMaxMin.min,
+        pa1: '',
+        pa2: '',
+        notebook: '',
+        enrichment: '',
+        theory: '',
+        practical: '',
+        total: 0,
+        components: null
+      };
+    });
 
     const overlay = document.createElement("div");
     overlay.className = "exam-modal-overlay active";
@@ -433,56 +1530,142 @@
 
     let rowsHtml = '';
     subjectData.forEach((sd, idx) => {
-      rowsHtml += `
-        <div class="marks-subject-row" data-idx="${idx}">
-          <input type="text" class="sub-name" value="${sd.subject}" placeholder="Subject Name" />
-          <input type="number" class="sub-max" value="${sd.max !== undefined ? sd.max : 100}" placeholder="100" min="1" />
-          <input type="number" class="sub-min" value="${sd.min !== undefined ? sd.min : 33}" placeholder="33" min="0" />
-          <input type="number" class="sub-th" value="${sd.theory}" placeholder="0" min="0" />
-          <input type="number" class="sub-pr" value="${sd.practical}" placeholder="0" min="0" />
-          <div class="total-cell" id="sub-tot-${idx}">${sd.total || 0}</div>
-          <button class="del-row-btn" onclick="this.parentElement.remove(); window.calcExamTotals();">×</button>
-        </div>
-      `;
+      const paVal = isAnnual ? (sd.pa2 !== undefined && sd.pa2 !== '' ? sd.pa2 : (sd.pa1 || '')) : (sd.pa1 !== undefined && sd.pa1 !== '' ? sd.pa1 : '');
+      const nbVal = sd.notebook !== undefined ? sd.notebook : '';
+      const enrVal = sd.enrichment !== undefined ? sd.enrichment : '';
+      const thVal = sd.theory !== undefined ? sd.theory : (sd.subjective || '');
+
+      const maxVal = sd.max !== undefined && parseFloat(sd.max) > 0 ? parseFloat(sd.max) : 100;
+      const minVal = sd.min !== undefined && parseFloat(sd.min) > 0 ? parseFloat(sd.min) : Math.round(maxVal * 0.33);
+      const thMax = maxVal <= 50 ? maxVal : 80;
+      const thPlaceholder = maxVal <= 50 ? `0-${maxVal}` : "0-80";
+
+      if (isCBSE) {
+        rowsHtml += `
+          <div class="marks-subject-row cbse-mode" data-idx="${idx}">
+            <input type="text" class="sub-name" value="${sd.subject}" placeholder="Subject Name" />
+            <button type="button" class="sub-role-toggle ${sd.isMain ? 'role-main' : 'role-additional'}" data-is-main="${sd.isMain ? '1' : '0'}" onclick="window.toggleSubjectRoleInRow(this)" title="${sd.isMain ? 'Main Subject: Marks strictly decide Pass or Fail' : 'Additional Subject: Never fails student'}">${sd.isMain ? '⭐ Main' : '➕ Addl'}</button>
+            <div class="sub-max-box" style="display:flex; flex-direction:column; align-items:center; gap:2px;">
+              <input type="number" class="sub-max" value="${maxVal}" placeholder="${maxVal}" min="1" oninput="window.handleRowMaxChange(this)" style="padding:6px 2px; text-align:center; font-weight:800; font-size:0.9rem;" />
+              <div style="display:flex; gap:2px;">
+                <button type="button" class="preset-btn ${maxVal == 100 ? 'active' : ''}" onclick="window.setRowMax(this, 100)" style="font-size:9px; padding:1px 4px; border-radius:3px; border:1px solid #cbd5e1; background:${maxVal == 100 ? '#2563eb' : '#ffffff'}; color:${maxVal == 100 ? '#ffffff' : '#475569'}; font-weight:800; cursor:pointer;" title="Set 100 Max">100</button>
+                <button type="button" class="preset-btn ${maxVal == 50 ? 'active' : ''}" onclick="window.setRowMax(this, 50)" style="font-size:9px; padding:1px 4px; border-radius:3px; border:1px solid #cbd5e1; background:${maxVal == 50 ? '#16a34a' : '#ffffff'}; color:${maxVal == 50 ? '#ffffff' : '#475569'}; font-weight:800; cursor:pointer;" title="Set 50 Max">50</button>
+              </div>
+            </div>
+            <input type="number" class="sub-min" value="${minVal}" placeholder="${minVal}" min="0" />
+            <input type="number" class="sub-pa" value="${paVal}" placeholder="0-10" min="0" max="10" />
+            <input type="number" class="sub-nb" value="${nbVal}" placeholder="0-5" min="0" max="5" />
+            <input type="number" class="sub-enr" value="${enrVal}" placeholder="0-5" min="0" max="5" />
+            <input type="number" class="sub-th" value="${thVal}" placeholder="${thPlaceholder}" min="0" max="${thMax}" />
+            <div class="total-cell" id="sub-tot-${idx}">${sd.total || 0}</div>
+            <button class="del-row-btn" onclick="this.parentElement.remove(); window.calcExamTotals();">×</button>
+          </div>
+        `;
+      } else {
+        const standardMax = sd.max !== undefined && parseFloat(sd.max) > 0 ? parseFloat(sd.max) : 100;
+        const standardMin = sd.min !== undefined && parseFloat(sd.min) > 0 ? parseFloat(sd.min) : Math.round(standardMax * 0.33);
+        rowsHtml += `
+          <div class="marks-subject-row" data-idx="${idx}">
+            <input type="text" class="sub-name" value="${sd.subject}" placeholder="Subject Name" />
+            <button type="button" class="sub-role-toggle ${sd.isMain ? 'role-main' : 'role-additional'}" data-is-main="${sd.isMain ? '1' : '0'}" onclick="window.toggleSubjectRoleInRow(this)" title="${sd.isMain ? 'Main Subject: Marks strictly decide Pass or Fail' : 'Additional Subject: Never fails student'}">${sd.isMain ? '⭐ Main' : '➕ Addl'}</button>
+            <div class="sub-max-box" style="display:flex; flex-direction:column; align-items:center; gap:2px;">
+              <input type="number" class="sub-max" value="${standardMax}" placeholder="${standardMax}" min="1" oninput="window.handleRowMaxChange(this)" style="padding:6px 2px; text-align:center; font-weight:800; font-size:0.9rem;" />
+              <div style="display:flex; gap:2px;">
+                <button type="button" class="preset-btn ${standardMax == 100 ? 'active' : ''}" onclick="window.setRowMax(this, 100)" style="font-size:9px; padding:1px 4px; border-radius:3px; border:1px solid #cbd5e1; background:${standardMax == 100 ? '#2563eb' : '#ffffff'}; color:${standardMax == 100 ? '#ffffff' : '#475569'}; font-weight:800; cursor:pointer;" title="Set 100 Max">100</button>
+                <button type="button" class="preset-btn ${standardMax == 50 ? 'active' : ''}" onclick="window.setRowMax(this, 50)" style="font-size:9px; padding:1px 4px; border-radius:3px; border:1px solid #cbd5e1; background:${standardMax == 50 ? '#16a34a' : '#ffffff'}; color:${standardMax == 50 ? '#ffffff' : '#475569'}; font-weight:800; cursor:pointer;" title="Set 50 Max">50</button>
+              </div>
+            </div>
+            <input type="number" class="sub-min" value="${standardMin}" placeholder="${standardMin}" min="0" />
+            <input type="number" class="sub-th" value="${sd.theory}" placeholder="0" min="0" />
+            <input type="number" class="sub-pr" value="${sd.practical}" placeholder="0" min="0" />
+            <div class="total-cell" id="sub-tot-${idx}">${sd.total || 0}</div>
+            <button class="del-row-btn" onclick="this.parentElement.remove(); window.calcExamTotals();">×</button>
+          </div>
+        `;
+      }
     });
 
+    const headerHtml = isCBSE ? `
+      <div class="marks-subject-header cbse-mode">
+        <div>Subject Name</div>
+        <div style="text-align:center;">Role</div>
+        <div>Max</div>
+        <div>Min</div>
+        <div>${paLabel}</div>
+        <div>Notebook (5)</div>
+        <div>Subject Enrichment (5)</div>
+        <div>${examLabel}</div>
+        <div style="text-align:center;">Total</div>
+        <div></div>
+      </div>
+    ` : `
+      <div class="marks-subject-header">
+        <div>Subject Name</div>
+        <div style="text-align:center;">Role</div>
+        <div>Max</div>
+        <div>Min</div>
+        <div>Theory</div>
+        <div>Prac/Int</div>
+        <div style="text-align:center;">Total</div>
+        <div></div>
+      </div>
+    `;
+
     overlay.innerHTML = `
-      <div class="exam-modal">
+      <div class="exam-modal" style="max-width: ${isCBSE ? '1020px' : '900px'};">
         <div class="exam-modal-header">
-          <h2>${student.fullName} <span>Class: ${className} | Roll: ${student.rollNo} | Exam: ${examName}</span></h2>
+          <h2>${student.fullName} <span>Class: ${className} | Roll: ${student.rollNo} | Exam: ${examName} ${isCBSE ? '• (CBSE ' + (isAnnual ? 'Term-2' : 'Term-1') + ' Format)' : ''}</span></h2>
           <button class="exam-close-btn" onclick="document.getElementById('examMarksModal').remove()">×</button>
         </div>
         
-        <div class="marks-subject-header">
-          <div>Subject Name</div>
-          <div>Max</div>
-          <div>Min</div>
-          <div>Theory</div>
-          <div>Prac/Int</div>
-          <div style="text-align:center;">Total</div>
-          <div></div>
+        <div style="display:flex; justify-content:space-between; align-items:center; background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:8px 14px; margin-bottom:14px; font-size:0.8rem; color:#1e40af;">
+          <div>
+            <span style="font-weight:800;">⚡ Pass/Fail Rule:</span> Only <strong>⭐ Main Subjects</strong> decide Pass or Fail. <strong>➕ Additional Subjects</strong> never fail a student!
+          </div>
+          <button type="button" onclick="window.openSubjectRulesModal('${className}')" style="background:#2563eb; color:#ffffff; border:none; border-radius:6px; padding:4px 10px; font-size:0.75rem; font-weight:700; cursor:pointer;">Configure Rules</button>
         </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:8px 14px; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-weight:800; font-size:0.82rem; color:#334155;">⚡ Subject Max Marks:</span>
+            <span style="font-size:0.75rem; color:#64748b;">Click <strong>[100]</strong> or <strong>[50]</strong> on any row, or batch set:</span>
+          </div>
+          <div style="display:flex; gap:6px;">
+            <button type="button" class="exam-btn" onclick="window.applyQuickMaxToAllSubjects(100)" style="padding:4px 10px; font-size:0.75rem; background:#ffffff; border:1px solid #cbd5e1; border-radius:6px; font-weight:700; cursor:pointer;" title="Set all subjects to 100 Max">All 100</button>
+            <button type="button" class="exam-btn" onclick="window.applyQuickMaxToAllSubjects(50)" style="padding:4px 10px; font-size:0.75rem; background:#ffffff; border:1px solid #cbd5e1; border-radius:6px; font-weight:700; cursor:pointer;" title="Set all subjects to 50 Max">All 50</button>
+            <button type="button" class="exam-btn" onclick="window.applyStandardCbseMaxScale()" style="padding:4px 10px; font-size:0.75rem; background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; border-radius:6px; font-weight:700; cursor:pointer;" title="Core Academic = 100, Moral Science & GK = 50">Auto Scale (Core 100 / Moral & GK 50)</button>
+          </div>
+        </div>
+
+        ${headerHtml}
         
         <div id="marksSubjectContainer">
           ${rowsHtml}
         </div>
         
-        <div style="margin-top:15px;">
+        <div style="margin-top:15px; display:flex; justify-content:space-between; align-items:center;">
           <button id="addSubjectBtn" class="exam-btn exam-btn-secondary" style="font-size:0.8rem; padding:8px 15px;">+ Add Subject</button>
+          ${isCBSE ? '<span style="font-size:0.8rem; color:#64748b; font-weight:600;">CBSE 8-Point Grading: A1 (91-100), A2 (81-90), B1 (71-80), B2 (61-70), C1 (51-60), C2 (41-50), D (33-40), E (&le;32)</span>' : ''}
         </div>
 
-        <div class="marks-summary-box">
+        <div class="marks-summary-box" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:12px; text-align:center; padding:18px 20px;">
           <div class="marks-summary-item">
-            <p>Total Marks</p>
-            <h4 id="marksGrandTotal">0</h4>
+            <p style="margin:0 0 4px 0; font-size:0.75rem; font-weight:700; color:#94a3b8; text-transform:uppercase;">Main Subjects Total</p>
+            <h4 id="marksGrandTotal" style="margin:0; font-size:1.5rem; font-weight:900; color:#ffffff;">0</h4>
+            <div id="marksOverallSubtext" style="font-size:0.7rem; color:#94a3b8; margin-top:3px;">All Subjects: 0</div>
           </div>
           <div class="marks-summary-item">
-            <p>Percentage</p>
-            <h4 id="marksPercentage">0%</h4>
+            <p style="margin:0 0 4px 0; font-size:0.75rem; font-weight:700; color:#94a3b8; text-transform:uppercase;">Percentage (Main)</p>
+            <h4 id="marksPercentage" style="margin:0; font-size:1.5rem; font-weight:900; color:#ffffff;">0%</h4>
           </div>
           <div class="marks-summary-item">
-            <p>Grade</p>
-            <h4 id="marksGrade">-</h4>
+            <p style="margin:0 0 4px 0; font-size:0.75rem; font-weight:700; color:#94a3b8; text-transform:uppercase;">Grade (Main)</p>
+            <h4 id="marksGrade" style="margin:0; font-size:1.5rem; font-weight:900; color:#ffffff;">-</h4>
+          </div>
+          <div class="marks-summary-item" style="border-left:1px solid #334155; padding-left:12px;">
+            <p style="margin:0 0 4px 0; font-size:0.75rem; font-weight:700; color:#94a3b8; text-transform:uppercase;">Result Status</p>
+            <h4 id="marksResultStatus" style="margin:0; font-size:1.35rem; font-weight:900; color:#4ade80;">PASS</h4>
+            <div id="marksStatusReason" style="font-size:0.7rem; color:#86efac; margin-top:3px;">All Main Subjects Passed</div>
           </div>
         </div>
 
@@ -497,61 +1680,254 @@
 
     // Attach row events
     const container = document.getElementById("marksSubjectContainer");
-    
-    window.calcExamTotals = function() {
-      let grandTotal = 0;
-      let maxTotal = 0;
-      const rows = container.querySelectorAll(".marks-subject-row");
-      rows.forEach((row, i) => {
-        const th = parseFloat(row.querySelector(".sub-th").value) || 0;
-        const pr = parseFloat(row.querySelector(".sub-pr").value) || 0;
-        const maxMarks = parseFloat(row.querySelector(".sub-max")?.value) || 100;
-        const total = th + pr;
-        row.querySelector(".total-cell").textContent = total;
-        grandTotal += total;
-        maxTotal += maxMarks;
-      });
 
-      const percentage = maxTotal > 0 ? parseFloat(((grandTotal / maxTotal) * 100).toFixed(1)) : 0;
-      let grade = 'F';
-      const store = typeof getStore !== 'undefined' ? getStore() : {};
-      const defaultScale = [
-        { min: 91, max: 100, grade: 'A+' }, { min: 81, max: 90, grade: 'A' },
-        { min: 71, max: 80, grade: 'B+' }, { min: 61, max: 70, grade: 'B' },
-        { min: 51, max: 60, grade: 'C' }, { min: 33, max: 50, grade: 'D' }, { min: 0, max: 32, grade: 'E' }
-      ];
-      let scale = defaultScale;
-      if (store.settings) {
-          const customScale = store.settings.find(s => s.key === "customGradingScale");
-          if (customScale && customScale.value) {
-              try { scale = JSON.parse(customScale.value); } catch(e){}
-          }
+    window.setRowMax = function(btn, newMax) {
+      const row = btn.closest('.marks-subject-row');
+      if (!row) return;
+      const maxInput = row.querySelector('.sub-max');
+      if (maxInput) {
+        maxInput.value = newMax;
+        window.handleRowMaxChange(maxInput);
       }
-      scale.sort((a, b) => b.min - a.min);
-      const matched = scale.find(g => percentage >= g.min);
-      if (matched) grade = matched.grade;
-
-      document.getElementById("marksGrandTotal").textContent = grandTotal + " / " + maxTotal;
-      document.getElementById("marksPercentage").textContent = percentage + "%";
-      document.getElementById("marksGrade").textContent = grade;
-      return { grandTotal, percentage, grade };
     };
 
-    container.addEventListener("input", window.calcExamTotals);
+    window.handleRowMaxChange = function(maxInput) {
+      const row = maxInput.closest('.marks-subject-row');
+      if (!row) return;
+      const val = parseFloat(maxInput.value) || 100;
+      
+      // Update min to 33%
+      const minInput = row.querySelector('.sub-min');
+      if (minInput) {
+        minInput.value = Math.round(val * 0.33);
+      }
+
+      // Update preset pills active state
+      row.querySelectorAll('.preset-btn').forEach(btn => {
+        const bVal = parseInt(btn.textContent, 10);
+        const isMatch = bVal === val;
+        btn.style.background = isMatch ? (bVal === 50 ? '#16a34a' : '#2563eb') : '#ffffff';
+        btn.style.color = isMatch ? '#ffffff' : '#475569';
+      });
+
+      // If CBSE mode, adapt theory input
+      const thInput = row.querySelector('.sub-th');
+      if (thInput) {
+        if (val <= 50) {
+          thInput.max = val;
+          thInput.placeholder = `0-${val}`;
+        } else {
+          const thMax = Math.round(val * 0.8);
+          thInput.max = thMax;
+          thInput.placeholder = `0-${thMax}`;
+        }
+      }
+
+      window.calcExamTotals();
+    };
+
+    window.applyQuickMaxToAllSubjects = function(newMax) {
+      const container = document.getElementById("marksSubjectContainer");
+      if (!container) return;
+      const rows = container.querySelectorAll(".marks-subject-row");
+      rows.forEach(r => {
+        const maxInput = r.querySelector('.sub-max');
+        if (maxInput) {
+          maxInput.value = newMax;
+          window.handleRowMaxChange(maxInput);
+        }
+      });
+    };
+
+    window.applyStandardCbseMaxScale = function() {
+      const container = document.getElementById("marksSubjectContainer");
+      if (!container) return;
+      const rows = container.querySelectorAll(".marks-subject-row");
+      rows.forEach(r => {
+        const subName = r.querySelector('.sub-name')?.value || '';
+        const defMax = getDefaultMaxMarksForSubject(subName, className).max;
+        const maxInput = r.querySelector('.sub-max');
+        if (maxInput) {
+          maxInput.value = defMax;
+          window.handleRowMaxChange(maxInput);
+        }
+      });
+    };
+    
+    window.calcExamTotals = function() {
+      const rows = container.querySelectorAll(".marks-subject-row");
+      const evaluatedForStatus = [];
+
+      rows.forEach((row, i) => {
+        let total = 0;
+        const maxMarks = parseFloat(row.querySelector(".sub-max")?.value) || 100;
+        const minMarks = parseFloat(row.querySelector(".sub-min")?.value) || 33;
+        const subName = row.querySelector(".sub-name")?.value || `Subject ${i+1}`;
+        const isMain = row.querySelector(".sub-role-toggle")?.getAttribute("data-is-main") === "1";
+        let hasAnyInput = false;
+
+        if (isCBSE) {
+          const paRaw = row.querySelector(".sub-pa")?.value;
+          const nbRaw = row.querySelector(".sub-nb")?.value;
+          const enrRaw = row.querySelector(".sub-enr")?.value;
+          const thRaw = row.querySelector(".sub-th")?.value;
+
+          if ((paRaw !== '' && paRaw !== undefined) ||
+              (nbRaw !== '' && nbRaw !== undefined) ||
+              (enrRaw !== '' && enrRaw !== undefined) ||
+              (thRaw !== '' && thRaw !== undefined)) {
+            hasAnyInput = true;
+            const pa = parseFloat(paRaw) || 0;
+            const nb = parseFloat(nbRaw) || 0;
+            const enr = parseFloat(enrRaw) || 0;
+            const th = parseFloat(thRaw) || 0;
+            total = Math.min(maxMarks, Math.round((pa + nb + enr + th) * 10) / 10);
+          }
+        } else {
+          const thRaw = row.querySelector(".sub-th")?.value;
+          const prRaw = row.querySelector(".sub-pr")?.value;
+          if ((thRaw !== '' && thRaw !== undefined) || (prRaw !== '' && prRaw !== undefined)) {
+            hasAnyInput = true;
+            const th = parseFloat(thRaw) || 0;
+            const pr = parseFloat(prRaw) || 0;
+            total = th + pr;
+          }
+        }
+
+        row.querySelector(".total-cell").textContent = hasAnyInput ? total : '0';
+        
+        evaluatedForStatus.push({
+          subject: subName,
+          isMain: isMain,
+          max: maxMarks,
+          min: minMarks,
+          total: total,
+          hasInput: hasAnyInput
+        });
+      });
+
+      const activeEvals = evaluatedForStatus.filter(e => e.hasInput);
+      const evalTarget = activeEvals.length > 0 ? activeEvals : evaluatedForStatus;
+      const evalRes = evalStudentResultStatus(evalTarget, className);
+
+      const mainStats = evalRes.mainStats;
+      const overallStats = evalRes.overallStats;
+      const resultStatus = evalRes.resultStatus;
+
+      // Grade calculation based on main percentage (or overall if no main subjects)
+      const targetPct = mainStats.maxTotal > 0 ? mainStats.percentage : overallStats.percentage;
+      let grade = 'E';
+      if (isCBSE) {
+        if (targetPct >= 91) grade = 'A1';
+        else if (targetPct >= 81) grade = 'A2';
+        else if (targetPct >= 71) grade = 'B1';
+        else if (targetPct >= 61) grade = 'B2';
+        else if (targetPct >= 51) grade = 'C1';
+        else if (targetPct >= 41) grade = 'C2';
+        else if (targetPct >= 33) grade = 'D';
+        else grade = 'E';
+      } else {
+        const defaultScale = [
+          { min: 91, max: 100, grade: 'A+' }, { min: 81, max: 90, grade: 'A' },
+          { min: 71, max: 80, grade: 'B+' }, { min: 61, max: 70, grade: 'B' },
+          { min: 51, max: 60, grade: 'C' }, { min: 33, max: 50, grade: 'D' }, { min: 0, max: 32, grade: 'E' }
+        ];
+        let scale = defaultScale;
+        const store = typeof getStore !== 'undefined' ? getStore() : {};
+        if (store.settings) {
+            const customScale = store.settings.find(s => s.key === "customGradingScale");
+            if (customScale && customScale.value) {
+                try { scale = JSON.parse(customScale.value); } catch(e){}
+            }
+        }
+        scale.sort((a, b) => b.min - a.min);
+        const matched = scale.find(g => targetPct >= g.min);
+        if (matched) grade = matched.grade;
+      }
+
+      const grandTotalEl = document.getElementById("marksGrandTotal");
+      const percentageEl = document.getElementById("marksPercentage");
+      const gradeEl = document.getElementById("marksGrade");
+      const resultStatusEl = document.getElementById("marksResultStatus");
+      const statusReasonEl = document.getElementById("marksStatusReason");
+      const overallSubtextEl = document.getElementById("marksOverallSubtext");
+
+      if (grandTotalEl) grandTotalEl.textContent = mainStats.grandTotal + " / " + mainStats.maxTotal;
+      if (overallSubtextEl) overallSubtextEl.textContent = "All Subjects: " + overallStats.grandTotal + " / " + overallStats.maxTotal;
+      if (percentageEl) percentageEl.textContent = targetPct + "%";
+      if (gradeEl) gradeEl.textContent = grade;
+      if (resultStatusEl) {
+        resultStatusEl.textContent = resultStatus;
+        resultStatusEl.style.color = resultStatus === "PASS" ? "#4ade80" : "#f87171";
+      }
+      if (statusReasonEl) {
+        if (resultStatus === "PASS") {
+          statusReasonEl.textContent = "★ All Main Subjects Passed (Additional subjects exempt)";
+          statusReasonEl.style.color = "#86efac";
+        } else {
+          const failedNames = evalRes.failedMainSubjects.map(f => f.subject).join(", ");
+          statusReasonEl.textContent = failedNames ? `Failed in Main: ${failedNames}` : `Main Aggregate < 33%`;
+          statusReasonEl.style.color = "#fca5a5";
+        }
+      }
+
+      return {
+        grandTotal: mainStats.grandTotal,
+        maxTotal: mainStats.maxTotal,
+        percentage: targetPct,
+        grade,
+        resultStatus,
+        overallGrandTotal: overallStats.grandTotal,
+        overallMaxTotal: overallStats.maxTotal
+      };
+    };
+
+    container.addEventListener("input", function(e) {
+      window.calcExamTotals();
+    });
 
     document.getElementById("addSubjectBtn").onclick = () => {
       const idx = container.children.length;
       const row = document.createElement("div");
-      row.className = "marks-subject-row";
-      row.innerHTML = `
+      if (isCBSE) {
+        row.className = "marks-subject-row cbse-mode";
+        row.innerHTML = `
           <input type="text" class="sub-name" placeholder="Subject Name" />
-          <input type="number" class="sub-max" value="100" placeholder="100" min="1" />
+          <button type="button" class="sub-role-toggle role-main" data-is-main="1" onclick="window.toggleSubjectRoleInRow(this)" title="Main Subject: Marks strictly decide Pass or Fail">⭐ Main</button>
+          <div class="sub-max-box" style="display:flex; flex-direction:column; align-items:center; gap:2px;">
+            <input type="number" class="sub-max" value="100" placeholder="100" min="1" oninput="window.handleRowMaxChange(this)" style="padding:6px 2px; text-align:center; font-weight:800; font-size:0.9rem;" />
+            <div style="display:flex; gap:2px;">
+              <button type="button" class="preset-btn active" onclick="window.setRowMax(this, 100)" style="font-size:9px; padding:1px 4px; border-radius:3px; border:1px solid #cbd5e1; background:#2563eb; color:#ffffff; font-weight:800; cursor:pointer;" title="Set 100 Max">100</button>
+              <button type="button" class="preset-btn" onclick="window.setRowMax(this, 50)" style="font-size:9px; padding:1px 4px; border-radius:3px; border:1px solid #cbd5e1; background:#ffffff; color:#475569; font-weight:800; cursor:pointer;" title="Set 50 Max">50</button>
+            </div>
+          </div>
+          <input type="number" class="sub-min" value="33" placeholder="33" min="0" />
+          <input type="number" class="sub-pa" placeholder="0-10" min="0" max="10" />
+          <input type="number" class="sub-nb" placeholder="0-5" min="0" max="5" />
+          <input type="number" class="sub-enr" placeholder="0-5" min="0" max="5" />
+          <input type="number" class="sub-th" placeholder="0-80" min="0" max="80" />
+          <div class="total-cell">0</div>
+          <button class="del-row-btn" onclick="this.parentElement.remove(); window.calcExamTotals();">×</button>
+        `;
+      } else {
+        row.className = "marks-subject-row";
+        row.innerHTML = `
+          <input type="text" class="sub-name" placeholder="Subject Name" />
+          <button type="button" class="sub-role-toggle role-main" data-is-main="1" onclick="window.toggleSubjectRoleInRow(this)" title="Main Subject: Marks strictly decide Pass or Fail">⭐ Main</button>
+          <div class="sub-max-box" style="display:flex; flex-direction:column; align-items:center; gap:2px;">
+            <input type="number" class="sub-max" value="100" placeholder="100" min="1" oninput="window.handleRowMaxChange(this)" style="padding:6px 2px; text-align:center; font-weight:800; font-size:0.9rem;" />
+            <div style="display:flex; gap:2px;">
+              <button type="button" class="preset-btn active" onclick="window.setRowMax(this, 100)" style="font-size:9px; padding:1px 4px; border-radius:3px; border:1px solid #cbd5e1; background:#2563eb; color:#ffffff; font-weight:800; cursor:pointer;" title="Set 100 Max">100</button>
+              <button type="button" class="preset-btn" onclick="window.setRowMax(this, 50)" style="font-size:9px; padding:1px 4px; border-radius:3px; border:1px solid #cbd5e1; background:#ffffff; color:#475569; font-weight:800; cursor:pointer;" title="Set 50 Max">50</button>
+            </div>
+          </div>
           <input type="number" class="sub-min" value="33" placeholder="33" min="0" />
           <input type="number" class="sub-th" placeholder="0" min="0" />
           <input type="number" class="sub-pr" placeholder="0" min="0" />
           <div class="total-cell">0</div>
           <button class="del-row-btn" onclick="this.parentElement.remove(); window.calcExamTotals();">×</button>
-      `;
+        `;
+      }
       container.appendChild(row);
     };
 
@@ -563,15 +1939,74 @@
       rows.forEach(row => {
         const sub = row.querySelector(".sub-name").value.trim();
         if(!sub) return;
-        finalSubjects.push({
-          subject: sub,
-          max: parseFloat(row.querySelector(".sub-max")?.value) || 100,
-          min: parseFloat(row.querySelector(".sub-min")?.value) || 33,
-          theory: parseFloat(row.querySelector(".sub-th").value) || 0,
-          practical: parseFloat(row.querySelector(".sub-pr").value) || 0,
-          total: parseFloat(row.querySelector(".total-cell").textContent) || 0
-        });
+        const isMain = row.querySelector(".sub-role-toggle")?.getAttribute("data-is-main") === "1";
+
+        if (isCBSE) {
+          const paRaw = row.querySelector(".sub-pa")?.value;
+          const nbRaw = row.querySelector(".sub-nb")?.value;
+          const enrRaw = row.querySelector(".sub-enr")?.value;
+          const thRaw = row.querySelector(".sub-th")?.value;
+
+          const hasAny = (paRaw !== '' && paRaw !== undefined) ||
+                         (nbRaw !== '' && nbRaw !== undefined) ||
+                         (enrRaw !== '' && enrRaw !== undefined) ||
+                         (thRaw !== '' && thRaw !== undefined);
+
+          // If completely empty and other subjects were entered, don't overwrite with 0s
+          if (!hasAny && rows.length > 1) {
+            const anyOtherEntered = Array.from(rows).some(r => {
+              return (r.querySelector(".sub-pa")?.value !== '' && r.querySelector(".sub-pa")?.value !== undefined) ||
+                     (r.querySelector(".sub-nb")?.value !== '' && r.querySelector(".sub-nb")?.value !== undefined) ||
+                     (r.querySelector(".sub-enr")?.value !== '' && r.querySelector(".sub-enr")?.value !== undefined) ||
+                     (r.querySelector(".sub-th")?.value !== '' && r.querySelector(".sub-th")?.value !== undefined);
+            });
+            if (anyOtherEntered) return;
+          }
+
+          const pa = parseFloat(paRaw) || 0;
+          const nb = parseFloat(nbRaw) || 0;
+          const enr = parseFloat(enrRaw) || 0;
+          const th = parseFloat(thRaw) || 0;
+          const maxMarks = parseFloat(row.querySelector(".sub-max")?.value) || 100;
+          const tot = Math.min(maxMarks, Math.round((pa + nb + enr + th) * 10) / 10);
+          finalSubjects.push({
+            subject: sub,
+            isMain: isMain,
+            max: maxMarks,
+            min: parseFloat(row.querySelector(".sub-min")?.value) || 33,
+            pa1: pa,
+            pa2: isAnnual ? pa : 0,
+            notebook: nb,
+            enrichment: enr,
+            theory: th,
+            subjective: th,
+            practical: pa + nb + enr,
+            total: tot
+          });
+        } else {
+          const thRaw = row.querySelector(".sub-th")?.value;
+          const prRaw = row.querySelector(".sub-pr")?.value;
+          const hasAny = (thRaw !== '' && thRaw !== undefined) || (prRaw !== '' && prRaw !== undefined);
+          if (!hasAny && rows.length > 1) {
+            const anyOtherEntered = Array.from(rows).some(r => {
+              return (r.querySelector(".sub-th")?.value !== '' && r.querySelector(".sub-th")?.value !== undefined) ||
+                     (r.querySelector(".sub-pr")?.value !== '' && r.querySelector(".sub-pr")?.value !== undefined);
+            });
+            if (anyOtherEntered) return;
+          }
+          finalSubjects.push({
+            subject: sub,
+            isMain: isMain,
+            max: parseFloat(row.querySelector(".sub-max")?.value) || 100,
+            min: parseFloat(row.querySelector(".sub-min")?.value) || 33,
+            theory: parseFloat(thRaw) || 0,
+            practical: parseFloat(prRaw) || 0,
+            total: (parseFloat(thRaw) || 0) + (parseFloat(prRaw) || 0)
+          });
+        }
       });
+
+      const consolidatedSubjects = finalSubjects;
 
       const stats = window.calcExamTotals();
       
@@ -581,40 +2016,41 @@
         session,
         studentName: student.fullName,
         rollNo: student.rollNo,
-        admissionNo: student.admissionNo || '',
+        admissionNo: student.admissionNo || (existingExam && existingExam.admissionNo) || '',
         studentPhoto: student.photo || '',
-        subjectMarks: JSON.stringify(finalSubjects),
+        subjectMarks: JSON.stringify(consolidatedSubjects),
         totalMarks: stats.grandTotal.toString(),
         percentage: stats.percentage.toString(),
         grade: stats.grade,
-        resultStatus: parseFloat(stats.percentage) >= 33 ? "PASS" : "FAIL"
+        resultStatus: stats.resultStatus
       };
 
       try {
-        const baseUrl = typeof getApiBaseUrl === 'function' ? getApiBaseUrl() : 'http://localhost:3000';
-        const url = existingExam ? baseUrl + '/api/modules/exams/' + existingExam.id : baseUrl + '/api/modules/exams';
+        const url = existingExam ? '/api/modules/exams/' + existingExam.id : '/api/modules/exams';
         const method = existingExam ? 'PUT' : 'POST';
         
-        const resp = await fetch(url, {
-          method,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        
-        if(resp.ok) {
-          if (typeof showToast !== 'undefined') showToast("Marks saved successfully", "success");
-          document.getElementById('examMarksModal').remove();
-          // Reload local store and refresh table
-          const dbResp = await fetch('http://localhost:3000/api/db');
-          const dbData = await dbResp.json();
-          localStorage.setItem('tps_db', JSON.stringify(dbData));
-          loadStudentsForMarksEntry(className, examName, session);
+        if (typeof api === 'function') {
+          await api(url, { method, body: JSON.stringify(payload) });
         } else {
-          alert("Failed to save marks");
+          await fetch(url, {
+            method,
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + (localStorage.getItem('token') || '')
+            },
+            body: JSON.stringify(payload)
+          });
         }
+        
+        if (typeof showToast !== 'undefined') showToast("Marks saved successfully", "success");
+        document.getElementById('examMarksModal').remove();
+        if (typeof loadStore === 'function') {
+          await loadStore();
+        }
+        loadStudentsForMarksEntry(className, examName, session);
       } catch(err) {
-        console.error(err);
-        alert("Error saving marks");
+        console.error("Error saving marks:", err);
+        alert("Error saving marks: " + (err.message || "Network error"));
       }
     };
   };
@@ -675,8 +2111,8 @@
         
         if (cls) {
             const subjects = getSubjectsForClass(cls);
-            const store = typeof getStore !== 'undefined' ? getStore() : {};
-            const existingSchedule = (store.examSchedules || []).find(s => s.className === cls && s.examName === examName) || {};
+            const normFunc = typeof normalizeCanonicalClass === 'function' ? normalizeCanonicalClass : (x => x);
+            const existingSchedule = (store.examSchedules || []).find(s => (normFunc(s.className) === normFunc(cls) || s.className === cls) && s.examName === examName) || {};
             let existingDates = {};
             try { existingDates = typeof existingSchedule.dates === 'string' ? JSON.parse(existingSchedule.dates) : (existingSchedule.dates || {}); } catch(e) {}
 
@@ -738,19 +2174,26 @@
             btn.onclick = async () => {
                 if (!confirm("Are you sure you want to delete this schedule?")) return;
                 const id = btn.dataset.id;
-                const baseUrl = typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : 'http://localhost:3000';
                 try {
-                    const resp = await fetch(baseUrl + '/api/modules/examSchedules/' + id, { method: 'DELETE' });
-                    if (resp.ok) {
-                        const dbResp = await fetch('http://localhost:3000/api/db');
-                        const dbData = await dbResp.json();
-                        localStorage.setItem('tps_db', JSON.stringify(dbData));
-                        if (window.showToast) showToast("Schedule deleted", "info");
-                        refreshSavedSchedulesTable();
+                    if (typeof api === 'function') {
+                        await api('/api/modules/examSchedules/' + id, { method: 'DELETE' });
+                    } else {
+                        await fetch('/api/modules/examSchedules/' + id, {
+                            method: 'DELETE',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': 'Bearer ' + (localStorage.getItem('token') || '')
+                            }
+                        });
                     }
+                    if (typeof loadStore === 'function') {
+                        await loadStore();
+                    }
+                    if (window.showToast) showToast("Schedule deleted", "info");
+                    refreshSavedSchedulesTable();
                 } catch(e) {
-                    console.error(e);
-                    alert("Error deleting schedule");
+                    console.error("Error deleting schedule:", e);
+                    alert("Error deleting schedule: " + (e.message || "Network error"));
                 }
             };
         });
@@ -770,35 +2213,40 @@
         });
 
         const store = typeof getStore !== 'undefined' ? getStore() : {};
-        const existingSchedule = (store.examSchedules || []).find(s => s.className === cls && s.examName === examName);
+        const normFunc = typeof normalizeCanonicalClass === 'function' ? normalizeCanonicalClass : (x => x);
+        const existingSchedule = (store.examSchedules || []).find(s => (normFunc(s.className) === normFunc(cls) || s.className === cls) && s.examName === examName);
         
         const payload = {
-            className: cls,
+            className: normFunc(cls) || cls,
             examName: examName,
             dates: JSON.stringify(dates)
         };
 
-        const baseUrl = typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : 'http://localhost:3000';
-        const url = existingSchedule ? baseUrl + '/api/modules/examSchedules/' + existingSchedule.id : baseUrl + '/api/modules/examSchedules';
+        const url = existingSchedule ? '/api/modules/examSchedules/' + existingSchedule.id : '/api/modules/examSchedules';
         const method = existingSchedule ? 'PUT' : 'POST';
 
         try {
-            const resp = await fetch(url, {
-                method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            if(resp.ok) {
-                if (window.showToast) showToast("Schedule saved successfully", "success");
-                else alert("Saved successfully!");
-                const dbResp = await fetch('http://localhost:3000/api/db');
-                const dbData = await dbResp.json();
-                localStorage.setItem('tps_db', JSON.stringify(dbData));
-                refreshSavedSchedulesTable();
+            if (typeof api === 'function') {
+                await api(url, { method, body: JSON.stringify(payload) });
+            } else {
+                await fetch(url, {
+                    method,
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + (localStorage.getItem('token') || '')
+                    },
+                    body: JSON.stringify(payload)
+                });
             }
+            if (window.showToast) showToast("Schedule saved successfully", "success");
+            else alert("Saved successfully!");
+            if (typeof loadStore === 'function') {
+                await loadStore();
+            }
+            refreshSavedSchedulesTable();
         } catch(err) {
-            console.error(err);
-            alert("Error saving schedule");
+            console.error("Error saving schedule:", err);
+            alert("Error saving schedule: " + (err.message || "Network error"));
         }
     };
   }
@@ -807,6 +2255,14 @@
   // TAB 2: ADMIT CARDS
   // ==========================================
   function renderAdmitCards(container) {
+    const existingPreview = document.getElementById("admitPreviewContainer");
+    const existingPrintActions = document.getElementById("admitPrintActions");
+    const savedPreviewHtml = (existingPreview && !existingPreview.querySelector(".empty-state") && existingPreview.children.length > 0)
+      ? existingPreview.innerHTML
+      : null;
+    const savedPrintDisplay = existingPrintActions ? existingPrintActions.style.display : "none";
+    const savedClass = document.getElementById("admitClassSelect") ? document.getElementById("admitClassSelect").value : null;
+
     container.innerHTML = `
       <div style="margin-bottom: 25px;">
         <h4 style="margin:0 0 5px 0; color: inherit; font-size:1.2rem;">Admit Card Generator</h4>
@@ -907,7 +2363,10 @@
     const refreshAdmitStudents = () => {
         const cls = document.getElementById("admitClassSelect").value;
         const store = typeof getStore !== 'undefined' ? getStore() : {};
-        const studentsInClass = (store.students || []).filter(s => s.className === cls && s.status !== "Left");
+        const normFunc = typeof normalizeCanonicalClass === 'function' ? normalizeCanonicalClass : (x => x);
+        const studentsInClass = (store.students || []).filter(s => {
+          return (normFunc(s.className) === normFunc(cls) || s.className === cls) && s.status !== "Left";
+        });
         
         const container = document.getElementById("admitStudentCheckboxes");
         if (container) {
@@ -941,7 +2400,8 @@
         if (!examNameSelect) return;
         
         const store = typeof getStore !== 'undefined' ? getStore() : {};
-        const schedules = (store.examSchedules || []).filter(s => s.className === cls);
+        const normFunc = typeof normalizeCanonicalClass === 'function' ? normalizeCanonicalClass : (x => x);
+        const schedules = (store.examSchedules || []).filter(s => normFunc(s.className) === normFunc(cls) || s.className === cls);
         
         let uniqueExamNames = Array.from(new Set(schedules.map(s => s.examName).filter(Boolean)));
         if (uniqueExamNames.length === 0) {
@@ -964,13 +2424,32 @@
     // Initialize exam names
     setTimeout(refreshAdmitExamNames, 50);
 
-    document.getElementById("admitGenerateBtn").onclick = () => {
+    if (savedClass) {
+      const clsEl = document.getElementById("admitClassSelect");
+      if (clsEl) {
+        clsEl.value = savedClass;
+        refreshAdmitStudents();
+        refreshAdmitExamNames();
+      }
+    }
+
+    if (savedPreviewHtml) {
+      const newPreview = document.getElementById("admitPreviewContainer");
+      const newPrintActions = document.getElementById("admitPrintActions");
+      if (newPreview) newPreview.innerHTML = savedPreviewHtml;
+      if (newPrintActions) newPrintActions.style.display = savedPrintDisplay;
+    }
+
+    
+    document.getElementById("admitGenerateBtn").onclick = (e) => {
+      if (e && e.preventDefault) e.preventDefault();
       const cls = document.getElementById("admitClassSelect").value;
       const examName = document.getElementById("admitExamName").value;
       const style = document.getElementById("admitTemplateStyle").value;
       
       const store = typeof getStore !== 'undefined' ? getStore() : {};
-      const existingSchedule = (store.examSchedules || []).find(s => s.className === cls && s.examName === examName) || {};
+      const normFunc = typeof normalizeCanonicalClass === 'function' ? normalizeCanonicalClass : (x => x);
+      const existingSchedule = (store.examSchedules || []).find(s => (normFunc(s.className) === normFunc(cls) || s.className === cls) && s.examName === examName) || {};
 
       const config = {
           color: document.getElementById("admitColor").value,
@@ -991,6 +2470,8 @@
       if(!cls) return window.showToast ? showToast("Please select a class", "warning") : alert("Select Class");
       const selectedStudentIds = Array.from(document.querySelectorAll('.admit-student-cb:checked')).map(cb => cb.value);
       generateAdmitCards(cls, examName, style, config, selectedStudentIds);
+      const printActions = document.getElementById("admitPrintActions");
+      if (printActions) printActions.style.display = "flex";
     };
 
     document.getElementById("admitPrintBtn").onclick = () => {
@@ -1026,11 +2507,15 @@
 
   function generateAdmitCards(className, examName, requestedStyle, config, selectedStudentIds) {
     const container = document.getElementById("admitPreviewContainer");
+    if (!container) return;
     const store = typeof getStore !== 'undefined' ? getStore() : {};
-    let students = (store.students || []).filter(s => s.className === className && s.status !== "Left");
+    const normFunc = typeof normalizeCanonicalClass === 'function' ? normalizeCanonicalClass : (x => x);
+    let students = (store.students || []).filter(s => {
+      return (normFunc(s.className) === normFunc(className) || s.className === className) && s.status !== "Left";
+    });
     
-    if (selectedStudentIds) {
-        students = students.filter(s => selectedStudentIds.includes(s.admissionNo));
+    if (selectedStudentIds && selectedStudentIds.length > 0) {
+        students = students.filter(s => selectedStudentIds.includes(String(s.admissionNo)));
     }
     
     if(students.length === 0) {
@@ -1048,7 +2533,9 @@
               if (i + j < students.length) {
                   const student = students[i + j];
                   let cardHtml = '';
-                  if (style === 'custom_blank') cardHtml = getCustomAdmitCardHtml(student, examName, config);
+                  if (style === 'tps_official_2026' || !style) cardHtml = getTpsOfficialAdmitCardHtml(student, examName, config);
+                  else if (style === 'jac_board_tps') cardHtml = getJac10AdmitCardHtml(student, examName, config);
+                  else if (style === 'custom_blank') cardHtml = getCustomAdmitCardHtml(student, examName, config);
                   else if (style === 'jac12') cardHtml = getJac12AdmitCardHtml(student, examName, config);
                   else if (style.startsWith('dyn_')) cardHtml = generateDynamicAdmitCard(student, examName, style, config);
                   else if (style === 'primary') cardHtml = getPrimaryAdmitCardHtml(student, examName, config);
@@ -1060,7 +2547,7 @@
                     
                   // Inject bg into the card itself to prevent bleeding
                   cardHtml = cardHtml.replace('background: transparent;', bgStyle);
-                  const overlayHtml = `<div style="position: absolute; inset: 0; background: rgba(255,255,255,${1 - config.bgOpacity}); pointer-events: none; z-index: 0; border-radius: inherit;"></div><div style="position: relative; z-index: 1;">`;
+                  const overlayHtml = `<div style="position: absolute; inset: 0; background: rgba(255,255,255,${1 - config.bgOpacity}); pointer-events: none; z-index: 0; border-radius: inherit;"></div><div style="position: relative; z-index: 1; height: 100%; width: 100%; display: flex; flex-direction: column; justify-content: space-between;">`;
                   cardHtml = cardHtml.replace('">', `">${overlayHtml}`) + '</div>';
 
                   const isFirst = (j === 0);
@@ -1084,7 +2571,7 @@
   const DEFAULT_SCHOOL_LOGO = 'school_logo.png';
   
   function getOptions500(prefix) {
-      let opts = '<option value="jac12">JAC 11th/12th Admit Card</option><option value="consolidated_cbse">2-Page Annual Consolidated (Multiple Exams)</option><option value="custom_blank">Blank A4 (Design Your Own)</option><option value="detailed_graph">Detailed Graph (Watermark & Chart)</option><option value="primary">Primary Format (Colorful)</option><option value="cbse">CBSE Format Layout</option><option value="state">State Board Layout</option><option value="tho">Talent Hunt Olympiad (THO)</option>';
+      let opts = '<option value="tps_official_2026" selected>⭐ TPS Official Admit Card 2026-27 (Official Design)</option><option value="jac_board_tps">🏛️ JAC Board Class 10 Style (Security Micro-Text)</option><option value="jac12">JAC 11th/12th Admit Card</option><option value="consolidated_cbse">2-Page Annual Consolidated (Multiple Exams)</option><option value="custom_blank">Blank A4 (Design Your Own)</option><option value="detailed_graph">Detailed Graph (Watermark & Chart)</option><option value="primary">Primary Format (Colorful)</option><option value="cbse">CBSE Format Layout</option><option value="state">State Board Layout</option><option value="tho">Talent Hunt Olympiad (THO)</option>';
       for(let i=1; i<=500; i++) {
           opts += `<option value="dyn_${i}">Premium Theme ${i}</option>`;
       }
@@ -1120,6 +2607,400 @@
       }
       
       return { bgCss, tableBorder, tableHeaderBg, tableHeaderColor };
+  }
+
+  
+  // =========================================================================
+  // ⭐ TPS OFFICIAL ADMIT CARD 2026-27 TEMPLATE (EXACT MASTER DESIGN)
+  // =========================================================================
+  const TPS_OFFICIAL_SCHEDULES = {
+    "Nursery": [
+      { date: "07/09/2026", day: "Monday", subject: "Hindi", time: "08:30 AM - 11:30 AM" },
+      { date: "08/09/2026", day: "Tuesday", subject: "English", time: "08:30 AM - 11:30 AM" },
+      { date: "10/09/2026", day: "Thursday", subject: "Maths", time: "08:30 AM - 11:30 AM" },
+      { date: "12/09/2026", day: "Saturday", subject: "Drawing", time: "08:30 AM - 11:30 AM" },
+      { date: "15/09/2026", day: "Tuesday", subject: "Hindi (Oral)", time: "08:30 AM - 11:30 AM" },
+      { date: "18/09/2026", day: "Friday", subject: "English (Oral)", time: "08:30 AM - 11:30 AM" },
+      { date: "21/09/2026", day: "Monday", subject: "Maths (Oral)", time: "08:30 AM - 11:30 AM" }
+    ],
+    "LKG": [
+      { date: "07/09/2026", day: "Monday", subject: "English", time: "08:30 AM - 11:30 AM" },
+      { date: "08/09/2026", day: "Tuesday", subject: "Maths", time: "08:30 AM - 11:30 AM" },
+      { date: "10/09/2026", day: "Thursday", subject: "Hindi", time: "08:30 AM - 11:30 AM" },
+      { date: "12/09/2026", day: "Saturday", subject: "Drawing", time: "08:30 AM - 11:30 AM" },
+      { date: "15/09/2026", day: "Tuesday", subject: "Hindi (Oral)", time: "08:30 AM - 11:30 AM" },
+      { date: "18/09/2026", day: "Friday", subject: "English (Oral)", time: "08:30 AM - 11:30 AM" },
+      { date: "21/09/2026", day: "Monday", subject: "Maths (Oral)", time: "08:30 AM - 11:30 AM" }
+    ],
+    "UKG": [
+      { date: "07/09/2026", day: "Monday", subject: "Maths", time: "08:30 AM - 11:30 AM" },
+      { date: "08/09/2026", day: "Tuesday", subject: "Hindi", time: "08:30 AM - 11:30 AM" },
+      { date: "10/09/2026", day: "Thursday", subject: "English", time: "08:30 AM - 11:30 AM" },
+      { date: "12/09/2026", day: "Saturday", subject: "Drawing", time: "08:30 AM - 11:30 AM" },
+      { date: "15/09/2026", day: "Tuesday", subject: "EVS", time: "08:30 AM - 11:30 AM" },
+      { date: "18/09/2026", day: "Friday", subject: "Hindi (Oral) / English (Oral)", time: "08:30 AM - 11:30 AM" },
+      { date: "21/09/2026", day: "Monday", subject: "Maths (Oral)", time: "08:30 AM - 11:30 AM" }
+    ],
+    "Class I": [
+      { date: "07/09/2026", day: "Monday", subject: "Science", time: "08:30 AM - 11:30 AM" },
+      { date: "08/09/2026", day: "Tuesday", subject: "English", time: "08:30 AM - 11:30 AM" },
+      { date: "10/09/2026", day: "Thursday", subject: "Hindi", time: "08:30 AM - 11:30 AM" },
+      { date: "12/09/2026", day: "Saturday", subject: "Maths", time: "08:30 AM - 11:30 AM" },
+      { date: "15/09/2026", day: "Tuesday", subject: "S.St", time: "08:30 AM - 11:30 AM" },
+      { date: "18/09/2026", day: "Friday", subject: "Computer / Drawing", time: "08:30 AM - 11:30 AM" },
+      { date: "21/09/2026", day: "Monday", subject: "ME / GK", time: "08:30 AM - 11:30 AM" }
+    ],
+    "Class II": [
+      { date: "07/09/2026", day: "Monday", subject: "English", time: "08:30 AM - 11:30 AM" },
+      { date: "08/09/2026", day: "Tuesday", subject: "Maths", time: "08:30 AM - 11:30 AM" },
+      { date: "10/09/2026", day: "Thursday", subject: "S.St", time: "08:30 AM - 11:30 AM" },
+      { date: "12/09/2026", day: "Saturday", subject: "Hindi", time: "08:30 AM - 11:30 AM" },
+      { date: "15/09/2026", day: "Tuesday", subject: "Science", time: "08:30 AM - 11:30 AM" },
+      { date: "18/09/2026", day: "Friday", subject: "ME / GK", time: "08:30 AM - 11:30 AM" },
+      { date: "21/09/2026", day: "Monday", subject: "Computer / Drawing", time: "08:30 AM - 11:30 AM" }
+    ],
+    "Class III": [
+      { date: "07/09/2026", day: "Monday", subject: "Science", time: "08:30 AM - 11:30 AM" },
+      { date: "09/09/2026", day: "Wednesday", subject: "S.St", time: "08:30 AM - 11:30 AM" },
+      { date: "11/09/2026", day: "Friday", subject: "Maths", time: "08:30 AM - 11:30 AM" },
+      { date: "14/09/2026", day: "Monday", subject: "English", time: "08:30 AM - 11:30 AM" },
+      { date: "16/09/2026", day: "Wednesday", subject: "Hindi", time: "08:30 AM - 11:30 AM" },
+      { date: "18/09/2026", day: "Friday", subject: "Drawing", time: "08:30 AM - 11:30 AM" },
+      { date: "19/09/2026", day: "Saturday", subject: "Computer", time: "08:30 AM - 11:30 AM" },
+      { date: "21/09/2026", day: "Monday", subject: "ME / GK", time: "08:30 AM - 11:30 AM" }
+    ],
+    "Class IV": [
+      { date: "07/09/2026", day: "Monday", subject: "S.St", time: "08:30 AM - 11:30 AM" },
+      { date: "09/09/2026", day: "Wednesday", subject: "Science", time: "08:30 AM - 11:30 AM" },
+      { date: "11/09/2026", day: "Friday", subject: "English", time: "08:30 AM - 11:30 AM" },
+      { date: "14/09/2026", day: "Monday", subject: "Maths", time: "08:30 AM - 11:30 AM" },
+      { date: "16/09/2026", day: "Wednesday", subject: "Hindi", time: "08:30 AM - 11:30 AM" },
+      { date: "18/09/2026", day: "Friday", subject: "ME / GK", time: "08:30 AM - 11:30 AM" },
+      { date: "19/09/2026", day: "Saturday", subject: "Sanskrit & Drawing", time: "08:30 AM - 11:30 AM" },
+      { date: "21/09/2026", day: "Monday", subject: "Computer", time: "08:30 AM - 11:30 AM" }
+    ],
+    "Class V": [
+      { date: "07/09/2026", day: "Monday", subject: "Hindi", time: "08:30 AM - 11:30 AM" },
+      { date: "09/09/2026", day: "Wednesday", subject: "English", time: "08:30 AM - 11:30 AM" },
+      { date: "11/09/2026", day: "Friday", subject: "S.St", time: "08:30 AM - 11:30 AM" },
+      { date: "14/09/2026", day: "Monday", subject: "Science", time: "08:30 AM - 11:30 AM" },
+      { date: "16/09/2026", day: "Wednesday", subject: "Maths", time: "08:30 AM - 11:30 AM" },
+      { date: "18/09/2026", day: "Friday", subject: "Computer", time: "08:30 AM - 11:30 AM" },
+      { date: "19/09/2026", day: "Saturday", subject: "ME / GK", time: "08:30 AM - 11:30 AM" },
+      { date: "21/09/2026", day: "Monday", subject: "Sanskrit & Drawing", time: "08:30 AM - 11:30 AM" }
+    ],
+    "Class VI": [
+      { date: "07/09/2026", day: "Monday", subject: "Maths", time: "08:30 AM - 11:30 AM" },
+      { date: "09/09/2026", day: "Wednesday", subject: "SST", time: "08:30 AM - 11:30 AM" },
+      { date: "11/09/2026", day: "Friday", subject: "Science", time: "08:30 AM - 11:30 AM" },
+      { date: "14/09/2026", day: "Monday", subject: "Hindi", time: "08:30 AM - 11:30 AM" },
+      { date: "16/09/2026", day: "Wednesday", subject: "English", time: "08:30 AM - 11:30 AM" },
+      { date: "18/09/2026", day: "Friday", subject: "ME / GK", time: "08:30 AM - 11:30 AM" },
+      { date: "19/09/2026", day: "Saturday", subject: "Computer", time: "08:30 AM - 11:30 AM" },
+      { date: "21/09/2026", day: "Monday", subject: "Sanskrit", time: "08:30 AM - 11:30 AM" }
+    ],
+    "Class VII": [
+      { date: "07/09/2026", day: "Monday", subject: "S.St", time: "08:30 AM - 11:30 AM" },
+      { date: "09/09/2026", day: "Wednesday", subject: "Hindi", time: "08:30 AM - 11:30 AM" },
+      { date: "11/09/2026", day: "Friday", subject: "Maths", time: "08:30 AM - 11:30 AM" },
+      { date: "14/09/2026", day: "Monday", subject: "English", time: "08:30 AM - 11:30 AM" },
+      { date: "16/09/2026", day: "Wednesday", subject: "Science", time: "08:30 AM - 11:30 AM" },
+      { date: "18/09/2026", day: "Friday", subject: "Sanskrit", time: "08:30 AM - 11:30 AM" },
+      { date: "19/09/2026", day: "Saturday", subject: "ME / GK", time: "08:30 AM - 11:30 AM" },
+      { date: "21/09/2026", day: "Monday", subject: "Computer", time: "08:30 AM - 11:30 AM" }
+    ],
+    "Class IX": [
+      { date: "07/09/2026", day: "Monday", subject: "English", time: "08:30 AM - 11:30 AM" },
+      { date: "09/09/2026", day: "Wednesday", subject: "Maths", time: "08:30 AM - 11:30 AM" },
+      { date: "11/09/2026", day: "Friday", subject: "Hindi", time: "08:30 AM - 11:30 AM" },
+      { date: "14/09/2026", day: "Monday", subject: "Science", time: "08:30 AM - 11:30 AM" },
+      { date: "16/09/2026", day: "Wednesday", subject: "S.St", time: "08:30 AM - 11:30 AM" }
+    ],
+    "Class X": [
+      { date: "07/09/2026", day: "Monday", subject: "Hindi", time: "08:30 AM - 11:30 AM" },
+      { date: "09/09/2026", day: "Wednesday", subject: "S.St", time: "08:30 AM - 11:30 AM" },
+      { date: "11/09/2026", day: "Friday", subject: "Maths", time: "08:30 AM - 11:30 AM" },
+      { date: "14/09/2026", day: "Monday", subject: "English", time: "08:30 AM - 11:30 AM" },
+      { date: "16/09/2026", day: "Wednesday", subject: "Science", time: "08:30 AM - 11:30 AM" }
+    ]
+  };
+
+  function normalizeClassNameForTps(raw) {
+    if (!raw) return 'Class I';
+    const c = raw.trim().toUpperCase();
+    if (c.includes('NUR')) return 'Nursery';
+    if (c.includes('LKG')) return 'LKG';
+    if (c.includes('UKG')) return 'UKG';
+    if (c.startsWith('X-') || c === 'X' || c === '10' || c === '10-A' || c.includes('CLASS 10') || c.includes('CLASS X')) return 'Class X';
+    if (c.startsWith('IX-') || c === 'IX' || c === '9' || c === '9-A' || c.includes('CLASS 9') || c.includes('CLASS IX')) return 'Class IX';
+    if (c.startsWith('VII-') || c === 'VII' || c === '7' || c === '7-A' || c.includes('CLASS 7') || c.includes('CLASS VII')) return 'Class VII';
+    if (c.startsWith('VI-') || c === 'VI' || c === '6' || c === '6-A' || c.includes('CLASS 6') || c.includes('CLASS VI')) return 'Class VI';
+    if (c.startsWith('V-') || c === 'V' || c === '5' || c === '5-A' || c.includes('CLASS 5') || c.includes('CLASS V')) return 'Class V';
+    if (c.startsWith('IV-') || c === 'IV' || c === '4' || c === '4-A' || c.includes('CLASS 4') || c.includes('CLASS IV')) return 'Class IV';
+    if (c.startsWith('III-') || c === 'III' || c === '3' || c === '3-A' || c.includes('CLASS 3') || c.includes('CLASS III')) return 'Class III';
+    if (c.startsWith('II-') || c === 'II' || c === '2' || c === '2-A' || c.includes('CLASS 2') || c.includes('CLASS II')) return 'Class II';
+    if (c.startsWith('I-') || c === 'I' || c === '1' || c === '1-A' || c.includes('CLASS 1') || c.includes('CLASS I')) return 'Class I';
+    return raw;
+  }
+
+    function getAutoDayName(dateStr) {
+    if (!dateStr || dateStr === '---') return '---';
+    try {
+      const s = String(dateStr).trim();
+      const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+      
+      // Match DD/MM/YYYY or DD-MM-YYYY
+      const dmy = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+      if (dmy) {
+        const d = new Date(Number(dmy[3]), Number(dmy[2]) - 1, Number(dmy[1]));
+        if (!isNaN(d.getTime())) return days[d.getDay()];
+      }
+      
+      // Match YYYY-MM-DD or YYYY/MM/DD
+      const ymd = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+      if (ymd) {
+        const d = new Date(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3]));
+        if (!isNaN(d.getTime())) return days[d.getDay()];
+      }
+      
+      const parsed = new Date(s);
+      if (!isNaN(parsed.getTime())) return days[parsed.getDay()];
+    } catch (e) {}
+    return '---';
+  }
+
+  function formatExamDate(dateStr) {
+    if (!dateStr || dateStr === '---') return '---';
+    const s = String(dateStr).trim();
+    const ymd = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+    if (ymd) {
+      return `${ymd[3].padStart(2, '0')}/${ymd[2].padStart(2, '0')}/${ymd[1]}`;
+    }
+    return s;
+  }
+
+  function getTpsOfficialAdmitCardHtml(student, examName, config) {
+    const normClass = normalizeClassNameForTps(student.className);
+    const defaultSched = TPS_OFFICIAL_SCHEDULES[normClass] || TPS_OFFICIAL_SCHEDULES['Class I'];
+    
+    // Check if custom dates were supplied in config
+    let schedule = defaultSched;
+    if (config && config.subjectDates && Object.keys(config.subjectDates).length > 0) {
+      const customItems = [];
+      Object.entries(config.subjectDates).forEach(([sub, dt]) => {
+        if (dt) {
+          let dateStr = dt;
+          let dayStr = "";
+          let timeStr = "08:30 AM - 11:30 AM";
+          if (typeof dt === 'object') {
+            dateStr = dt.date || '';
+            dayStr = dt.day || '';
+            timeStr = dt.time || '08:30 AM - 11:30 AM';
+          }
+          if (!dayStr || dayStr === '---') {
+            dayStr = getAutoDayName(dateStr);
+          }
+          const formattedDate = formatExamDate(dateStr);
+          customItems.push({ subject: sub, date: formattedDate, day: dayStr, time: timeStr });
+        }
+      });
+      if (customItems.length > 0) schedule = customItems;
+    }
+
+    // Auto-calculate day and format date for all items
+    schedule = schedule.map(item => ({
+      ...item,
+      date: formatExamDate(item.date),
+      day: (!item.day || item.day === '---') ? getAutoDayName(item.date) : item.day
+    }));
+
+    const rollPadded = (student.rollNo || '00').toString().padStart(2, '0');
+    const admNo = (student.admissionNo || '---').toString().trim();
+    const candidateName = (student.fullName || 'STUDENT NAME').toUpperCase();
+    const fatherName = formatParentName(student.fatherName) || '---';
+    const motherName = formatParentName(student.motherName) || '---';
+    const phoneNo = (student.phone || student.phone1 || student.whatsapp || '---').toString().trim();
+    const gender = (student.gender || 'Regular').toUpperCase();
+    const dobFormatted = (function(d) {
+      if (!d || d === '0001-01-01' || d === '0000-00-00' || d === '0' || d === '00') return '---';
+      try {
+        const parts = d.split('-');
+        if (parts.length === 3 && parts[0].length === 4) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      } catch(e) {}
+      return d;
+    })(student.dob);
+
+    const logoSrc = 'tps_logo_new.png';
+    const photoUrl = (function() {
+      const p = student.photo || student.photoUrl || student.studentPhoto;
+      if (!p) return '';
+      let s = String(p).trim();
+      if (['null', 'undefined', '---', '0', 'none', 'false', 'has_data'].includes(s.toLowerCase())) return '';
+      if (s.length < 4) return '';
+      if (s.startsWith('/api/photo/')) {
+        s += (s.includes('?') ? '&' : '?') + 't=' + Date.now();
+      }
+      return s;
+    })();
+
+    const photoHtml = photoUrl 
+      ? `<div style="width:100%; height:100%; position:relative; display:flex; align-items:center; justify-content:center;">
+           <img src="${photoUrl}" style="width:100%; height:100%; object-fit:contain; background:#ffffff; display:block;" alt="Photo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+           <div style="display:none; width:100%; height:100%; flex-direction:column; align-items:center; justify-content:center; text-align:center; font-size:4.8pt; font-weight:700; color:#64748b; line-height:1.15; padding:1px;">
+             <svg style="width:21px; height:21px; margin-bottom:1px;" viewBox="0 0 24 24" fill="#94a3b8"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+             <span>AFFIX PASSPORT<br>SIZE PHOTO<br><small style="font-size:4.5pt;">(स्वप्रमाणित)</small></span>
+           </div>
+         </div>`
+      : `<div style="display:flex; width:100%; height:100%; flex-direction:column; align-items:center; justify-content:center; text-align:center; font-size:4.8pt; font-weight:700; color:#64748b; line-height:1.15; padding:1px;">
+           <svg style="width:21px; height:21px; margin-bottom:1px;" viewBox="0 0 24 24" fill="#94a3b8"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+           <span>AFFIX PASSPORT<br>SIZE PHOTO<br><small style="font-size:4.5pt;">(स्वप्रमाणित)</small></span>
+         </div>`;
+
+    const isCompact = schedule.length <= 5;
+    const rowPad = isCompact ? '3.5px 4px' : '2px 3px';
+    const signCellH = isCompact ? '5.5mm' : '3.8mm';
+    const rowsHtml = schedule.map((item, rIdx) => `
+      <tr style="background: ${rIdx % 2 === 1 ? '#f8fafc' : '#ffffff'};">
+        <td style="border: 1px solid #94a3b8; padding: ${rowPad}; text-align: center; font-family: monospace; font-weight: bold; font-size:7pt;">${rIdx + 1}</td>
+        <td contenteditable="true" style="border: 1px solid #94a3b8; padding: ${rowPad}; font-weight: bold; color: #1e3a8a; text-align: left; padding-left: 6px; font-size:7pt; cursor: text;">${item.subject}</td>
+        <td contenteditable="true" style="border: 1px solid #94a3b8; padding: ${rowPad}; text-align: center; font-family: monospace; font-weight: bold; font-size:7pt; cursor: text;">${item.date}</td>
+        <td contenteditable="true" style="border: 1px solid #94a3b8; padding: ${rowPad}; text-align: center; font-weight: bold; font-size:7pt; cursor: text;">${item.day}</td>
+        <td contenteditable="true" style="border: 1px solid #94a3b8; padding: ${rowPad}; text-align: center; font-weight: 600; font-size:7pt; cursor: text;">${item.time}</td>
+        <td style="border: 1px solid #94a3b8; padding: ${rowPad}; height: ${signCellH};"></td>
+      </tr>
+    `).join('');
+
+    const displayExamTitle = examName ? examName.toUpperCase() : "HALF YEARLY EXAMINATION 2026-27";
+
+    return `
+      <div style="width:100%; height:100%; box-sizing:border-box; border:2px solid #1e3a8a; outline:1px solid #1e3a8a; outline-offset:-2.5px; padding:2.5mm 3.5mm; display:flex; flex-direction:column; justify-content:space-between; background:#ffffff; border-radius:3px; font-family:'Montserrat', Arial, sans-serif; color:#0f172a; font-size:8.5pt;">
+        
+        <!-- Top Section (Header + Info + Details + Schedule + Instructions) -->
+        <div style="display:flex; flex-direction:column; flex:1; justify-content:space-between;">
+          
+          <!-- Header -->
+          <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1.5px solid #1e3a8a; padding-bottom:1.5px; margin-bottom:1.5px;">
+            <div style="width:22mm; display:flex; align-items:center; justify-content:center;">
+              <img src="${logoSrc}" style="max-width:21mm; max-height:19.5mm; object-fit:contain;" alt="Logo" onerror="this.src='school_logo.png'" />
+            </div>
+            <div style="flex:1; text-align:center; padding:0 3px;">
+              <div style="font-family:'Cinzel', serif, 'Times New Roman'; font-size:15.2pt; font-weight:900; color:#1e3a8a; letter-spacing:0.8px; line-height:1.05; margin:1px 0;">TAPOWAN PUBLIC SCHOOL</div>
+              <div style="font-size:6pt; font-weight:700; color:#334155; margin-bottom:1.5px;">Prem Nagar, Banjee, Tapin, Ramgarh, Jharkhand - 825314 | Helpline: 87577 44973, 62991 22869</div>
+              <div style="margin:1px 0;">
+                <span contenteditable="true" style="background:#1e3a8a; color:#ffffff; font-size:7.2pt; font-weight:800; padding:1px 12px; border-radius:2.5px; letter-spacing:0.6px; display:inline-block; cursor:text;">${displayExamTitle}</span>
+              </div>
+              <div style="font-size:9.8pt; font-weight:900; color:#b91c1c; letter-spacing:1.8px; margin-top:1px;">ADMIT CARD / प्रवेश-पत्र</div>
+            </div>
+            <div style="width:32mm; text-align:right;">
+              <div style="border:1px solid #cbd5e1; background:#f8fafc; padding:2px 3px; border-radius:2px; font-size:5.6pt; text-align:center; line-height:1.25;">
+                <div style="font-weight:700; color:#0f172a; border-bottom:1px dashed #cbd5e1; padding-bottom:1px; margin-bottom:1px;">U-DISE: 20241202412</div>
+                <div style="font-weight:700; color:#1e3a8a;">SESSION: 2026-2027</div>
+                <div style="font-weight:700; color:#047857;">SITTING: 1ST (MORNING)</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- School & Center Bar -->
+          <div style="display:flex; justify-content:space-between; background:#f1f5f9; border:1px solid #cbd5e1; padding:1.5px 5px; font-size:6.8pt; margin-bottom:2px;">
+            <div><strong>School Code & Name:</strong> 825314 - TAPOWAN PUBLIC SCHOOL, RAMGARH</div>
+            <div style="text-align:right;"><strong>Exam Centre:</strong> TPS MAIN CAMPUS (RAMGARH)</div>
+          </div>
+
+          <!-- Details Grid & Photo -->
+          <div style="display:flex; gap:3.5px; margin-bottom:2px;">
+            <table style="flex:1; border-collapse:collapse; font-size:7.4pt;">
+              <tbody>
+                <tr>
+                  <td style="border:1px solid #94a3b8; padding:2px 4px; background:#f8fafc; color:#334155; font-weight:700; width:14%;">Roll No:</td>
+                  <td contenteditable="true" style="border:1px solid #94a3b8; padding:2px 4px; color:#b91c1c; font-family:monospace; font-weight:bold; font-size:9pt; text-align:center; width:20%; cursor:text;">${rollPadded}</td>
+                  <td style="border:1px solid #94a3b8; padding:2px 4px; background:#f8fafc; color:#334155; font-weight:700; width:14%;">Adm / Reg No:</td>
+                  <td contenteditable="true" style="border:1px solid #94a3b8; padding:2px 4px; color:#0f172a; font-family:monospace; font-weight:bold; font-size:8pt; width:20%; cursor:text;">${admNo}</td>
+                  <td style="border:1px solid #94a3b8; padding:2px 4px; background:#f8fafc; color:#334155; font-weight:700; width:14%;">Class & Sec:</td>
+                  <td contenteditable="true" style="border:1px solid #94a3b8; padding:2px 4px; color:#1e3a8a; font-weight:bold; font-size:8.2pt; width:18%; cursor:text;">${normClass} (${student.section || 'A'})</td>
+                </tr>
+                <tr>
+                  <td style="border:1px solid #94a3b8; padding:2px 4px; background:#f8fafc; color:#334155; font-weight:700;">Candidate's Name:</td>
+                  <td colspan="3" contenteditable="true" style="border:1px solid #94a3b8; padding:2px 4px; font-size:8.8pt; font-weight:bold; color:#1e3a8a; letter-spacing:0.3px; cursor:text;">${candidateName}</td>
+                  <td style="border:1px solid #94a3b8; padding:2px 4px; background:#f8fafc; color:#334155; font-weight:700;">Date of Birth:</td>
+                  <td contenteditable="true" style="border:1px solid #94a3b8; padding:2px 4px; font-family:monospace; font-weight:bold; color:#0f172a; cursor:text;">${dobFormatted}</td>
+                </tr>
+                <tr>
+                  <td style="border:1px solid #94a3b8; padding:2px 4px; background:#f8fafc; color:#334155; font-weight:700;">Father's Name:</td>
+                  <td colspan="3" contenteditable="true" style="border:1px solid #94a3b8; padding:2px 4px; font-weight:bold; color:#0f172a; cursor:text;">${fatherName.toUpperCase()}</td>
+                  <td style="border:1px solid #94a3b8; padding:2px 4px; background:#f8fafc; color:#334155; font-weight:700;">Mother's Name:</td>
+                  <td contenteditable="true" style="border:1px solid #94a3b8; padding:2px 4px; font-weight:bold; color:#0f172a; cursor:text;">${motherName.toUpperCase()}</td>
+                </tr>
+                <tr>
+                  <td style="border:1px solid #94a3b8; padding:2px 4px; background:#f8fafc; color:#334155; font-weight:700;">Contact / Mobile:</td>
+                  <td colspan="3" contenteditable="true" style="border:1px solid #94a3b8; padding:2px 4px; font-family:monospace; font-weight:bold; color:#0f172a; cursor:text;">${phoneNo}</td>
+                  <td style="border:1px solid #94a3b8; padding:2px 4px; background:#f8fafc; color:#334155; font-weight:700;">Gender / Type:</td>
+                  <td contenteditable="true" style="border:1px solid #94a3b8; padding:2px 4px; font-weight:bold; color:#0f172a; cursor:text;">${gender} / REGULAR</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <!-- Photo & Sign -->
+            <div style="width:24.5mm; display:flex; flex-direction:column; align-items:center; justify-content:flex-start;">
+              <div style="width:24.5mm; height:28mm; border:1.5px solid #1e3a8a; background:#f8fafc; display:flex; align-items:center; justify-content:center; overflow:hidden; border-radius:2px; box-shadow:0 1px 2px rgba(0,0,0,0.05);">
+                ${photoHtml}
+              </div>
+              <div style="width:100%; border:1px dashed #94a3b8; background:#fafafa; margin-top:1.5px; height:7.5mm; display:flex; align-items:flex-end; justify-content:center; padding-bottom:1px;">
+                <div style="font-size:4.6pt; color:#64748b; text-align:center; line-height:1; font-weight:600;">परीक्षार्थी का हस्ताक्षर<br><span>Candidate's Signature</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Schedule Table -->
+          <div style="margin-bottom:2px;">
+            <table style="width:100%; border-collapse:collapse; font-size:6.8pt;">
+              <thead>
+                <tr style="background:#1e3a8a; color:#ffffff;">
+                  <th style="width:6%; border:1px solid #1e3a8a; padding:2px 3px; text-align:center; font-size:6.2pt; line-height:1.1;">क्र.सं.<br>Sl.No</th>
+                  <th style="width:32%; border:1px solid #1e3a8a; padding:2px 3px; text-align:center; font-size:6.2pt; line-height:1.1;">विषय / SUBJECT</th>
+                  <th style="width:17%; border:1px solid #1e3a8a; padding:2px 3px; text-align:center; font-size:6.2pt; line-height:1.1;">परीक्षा तिथि / DATE</th>
+                  <th style="width:14%; border:1px solid #1e3a8a; padding:2px 3px; text-align:center; font-size:6.2pt; line-height:1.1;">दिन / DAY</th>
+                  <th style="width:19%; border:1px solid #1e3a8a; padding:2px 3px; text-align:center; font-size:6.2pt; line-height:1.1;">समय / TIME</th>
+                  <th style="width:12%; border:1px solid #1e3a8a; padding:2px 3px; text-align:center; font-size:6.2pt; line-height:1.1;">वीक्षक हस्ताक्षर<br>INVIGILATOR</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rowsHtml}
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Instructions -->
+          <div style="border:1px solid #cbd5e1; background:#fffbeb; padding:2px 5px; border-radius:2px; margin-bottom:2px;">
+            <div style="font-size:5.6pt; font-weight:800; color:#92400e; margin-bottom:0.5px;">परीक्षार्थियों के लिए महत्वपूर्ण निर्देश (Important Instructions for Candidates):</div>
+            <ol style="margin:0; padding-left:12px; font-size:5.2pt; color:#78350f; line-height:1.2; font-weight:600;">
+              <li>यह प्रवेश पत्र (Admit Card) परीक्षा कक्ष में लाना अनिवार्य है। इसके बिना परीक्षा में बैठने की अनुमति नहीं दी जाएगी।</li>
+              <li>परीक्षार्थी परीक्षा प्रारंभ होने से 15 मिनट पूर्व परीक्षा केंद्र पर आवश्यक रूप से उपस्थित हों।</li>
+              <li>परीक्षा भवन में मोबाइल फोन, स्मार्ट वॉच, कैलकुलेटर या अन्य कोई अनुचित इलेक्ट्रॉनिक सामग्री लाना पूर्णतः वर्जित है।</li>
+              <li>परीक्षार्थी अपनी लेखन सामग्री (पेन, पेंसिल, रबर, स्केल, आदि) स्वयं लाएं। किसी भी प्रकार का आदान-प्रदान वर्जित है।</li>
+            </ol>
+          </div>
+
+        </div>
+
+        <!-- Footer Signatures (Pinned to the Very Bottom) -->
+        <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:auto; padding-top:2px; padding-bottom:1px;">
+          <div style="text-align:center; width:30%;">
+            <div style="border-top:1px solid #475569; margin-bottom:2px; width:80%; margin-left:auto; margin-right:auto;"></div>
+            <div style="font-size:5.6pt; font-weight:600; color:#334155; line-height:1.15;"><strong>कक्षा शिक्षक के हस्ताक्षर</strong><br>Class Teacher's Signature</div>
+          </div>
+          <div style="text-align:center; width:30%;">
+            <div style="border-top:1px solid #475569; margin-bottom:2px; width:80%; margin-left:auto; margin-right:auto;"></div>
+            <div style="font-size:5.6pt; font-weight:600; color:#334155; line-height:1.15;"><strong>परीक्षा नियंत्रक</strong><br>Controller of Examination</div>
+          </div>
+          <div style="text-align:center; width:30%; position:relative;">
+            <div style="position:absolute; top:-12px; left:20%; border:1px dashed #b91c1c; color:#b91c1c; font-size:5pt; font-weight:800; padding:1px 4px; border-radius:50%; transform:rotate(-12deg); opacity:0.7;">SEAL</div>
+            <div style="border-top:1px solid #475569; margin-bottom:2px; width:80%; margin-left:auto; margin-right:auto;"></div>
+            <div style="font-size:5.6pt; font-weight:600; color:#334155; line-height:1.15;"><strong>प्रधानाचार्य / Principal</strong><br>Tapowan Public School</div>
+          </div>
+        </div>
+
+      </div>
+    `;
   }
 
   function generateDynamicAdmitCard(student, examName, themeId, config) {
@@ -1173,36 +3054,632 @@
               </div>
           </div>`;
       }
-
+      
       return `
-        <div style="width: 100%; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; background: transparent; color: inherit; ${fontColorStyle} border: ${borderCss}; font-family: ${c.font}; border-radius: ${t.tableStyle==='rounded'?15:0}px; padding: 20px; position: relative; overflow: hidden; page-break-inside: avoid; box-shadow: 0 8px 20px rgba(0,0,0,0.1);">
-           ${t.bgTexture === 'watermark' ? `<img src="${DEFAULT_SCHOOL_LOGO}" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); opacity:0.05; width:300px; height:300px; z-index:0;" />` : ''}
-           <div style="position:relative; z-index:1; display: flex; flex-direction: column; justify-content: space-between; flex: 1;">
-               ${headerHtml}
-               <div style="display: flex; gap: 20px; margin-top:20px;">
-                   <div style="flex: 1;">
-                       <table style="width:100%; border-collapse:collapse; font-size: 18px; font-weight:600;">
-                           <tr><td style="padding:12px; border-bottom:${s.tableBorder};">Student Name:</td><td style="padding:12px; border-bottom:${s.tableBorder}; color:${c.color}; font-weight:800;" contenteditable="true">${student.fullName}</td></tr>
-                           <tr><td style="padding:12px; border-bottom:${s.tableBorder};">Father's Name:</td><td style="padding:12px; border-bottom:${s.tableBorder};" contenteditable="true">${formatParentName(student.fatherName)}</td></tr>
-                           <tr><td style="padding:12px; border-bottom:${s.tableBorder};">Class & Sec:</td><td style="padding:12px; border-bottom:${s.tableBorder};" contenteditable="true">${student.className}</td></tr>
-                           <tr><td style="padding:12px; border-bottom:${s.tableBorder};">Roll No:</td><td style="padding:12px; border-bottom:${s.tableBorder}; font-size:22px; font-weight:800;" contenteditable="true">${student.rollNo || '-'}</td></tr>
-                           <tr><td style="padding:12px; border-bottom:${s.tableBorder};">Admission No:</td><td style="padding:12px; border-bottom:${s.tableBorder};" contenteditable="true">${admNo}</td></tr>
-                       </table>
-                   </div>
-                   <div style="width: 120px; text-align:center;">
-                       <img src="${photoUrl}" style="width: 110px; height: 130px; object-fit: cover; border: 3px solid ${c.color}; border-radius: ${t.tableStyle==='rounded'?12:0}px;" />
-                   </div>
-               </div>
-               
-               ${buildScheduleTableHtml(student, config, c.color, s.tableBorder)}
-
-               ${footerHtml}
-               <div style="margin-top: 15px; text-align:center; font-size: 10px; color: inherit;">Theme ID: ${t.num} • Tapowan Public School System</div>
-           </div>
-        </div>`;
+      <div style="width: 100%; max-width: 750px; margin: 0 auto; background: ${s.cardBg}; border: ${borderCss}; border-radius: ${s.radius}; padding: 25px; box-shadow: ${s.shadow}; font-family: ${c.font}; ${fontColorStyle} box-sizing: border-box;">
+          ${headerHtml}
+          
+          <div style="display:flex; justify-content:space-between; margin-top: 25px; gap: 20px; align-items:center;">
+              <div style="flex:1; font-size: 15px; line-height: 1.8;">
+                  <div><strong>Student Name:</strong> <span contenteditable="true">${student.fullName || student.name || student.studentName || ""}</span></div>
+                  <div><strong>Father's Name:</strong> <span contenteditable="true">${student.fatherName || "-"}</span></div>
+                  <div><strong>Class & Section:</strong> <span contenteditable="true">${student.className || ""}</span></div>
+                  <div><strong>Roll Number:</strong> <span contenteditable="true">${student.rollNo || "-"}</span></div>
+                  <div><strong>Admission No:</strong> <span contenteditable="true">${admNo}</span></div>
+              </div>
+              <div style="width: 110px; height: 130px; border: 2px solid ${c.color}; border-radius: 6px; overflow:hidden; display:flex; align-items:center; justify-content:center; background:#fafafa;">
+                  <img src="${photoUrl}" style="max-width:100%; max-height:100%; object-fit:cover;" />
+              </div>
+          </div>
+          
+          <div style="margin-top: 25px; border-top: 1px dashed #ccc; padding-top: 15px; font-size: 12px; color: #666;">
+              <strong>Instructions:</strong>
+              <ul style="margin: 5px 0 0 0; padding-left: 20px;">
+                  <li>Please bring this admit card to the examination hall every day.</li>
+                  <li>Reach the examination center at least 15 minutes before the exam starts.</li>
+                  <li>Electronic devices including smartwatches and mobile phones are strictly prohibited.</li>
+              </ul>
+          </div>
+          
+          ${footerHtml}
+      </div>
+      `;
   }
 
-  function generateDynamicMarksheet(exam, themeId, config) {
+  function getTpsOfficialResultHtml(exam, config) {
+    const store = typeof getStore !== "undefined" ? getStore() : (typeof window !== "undefined" && window.store ? window.store : {});
+    const studentList = (store && store.students) || [];
+    
+    const admNo = exam.admissionNo || exam.admNo || "-";
+    
+    // Look up matching student from store to ensure phone, dob, father/mother name, photo etc. are available
+    const matchedStudent = studentList.find(s => {
+      const matchAdm = s.admissionNo && admNo && admNo !== "-" && String(s.admissionNo).trim().toLowerCase() === String(admNo).trim().toLowerCase();
+      const normClassA = (s.className || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+      const normClassB = (exam.className || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+      const matchClass = normClassA && normClassB && (normClassA === normClassB || normClassA.includes(normClassB) || normClassB.includes(normClassA));
+      const rollA = String(s.rollNo || "").trim().replace(/^0+/, "");
+      const rollB = String(exam.rollNo || "").trim().replace(/^0+/, "");
+      const matchRoll = rollA && rollB && rollA === rollB;
+      const nameA = (s.fullName || "").trim().toLowerCase();
+      const nameB = (exam.studentName || "").trim().toLowerCase();
+      const matchName = nameA && nameB && nameA === nameB;
+      return matchAdm || (matchClass && (matchRoll || matchName));
+    }) || {};
+
+    const candidateName = exam.studentName || matchedStudent.fullName || matchedStudent.name || "";
+    const fatherName = exam.fatherName || matchedStudent.fatherName || "---";
+    const motherName = exam.motherName || matchedStudent.motherName || "---";
+
+    // Format DOB
+    const rawDob = exam.dob || matchedStudent.dob || "";
+    let dobFormatted = "---";
+    if (rawDob && String(rawDob).trim() !== "" && String(rawDob) !== "null" && String(rawDob) !== "undefined") {
+      try {
+        const d = new Date(rawDob);
+        if (!isNaN(d.getTime())) {
+          const day = String(d.getDate()).padStart(2, "0");
+          const month = String(d.getMonth() + 1).padStart(2, "0");
+          const year = d.getFullYear();
+          dobFormatted = `${day}/${month}/${year}`;
+        } else {
+          dobFormatted = String(rawDob);
+        }
+      } catch (e) {
+        dobFormatted = String(rawDob);
+      }
+    }
+
+    // Format Contact No / Phone
+    const rawPhone = exam.phone || exam.mobile || exam.phoneNo || exam.contactNo || 
+                     matchedStudent.phone || matchedStudent.phone1 || matchedStudent.mobile || 
+                     matchedStudent.whatsapp || matchedStudent.contact || "";
+    const phoneNo = rawPhone && String(rawPhone).trim() !== "" && String(rawPhone) !== "null" && String(rawPhone) !== "undefined"
+      ? String(rawPhone).trim() 
+      : "---";
+
+    const classRank = exam.classRank || "";
+    const schoolRank = exam.schoolRank || "";
+    const totalClassStudents = exam.totalClassStudents || "";
+    const totalSchoolStudents = exam.totalSchoolStudents || "";
+
+    const formatRank = (r) => {
+      if (!r || r === "null" || r === "undefined" || r === "-") return "---";
+      const num = parseInt(r, 10);
+      if (isNaN(num) || num <= 0) return r;
+      const lastDigit = num % 10;
+      const lastTwoDigits = num % 100;
+      let suffix = "th";
+      if (lastTwoDigits < 11 || lastTwoDigits > 13) {
+        if (lastDigit === 1) suffix = "st";
+        else if (lastDigit === 2) suffix = "nd";
+        else if (lastDigit === 3) suffix = "rd";
+      }
+      return `${num}${suffix}`;
+    };
+
+    const autoRemarks = (function() {
+      const p = parseFloat(exam.percentage) || 0;
+      if (p >= 90) return "Outstanding performance! Exemplary academic dedication & excellence.";
+      if (p >= 75) return "Very good performance. Shows strong conceptual grasp and aptitude.";
+      if (p >= 60) return "Good overall effort. Consistent revision will bring further growth.";
+      if (p >= 50) return "Satisfactory performance. Encouraged to focus more on core concepts.";
+      if (p >= 33) return "Passed. Regular revision and extra guidance recommended for improvement.";
+      return "Needs substantial improvement and dedicated remedial support.";
+    })();
+
+    const isHalfYearly = /half|mid|term-1|term 1|pa1/i.test(exam.examName || '');
+    const isAnnual = !isHalfYearly && /annual|term-2|term 2|yearly|final|session ending|pa2/i.test(exam.examName || '');
+    const isCBSE = isHalfYearly || isAnnual;
+    const paLabel = isAnnual ? 'PA2<br>(10)' : 'PA1<br>(10)';
+    const examLabel = isAnnual ? 'Annual Exam<br>(80)' : 'Half Yearly<br>(80)';
+
+    const getGrade = (percentage) => {
+      const p = parseFloat(percentage);
+      if (isNaN(p)) return '-';
+      if (isCBSE) {
+        if (p >= 91) return 'A1';
+        if (p >= 81) return 'A2';
+        if (p >= 71) return 'B1';
+        if (p >= 61) return 'B2';
+        if (p >= 51) return 'C1';
+        if (p >= 41) return 'C2';
+        if (p >= 33) return 'D';
+        return 'E';
+      } else {
+        if (p >= 91) return 'A+';
+        if (p >= 81) return 'A';
+        if (p >= 71) return 'B+';
+        if (p >= 61) return 'B';
+        if (p >= 51) return 'C';
+        if (p >= 33) return 'D';
+        return 'E';
+      }
+    };
+    let subs = [];
+    try { subs = typeof exam.subjectMarks === 'string' ? JSON.parse(exam.subjectMarks) : (exam.subjectMarks || []); } catch(e) {}
+    if (!Array.isArray(subs)) subs = [];
+
+    const evalStatus = evalStudentResultStatus(subs, exam.className);
+    const safeGrade = (exam.grade && exam.grade !== 'null' && exam.grade !== 'undefined') ? exam.grade : getGrade(exam.percentage);
+    const safeResultStatus = (exam.resultStatus && exam.resultStatus !== 'null' && exam.resultStatus !== 'undefined' && exam.resultStatus !== '') ? exam.resultStatus : evalStatus.resultStatus;
+
+    const logoSrc = 'tps_logo_new.png';
+    const photoUrl = (function() {
+      const p = exam.studentPhoto;
+      if (!p) return '';
+      let s = String(p).trim();
+      if (['null', 'undefined', '---', '0', 'none', 'false', 'has_data'].includes(s.toLowerCase())) return '';
+      if (s.length < 4) return '';
+      if (s.startsWith('/api/photo/')) {
+        s += (s.includes('?') ? '&' : '?') + 't=' + Date.now();
+      }
+      return s;
+    })();
+
+    const photoHtml = photoUrl 
+      ? `<div style="width:100%; height:100%; position:relative; display:flex; align-items:center; justify-content:center;">
+           <img src="${photoUrl}" style="width:100%; height:100%; object-fit:contain; background:#ffffff; display:block;" alt="Photo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+           <div style="display:none; width:100%; height:100%; flex-direction:column; align-items:center; justify-content:center; text-align:center; font-size:6pt; font-weight:700; color:#64748b; line-height:1.15; padding:2px;">
+             <svg style="width:24px; height:24px; margin-bottom:2px;" viewBox="0 0 24 24" fill="#94a3b8"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+             <span>PHOTO<br>UNAVAILABLE</span>
+           </div>
+         </div>`
+      : `<div style="display:flex; width:100%; height:100%; flex-direction:column; align-items:center; justify-content:center; text-align:center; font-size:6pt; font-weight:700; color:#64748b; line-height:1.2; padding:2px;">
+           <svg style="width:24px; height:24px; margin-bottom:2px;" viewBox="0 0 24 24" fill="#94a3b8"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+             <span>AFFIX PASSPORT<br>SIZE PHOTO<br><small style="font-size:5pt;">(पासपोर्ट साइज फोटो)</small></span>
+         </div>`;
+
+    // Extract valid evaluated subjects for the Performance Graph before table padding
+    const evaluatedSubjects = subs.filter(s => s && s.subject && String(s.subject).trim() !== '');
+
+    // Ensure table has at least 5 rows for a balanced single-page layout
+    const minRows = 5;
+    while(subs.length < minRows) {
+        subs.push({ subject: '', max: '', min: '', theory: '', practical: '', total: '', pa1: '', pa2: '', notebook: '', enrichment: '' });
+    }
+    
+    const rowPad = '6px 5px';
+    
+    let tableHeadHtml = '';
+    if (isCBSE) {
+      tableHeadHtml = `
+        <th style="width:5%; border:1px solid #cbd5e1; padding:6px 3px; text-align:center; font-size:7.5pt; font-weight:800; line-height:1.2; letter-spacing:0.3px;">क्र.सं.<br>Sl.No</th>
+        <th style="width:26%; border:1px solid #cbd5e1; padding:6px 5px; text-align:center; font-size:8pt; font-weight:800; line-height:1.2; letter-spacing:0.5px;">विषय / SUBJECT</th>
+        <th style="width:11%; border:1px solid #cbd5e1; padding:6px 4px; text-align:center; font-size:7.5pt; font-weight:800; line-height:1.2; letter-spacing:0.3px;">${paLabel}</th>
+        <th style="width:14%; border:1px solid #cbd5e1; padding:6px 4px; text-align:center; font-size:7.5pt; font-weight:800; line-height:1.2; letter-spacing:0.3px;">Notebook<br>(5)</th>
+        <th style="width:18%; border:1px solid #cbd5e1; padding:6px 4px; text-align:center; font-size:7.5pt; font-weight:800; line-height:1.15; letter-spacing:0.2px;">Subject Enrichment<br>(5)</th>
+        <th style="width:14%; border:1px solid #cbd5e1; padding:6px 4px; text-align:center; font-size:7.5pt; font-weight:800; line-height:1.2; letter-spacing:0.3px;">${examLabel}</th>
+        <th style="width:12%; border:1px solid #cbd5e1; padding:6px 4px; text-align:center; font-size:8pt; font-weight:800; line-height:1.2; letter-spacing:0.5px; background:rgba(217,119,6,0.25);">TOTAL<br>(100)</th>
+      `;
+    } else {
+      tableHeadHtml = `
+        <th style="width:6%; border:1px solid #cbd5e1; padding:7px 5px; text-align:center; font-size:8pt; font-weight:800; line-height:1.2; letter-spacing:0.5px;">क्र.सं.<br>Sl.No</th>
+        <th style="width:34%; border:1px solid #cbd5e1; padding:7px 5px; text-align:center; font-size:8pt; font-weight:800; line-height:1.2; letter-spacing:0.5px;">विषय / SUBJECT</th>
+        <th style="width:12%; border:1px solid #cbd5e1; padding:7px 5px; text-align:center; font-size:8pt; font-weight:800; line-height:1.2; letter-spacing:0.5px;">MAX</th>
+        <th style="width:12%; border:1px solid #cbd5e1; padding:7px 5px; text-align:center; font-size:8pt; font-weight:800; line-height:1.2; letter-spacing:0.5px;">MIN</th>
+        <th style="width:12%; border:1px solid #cbd5e1; padding:7px 5px; text-align:center; font-size:8pt; font-weight:800; line-height:1.2; letter-spacing:0.5px;">TH.</th>
+        <th style="width:12%; border:1px solid #cbd5e1; padding:7px 5px; text-align:center; font-size:8pt; font-weight:800; line-height:1.2; letter-spacing:0.5px;">PR.</th>
+        <th style="width:12%; border:1px solid #cbd5e1; padding:7px 5px; text-align:center; font-size:8pt; font-weight:800; line-height:1.2; letter-spacing:0.5px; background:rgba(217,119,6,0.25);">TOTAL</th>
+      `;
+    }
+
+    const rowsHtml = subs.map((sub, rIdx) => {
+      const isEmpty = !sub.subject;
+      const isMain = isEmpty ? true : isSubjectMain(sub.subject, exam.className, sub);
+      const addlBadge = (!isEmpty && !isMain) ? `<span style="font-size:5.5pt; font-weight:800; color:#b45309; background:#fef3c7; border:1px solid #fde68a; border-radius:3px; padding:1px 4px; margin-left:5px; vertical-align:middle; display:inline-block; letter-spacing:0.3px;">ADDITIONAL</span>` : '';
+
+      if (isCBSE) {
+        const paVal = isAnnual ? (sub.pa2 !== undefined && sub.pa2 !== '' ? sub.pa2 : (sub.pa1 || '')) : (sub.pa1 !== undefined && sub.pa1 !== '' ? sub.pa1 : '');
+        const nbVal = sub.notebook !== undefined ? sub.notebook : '';
+        const enrVal = sub.enrichment !== undefined ? sub.enrichment : '';
+        const thVal = sub.theory !== undefined ? sub.theory : (sub.subjective || '');
+        const totVal = sub.total !== undefined && sub.total !== '' ? sub.total : (isEmpty ? '' : 0);
+        return `
+        <tr style="background: ${rIdx % 2 === 1 ? '#f8fafc' : '#ffffff'}; height: 26px;">
+          <td style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:9pt; color:#64748b;">${isEmpty ? '' : rIdx + 1}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; font-weight: 800; color: #0f2b5c; text-align: left; padding-left: 10px; font-size:9.5pt;">${sub.subject || ''}${addlBadge}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:10pt; color:#334155;">${isEmpty ? '' : paVal}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:10pt; color:#334155;">${isEmpty ? '' : nbVal}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:10pt; color:#334155;">${isEmpty ? '' : enrVal}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:10pt; color:#334155;">${isEmpty ? '' : thVal}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 900; color:#0f2b5c; font-size:11pt; background: ${isEmpty ? 'transparent' : 'rgba(30, 58, 138, 0.05)'};">${isEmpty ? '' : totVal}</td>
+        </tr>`;
+      } else {
+        return `
+        <tr style="background: ${rIdx % 2 === 1 ? '#f8fafc' : '#ffffff'}; height: 26px;">
+          <td style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:9pt; color:#64748b;">${isEmpty ? '' : rIdx + 1}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; font-weight: 800; color: #0f2b5c; text-align: left; padding-left: 10px; font-size:9.5pt;">${sub.subject || ''}${addlBadge}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:10pt; color:#334155;">${isEmpty ? '' : (sub.max || 100)}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:10pt; color:#334155;">${isEmpty ? '' : (sub.min !== undefined ? sub.min : 33)}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:10pt; color:#334155;">${isEmpty ? '' : (sub.theory || 0)}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:10pt; color:#334155;">${isEmpty ? '' : (sub.practical || 0)}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 900; color:#0f2b5c; font-size:11pt; background: ${isEmpty ? 'transparent' : 'rgba(30, 58, 138, 0.05)'};">${isEmpty ? '' : (sub.total || 0)}</td>
+        </tr>`;
+      }
+    }).join('');
+
+    // Generate Subject Performance Bar Graph
+    let subjectBarsHtml = '';
+    if (evaluatedSubjects.length > 0) {
+      subjectBarsHtml = evaluatedSubjects.map(s => {
+        const maxMarks = parseFloat(s.max) > 0 ? parseFloat(s.max) : 100;
+        let obtained = 0;
+        if (s.total !== undefined && s.total !== '' && !isNaN(parseFloat(s.total))) {
+          obtained = parseFloat(s.total);
+        } else {
+          const p1 = parseFloat(s.pa1) || 0;
+          const nb = parseFloat(s.notebook) || 0;
+          const enr = parseFloat(s.enrichment) || 0;
+          const th = parseFloat(s.theory !== undefined ? s.theory : s.subjective) || 0;
+          const pr = parseFloat(s.practical) || 0;
+          obtained = p1 + nb + enr + th + pr;
+        }
+        const pct = maxMarks > 0 ? Math.min(100, Math.max(0, Math.round((obtained / maxMarks) * 100))) : 0;
+
+        let gradient = 'linear-gradient(180deg, #10b981 0%, #059669 100%)';
+        let textColor = '#047857';
+        let borderColor = '#34d399';
+        let bgBadge = '#ecfdf5';
+
+        if (pct < 33) {
+          gradient = 'linear-gradient(180deg, #ef4444 0%, #dc2626 100%)';
+          textColor = '#b91c1c';
+          borderColor = '#f87171';
+          bgBadge = '#fef2f2';
+        } else if (pct < 60) {
+          gradient = 'linear-gradient(180deg, #f59e0b 0%, #d97706 100%)';
+          textColor = '#b45309';
+          borderColor = '#fcd34d';
+          bgBadge = '#fffdf5';
+        } else if (pct < 80) {
+          gradient = 'linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%)';
+          textColor = '#1d4ed8';
+          borderColor = '#60a5fa';
+          bgBadge = '#eff6ff';
+        }
+
+        return `
+          <div style="display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; flex:1; min-width:32px; max-width:68px; padding:0 2px;">
+            <!-- Score % Pill -->
+            <span style="font-size:6.5pt; font-weight:800; color:${textColor}; background:${bgBadge}; border:1px solid ${borderColor}; padding:1px 3px; border-radius:3px; margin-bottom:2px; line-height:1; box-shadow:0 1px 2px rgba(0,0,0,0.04); min-width:24px; text-align:center;">${pct}%</span>
+            <!-- Bar Container (50px fixed slot) -->
+            <div style="width:100%; height:50px; display:flex; align-items:flex-end; justify-content:center; position:relative;">
+              <div style="width:18px; max-width:70%; height:${Math.max(6, pct)}%; background:${gradient}; border-radius:3px 3px 0 0; border:1px solid ${borderColor}; border-bottom:none; box-shadow:0 2px 4px rgba(0,0,0,0.12); position:relative;"></div>
+            </div>
+            <!-- Baseline -->
+            <div style="width:100%; height:1.5px; background:#94a3b8;"></div>
+            <!-- Subject Name -->
+            <div title="${s.subject}" style="font-size:6.5pt; font-weight:800; color:#0f2b5c; text-align:center; margin-top:2px; width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-transform:capitalize; line-height:1.1;">${s.subject}</div>
+            <!-- Marks Obtained / Max -->
+            <div style="font-size:5.5pt; font-weight:700; color:#64748b; text-align:center; line-height:1; margin-top:1px;">${obtained}/${maxMarks}</div>
+          </div>
+        `;
+      }).join('');
+    } else {
+      subjectBarsHtml = `<div style="width:100%; text-align:center; font-size:7pt; color:#94a3b8; font-weight:700; padding:12px 0;">No evaluated subjects available to generate performance graph.</div>`;
+    }
+
+    const subjectGraphSectionHtml = `
+      <!-- Subject Performance Graph / विषयवार प्रदर्शन आलेख -->
+      <div style="border:1.5px solid #cbd5e1; border-radius:6px; background:#ffffff; padding:5px 8px 4px 8px; margin-bottom:6px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+        <!-- Graph Header & Legend -->
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:3px; padding-bottom:2px; border-bottom:1px solid #f1f5f9;">
+          <div style="display:flex; align-items:center; gap:4px;">
+            <span style="font-size:7.5pt; line-height:1;">📊</span>
+            <span style="font-size:6.5pt; font-weight:900; color:#0f2b5c; text-transform:uppercase; letter-spacing:0.5px;">SUBJECT PERFORMANCE GRAPH / विषयवार प्रदर्शन आलेख</span>
+          </div>
+          <!-- Legend Indicators -->
+          <div style="display:flex; align-items:center; gap:6px; font-size:5.5pt; font-weight:800;">
+            <span style="display:flex; align-items:center; gap:2px; color:#047857;">
+              <span style="width:6px; height:6px; border-radius:2px; background:#10b981; display:inline-block;"></span> ≥80% Distinction
+            </span>
+            <span style="display:flex; align-items:center; gap:2px; color:#1d4ed8;">
+              <span style="width:6px; height:6px; border-radius:2px; background:#3b82f6; display:inline-block;"></span> 60-79% Good
+            </span>
+            <span style="display:flex; align-items:center; gap:2px; color:#b45309;">
+              <span style="width:6px; height:6px; border-radius:2px; background:#f59e0b; display:inline-block;"></span> 33-59% Pass
+            </span>
+            <span style="display:flex; align-items:center; gap:2px; color:#dc2626;">
+              <span style="width:6px; height:6px; border-radius:2px; background:#ef4444; display:inline-block;"></span> &lt;33% Needs Help
+            </span>
+          </div>
+        </div>
+
+        <!-- Graph Chart Area -->
+        <div style="position:relative; width:100%;">
+          <!-- 33% Pass Benchmark Guideline -->
+          <div style="position:absolute; top:18px; left:0; right:0; height:50px; pointer-events:none; z-index:0;">
+            <div style="position:absolute; bottom:33%; left:0; right:0; border-top:1px dashed #cbd5e1;"></div>
+            <span style="position:absolute; bottom:calc(33% + 1px); right:2px; font-size:5pt; font-weight:800; color:#94a3b8;">33% PASS</span>
+          </div>
+
+          <!-- Bars Container -->
+          <div style="display:flex; justify-content:space-around; align-items:flex-end; width:100%; position:relative; z-index:1;">
+            ${subjectBarsHtml}
+          </div>
+        </div>
+      </div>
+    `;
+
+    const displayExamTitle = exam.examName ? exam.examName.toUpperCase() : "HALF YEARLY EXAMINATION 2026-27";
+
+    return `
+      <!-- FULL A4 SIZED WRAPPER WITH PRESTIGE CERTIFICATE BORDER -->
+      <div style="width:100%; height:277mm; min-height:277mm; max-height:277mm; box-sizing:border-box; border:3px solid #0f2b5c; outline:1.5px solid #d97706; outline-offset:-4px; padding:6mm 9mm 5mm 9mm; -webkit-print-color-adjust:exact; print-color-adjust:exact; display:flex; flex-direction:column; justify-content:space-between; background:#ffffff; font-family:'Plus Jakarta Sans', Arial, sans-serif; color:#0f172a; font-size:9.5pt; position:relative; overflow:hidden; box-shadow: inset 0 0 0 7px #ffffff;">
+        
+        <!-- Corner Ornaments (Gold & Navy) -->
+        <div style="position:absolute; top:6px; left:6px; width:18px; height:18px; border-top:2.5px solid #d97706; border-left:2.5px solid #d97706; pointer-events:none; z-index:2;"></div>
+        <div style="position:absolute; top:6px; right:6px; width:18px; height:18px; border-top:2.5px solid #d97706; border-right:2.5px solid #d97706; pointer-events:none; z-index:2;"></div>
+        <div style="position:absolute; bottom:6px; left:6px; width:18px; height:18px; border-bottom:2.5px solid #d97706; border-left:2.5px solid #d97706; pointer-events:none; z-index:2;"></div>
+        <div style="position:absolute; bottom:6px; right:6px; width:18px; height:18px; border-bottom:2.5px solid #d97706; border-right:2.5px solid #d97706; pointer-events:none; z-index:2;"></div>
+
+        <!-- Subtle Watermark -->
+        <img src="${logoSrc}" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:320px; max-height:320px; object-fit:contain; opacity:0.04; pointer-events:none; z-index:0;" alt="" onerror="this.style.display='none'" />
+
+        <!-- Main Content -->
+        <div style="display:flex; flex-direction:column; flex:1; justify-content:flex-start; position:relative; z-index:1;">
+          
+          <!-- Header -->
+          <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:2px solid #0f2b5c; padding-bottom:8px; margin-bottom:10px;">
+            <div style="width:28mm; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+              <div style="width:24mm; height:24mm; border-radius:50%; border:2px solid #d97706; padding:2px; box-shadow:0 2px 6px rgba(0,0,0,0.08); background:#ffffff; display:flex; align-items:center; justify-content:center;">
+                <img src="${logoSrc}" style="max-width:21mm; max-height:21mm; object-fit:contain;" alt="Logo" onerror="this.src='school_logo.png'" />
+              </div>
+            </div>
+            <div style="flex:1; text-align:center; padding:0 8px;">
+              <div style="font-size:7pt; font-weight:800; letter-spacing:1.5px; color:#b45309; text-transform:uppercase; margin-bottom:2px;">
+                CBSE AFFILIATED PATTERN • AN ENGLISH MEDIUM CO-ED INSTITUTION
+              </div>
+              <div style="font-family:'Cinzel', 'Times New Roman', serif; font-size:19pt; font-weight:900; color:#0f2b5c; letter-spacing:1.5px; line-height:1.1; margin-bottom:2px; text-shadow: 0 1px 2px rgba(15,43,92,0.1);">
+                TAPOWAN PUBLIC SCHOOL
+              </div>
+              <div style="font-size:7pt; font-weight:700; color:#475569; margin-bottom:5px;">
+                Prem Nagar, Banjee, Tapin, Ramgarh, Jharkhand - 825314 | Helpline: +91 87577 44973, 62991 22869
+              </div>
+              <div style="margin:2px 0;">
+                <span contenteditable="true" style="background:linear-gradient(180deg, #0f2b5c 0%, #1e3a8a 100%); color:#ffffff; font-size:8.5pt; font-weight:800; padding:4px 16px; border-radius:4px; letter-spacing:0.8px; display:inline-block; border:1px solid #d97706; box-shadow:0 2px 4px rgba(15,43,92,0.15);">
+                  ${displayExamTitle}
+                </span>
+              </div>
+              <div style="font-size:12pt; font-weight:900; color:#047857; letter-spacing:2px; margin-top:4px; text-transform:uppercase;">
+                ❖ PROGRESS REPORT / प्रगति-पत्र ❖
+              </div>
+            </div>
+            <div style="width:34mm; text-align:right;">
+              <div style="border:1.5px solid #d97706; background:linear-gradient(180deg, #fffdf5 0%, #fef3c7 100%); padding:5px 6px; border-radius:6px; font-size:7.5pt; text-align:center; box-shadow:0 2px 5px rgba(217,119,6,0.08); line-height:1.35;">
+                <div style="font-weight:800; color:#0f172a; border-bottom:1px dashed #d97706; padding-bottom:3px; margin-bottom:3px; font-size:7pt;">
+                  U-DISE: 20241202412
+                </div>
+                <div style="font-weight:900; color:#0f2b5c; font-size:8pt;">
+                  SESSION: ${exam.session || '2026-2027'}
+                </div>
+                <div style="font-size:6.5pt; font-weight:700; color:#b45309; margin-top:2px;">
+                  SCH. NO: 825314
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- School & Center Bar -->
+          <div style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; border:1px solid #cbd5e1; border-left:4px solid #0f2b5c; padding:4px 10px; font-size:7.5pt; margin-bottom:10px; border-radius:4px;">
+            <div><strong style="color:#0f2b5c;">School Code & Name:</strong> 825314 • TAPOWAN PUBLIC SCHOOL, RAMGARH</div>
+            <div style="text-align:right;"><strong style="color:#0f2b5c;">Exam Centre:</strong> TPS MAIN CAMPUS (RAMGARH)</div>
+          </div>
+
+          <!-- Student Profile Dossier & Photo -->
+          <div style="display:flex; gap:10px; margin-bottom:10px; background:#ffffff; border:1.5px solid #cbd5e1; border-radius:6px; padding:8px 10px; box-shadow:0 1px 4px rgba(0,0,0,0.02);">
+            <table style="flex:1; border-collapse:collapse; font-size:8.5pt;">
+              <tbody>
+                <tr style="border-bottom:1px solid #e2e8f0;">
+                  <td style="padding:4px 6px; font-weight:800; color:#64748b; width:16%; font-size:7.5pt; text-transform:uppercase;">Student Name:</td>
+                  <td colspan="3" contenteditable="true" style="padding:4px 6px; font-weight:900; color:#0f2b5c; font-size:11pt; letter-spacing:0.3px;">${candidateName}</td>
+                  <td style="padding:4px 6px; font-weight:800; color:#64748b; width:14%; font-size:7.5pt; text-transform:uppercase;">Class & Sec:</td>
+                  <td contenteditable="true" style="padding:4px 6px; width:18%;">
+                    <span style="background:#eff6ff; color:#1d4ed8; font-weight:900; padding:2px 8px; border-radius:4px; border:1px solid #bfdbfe; font-size:9pt;">${exam.className}</span>
+                  </td>
+                </tr>
+                <tr style="border-bottom:1px solid #e2e8f0;">
+                  <td style="padding:4px 6px; font-weight:800; color:#64748b; font-size:7.5pt; text-transform:uppercase;">Roll No:</td>
+                  <td contenteditable="true" style="padding:4px 6px; width:16%;">
+                    <span style="background:#fef2f2; color:#dc2626; font-weight:900; padding:2px 8px; border-radius:4px; border:1px solid #fecaca; font-size:9.5pt;">${exam.rollNo}</span>
+                  </td>
+                  <td style="padding:4px 6px; font-weight:800; color:#64748b; width:16%; font-size:7.5pt; text-transform:uppercase;">Adm / Reg No:</td>
+                  <td contenteditable="true" style="padding:4px 6px; width:18%;">
+                    <span style="background:#f8fafc; color:#0f172a; font-weight:900; padding:2px 8px; border-radius:4px; border:1px solid #cbd5e1; font-size:9pt;">${admNo}</span>
+                  </td>
+                  <td style="padding:4px 6px; font-weight:800; color:#64748b; font-size:7.5pt; text-transform:uppercase;">Date of Birth:</td>
+                  <td contenteditable="true" style="padding:4px 6px; font-weight:800; color:#0f172a; font-size:8.5pt;">${dobFormatted}</td>
+                </tr>
+                <tr style="border-bottom:1px solid #e2e8f0;">
+                  <td style="padding:4px 6px; font-weight:800; color:#64748b; font-size:7.5pt; text-transform:uppercase;">Father's Name:</td>
+                  <td colspan="3" contenteditable="true" style="padding:4px 6px; font-weight:800; color:#0f172a; text-transform:uppercase; font-size:8.5pt;">${fatherName}</td>
+                  <td style="padding:4px 6px; font-weight:800; color:#64748b; font-size:7.5pt; text-transform:uppercase;">Mother's Name:</td>
+                  <td contenteditable="true" style="padding:4px 6px; font-weight:800; color:#0f172a; text-transform:uppercase; font-size:8.5pt;">${motherName}</td>
+                </tr>
+                <tr>
+                  <td style="padding:4px 6px; font-weight:800; color:#64748b; font-size:7.5pt; text-transform:uppercase;">Contact No:</td>
+                  <td colspan="3" contenteditable="true" style="padding:4px 6px; font-weight:800; color:#0f172a; font-family:monospace; font-size:9pt;">${phoneNo}</td>
+                  <td style="padding:4px 6px; font-weight:800; color:#64748b; font-size:7.5pt; text-transform:uppercase;">Attendance:</td>
+                  <td contenteditable="true" style="padding:4px 6px; font-weight:800; color:#0f172a; font-size:8.5pt;">___ / ___ Days</td>
+                </tr>
+              </tbody>
+            </table>
+            
+            <!-- Photo Box -->
+            <div style="width:26mm; height:33mm; border:2px solid #0f2b5c; outline:1.5px solid #d97706; outline-offset:1px; border-radius:4px; box-shadow:0 3px 6px rgba(0,0,0,0.1); overflow:hidden; background:#f8fafc; display:flex; flex-direction:column; align-items:center; justify-content:center; flex-shrink:0;">
+              ${photoHtml}
+            </div>
+          </div>
+
+          <!-- Scholastic Performance Table -->
+          <div style="margin-bottom:6px; flex:1;">
+            <table style="width:100%; border-collapse:collapse; font-size:8.5pt; border:1px solid #cbd5e1; border-radius:4px; overflow:hidden;">
+              <thead>
+                <tr style="background:linear-gradient(180deg, #0f2b5c 0%, #1e3a8a 100%); color:#ffffff; border-bottom:2px solid #d97706;">
+                  ${tableHeadHtml}
+                </tr>
+              </thead>
+              <tbody>
+                ${rowsHtml}
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Total Metrics Ribbon -->
+          <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:8px; margin-bottom:10px;">
+            <!-- Grand Total -->
+            <div style="border:1.5px solid #93c5fd; background:linear-gradient(180deg, #f0f7ff 0%, #e0f2fe 100%); border-radius:6px; padding:6px 4px; text-align:center; box-shadow:0 1px 3px rgba(37,99,235,0.06);">
+              <div style="font-size:7pt; font-weight:800; color:#1e40af; text-transform:uppercase; letter-spacing:0.5px;">GRAND TOTAL</div>
+              <div contenteditable="true" style="font-size:15pt; font-weight:900; color:#0f2b5c; line-height:1.15; margin-top:1px;">${exam.totalMarks}</div>
+              <div style="font-size:6pt; font-weight:700; color:#64748b;">TOTAL OBTAINED</div>
+            </div>
+
+            <!-- Percentage -->
+            <div style="border:1.5px solid #c4b5fd; background:linear-gradient(180deg, #f5f3ff 0%, #ede9fe 100%); border-radius:6px; padding:6px 4px; text-align:center; box-shadow:0 1px 3px rgba(109,40,217,0.06);">
+              <div style="font-size:7pt; font-weight:800; color:#6d28d9; text-transform:uppercase; letter-spacing:0.5px;">PERCENTAGE</div>
+              <div contenteditable="true" style="font-size:15pt; font-weight:900; color:#5b21b6; line-height:1.15; margin-top:1px;">${exam.percentage}%</div>
+              <div style="font-size:6pt; font-weight:700; color:#64748b;">AGGREGATE SCORE</div>
+            </div>
+
+            <!-- Grade -->
+            <div style="border:1.5px solid #fde68a; background:linear-gradient(180deg, #fffdf5 0%, #fef3c7 100%); border-radius:6px; padding:6px 4px; text-align:center; box-shadow:0 1px 3px rgba(217,119,6,0.06);">
+              <div style="font-size:7pt; font-weight:800; color:#b45309; text-transform:uppercase; letter-spacing:0.5px;">OVERALL GRADE</div>
+              <div contenteditable="true" style="font-size:15pt; font-weight:900; color:#92400e; line-height:1.15; margin-top:1px;">${safeGrade}</div>
+              <div style="font-size:6pt; font-weight:700; color:#64748b;">SCHOLASTIC EVALUATION</div>
+            </div>
+
+            <!-- Result -->
+            <div style="border:1.5px solid ${safeResultStatus === 'PASS' ? '#86efac' : '#fca5a5'}; background:${safeResultStatus === 'PASS' ? 'linear-gradient(180deg, #f0fdf4 0%, #dcfce7 100%)' : 'linear-gradient(180deg, #fef2f2 0%, #fee2e2 100%)'}; border-radius:6px; padding:6px 4px; text-align:center; box-shadow:0 1px 3px rgba(22,163,74,0.08);">
+              <div style="font-size:7pt; font-weight:800; color:${safeResultStatus === 'PASS' ? '#15803d' : '#b91c1c'}; text-transform:uppercase; letter-spacing:0.5px;">RESULT STATUS</div>
+              <div contenteditable="true" style="font-size:15pt; font-weight:900; color:${safeResultStatus === 'PASS' ? '#16a34a' : '#dc2626'}; line-height:1.15; margin-top:1px; letter-spacing:0.5px;">★ ${safeResultStatus} ★</div>
+              <div style="font-size:6pt; font-weight:700; color:${safeResultStatus === 'PASS' ? '#15803d' : '#b91c1c'};">${safeResultStatus === 'PASS' ? 'PASSED / उत्तीर्ण' : 'NEEDS IMPROVEMENT'}</div>
+            </div>
+          </div>
+
+          <!-- Rank & Remarks Row -->
+          <div style="display:flex; gap:10px; margin-bottom:10px;">
+            <!-- Sleek Class Rank & School Rank Slots -->
+            <div style="flex:1; border:1.5px solid #cbd5e1; border-radius:6px; background:linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%); padding:6px 12px; display:flex; align-items:center; justify-content:space-around; gap:12px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+              
+              <!-- Class Rank Slot -->
+              <div style="display:flex; align-items:center; gap:6px;">
+                <div style="display:flex; flex-direction:column; align-items:flex-start;">
+                  <span style="font-size:6.5pt; font-weight:900; color:#1e40af; text-transform:uppercase; letter-spacing:0.5px; line-height:1;">CLASS RANK</span>
+                  <span style="font-size:5.5pt; font-weight:700; color:#64748b; line-height:1; margin-top:1px;">कक्षा स्थान</span>
+                </div>
+                <div style="display:flex; align-items:baseline; gap:3px;">
+                  <span contenteditable="true" style="display:inline-block; min-width:38px; padding:2px 6px; font-size:11pt; font-weight:900; color:#1e40af; background:#ffffff; border:1.5px solid #93c5fd; border-radius:4px; text-align:center; box-shadow:inset 0 1px 2px rgba(30,64,175,0.08); outline:none;">${formatRank(classRank)}</span>
+                  ${totalClassStudents ? `<span style="font-size:7pt; font-weight:800; color:#64748b;">/${totalClassStudents}</span>` : ''}
+                </div>
+              </div>
+
+              <div style="width:1px; height:24px; background:#cbd5e1;"></div>
+
+              <!-- School Rank Slot -->
+              <div style="display:flex; align-items:center; gap:6px;">
+                <div style="display:flex; flex-direction:column; align-items:flex-start;">
+                  <span style="font-size:6.5pt; font-weight:900; color:#b45309; text-transform:uppercase; letter-spacing:0.5px; line-height:1;">SCHOOL RANK</span>
+                  <span style="font-size:5.5pt; font-weight:700; color:#64748b; line-height:1; margin-top:1px;">विद्यालय स्थान</span>
+                </div>
+                <div style="display:flex; align-items:baseline; gap:3px;">
+                  <span contenteditable="true" style="display:inline-block; min-width:38px; padding:2px 6px; font-size:11pt; font-weight:900; color:#b45309; background:#ffffff; border:1.5px solid #fde68a; border-radius:4px; text-align:center; box-shadow:inset 0 1px 2px rgba(180,83,9,0.08); outline:none;">${formatRank(schoolRank)}</span>
+                  ${totalSchoolStudents ? `<span style="font-size:7pt; font-weight:800; color:#64748b;">/${totalSchoolStudents}</span>` : ''}
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Sleek Remarks Slot -->
+            <div style="flex:1.2; border:1.5px solid #cbd5e1; border-radius:6px; background:linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%); padding:6px 10px; display:flex; align-items:center; gap:8px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+              <div style="display:flex; flex-direction:column; align-items:flex-start; flex-shrink:0;">
+                <span style="font-size:6.5pt; font-weight:900; color:#0f2b5c; text-transform:uppercase; letter-spacing:0.5px; line-height:1;">REMARKS</span>
+                <span style="font-size:5.5pt; font-weight:700; color:#64748b; line-height:1; margin-top:1px;">शिक्षक टिप्पणी</span>
+              </div>
+              <span contenteditable="true" style="font-size:8.5pt; font-weight:700; color:#0f172a; flex:1; background:#ffffff; border:1px solid #cbd5e1; border-radius:4px; padding:3px 8px; min-height:18px; outline:none; box-shadow:inset 0 1px 2px rgba(0,0,0,0.03);">${autoRemarks}</span>
+            </div>
+          </div>
+
+          ${subjectGraphSectionHtml}
+
+          <!-- Grading Scale Strip -->
+          <div style="border:1px solid #fde68a; background:linear-gradient(90deg, #fffdf5 0%, #fef3c7 50%, #fffdf5 100%); padding:4px 8px; border-radius:5px; margin-bottom:8px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; font-size:7pt;">
+              <span style="font-weight:900; color:#92400e; text-transform:uppercase;">${isCBSE ? 'CBSE 8-Point Scale (ग्रेडिंग प्रणाली)' : 'Grading Scale (ग्रेडिंग प्रणाली)'}:</span>
+              <div style="display:flex; gap:4px; font-weight:800; color:#78350f;">
+                ${isCBSE ? `
+                  <span style="background:rgba(255,255,255,0.8); padding:1px 4px; border-radius:3px; border:1px solid #fde68a;">A1 (91-100)</span>
+                  <span style="background:rgba(255,255,255,0.8); padding:1px 4px; border-radius:3px; border:1px solid #fde68a;">A2 (81-90)</span>
+                  <span style="background:rgba(255,255,255,0.8); padding:1px 4px; border-radius:3px; border:1px solid #fde68a;">B1 (71-80)</span>
+                  <span style="background:rgba(255,255,255,0.8); padding:1px 4px; border-radius:3px; border:1px solid #fde68a;">B2 (61-70)</span>
+                  <span style="background:rgba(255,255,255,0.8); padding:1px 4px; border-radius:3px; border:1px solid #fde68a;">C1 (51-60)</span>
+                  <span style="background:rgba(255,255,255,0.8); padding:1px 4px; border-radius:3px; border:1px solid #fde68a;">C2 (41-50)</span>
+                  <span style="background:rgba(255,255,255,0.8); padding:1px 4px; border-radius:3px; border:1px solid #fde68a;">D (33-40)</span>
+                  <span style="background:rgba(255,255,255,0.8); padding:1px 4px; border-radius:3px; border:1px solid #fde68a; color:#b91c1c;">E (Needs Help)</span>
+                ` : `
+                  <span style="background:rgba(255,255,255,0.8); padding:1px 4px; border-radius:3px; border:1px solid #fde68a;">A+ (91-100%)</span>
+                  <span style="background:rgba(255,255,255,0.8); padding:1px 4px; border-radius:3px; border:1px solid #fde68a;">A (81-90%)</span>
+                  <span style="background:rgba(255,255,255,0.8); padding:1px 4px; border-radius:3px; border:1px solid #fde68a;">B+ (71-80%)</span>
+                  <span style="background:rgba(255,255,255,0.8); padding:1px 4px; border-radius:3px; border:1px solid #fde68a;">B (61-70%)</span>
+                  <span style="background:rgba(255,255,255,0.8); padding:1px 4px; border-radius:3px; border:1px solid #fde68a;">C (51-60%)</span>
+                  <span style="background:rgba(255,255,255,0.8); padding:1px 4px; border-radius:3px; border:1px solid #fde68a;">D (33-50%)</span>
+                  <span style="background:rgba(255,255,255,0.8); padding:1px 4px; border-radius:3px; border:1px solid #fde68a; color:#b91c1c;">E (0-32%)</span>
+                `}
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Footer Signatures & Official Stamp (Spacious Signing Zone) -->
+        <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:auto; padding:14px 14px 4px 14px; position:relative; z-index:1;">
+          
+          <!-- Class Teacher Signature -->
+          <div style="text-align:center; width:28%; display:flex; flex-direction:column; align-items:center;">
+            <div style="height:48px; width:100%; display:flex; align-items:flex-end; justify-content:center; margin-bottom:4px;">
+              <!-- Dedicated Signing Space for Class Teacher -->
+            </div>
+            <div style="border-top:1.5px solid #0f2b5c; width:90%; margin-bottom:5px;"></div>
+            <div style="font-size:7.5pt; font-weight:800; color:#0f2b5c; line-height:1.2;">
+              <strong>कक्षा शिक्षक के हस्ताक्षर</strong><br>
+              <span style="font-size:6.5pt; color:#64748b;">Class Teacher's Signature</span>
+            </div>
+          </div>
+
+          <!-- Parent Signature -->
+          <div style="text-align:center; width:28%; display:flex; flex-direction:column; align-items:center;">
+            <div style="height:48px; width:100%; display:flex; align-items:flex-end; justify-content:center; margin-bottom:4px;">
+              <!-- Dedicated Signing Space for Parent -->
+            </div>
+            <div style="border-top:1.5px solid #0f2b5c; width:90%; margin-bottom:5px;"></div>
+            <div style="font-size:7.5pt; font-weight:800; color:#0f2b5c; line-height:1.2;">
+              <strong>अभिभावक के हस्ताक्षर</strong><br>
+              <span style="font-size:6.5pt; color:#64748b;">Parent's Signature</span>
+            </div>
+          </div>
+
+          <!-- Principal Signature & Official Seal -->
+          <div style="text-align:center; width:34%; display:flex; flex-direction:column; align-items:center; position:relative;">
+            <div style="height:48px; width:100%; display:flex; align-items:center; justify-content:center; position:relative; margin-bottom:4px;">
+              <!-- Official Stamp Seal placed elegantly across the signing line without touching scale strip -->
+              <div style="position:absolute; bottom:-6px; left:8px; width:48px; height:48px; border:2px dashed #b91c1c; border-radius:50%; display:flex; flex-direction:column; align-items:center; justify-content:center; transform:rotate(-10deg); opacity:0.85; pointer-events:none; background:rgba(254, 242, 242, 0.45); z-index:2;">
+                <span style="font-size:5pt; font-weight:900; color:#b91c1c; text-align:center; line-height:1.05;">TAPOWAN<br>SEAL<br>TPS</span>
+              </div>
+            </div>
+            <div style="border-top:1.5px solid #0f2b5c; width:90%; margin-bottom:5px;"></div>
+            <div style="font-size:7.5pt; font-weight:800; color:#0f2b5c; line-height:1.2;">
+              <strong>प्रधानाचार्य के हस्ताक्षर व मुहर</strong><br>
+              <span style="font-size:6.5pt; color:#64748b;">Principal & Official Seal</span>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    `;
+}
+
+function generateDynamicMarksheet(exam, themeId, config) {
       const c = config || { color: '#0f172a', font: "'Inter', sans-serif", border: 'solid' };
       const t = parseDynamicTheme(themeId);
       const s = getDynamicStyles(t, c);
@@ -1213,20 +3690,50 @@
       const admNo = exam.admissionNo || '-';
       
       let subjectRows = '';
-      let subs = [];
-      try { subs = JSON.parse(exam.subjectMarks); } catch(e) {}
       
-      subs.forEach((sub, i) => {
-          const rowBg = (t.tableStyle === 'striped' && i%2!==0) ? `${c.color}11` : 'transparent';
-          subjectRows += `<tr style="background:${rowBg};">
-              <td style="padding:12px; border:${s.tableBorder}; font-weight:bold;" contenteditable="true">${sub.subject}</td>
-              <td style="padding:12px; border:${s.tableBorder}; text-align:center;" contenteditable="true">${sub.max || 100}</td>
-              <td style="padding:12px; border:${s.tableBorder}; text-align:center;" contenteditable="true">${sub.min !== undefined ? sub.min : 33}</td>
-              <td style="padding:12px; border:${s.tableBorder}; text-align:center;" contenteditable="true">${sub.theory || 0}</td>
-              <td style="padding:12px; border:${s.tableBorder}; text-align:center;" contenteditable="true">${sub.practical || 0}</td>
-              <td style="padding:12px; border:${s.tableBorder}; text-align:center; font-weight:bold; color:${c.color};" contenteditable="true">${sub.total || 0}</td>
-          </tr>`;
-      });
+    const getGrade = (percentage) => {
+      const p = parseFloat(percentage);
+      if (isNaN(p)) return '-';
+      if (isCBSE) {
+        if (p >= 91) return 'A1';
+        if (p >= 81) return 'A2';
+        if (p >= 71) return 'B1';
+        if (p >= 61) return 'B2';
+        if (p >= 51) return 'C1';
+        if (p >= 41) return 'C2';
+        if (p >= 33) return 'D';
+        return 'E';
+      } else {
+        if (p >= 91) return 'A+';
+        if (p >= 81) return 'A';
+        if (p >= 71) return 'B+';
+        if (p >= 61) return 'B';
+        if (p >= 51) return 'C';
+        if (p >= 33) return 'D';
+        return 'E';
+      }
+    };
+    let subs = [];
+    try { subs = typeof exam.subjectMarks === 'string' ? JSON.parse(exam.subjectMarks) : (exam.subjectMarks || []); } catch(e) {}
+    if (!Array.isArray(subs)) subs = [];
+
+    const evalStatus = evalStudentResultStatus(subs, exam.className);
+    const safeGrade = (exam.grade && exam.grade !== 'null' && exam.grade !== 'undefined') ? exam.grade : getGrade(exam.percentage);
+    const safeResultStatus = (exam.resultStatus && exam.resultStatus !== 'null' && exam.resultStatus !== 'undefined' && exam.resultStatus !== '') ? exam.resultStatus : evalStatus.resultStatus;
+
+    subs.forEach((sub, i) => {
+        const isMain = isSubjectMain(sub.subject, exam.className, sub);
+        const addlBadge = !isMain ? `<span style="font-size:7pt; font-weight:800; color:#b45309; background:#fef3c7; border:1px solid #fde68a; border-radius:3px; padding:1px 4px; margin-left:5px; vertical-align:middle; display:inline-block;">ADDITIONAL</span>` : '';
+        const rowBg = (t.tableStyle === 'striped' && i%2!==0) ? `${c.color}11` : 'transparent';
+        subjectRows += `<tr style="background:${rowBg};">
+            <td style="padding:12px; border:${s.tableBorder}; font-weight:bold;" contenteditable="true">${sub.subject}${addlBadge}</td>
+            <td style="padding:12px; border:${s.tableBorder}; text-align:center;" contenteditable="true">${sub.max || 100}</td>
+            <td style="padding:12px; border:${s.tableBorder}; text-align:center;" contenteditable="true">${sub.min !== undefined ? sub.min : 33}</td>
+            <td style="padding:12px; border:${s.tableBorder}; text-align:center;" contenteditable="true">${sub.theory || 0}</td>
+            <td style="padding:12px; border:${s.tableBorder}; text-align:center;" contenteditable="true">${sub.practical || 0}</td>
+            <td style="padding:12px; border:${s.tableBorder}; text-align:center; font-weight:bold; color:${c.color};" contenteditable="true">${sub.total || 0}</td>
+        </tr>`;
+    });
 
       let headerHtml = '';
       if(t.headerAlign === 'center') {
@@ -1309,6 +3816,419 @@
       </div>`;
   }
   
+  function numberToWordsEnglish(n) {
+    const num = parseInt(n, 10);
+    if (isNaN(num) || num === 0) return 'ZERO';
+    const a = ['', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'TEN', 'ELEVEN', 'TWELVE', 'THIRTEEN', 'FOURTEEN', 'FIFTEEN', 'SIXTEEN', 'SEVENTEEN', 'EIGHTEEN', 'NINETEEN'];
+    const b = ['', '', 'TWENTY', 'THIRTY', 'FORTY', 'FIFTY', 'SIXTY', 'SEVENTY', 'EIGHTY', 'NINETY'];
+    function inWords(val) {
+      if (val < 20) return a[val];
+      if (val < 100) return b[Math.floor(val / 10)] + (val % 10 !== 0 ? ' ' + a[val % 10] : '');
+      if (val < 1000) return a[Math.floor(val / 100)] + ' HUNDRED' + (val % 100 !== 0 ? ' ' + inWords(val % 100) : '');
+      return String(val);
+    }
+    return inWords(num).trim();
+  }
+
+  // =========================================================================
+  // 🏛️ JAC BOARD CLASS 10 STYLE ADMIT CARD TEMPLATE (MICRO-TEXT WATERMARK)
+  // =========================================================================
+  function getJac10AdmitCardHtml(student, examName, config) {
+    const store = typeof getStore !== 'undefined' ? getStore() : {};
+    const schoolName = store.schoolProfile && store.schoolProfile.schoolName ? store.schoolProfile.schoolName : "TAPOWAN PUBLIC SCHOOL, RAMGARH";
+    const logoSrc = DEFAULT_SCHOOL_LOGO;
+    const qrSrc = 'qr.png';
+    const rollCode = '27019';
+    const rollNo = (student.rollNo || '0001').toString().padStart(5, '0');
+    const regNo = student.admissionNo || '27019-RA-0050-22';
+    const candidateName = (student.fullName || student.studentName || 'STUDENT NAME').toUpperCase();
+    const fatherName = formatParentName(student.fatherName || '---').toUpperCase();
+    const motherName = formatParentName(student.motherName || '---').toUpperCase();
+    const className = student.className || 'X-A';
+
+    const normClass = typeof normalizeClassNameForTps === 'function' ? normalizeClassNameForTps(student.className) : (student.className || 'X-A');
+    const defaultSched = (typeof TPS_OFFICIAL_SCHEDULES !== 'undefined' && TPS_OFFICIAL_SCHEDULES[normClass]) ? TPS_OFFICIAL_SCHEDULES[normClass] : null;
+
+    let schedule = [];
+    if (config && config.subjectDates && Object.keys(config.subjectDates).length > 0) {
+      Object.entries(config.subjectDates).forEach(([sub, dt], idx) => {
+        if (dt) {
+          let dateStr = typeof dt === 'object' ? (dt.date || '') : dt;
+          let dayStr = typeof dt === 'object' ? (dt.day || '') : '';
+          let timeStr = typeof dt === 'object' ? (dt.time || '09:45 AM - 01:00 PM') : '09:45 AM - 01:00 PM';
+          if (!dayStr && typeof getAutoDayName === 'function') dayStr = getAutoDayName(dateStr);
+          let formattedDate = typeof formatExamDate === 'function' ? formatExamDate(dateStr) : dateStr;
+          schedule.push({ code: String(idx + 1).padStart(2, '0'), subject: sub, date: formattedDate, day: (dayStr || '').toUpperCase(), time: timeStr });
+        }
+      });
+    }
+
+    if (schedule.length === 0 && defaultSched) {
+      schedule = defaultSched.map((item, idx) => ({
+        code: String(idx + 1).padStart(2, '0'),
+        subject: item.subject,
+        date: typeof formatExamDate === 'function' ? formatExamDate(item.date) : item.date,
+        day: ((!item.day || item.day === '---') && typeof getAutoDayName === 'function') ? getAutoDayName(item.date).toUpperCase() : (item.day || '').toUpperCase(),
+        time: item.time || '09:45 AM - 01:00 PM'
+      }));
+    }
+
+    if (schedule.length === 0) {
+      const classSubjects = typeof getSubjectsForClass === 'function' ? getSubjectsForClass(student.className) : ['Hindi', 'English', 'Mathematics', 'Science', 'Social Science', 'Computer Science'];
+      schedule = classSubjects.map((sub, idx) => ({
+        code: String(idx + 1).padStart(2, '0'),
+        subject: sub,
+        date: '---',
+        day: '---',
+        time: '09:45 AM - 01:00 PM'
+      }));
+    }
+
+    let schedRows = schedule.map(sub => `
+      <tr style="height:19px; font-size:7.5pt;">
+        <td contenteditable="true" style="border:1px solid #991b1b; text-align:center; font-weight:800; color:#991b1b;">${sub.code}</td>
+        <td contenteditable="true" style="border:1px solid #991b1b; padding:2px 5px; font-weight:800; color:#0f172a; text-transform:uppercase;">${sub.subject}</td>
+        <td contenteditable="true" style="border:1px solid #991b1b; text-align:center; font-weight:700; color:#1e293b;">${sub.date}</td>
+        <td contenteditable="true" style="border:1px solid #991b1b; text-align:center; font-weight:700; color:#1e293b;">${sub.day}</td>
+        <td contenteditable="true" style="border:1px solid #991b1b; text-align:center; font-weight:700; color:#1e293b;">${sub.time}</td>
+        <td contenteditable="true" style="border:1px solid #991b1b; text-align:center;"></td>
+      </tr>
+    `).join('');
+
+    return `
+      <!-- JAC 10TH INSPIRED ADMIT CARD WITH SECURITY MICRO-TEXT PATTERN -->
+      <div style="width:100%; height:100%; box-sizing:border-box; border:2.5px double #991b1b; padding:4mm 5mm 3mm 5mm; display:flex; flex-direction:column; justify-content:space-between; background-color:#ffffff; background-image:url(&quot;data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='36' viewBox='0 0 180 36'><text x='0' y='12' font-family='sans-serif' font-size='5' font-weight='800' fill='rgba(153,27,27,0.045)' letter-spacing='0.5'>TAPOWAN PUBLIC SCHOOL</text><text x='20' y='28' font-family='sans-serif' font-size='5' font-weight='800' fill='rgba(153,27,27,0.045)' letter-spacing='0.5'>TAPOWAN PUBLIC SCHOOL</text></svg>&quot;); background-repeat:repeat; font-family:'Times New Roman', Times, serif; color:#000000; position:relative; overflow:hidden;">
+        
+        <!-- Center Emblem Watermark -->
+        <img src="${logoSrc}" style="position:absolute; top:52%; left:50%; transform:translate(-50%,-50%); width:180px; height:180px; object-fit:contain; opacity:0.06; pointer-events:none; z-index:0;" alt="" onerror="this.style.display='none';" />
+
+        <div style="position:relative; z-index:1;">
+          <!-- Header -->
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:2px;">
+            <!-- Emblem -->
+            <div style="width:20mm; display:flex; flex-direction:column; align-items:flex-start;">
+              <div style="width:17mm; height:17mm; border-radius:50%; border:1.2px solid #991b1b; padding:1px; background:#ffffff; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 3px rgba(153,27,27,0.15);">
+                <img src="${logoSrc}" style="max-width:15mm; max-height:15mm; object-fit:contain;" alt="Logo" onerror="this.src='school_logo.png'" />
+              </div>
+              <div style="font-size:6.5pt; font-weight:800; color:#991b1b; margin-top:3px; font-family:sans-serif;">
+                CODE : <span contenteditable="true" style="color:#000; font-weight:900;">${rollCode}</span>
+              </div>
+            </div>
+
+            <!-- Titles -->
+            <div style="flex:1; text-align:center; padding:0 4px;">
+              <div style="font-size:15pt; font-weight:900; color:#991b1b; letter-spacing:0.5px; line-height:1;">
+                TAPOWAN PUBLIC SCHOOL
+              </div>
+              <div style="font-size:9.5pt; font-weight:900; color:#991b1b; letter-spacing:1px; margin-top:1px;">
+                RAMGARH, JHARKHAND
+              </div>
+              <div style="font-size:8.5pt; font-weight:900; color:#991b1b; letter-spacing:0.5px; margin-top:2px; text-transform:uppercase;">
+                ${examName || 'ANNUAL SECONDARY EXAMINATION - 2026'}
+              </div>
+              <div style="font-size:9.5pt; font-weight:900; color:#000000; letter-spacing:1px; margin-top:1px; text-transform:uppercase;">
+                ADMISSION CARD / ADMIT CARD
+              </div>
+            </div>
+
+            <!-- Photo Box -->
+            <div style="width:20mm; height:24mm; border:1.2px solid #991b1b; background:#ffffff; display:flex; flex-direction:column; align-items:center; justify-content:center; overflow:hidden;">
+              ${student.photo ? `<img src="${student.photo}" style="width:100%; height:100%; object-fit:contain;" />` : `
+                <div style="text-align:center; font-size:5.5pt; font-weight:800; color:#991b1b; padding:2px; line-height:1.2; font-family:sans-serif;">
+                  AFFIX<br>PASSPORT<br>PHOTO
+                </div>
+              `}
+            </div>
+          </div>
+
+          <!-- Student Details Grid -->
+          <table style="width:100%; border-collapse:collapse; border:1.2px solid #991b1b; font-size:8pt; margin:3px 0 4px 0; background:rgba(255,255,255,0.8);">
+            <tr>
+              <td style="border:1px solid #fca5a5; padding:2px 4px; width:18%; font-weight:800; color:#991b1b; font-size:7pt;">CANDIDATE NAME</td>
+              <td contenteditable="true" style="border:1px solid #fca5a5; padding:2px 4px; font-weight:900; color:#000; text-transform:uppercase;" colspan="3">${candidateName}</td>
+              <td style="border:1px solid #fca5a5; padding:2px 4px; width:15%; font-weight:800; color:#991b1b; font-size:7pt;">ROLL NO.</td>
+              <td contenteditable="true" style="border:1px solid #fca5a5; padding:2px 4px; width:15%; font-weight:900; color:#991b1b; font-size:9pt; font-family:sans-serif;">${rollNo}</td>
+            </tr>
+            <tr>
+              <td style="border:1px solid #fca5a5; padding:2px 4px; font-weight:800; color:#991b1b; font-size:7pt;">FATHER'S NAME</td>
+              <td contenteditable="true" style="border:1px solid #fca5a5; padding:2px 4px; font-weight:800; color:#000; text-transform:uppercase;">${fatherName}</td>
+              <td style="border:1px solid #fca5a5; padding:2px 4px; width:15%; font-weight:800; color:#991b1b; font-size:7pt;">MOTHER'S NAME</td>
+              <td contenteditable="true" style="border:1px solid #fca5a5; padding:2px 4px; font-weight:800; color:#000; text-transform:uppercase;">${motherName}</td>
+              <td style="border:1px solid #fca5a5; padding:2px 4px; font-weight:800; color:#991b1b; font-size:7pt;">CLASS & SEC</td>
+              <td contenteditable="true" style="border:1px solid #fca5a5; padding:2px 4px; font-weight:900; color:#991b1b;">${className}</td>
+            </tr>
+            <tr>
+              <td style="border:1px solid #fca5a5; padding:2px 4px; font-weight:800; color:#991b1b; font-size:7pt;">SCHOOL / INST.</td>
+              <td contenteditable="true" style="border:1px solid #fca5a5; padding:2px 4px; font-weight:800; color:#000;" colspan="3">${schoolName}</td>
+              <td style="border:1px solid #fca5a5; padding:2px 4px; font-weight:800; color:#991b1b; font-size:7pt;">REGN. NO.</td>
+              <td contenteditable="true" style="border:1px solid #fca5a5; padding:2px 4px; font-weight:800; color:#000; font-size:7pt;">${regNo}</td>
+            </tr>
+          </table>
+
+          <!-- Examination Schedule Table -->
+          <table style="width:100%; border-collapse:collapse; border:1.2px solid #991b1b; background:#ffffff;">
+            <thead>
+              <tr style="background:linear-gradient(180deg, #fee2e2 0%, #fecaca 100%); color:#991b1b; font-size:7.5pt; font-weight:900;">
+                <th style="width:8%; border:1px solid #991b1b; padding:2px; text-align:center;">CODE</th>
+                <th style="width:36%; border:1px solid #991b1b; padding:2px 4px; text-align:left;">SUBJECT NAME</th>
+                <th style="width:16%; border:1px solid #991b1b; padding:2px; text-align:center;">EXAM DATE</th>
+                <th style="width:14%; border:1px solid #991b1b; padding:2px; text-align:center;">DAY</th>
+                <th style="width:18%; border:1px solid #991b1b; padding:2px; text-align:center;">TIMING</th>
+                <th style="width:8%; border:1px solid #991b1b; padding:2px; text-align:center;">INV. SIGN</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${schedRows}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Footer Signatures -->
+        <div style="display:flex; justify-content:space-between; align-items:flex-end; padding:4px 6px 1px 6px; border-top:1px solid #991b1b; margin-top:3px; position:relative; z-index:1;">
+          <div style="text-align:center; width:28mm;">
+            <div style="border-top:1px solid #000; width:100%; margin-bottom:1px;"></div>
+            <div style="font-size:6.5pt; font-weight:800; color:#000;">Candidate Signature</div>
+          </div>
+          <div style="text-align:center; width:28mm;">
+            <div style="border-top:1px solid #000; width:100%; margin-bottom:1px;"></div>
+            <div style="font-size:6.5pt; font-weight:800; color:#000;">Centre Supdt.</div>
+          </div>
+          <div style="text-align:center; width:30mm;">
+            <div style="font-family:'Brush Script MT', cursive; font-size:12pt; color:#991b1b; line-height:1; transform:rotate(-4deg);">Aatif Raza</div>
+            <div style="border-top:1px solid #991b1b; width:100%; margin-bottom:1px;"></div>
+            <div style="font-size:6.5pt; font-weight:900; color:#991b1b;">Secretary / Principal</div>
+          </div>
+        </div>
+
+      </div>
+    `;
+  }
+
+  // =========================================================================
+  // 🏛️ JAC BOARD CLASS 10 STYLE MARKS STATEMENT (AUTHENTIC RESULT TEMPLATE)
+  // =========================================================================
+  function getJacBoardResultHtml(exam, config) {
+    const store = typeof getStore !== 'undefined' ? getStore() : {};
+    const schoolName = store.schoolProfile && store.schoolProfile.schoolName ? store.schoolProfile.schoolName : "TAPOWAN PUBLIC SCHOOL, RAMGARH";
+    const logoSrc = DEFAULT_SCHOOL_LOGO;
+    const qrSrc = 'qr.png';
+    const msNo = (exam.rollNo ? String(190000 + parseInt(exam.rollNo, 10)) : '191864');
+    const rollCode = '27019';
+    const rollNo = (exam.rollNo || '0001').toString().padStart(5, '0');
+    const regNo = exam.admissionNo || '27019-RA-0050-22';
+    const candidateName = (exam.studentName || 'STUDENT NAME').toUpperCase();
+    const fatherName = formatParentName(exam.fatherName || '---').toUpperCase();
+    const motherName = formatParentName(exam.motherName || '---').toUpperCase();
+    
+    let subs = [];
+    if (typeof exam.subjectMarks === 'string') {
+      try { subs = JSON.parse(exam.subjectMarks); } catch(e) {}
+    } else if (Array.isArray(exam.subjectMarks)) {
+      subs = exam.subjectMarks;
+    }
+    if (!Array.isArray(subs)) subs = [];
+
+    let grandTotal = 0;
+    let maxAggregate = 0;
+
+    // Group into JAC categories
+    const rowsHtml = subs.map((sub, idx) => {
+      const max = parseFloat(sub.max) || 100;
+      const pass = parseFloat(sub.min) || 33;
+      const th = sub.theory !== undefined && sub.theory !== '' ? sub.theory : (sub.subjective || '');
+      const pr = sub.practical !== undefined && sub.practical !== '' ? sub.practical : '';
+      const cce = sub.cce || sub.notebook || sub.pa1 || '';
+      const tot = sub.total !== undefined && sub.total !== '' ? parseFloat(sub.total) : ((parseFloat(th)||0) + (parseFloat(pr)||0));
+      grandTotal += (tot || 0);
+      maxAggregate += max;
+
+      let catLabel = '';
+      if (idx === 0) catLabel = '<div style="font-size:7.5pt; font-weight:800; color:#991b1b; padding:2px 0 1px 0; letter-spacing:0.5px;">01. COMPULSORY CORE LANGUAGE :</div>';
+      else if (idx === 1) catLabel = '<div style="font-size:7.5pt; font-weight:800; color:#991b1b; padding:3px 0 1px 0; letter-spacing:0.5px;">02. COMPULSORY / ELECTIVE :</div>';
+      else if (idx === 2) catLabel = '<div style="font-size:7.5pt; font-weight:800; color:#991b1b; padding:3px 0 1px 0; letter-spacing:0.5px;">03. OPTIONAL :</div>';
+      else if (idx === 5) catLabel = '<div style="font-size:7.5pt; font-weight:800; color:#991b1b; padding:3px 0 1px 0; letter-spacing:0.5px;">04. ADDITIONAL :</div>';
+
+      return `
+        ${catLabel ? `<tr><td colspan="7" style="border-left:1px solid #b91c1c; border-right:1px solid #b91c1c; border-bottom:none; border-top:1px dashed #fca5a5; padding:2px 6px; background:rgba(254,242,242,0.4);">${catLabel}</td></tr>` : ''}
+        <tr style="height:23px; font-size:8.5pt;">
+          <td contenteditable="true" style="border:1px solid #b91c1c; border-top:none; border-bottom:1px solid #fecaca; padding:3px 8px; font-weight:800; color:#0f172a; text-transform:uppercase; letter-spacing:0.5px;">${sub.subject}</td>
+          <td contenteditable="true" style="border:1px solid #b91c1c; border-top:none; border-bottom:1px solid #fecaca; text-align:center; font-weight:700; color:#334155;">${max}</td>
+          <td contenteditable="true" style="border:1px solid #b91c1c; border-top:none; border-bottom:1px solid #fecaca; text-align:center; font-weight:700; color:#334155;">${String(pass).padStart(3, '0')}</td>
+          <td contenteditable="true" style="border:1px solid #b91c1c; border-top:none; border-bottom:1px solid #fecaca; text-align:center; font-weight:800; color:#0f172a;">${th ? String(th).padStart(3, '0') : ''}</td>
+          <td contenteditable="true" style="border:1px solid #b91c1c; border-top:none; border-bottom:1px solid #fecaca; text-align:center; font-weight:800; color:#0f172a;">${pr ? String(pr).padStart(3, '0') : ''}</td>
+          <td contenteditable="true" style="border:1px solid #b91c1c; border-top:none; border-bottom:1px solid #fecaca; text-align:center; font-weight:800; color:#0f172a;">${cce ? String(cce).padStart(3, '0') : ''}</td>
+          <td contenteditable="true" style="border:1px solid #b91c1c; border-top:none; border-bottom:1px solid #fecaca; text-align:center; font-weight:900; color:#991b1b; background:rgba(254,242,242,0.3); font-size:9pt;">${tot ? String(tot).padStart(3, '0') : ''}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const pct = maxAggregate > 0 ? ((grandTotal / maxAggregate) * 100).toFixed(2) : (exam.percentage || '0.00');
+    const division = parseFloat(pct) >= 60 ? '1ST DIVISION' : (parseFloat(pct) >= 45 ? '2ND DIVISION' : (parseFloat(pct) >= 33 ? '3RD DIVISION' : 'FAILED'));
+    const marksInWords = numberToWordsEnglish(grandTotal);
+
+    return `
+      <!-- JAC BOARD AUTHENTIC CERTIFICATE WITH MICRO-TEXT SECURITY PATTERN -->
+      <div style="width:100%; height:277mm; min-height:277mm; max-height:277mm; box-sizing:border-box; border:3px double #991b1b; padding:6mm 8mm 6mm 8mm; display:flex; flex-direction:column; justify-content:space-between; background-color:#ffffff; background-image:url(&quot;data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='36' viewBox='0 0 180 36'><text x='0' y='12' font-family='sans-serif' font-size='5' font-weight='800' fill='rgba(153,27,27,0.045)' letter-spacing='0.5'>TAPOWAN PUBLIC SCHOOL</text><text x='20' y='28' font-family='sans-serif' font-size='5' font-weight='800' fill='rgba(153,27,27,0.045)' letter-spacing='0.5'>TAPOWAN PUBLIC SCHOOL</text></svg>&quot;); background-repeat:repeat; font-family:'Times New Roman', Times, serif; color:#000000; position:relative; overflow:hidden;">
+        
+        <!-- Central Giant Emblem Watermark -->
+        <img src="${logoSrc}" style="position:absolute; top:52%; left:50%; transform:translate(-50%,-50%); width:320px; height:320px; object-fit:contain; opacity:0.06; pointer-events:none; z-index:0;" alt="" onerror="this.style.display='none';" />
+
+        <!-- Top Header Container -->
+        <div style="position:relative; z-index:1;">
+          
+          <!-- Header Row with Logo, Titles & Photo -->
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:4px;">
+            <!-- Council / School Crest Emblem -->
+            <div style="width:28mm; display:flex; flex-direction:column; align-items:flex-start;">
+              <div style="width:23mm; height:23mm; border-radius:50%; border:1.5px solid #991b1b; padding:2px; background:#ffffff; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 5px rgba(153,27,27,0.15);">
+                <img src="${logoSrc}" style="max-width:20mm; max-height:20mm; object-fit:contain;" alt="Logo" onerror="this.src='school_logo.png'" />
+              </div>
+              <div style="font-size:7.5pt; font-weight:800; color:#991b1b; margin-top:5px; font-family:sans-serif;">
+                M. S. No. : <span contenteditable="true" style="color:#000000; font-weight:900;">${msNo}</span>
+              </div>
+            </div>
+
+            <!-- Main Council Titles -->
+            <div style="flex:1; text-align:center; padding:0 8px;">
+              <div style="font-size:20pt; font-weight:900; color:#991b1b; letter-spacing:1px; line-height:1; text-shadow:0 1px 1px rgba(153,27,27,0.1);">
+                TAPOWAN PUBLIC SCHOOL
+              </div>
+              <div style="font-size:13pt; font-weight:900; color:#991b1b; letter-spacing:2px; margin-top:2px;">
+                RAMGARH, JHARKHAND
+              </div>
+              <div style="font-size:10.5pt; font-weight:900; color:#991b1b; letter-spacing:1px; margin-top:3px; text-transform:uppercase;">
+                ${exam.examName || 'ANNUAL SECONDARY EXAMINATION - 2026'}
+              </div>
+              <div style="font-size:12pt; font-weight:900; color:#000000; letter-spacing:1.5px; margin-top:3px; text-transform:uppercase; text-decoration:none;">
+                MARKS STATEMENT
+              </div>
+            </div>
+
+            <!-- Candidate Photo Box -->
+            <div style="width:26mm; height:32mm; border:1.5px solid #991b1b; background:#ffffff; display:flex; flex-direction:column; align-items:center; justify-content:center; overflow:hidden; box-shadow:0 2px 5px rgba(0,0,0,0.1);">
+              ${exam.studentPhoto ? `<img src="${exam.studentPhoto}" style="width:100%; height:100%; object-fit:contain;" />` : `
+                <div style="text-align:center; font-size:6pt; font-weight:800; color:#991b1b; padding:4px; line-height:1.2; font-family:sans-serif;">
+                  AFFIX<br>PASSPORT<br>PHOTO
+                </div>
+              `}
+            </div>
+          </div>
+
+          <!-- Student Dossier Narrative -->
+          <div style="border-top:1.5px solid #991b1b; border-bottom:1.5px solid #991b1b; padding:5px 6px; margin-bottom:8px; font-size:9.5pt; line-height:1.45; background:rgba(255,255,255,0.75);">
+            <div>
+              The following are the marks obtained by <strong contenteditable="true" style="font-size:11pt; color:#000000; letter-spacing:0.5px; text-decoration:underline;">${candidateName}</strong>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-top:2px;">
+              <div>School / Institution : <strong contenteditable="true" style="color:#000000;">${schoolName}</strong></div>
+              <div>Class & Sec : <strong contenteditable="true" style="color:#991b1b;">${exam.className || 'X-A'}</strong></div>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-top:3px; font-size:9pt; border-top:1px dashed #fca5a5; padding-top:3px;">
+              <div>Roll Code : <strong contenteditable="true" style="font-family:sans-serif; color:#000000;">${rollCode}</strong></div>
+              <div>Roll No. : <strong contenteditable="true" style="font-family:sans-serif; color:#991b1b; font-size:10.5pt;">${rollNo}</strong></div>
+              <div>Registration No. : <strong contenteditable="true" style="font-family:sans-serif; color:#000000;">${regNo}</strong></div>
+              <div>Session : <strong contenteditable="true" style="font-family:sans-serif; color:#000000;">${exam.session || '2025-2026'}</strong></div>
+            </div>
+          </div>
+
+          <!-- JAC Style Main Marks Table & QR/Result Split Layout -->
+          <div style="display:flex; gap:0; border:2px solid #991b1b; background:#ffffff; box-shadow:0 2px 6px rgba(153,27,27,0.08);">
+            
+            <!-- Left Table (Subjects & Marks) -->
+            <table style="flex:1; border-collapse:collapse; font-size:8.5pt;">
+              <thead>
+                <tr style="background:linear-gradient(180deg, #fff1f2 0%, #fee2e2 100%); color:#991b1b; border-bottom:1.5px solid #991b1b;">
+                  <th rowspan="2" style="width:34%; border:1px solid #b91c1c; padding:4px 6px; text-align:center; font-size:8pt; font-weight:900; letter-spacing:0.5px;">SUBJECT NAME</th>
+                  <th rowspan="2" style="width:9%; border:1px solid #b91c1c; padding:4px 2px; text-align:center; font-size:7.5pt; font-weight:900;">Full<br>Marks</th>
+                  <th rowspan="2" style="width:9%; border:1px solid #b91c1c; padding:4px 2px; text-align:center; font-size:7.5pt; font-weight:900;">Pass<br>Marks</th>
+                  <th colspan="4" style="border:1px solid #b91c1c; padding:3px 2px; text-align:center; font-size:8pt; font-weight:900; letter-spacing:0.5px;">MARKS OBTAINED</th>
+                </tr>
+                <tr style="background:linear-gradient(180deg, #fee2e2 0%, #fecaca 100%); color:#991b1b; border-bottom:1.5px solid #991b1b;">
+                  <th style="width:11%; border:1px solid #b91c1c; padding:2px; text-align:center; font-size:7pt; font-weight:900;">Theory</th>
+                  <th style="width:11%; border:1px solid #b91c1c; padding:2px; text-align:center; font-size:7pt; font-weight:900;">Practical</th>
+                  <th style="width:11%; border:1px solid #b91c1c; padding:2px; text-align:center; font-size:7pt; font-weight:900;">CCE / Int</th>
+                  <th style="width:15%; border:1px solid #b91c1c; padding:2px; text-align:center; font-size:7.5pt; font-weight:900; background:rgba(153,27,27,0.15);">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rowsHtml}
+              </tbody>
+            </table>
+
+            <!-- Right Column Box: QR Code & Official Result Box -->
+            <div style="width:34mm; border-left:2px solid #991b1b; display:flex; flex-direction:column; align-items:center; justify-content:space-between; padding:8px 6px; background:linear-gradient(180deg, #fffdf5 0%, #fff1f2 100%); box-sizing:border-box;">
+              
+              <div style="text-align:center; width:100%;">
+                <div style="font-size:8pt; font-weight:900; color:#991b1b; border-bottom:1px solid #fca5a5; padding-bottom:3px; margin-bottom:6px; letter-spacing:0.5px;">
+                  RESULT / परिणाम
+                </div>
+                <div style="width:24mm; height:24mm; border:1px solid #b91c1c; padding:2px; background:#ffffff; margin:0 auto; box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+                  <img src="${qrSrc}" style="width:100%; height:100%; object-fit:contain;" alt="QR Code" onerror="this.style.display='none';" />
+                </div>
+              </div>
+
+              <div style="text-align:center; width:100%; border-top:1px solid #fca5a5; padding-top:6px;">
+                <div style="font-size:6.5pt; font-weight:800; color:#64748b; text-transform:uppercase; font-family:sans-serif;">FINAL DIVISION</div>
+                <div contenteditable="true" style="font-size:11pt; font-weight:900; color:#991b1b; letter-spacing:0.5px; margin-top:2px;">
+                  ${division}
+                </div>
+                <div contenteditable="true" style="font-size:8pt; font-weight:800; color:#15803d; margin-top:1px;">
+                  ★ ${exam.resultStatus || 'PASSED'} ★
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+
+          <!-- Aggregate Summary Bar (Exact JAC Style) -->
+          <div style="border:2px solid #991b1b; border-top:none; display:flex; align-items:stretch; background:linear-gradient(180deg, #fff1f2 0%, #fee2e2 100%); font-size:8.5pt;">
+            <div style="padding:5px 8px; font-weight:900; color:#991b1b; width:22%; border-right:1px solid #b91c1c; font-family:sans-serif; font-size:7.5pt;">
+              Aggregate Marks ${maxAggregate}:
+            </div>
+            <div contenteditable="true" style="padding:5px 8px; font-weight:900; color:#000000; flex:1; text-transform:uppercase; letter-spacing:0.5px; font-size:8pt; border-right:1px solid #b91c1c;">
+              ${marksInWords}
+            </div>
+            <div contenteditable="true" style="padding:5px 8px; font-weight:900; color:#991b1b; width:14%; text-align:center; font-size:11pt; font-family:sans-serif; border-right:2px solid #991b1b; background:#ffffff;">
+              ${grandTotal}
+            </div>
+            <div contenteditable="true" style="padding:5px 8px; font-weight:900; color:#991b1b; width:34mm; text-align:center; font-size:9pt;">
+              ${division}
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Bottom Signatures & Seal (Spacious Signing Zone) -->
+        <div style="display:flex; justify-content:space-between; align-items:flex-end; padding:12px 10px 4px 10px; position:relative; z-index:1; border-top:1.5px solid #991b1b; margin-top:auto;">
+          
+          <!-- Issue Date & Location -->
+          <div style="font-size:9pt; font-weight:800; color:#000000;">
+            Ramgarh, Dated : <strong contenteditable="true" style="color:#991b1b;">April 30, 2026</strong>
+          </div>
+
+          <!-- Verification Seal -->
+          <div style="width:40px; height:40px; border:1.5px dashed #991b1b; border-radius:50%; display:flex; align-items:center; justify-content:center; text-align:center; font-size:5pt; font-weight:900; color:#991b1b; transform:rotate(-8deg); background:rgba(254,242,242,0.4);">
+            TAPOWAN<br>SEAL<br>TPS
+          </div>
+
+          <!-- Secretary / Principal Signature -->
+          <div style="text-align:center; width:38mm; display:flex; flex-direction:column; align-items:center;">
+            <div style="height:32px; width:100%; display:flex; align-items:center; justify-content:center; font-family:'Brush Script MT', cursive, sans-serif; font-size:16pt; color:#991b1b; transform:rotate(-4deg);">
+              Aatif Raza
+            </div>
+            <div style="border-top:1.5px solid #991b1b; width:100%; margin-bottom:3px;"></div>
+            <div style="font-size:8pt; font-weight:900; color:#991b1b;">
+              Secretary / Principal
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    `;
+  }
+  
   // --- JAC 12th Admit Card Template ---
   function getJac12AdmitCardHtml(student, examName, config) {
       const store = typeof getStore !== 'undefined' ? getStore() : {};
@@ -1382,7 +4302,7 @@
                       <div style="font-weight: bold; margin-top: 4px; text-align: center;">${admCardNo}</div>
                   </td>
                   <td rowspan="5" style="border: 1px solid #000; padding: 5px; width: 20%; text-align: center; vertical-align: middle;">
-                      <img src="${photoUrl}" style="width: 80px; height: 100px; border: 1px solid #000; object-fit: cover;" />
+                      <img src="${photoUrl}" style="width: 80px; height: 100px; border: 1px solid #000; object-fit: contain; background: #ffffff;" />
                   </td>
               </tr>
               <tr>
@@ -1414,7 +4334,7 @@
               <tr>
                   <td colspan="3" style="border: 1px solid #000; padding: 4px; vertical-align: top;">
                       <div style="font-size: 8px;">NAME OF FATHER / HUSBAND</div>
-                      <div style="font-weight: bold; margin-top: 2px;">${(formatParentName(student.fatherName || student.parentName)).toUpperCase()}</div>
+                      <div style="font-weight: bold; margin-top: 2px;">${(formatParentName(student.fatherName)).toUpperCase()}</div>
                   </td>
               </tr>
           </table>
@@ -1459,7 +4379,7 @@
       template = template.replace(/{className}/g, student.className || '-');
       template = template.replace(/{rollNo}/g, student.rollNo || '-');
       template = template.replace(/{admissionNo}/g, student.admissionNo || '-');
-      template = template.replace(/{fatherName}/g, formatParentName(student.fatherName || student.parentName));
+      template = template.replace(/{fatherName}/g, formatParentName(student.fatherName));
       template = template.replace(/{motherName}/g, student.motherName || '-');
       template = template.replace(/{examName}/g, examName || '-');
       
@@ -1561,7 +4481,7 @@
                    </table>
                </div>
                <div style="width: 120px; text-align:center;">
-                   <img src="${photoUrl}" style="width: 110px; height: 130px; object-fit: cover; border: 3px solid ${c.color}; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);" />
+                   <img src="${photoUrl}" style="width: 110px; height: 130px; object-fit: contain; background: #ffffff; border: 3px solid ${c.color}; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);" />
                </div>
            </div>
            
@@ -1603,7 +4523,7 @@
                     </table>
                 </div>
                 <div style="width: 120px; text-align:center;">
-                    <img src="${photoUrl}" style="width: 110px; height: 135px; object-fit: cover; border: 1px solid #1e293b;" />
+                    <img src="${photoUrl}" style="width: 110px; height: 135px; object-fit: contain; background: #ffffff; border: 1px solid #1e293b;" />
                 </div>
             </div>
             
@@ -1649,7 +4569,7 @@
                         </table>
                     </div>
                     <div style="width: 90px; text-align:center;">
-                        <img src="${photoUrl}" style="width: 80px; height: 100px; object-fit: cover; border: 1px solid ${c.color};" />
+                        <img src="${photoUrl}" style="width: 80px; height: 100px; object-fit: contain; background: #ffffff; border: 1px solid ${c.color};" />
                     </div>
                 </div>
                 
@@ -2016,20 +4936,50 @@ function getMarksheetHtml(exam, theme, config) {
       const photoUrl = exam.studentPhoto || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='%23e2e8f0' viewBox='0 0 24 24'><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>";
 
       let subjectRows = '';
-      let subs = [];
-      try { subs = JSON.parse(exam.subjectMarks); } catch(e) {}
       
-      subs.forEach(sub => {
-          subjectRows += `
-          <tr>
-              <td style="padding:12px; border:1px solid rgba(0,0,0,0.15); font-weight:bold;" contenteditable="true">${sub.subject}</td>
-              <td style="padding:12px; border:1px solid rgba(0,0,0,0.15); text-align:center;" contenteditable="true">${sub.max || 100}</td>
-              <td style="padding:12px; border:1px solid rgba(0,0,0,0.15); text-align:center;" contenteditable="true">${sub.min !== undefined ? sub.min : 33}</td>
-              <td style="padding:12px; border:1px solid rgba(0,0,0,0.15); text-align:center;" contenteditable="true">${sub.theory || 0}</td>
-              <td style="padding:12px; border:1px solid rgba(0,0,0,0.15); text-align:center;" contenteditable="true">${sub.practical || 0}</td>
-              <td style="padding:12px; border:1px solid rgba(0,0,0,0.15); text-align:center; font-weight:bold;" contenteditable="true">${sub.total || 0}</td>
-          </tr>`;
-      });
+    const getGrade = (percentage) => {
+      const p = parseFloat(percentage);
+      if (isNaN(p)) return '-';
+      if (isCBSE) {
+        if (p >= 91) return 'A1';
+        if (p >= 81) return 'A2';
+        if (p >= 71) return 'B1';
+        if (p >= 61) return 'B2';
+        if (p >= 51) return 'C1';
+        if (p >= 41) return 'C2';
+        if (p >= 33) return 'D';
+        return 'E';
+      } else {
+        if (p >= 91) return 'A+';
+        if (p >= 81) return 'A';
+        if (p >= 71) return 'B+';
+        if (p >= 61) return 'B';
+        if (p >= 51) return 'C';
+        if (p >= 33) return 'D';
+        return 'E';
+      }
+    };
+    let subs = [];
+    try { subs = typeof exam.subjectMarks === 'string' ? JSON.parse(exam.subjectMarks) : (exam.subjectMarks || []); } catch(e) {}
+    if (!Array.isArray(subs)) subs = [];
+
+    const evalStatus = evalStudentResultStatus(subs, exam.className);
+    const safeGrade = (exam.grade && exam.grade !== 'null' && exam.grade !== 'undefined') ? exam.grade : getGrade(exam.percentage);
+    const safeResultStatus = (exam.resultStatus && exam.resultStatus !== 'null' && exam.resultStatus !== 'undefined' && exam.resultStatus !== '') ? exam.resultStatus : evalStatus.resultStatus;
+
+    subs.forEach(sub => {
+        const isMain = isSubjectMain(sub.subject, exam.className, sub);
+        const addlBadge = !isMain ? `<span style="font-size:7pt; font-weight:800; color:#b45309; background:#fef3c7; border:1px solid #fde68a; border-radius:3px; padding:1px 4px; margin-left:5px; vertical-align:middle; display:inline-block;">ADDITIONAL</span>` : '';
+        subjectRows += `
+        <tr>
+            <td style="padding:12px; border:1px solid rgba(0,0,0,0.15); font-weight:bold;" contenteditable="true">${sub.subject}${addlBadge}</td>
+            <td style="padding:12px; border:1px solid rgba(0,0,0,0.15); text-align:center;" contenteditable="true">${sub.max || 100}</td>
+            <td style="padding:12px; border:1px solid rgba(0,0,0,0.15); text-align:center;" contenteditable="true">${sub.min !== undefined ? sub.min : 33}</td>
+            <td style="padding:12px; border:1px solid rgba(0,0,0,0.15); text-align:center;" contenteditable="true">${sub.theory || 0}</td>
+            <td style="padding:12px; border:1px solid rgba(0,0,0,0.15); text-align:center;" contenteditable="true">${sub.practical || 0}</td>
+            <td style="padding:12px; border:1px solid rgba(0,0,0,0.15); text-align:center; font-weight:bold;" contenteditable="true">${sub.total || 0}</td>
+        </tr>`;
+    });
 
       const schoolName = "Tapowan Public School";
       const admNo = exam.admissionNo || '-';
@@ -2226,10 +5176,24 @@ function getMarksheetHtml(exam, theme, config) {
   // TAB 3: RESULTS / MARKSHEETS
   // ==========================================
   function renderResults(container) {
+    const existingPreview = document.getElementById("resultPreviewContainer");
+    const existingPrintActions = document.getElementById("resultPrintActions");
+    const savedPreviewHtml = (existingPreview && !existingPreview.querySelector(".empty-state") && existingPreview.children.length > 0)
+      ? existingPreview.innerHTML
+      : null;
+    const savedPrintDisplay = existingPrintActions ? existingPrintActions.style.display : "none";
+    const savedClass = document.getElementById("resultClassSelect") ? document.getElementById("resultClassSelect").value : null;
+
     container.innerHTML = `
-      <div class="exam-print-hide" style="margin-bottom: 25px;">
-        <h4 style="margin:0 0 5px 0; color: inherit; font-size:1.2rem;">Marksheet Generator</h4>
-        <p style="margin:0; color: inherit; font-size:0.9rem;">Generate beautiful report cards and results.</p>
+      <div class="exam-print-hide" style="margin-bottom: 25px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+        <div>
+          <h4 style="margin:0 0 5px 0; color: inherit; font-size:1.2rem;">Marksheet Generator</h4>
+          <p style="margin:0; color: inherit; font-size:0.9rem;">Generate beautiful report cards and results.</p>
+        </div>
+        <button type="button" class="exam-btn" onclick="window.openSubjectRulesModal()" style="padding: 9px 16px; font-size: 0.85rem; display:inline-flex; align-items:center; gap:6px; cursor:pointer; background:#eff6ff; color:#2563eb; border:1.5px solid #bfdbfe; font-weight:700;" title="Configure which subjects decide Pass or Fail">
+          <span class="material-symbols-outlined" style="font-size:18px;">rule</span>
+          Main Subject Rules (Pass/Fail)
+        </button>
       </div>
       <div class="exam-form-grid" style="margin-bottom: 30px;">
         <div class="exam-field">
@@ -2333,10 +5297,11 @@ function getMarksheetHtml(exam, theme, config) {
         if (!examNameSelect) return;
         
         const store = typeof getStore !== 'undefined' ? getStore() : {};
-        const marksEntries = (store.exams || []).filter(e => e.className === cls);
+        const normFunc = typeof normalizeCanonicalClass === 'function' ? normalizeCanonicalClass : (x => x);
+        const marksEntries = (store.exams || []).filter(e => normFunc(e.className) === normFunc(cls) || e.className === cls);
         let uniqueExamNames = Array.from(new Set(marksEntries.map(e => e.examName).filter(Boolean)));
         
-        const schedules = (store.examSchedules || []).filter(s => s.className === cls);
+        const schedules = (store.examSchedules || []).filter(s => normFunc(s.className) === normFunc(cls) || s.className === cls);
         schedules.forEach(s => {
             if (s.examName && !uniqueExamNames.includes(s.examName)) {
                 uniqueExamNames.push(s.examName);
@@ -2344,7 +5309,7 @@ function getMarksheetHtml(exam, theme, config) {
         });
         
         if (uniqueExamNames.length === 0) {
-            uniqueExamNames = ["Mid Term Exam"];
+            uniqueExamNames = ["Annual Examination 2026-27", "Mid Term Exam"];
         }
         
         const currentValue = examNameSelect.value;
@@ -2357,6 +5322,21 @@ function getMarksheetHtml(exam, theme, config) {
 
     document.getElementById("resultClassSelect").addEventListener("change", refreshResultExamNames);
     setTimeout(refreshResultExamNames, 50);
+
+    if (savedClass) {
+      const clsEl = document.getElementById("resultClassSelect");
+      if (clsEl) {
+        clsEl.value = savedClass;
+        refreshResultExamNames();
+      }
+    }
+
+    if (savedPreviewHtml) {
+      const newPreview = document.getElementById("resultPreviewContainer");
+      const newPrintActions = document.getElementById("resultPrintActions");
+      if (newPreview) newPreview.innerHTML = savedPreviewHtml;
+      if (newPrintActions) newPrintActions.style.display = savedPrintDisplay;
+    }
     // Grading Scale Logic
     const defaultScale = [
       { min: 91, max: 100, grade: 'A+' },
@@ -2492,10 +5472,11 @@ function getMarksheetHtml(exam, theme, config) {
   function generateMarksheets(className, session, examName, theme, config) {
     const container = document.getElementById("resultPreviewContainer");
     const store = typeof getStore !== 'undefined' ? getStore() : {};
+    const normFunc = typeof normalizeCanonicalClass === 'function' ? normalizeCanonicalClass : (x => x);
     
     if (theme === 'consolidated_cbse') {
         const reqExams = examName.split(',').map(e => e.trim()).filter(Boolean);
-        const allExams = (store.exams || []).filter(e => e.className === className && e.session === session && reqExams.includes(e.examName));
+        const allExams = (store.exams || []).filter(e => (normFunc(e.className) === normFunc(className) || e.className === className) && e.session === session && reqExams.includes(e.examName));
         
         if(allExams.length === 0) {
           container.innerHTML = `<div class="empty-state"><h4>No marks data found for these combined exams.</h4><p>Ensure the exam names are spelled correctly.</p></div>`;
@@ -2513,7 +5494,19 @@ function getMarksheetHtml(exam, theme, config) {
 
         let html = '';
         Object.values(studentMap).forEach(stdGroup => {
-            const student = (store.students || []).find(s => s.fullName === stdGroup.studentName && s.className === stdGroup.className) || {};
+            const student = (store.students || []).find(s => {
+            const admA = String(s.admissionNo || "").trim().toLowerCase();
+            const admB = String(ex.admissionNo || "").trim().toLowerCase();
+            const matchAdm = admA && admB && admA === admB;
+              const matchClass = (normFunc(s.className || '')).toLowerCase() === (normFunc(stdGroup.className || '')).toLowerCase();
+              const nameA = (s.fullName || '').trim().toLowerCase();
+              const nameB = (stdGroup.studentName || '').trim().toLowerCase();
+              const matchName = nameA && nameB && nameA === nameB;
+              const rollA = String(s.rollNo || '').trim().replace(/^0+/, '');
+              const rollB = String(stdGroup.rollNo || '').trim().replace(/^0+/, '');
+              const matchRoll = rollA && rollB && rollA === rollB;
+            return matchAdm || (matchClass && (matchName || matchRoll));
+            }) || {};
             html += getConsolidatedResultHtml(stdGroup, reqExams, student, config);
         });
         
@@ -2531,7 +5524,7 @@ function getMarksheetHtml(exam, theme, config) {
     }
     
     // Find all exams matching
-    const matchingExams = (store.exams || []).filter(e => e.className === className && e.session === session && e.examName === examName);
+    const matchingExams = (store.exams || []).filter(e => (normFunc(e.className) === normFunc(className) || e.className === className) && e.session === session && e.examName === examName);
     
     if(matchingExams.length === 0) {
       container.innerHTML = `<div class="empty-state"><h4>No marks data found for this class and exam.</h4><p>Please enter marks first.</p></div>`;
@@ -2539,9 +5532,90 @@ function getMarksheetHtml(exam, theme, config) {
       return;
     }
 
+    // Auto-calculate Class Ranks (sorted by percentage/totalMarks descending)
+    const sortedClassExams = [...matchingExams].sort((a, b) => {
+      const pctA = parseFloat(a.percentage) || 0;
+      const pctB = parseFloat(b.percentage) || 0;
+      if (pctB !== pctA) return pctB - pctA;
+      return (parseFloat(b.totalMarks) || 0) - (parseFloat(a.totalMarks) || 0);
+    });
+
+    const classRankMap = new Map();
+    let curClassRank = 1;
+    for (let i = 0; i < sortedClassExams.length; i++) {
+      const cur = sortedClassExams[i];
+      if (i > 0) {
+        const prev = sortedClassExams[i - 1];
+        const pA = parseFloat(prev.percentage) || 0;
+        const cA = parseFloat(cur.percentage) || 0;
+        const tA = parseFloat(prev.totalMarks) || 0;
+        const tB = parseFloat(cur.totalMarks) || 0;
+        if (cA < pA || (cA === pA && tB < tA)) {
+          curClassRank = i + 1;
+        }
+      }
+      const sName = (cur.studentName || '').trim().toLowerCase();
+      const sRoll = String(cur.rollNo || '').trim().replace(/^0+/, '');
+      classRankMap.set(`${sName}_${sRoll}`, curClassRank);
+      classRankMap.set(sName, curClassRank);
+      if (sRoll) classRankMap.set(`roll_${sRoll}`, curClassRank);
+    }
+
+    // Auto-calculate School Ranks across all classes for this session & examName
+    const allSchoolExams = (store.exams || []).filter(e => {
+      const matchSession = (e.session || '').trim().toLowerCase() === (session || '').trim().toLowerCase();
+      const matchExam = (e.examName || '').trim().toLowerCase() === (examName || '').trim().toLowerCase();
+      return matchSession && matchExam;
+    });
+    const effectiveSchoolExams = allSchoolExams.length > 0 ? allSchoolExams : matchingExams;
+
+    const sortedSchoolExams = [...effectiveSchoolExams].sort((a, b) => {
+      const pctA = parseFloat(a.percentage) || 0;
+      const pctB = parseFloat(b.percentage) || 0;
+      if (pctB !== pctA) return pctB - pctA;
+      return (parseFloat(b.totalMarks) || 0) - (parseFloat(a.totalMarks) || 0);
+    });
+
+    const schoolRankMap = new Map();
+    let curSchoolRank = 1;
+    for (let i = 0; i < sortedSchoolExams.length; i++) {
+      const cur = sortedSchoolExams[i];
+      if (i > 0) {
+        const prev = sortedSchoolExams[i - 1];
+        const pA = parseFloat(prev.percentage) || 0;
+        const cA = parseFloat(cur.percentage) || 0;
+        const tA = parseFloat(prev.totalMarks) || 0;
+        const tB = parseFloat(cur.totalMarks) || 0;
+        if (cA < pA || (cA === pA && tB < tA)) {
+          curSchoolRank = i + 1;
+        }
+      }
+      const sClass = (cur.className || '').trim().toLowerCase();
+      const sName = (cur.studentName || '').trim().toLowerCase();
+      const sRoll = String(cur.rollNo || '').trim().replace(/^0+/, '');
+      schoolRankMap.set(`${sClass}_${sName}_${sRoll}`, curSchoolRank);
+      schoolRankMap.set(`${sName}_${sRoll}`, curSchoolRank);
+      schoolRankMap.set(sName, curSchoolRank);
+    }
+
     let html = '';
     matchingExams.forEach(ex => {
-          const student = (store.students || []).find(s => s.fullName === ex.studentName && s.className === ex.className) || {};
+          const sName = (ex.studentName || '').trim().toLowerCase();
+          const sRoll = String(ex.rollNo || '').trim().replace(/^0+/, '');
+          const sClass = (ex.className || '').trim().toLowerCase();
+          const cRank = classRankMap.get(`${sName}_${sRoll}`) || classRankMap.get(sName) || (sRoll ? classRankMap.get(`roll_${sRoll}`) : '') || '';
+          const sRank = schoolRankMap.get(`${sClass}_${sName}_${sRoll}`) || schoolRankMap.get(`${sName}_${sRoll}`) || schoolRankMap.get(sName) || '';
+
+          const student = (store.students || []).find(s => {
+            const matchClass = (normFunc(s.className || '')).toLowerCase() === (normFunc(ex.className || '')).toLowerCase();
+            const nameA = (s.fullName || '').trim().toLowerCase();
+            const nameB = (ex.studentName || '').trim().toLowerCase();
+            const matchName = nameA && nameB && nameA === nameB;
+            const rollA = String(s.rollNo || '').trim().replace(/^0+/, '');
+            const rollB = String(ex.rollNo || '').trim().replace(/^0+/, '');
+            const matchRoll = rollA && rollB && rollA === rollB;
+            return matchClass && (matchName || matchRoll);
+          }) || {};
           const bgStyle = config.bgImage !== 'none' ? `background-image: url('${config.bgImage}'); background-size: cover; background-position: center;` : (config.bgType === 'gradient' ? `background: linear-gradient(135deg, ${config.bgColor}, ${config.bgColor2});` : `background-color: ${config.bgColor};`);
           const fontColorStyle = config.fontColor ? `color: ${config.fontColor} !important;` : '';
           
@@ -2550,19 +5624,45 @@ function getMarksheetHtml(exam, theme, config) {
               cardHtml = getCustomResultHtml({
                 examName: ex.examName, session: ex.session, className: ex.className,
                 studentName: ex.studentName, rollNo: ex.rollNo, admissionNo: student.admissionNo || ex.admissionNo || '',
-                fatherName: formatParentName(student.fatherName || student.parentName), motherName: student.motherName || '',
+                fatherName: formatParentName(student.fatherName), motherName: student.motherName || '',
                 studentPhoto: student.photo || ex.studentPhoto || '', subjectMarks: ex.subjectMarks,
-                totalMarks: ex.totalMarks, percentage: ex.percentage, grade: ex.grade, resultStatus: ex.resultStatus
+                totalMarks: ex.totalMarks, percentage: ex.percentage, grade: ex.grade, resultStatus: ex.resultStatus,
+                classRank: cRank, schoolRank: sRank, totalClassStudents: matchingExams.length, totalSchoolStudents: effectiveSchoolExams.length
               }, theme, config);
           } else if (theme === 'detailed_graph') {
               cardHtml = getDetailedGraphResultHtml({
                 examName: ex.examName, session: ex.session, className: ex.className,
                 studentName: ex.studentName, rollNo: ex.rollNo, admissionNo: student.admissionNo || ex.admissionNo || '',
-                fatherName: formatParentName(student.fatherName || student.parentName), motherName: student.motherName || '',
+                fatherName: formatParentName(student.fatherName), motherName: student.motherName || '',
                 dob: student.dob || '', address: student.address || '',
                 studentPhoto: student.photo || ex.studentPhoto || '', subjectMarks: ex.subjectMarks,
-                totalMarks: ex.totalMarks, percentage: ex.percentage, grade: ex.grade, resultStatus: ex.resultStatus
+                totalMarks: ex.totalMarks, percentage: ex.percentage, grade: ex.grade, resultStatus: ex.resultStatus,
+                classRank: cRank, schoolRank: sRank, totalClassStudents: matchingExams.length, totalSchoolStudents: effectiveSchoolExams.length
               }, theme, config);
+          } else if (theme === 'jac_board_tps') {
+              cardHtml = getJacBoardResultHtml({
+                examName: ex.examName, session: ex.session, className: ex.className,
+                studentName: ex.studentName, rollNo: ex.rollNo, admissionNo: student.admissionNo || ex.admissionNo || '',
+                fatherName: formatParentName(student.fatherName), motherName: student.motherName || '',
+                dob: student.dob || '', address: student.address || '',
+                studentPhoto: student.photo || ex.studentPhoto || '', subjectMarks: ex.subjectMarks,
+                totalMarks: ex.totalMarks, percentage: ex.percentage, grade: ex.grade, resultStatus: ex.resultStatus,
+                classRank: cRank, schoolRank: sRank, totalClassStudents: matchingExams.length, totalSchoolStudents: effectiveSchoolExams.length
+              }, config);
+          } else if (theme === 'tps_official_2026') {
+              cardHtml = getTpsOfficialResultHtml({
+                examName: ex.examName, session: ex.session, className: ex.className,
+                studentName: ex.studentName, rollNo: ex.rollNo, admissionNo: student.admissionNo || ex.admissionNo || '',
+                fatherName: formatParentName(student.fatherName), motherName: student.motherName || '',
+                dob: student.dob || '', address: student.address || '',
+                phone: student.phone || student.phone1 || student.mobile || student.whatsapp || student.contact || student.phoneNo || ex.phone || ex.mobile || '',
+                studentPhoto: student.photo || ex.studentPhoto || '', subjectMarks: ex.subjectMarks,
+                totalMarks: ex.totalMarks, percentage: ex.percentage, grade: ex.grade, resultStatus: ex.resultStatus,
+                classRank: cRank,
+                schoolRank: sRank,
+                totalClassStudents: matchingExams.length,
+                totalSchoolStudents: effectiveSchoolExams.length
+              }, config);
           } else if (theme.startsWith('dyn_')) {
               cardHtml = generateDynamicMarksheet({
                 examName: ex.examName, session: ex.session, studentName: ex.studentName,
@@ -2579,17 +5679,26 @@ function getMarksheetHtml(exam, theme, config) {
               }, theme, config);
           }
 
-          // Inject bg into the card itself to prevent bleeding into A4 container
-          cardHtml = cardHtml.replace(/position:\s*relative;(?:\s*background:\s*transparent;)?/, `position: relative; ${bgStyle}`);
-          const overlayHtml = `<div style="position: absolute; inset: 0; background: rgba(255,255,255,${1 - config.bgOpacity}); pointer-events: none; z-index: 0; border-radius: inherit;"></div><div style="position: relative; z-index: 1; height: 100%;">`;
-          cardHtml = cardHtml.replace('">', `">${overlayHtml}`) + '</div>';
+          if (theme === 'tps_official_2026' || theme === 'jac_board_tps') {
+              // Wrap in full A4 container with exact stretch
+              html += `<div style="width: 210mm; height: 297mm; min-height: 297mm; max-height: 297mm; page-break-after: always; padding: 10mm; box-sizing: border-box; position: relative; overflow: hidden; background: #fff; margin: 0 auto; margin-bottom: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
+                         <div style="display: flex; align-items: stretch; justify-content: center; width: 100%; height: 100%;">
+                           ${cardHtml}
+                         </div>
+                       </div>`;
+          } else {
+              // Inject bg into other cards
+              cardHtml = cardHtml.replace(/position:\s*relative;(?:\s*background:\s*transparent;)?/, `position: relative; ${bgStyle}`);
+              const overlayHtml = `<div style="position: absolute; inset: 0; background: rgba(255,255,255,${1 - config.bgOpacity}); pointer-events: none; z-index: 0; border-radius: inherit;"></div><div style="position: relative; z-index: 1; height: 100%;">`;
+              cardHtml = cardHtml.replace('">', `">${overlayHtml}`) + '</div>';
 
-          // Wrap it in a clean A4 container (white background)
-          html += `<div style="width: 210mm; min-height: 297mm; page-break-after: always; padding: 10mm; box-sizing: border-box; position: relative; overflow: hidden; background: #fff; margin: 0 auto; margin-bottom: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
-                     <div style="display: flex; align-items: center; justify-content: center;">
-                       ${cardHtml}
-                     </div>
-                   </div>`;
+              // Wrap it in a clean A4 container (white background)
+              html += `<div style="width: 210mm; min-height: 297mm; page-break-after: always; padding: 10mm; box-sizing: border-box; position: relative; overflow: hidden; background: #fff; margin: 0 auto; margin-bottom: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
+                         <div style="display: flex; align-items: center; justify-content: center;">
+                           ${cardHtml}
+                         </div>
+                       </div>`;
+          }
     });
 
     container.innerHTML = html;
@@ -2668,13 +5777,32 @@ function getMarksheetHtml(exam, theme, config) {
     const store = typeof getStore !== 'undefined' ? getStore() : {};
     const classSelect = document.getElementById(elementId);
     if (!classSelect) return;
+    const currentVal = classSelect.value;
     classSelect.innerHTML = '<option value="">Select Class</option>';
-    (store.classes || []).forEach(c => {
-      const opt = document.createElement("option");
-      opt.value = c.className + (c.section ? `-${c.section}` : "");
-      opt.textContent = opt.value;
-      classSelect.appendChild(opt);
+    const allClassNames = [
+      ...(store.classes || []).map((x) => [x.className, x.section].filter(Boolean).join("-")),
+      ...(store.students || []).map((s) => s.className)
+    ];
+    const normFunc = typeof normalizeCanonicalClass === 'function' ? normalizeCanonicalClass : (x => x);
+    const classOptions = Array.from(new Set(allClassNames.map(c => normFunc(c)).filter(Boolean)));
+    const CANONICAL_ORDER = ['Nursery-A', 'LKG-A', 'UKG-A', 'I-A', 'II-A', 'III-A', 'IV-A', 'V-A', 'VI-A', 'VII-A', 'VIII-A', 'IX-A', 'X-A'];
+    classOptions.sort((a, b) => {
+      const idxA = CANONICAL_ORDER.indexOf(a);
+      const idxB = CANONICAL_ORDER.indexOf(b);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return a.localeCompare(b);
     });
+    classOptions.forEach(opt => {
+      const option = document.createElement("option");
+      option.value = opt;
+      option.textContent = opt;
+      classSelect.appendChild(option);
+    });
+    if (currentVal && (classOptions.includes(currentVal) || classOptions.includes(normFunc(currentVal)))) {
+      classSelect.value = normFunc(currentVal) || currentVal;
+    }
   }
 
   // --- WYSIWYG Floating Toolbar for Selected Text Color ---
@@ -3636,7 +6764,7 @@ function getThoAdmitCardHtml(student, examName, config) {
             <!-- Right Column: Photo & Signatures -->
             <div style="width: 25%; background: #dae5b3; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 10px; border-left: 2px solid #fff;">
                 <div style="width: 120px; height: 140px; background: #fff; border: 1px solid #ccc; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 10px; color: #666; padding: 10px;">
-                    <img src="${photoUrl}" style="width: 100%; height: 100%; object-fit: cover; display: ${student.photo ? 'block' : 'none'};" />
+                    <img src="${photoUrl}" style="width: 100%; height: 100%; object-fit: contain; background: #ffffff; display: ${student.photo ? 'block' : 'none'};" />
                     <span style="display: ${student.photo ? 'none' : 'block'};">PHOTO<br/>Candidate should paste his/her recent passport size photograph here attested by the School Principal.</span>
                 </div>
                 <div style="text-align: center; margin-top: 20px; width: 100%;">
@@ -3674,12 +6802,14 @@ function getConsolidatedResultHtml(stdGroup, reqExams, student, config) {
         if (!ex) return `<div style="text-align:center; padding: 20px; border: 1px dashed #ccc; margin-bottom: 20px;">${examName} marks not entered</div>`;
         
         let subs = [];
-        try { subs = JSON.parse(ex.subjectMarks); } catch(e) {}
+        try { subs = typeof ex.subjectMarks === 'string' ? JSON.parse(ex.subjectMarks) : (ex.subjectMarks || []); } catch(e) {}
         
         let rows = '';
         subs.forEach(sub => {
+            const isMain = isSubjectMain(sub.subject, stdGroup.className, sub);
+            const addlBadge = !isMain ? `<span style="font-size:7pt; font-weight:800; color:#b45309; background:#fef3c7; border:1px solid #fde68a; border-radius:3px; padding:1px 4px; margin-left:5px;">ADDITIONAL</span>` : '';
             rows += `<tr>
-                <td style="padding:8px; border:1px solid rgba(0,0,0,0.15); font-weight:bold;">${sub.subject}</td>
+                <td style="padding:8px; border:1px solid rgba(0,0,0,0.15); font-weight:bold;">${sub.subject}${addlBadge}</td>
                 <td style="padding:8px; border:1px solid rgba(0,0,0,0.15); text-align:center;">${sub.max || 100}</td>
                 <td style="padding:8px; border:1px solid rgba(0,0,0,0.15); text-align:center;">${sub.total || 0}</td>
             </tr>`;
@@ -3705,9 +6835,9 @@ function getConsolidatedResultHtml(stdGroup, reqExams, student, config) {
     let allSubjectsMap = {};
     stdGroup.exams.forEach(ex => {
         let subs = [];
-        try { subs = JSON.parse(ex.subjectMarks); } catch(e) {}
+        try { subs = typeof ex.subjectMarks === 'string' ? JSON.parse(ex.subjectMarks) : (ex.subjectMarks || []); } catch(e) {}
         subs.forEach(sub => {
-            if (!allSubjectsMap[sub.subject]) allSubjectsMap[sub.subject] = { max: 0, obtained: 0 };
+            if (!allSubjectsMap[sub.subject]) allSubjectsMap[sub.subject] = { max: 0, obtained: 0, subRef: sub };
             allSubjectsMap[sub.subject].max += parseFloat(sub.max) || 100;
             allSubjectsMap[sub.subject].obtained += parseFloat(sub.total) || 0;
         });
@@ -3722,8 +6852,10 @@ function getConsolidatedResultHtml(stdGroup, reqExams, student, config) {
         superMax += sData.max;
         superObtained += sData.obtained;
         const subPerc = sData.max > 0 ? ((sData.obtained / sData.max) * 100).toFixed(1) : 0;
+        const isMain = isSubjectMain(subName, stdGroup.className, sData.subRef);
+        const addlBadge = !isMain ? `<span style="font-size:7pt; font-weight:800; color:#b45309; background:#fef3c7; border:1px solid #fde68a; border-radius:3px; padding:1px 4px; margin-left:5px;">ADDITIONAL</span>` : '';
         grandTableRows += `<tr>
-            <td style="padding:10px; border:1px solid rgba(0,0,0,0.15); font-weight:bold; font-size: 15px;">${subName}</td>
+            <td style="padding:10px; border:1px solid rgba(0,0,0,0.15); font-weight:bold; font-size: 15px;">${subName}${addlBadge}</td>
             <td style="padding:10px; border:1px solid rgba(0,0,0,0.15); text-align:center; font-size: 15px;">${sData.max}</td>
             <td style="padding:10px; border:1px solid rgba(0,0,0,0.15); text-align:center; font-size: 15px; font-weight:bold; color:${c.color};">${sData.obtained}</td>
             <td style="padding:10px; border:1px solid rgba(0,0,0,0.15); text-align:center; font-size: 15px;">${subPerc}%</td>
@@ -3761,7 +6893,7 @@ function getConsolidatedResultHtml(stdGroup, reqExams, student, config) {
                     <tr><td style="font-weight:bold;">Father's Name:</td><td contenteditable="true">${formatParentName(student.fatherName)}</td></tr>
                 </table>
                 <div style="width: 110px; height: 130px; border: 3px solid ${c.color}; border-radius: 8px; overflow: hidden; background: #fff; display:flex; justify-content:center; align-items:center;">
-                    <img src="${photoUrl}" style="width: 100%; height: 100%; object-fit: cover;" />
+                    <img src="${photoUrl}" style="width: 100%; height: 100%; object-fit: contain; background: #ffffff;" />
                 </div>
             </div>
 
@@ -3825,7 +6957,7 @@ function renderConsolidatedChart(canvas, stdGroup, reqExams) {
     let allSubjectsMap = {};
     stdGroup.exams.forEach(ex => {
         let subs = [];
-        try { subs = JSON.parse(ex.subjectMarks); } catch(e) {}
+        try { subs = typeof ex.subjectMarks === 'string' ? JSON.parse(ex.subjectMarks) : (ex.subjectMarks || []); } catch(e) {}
         subs.forEach(sub => {
             if (!allSubjectsMap[sub.subject]) allSubjectsMap[sub.subject] = { max: 0, obtained: 0 };
             allSubjectsMap[sub.subject].max += parseFloat(sub.max) || 100;

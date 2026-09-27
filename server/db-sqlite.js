@@ -4,11 +4,14 @@ const os = require('os');
 
 const isCloudMode = !!(process.env.VERCEL || process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.IS_CLOUD);
 
-// In cloud mode, use HTTP-only client (no native binary needed).
-// Locally, use full client for embedded SQLite replica support.
-const { createClient } = isCloudMode
-  ? require("@libsql/client/http")
-  : require("@libsql/client");
+// Use pure HTTP client (zero native binary / zero websocket dependencies)
+let createClient;
+try {
+  createClient = require("@libsql/client/http").createClient;
+} catch (e) {
+  createClient = require("@libsql/client").createClient;
+}
+
 const appDataDir = isCloudMode ? os.tmpdir() : (process.env.APPDATA || (process.platform == 'darwin' ? process.env.HOME + '/Library/Application Support' : process.env.HOME + "/.local/share"));
 const basePath = process.env.USER_DATA_PATH || path.join(appDataDir, 'school-management-system');
 try {
@@ -38,129 +41,241 @@ function isNetworkError(e) {
   return msg.includes("fetch failed") || msg.includes("network") || msg.includes("timeout") || msg.includes("offline") || msg.includes("walconflict");
 }
 
-// Connect to Turso Cloud
-const dbOptions = {};
+// Unified Turso Cloud Database Credentials
+const DEFAULT_TURSO_URL = 'https://tapowan-v2-tapowan.aws-ap-south-1.turso.io';
+const DEFAULT_TURSO_TOKEN = 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODkwOTIyMTUsImlkIjoiMDFhMDhlMzQtODMwMS03MDI0LTk5ZWQtMGQ0MmYwMGJiNjFlIiwia2lkIjoiVFRPdk5ISlFYZVAtX1FsNG9ZUXM4cTBTYXRiZzJ1UmVhYjlUbjFyem1tcyIsInJpZCI6ImVjNjc2YzExLTRhNGUtNGZhNi1hMTM1LTJmZDk4YTIxNzliMSJ9.RmzczPOvgV3Hd83byF7fMfQsCzlJnF8r9MCGtzTfZDj8k--VqtItniZN5GCiPfv4-dCEmDZaIWDGPOnM-EknDA';
 
-if (process.env.VERCEL || process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.IS_CLOUD) {
-  console.log("? Connecting to Turso via Remote HTTP (Cloud Mode)...");
-  dbOptions.url = process.env.TURSO_DATABASE_URL;
-  dbOptions.authToken = process.env.TURSO_AUTH_TOKEN;
-} else {
-  // Local Desktop Mode: Embedded Replica
-  dbOptions.url = "file:" + dbPath;
-  if (process.env.TURSO_DATABASE_URL && process.env.TURSO_AUTH_TOKEN) {
-    console.log("? Connecting Turso Embedded Replica...");
-    dbOptions.syncUrl = process.env.TURSO_DATABASE_URL;
-    dbOptions.authToken = process.env.TURSO_AUTH_TOKEN;
-    dbOptions.syncInterval = 60;
-  }
+let rawTursoUrl = process.env.TURSO_DATABASE_URL;
+if (!rawTursoUrl || rawTursoUrl.includes('tapowan-im-aatif') || rawTursoUrl.includes('tpsfee')) {
+  rawTursoUrl = DEFAULT_TURSO_URL;
+}
+let tursoHttpUrl = rawTursoUrl.replace(/^libsql:\/\//i, 'https://');
+let tursoAuthToken = process.env.TURSO_AUTH_TOKEN;
+if (!tursoAuthToken || !tursoAuthToken.includes('RmzczPOvgV3Hd83byF7fMfQsCzlJnF8r9MCGtzTfZDj8k') || tursoAuthToken.includes('a-w2gyEau')) {
+  tursoAuthToken = DEFAULT_TURSO_TOKEN;
 }
 
-let db = createClient(dbOptions);
+function formatPipelineArgs(args) {
+  if (!args || !Array.isArray(args)) return [];
+  return args.map(arg => {
+    if (arg === null || arg === undefined) return { type: 'null' };
+    if (typeof arg === 'number') {
+      return Number.isInteger(arg) ? { type: 'integer', value: String(arg) } : { type: 'float', value: arg };
+    }
+    if (typeof arg === 'boolean') return { type: 'integer', value: arg ? '1' : '0' };
+    return { type: 'text', value: String(arg) };
+  });
+}
 
-// ========== SECOND TURSO DATABASE (Fees) ==========
-const FEE_MODULES = new Set(['fees', 'dueManagement', 'feeStructures']);
-const feeDbPath = path.join(basePath, "school-fee-replica.db");
-const feeDbOptions = {};
+function parsePipelineResult(resultItem) {
+  if (!resultItem) return { rows: [], columns: [], rowsAffected: 0 };
+  if (resultItem.type === 'error') {
+    throw new Error(resultItem.error?.message || 'Turso pipeline query error');
+  }
+  const cols = (resultItem.response?.result?.cols || []).map(c => c.name);
+  const rawRows = resultItem.response?.result?.rows || [];
+  const rows = rawRows.map(rowTuple => {
+    const row = {};
+    cols.forEach((colName, idx) => {
+      const cell = rowTuple[idx];
+      if (!cell || cell.type === 'null') {
+        row[colName] = null;
+      } else if (cell.type === 'integer') {
+        row[colName] = Number(cell.value);
+      } else {
+        row[colName] = cell.value;
+      }
+    });
+    return row;
+  });
+  return {
+    rows,
+    columns: cols,
+    rowsAffected: resultItem.response?.result?.affected_row_count || 0
+  };
+}
 
-if (process.env.VERCEL || process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.IS_CLOUD) {
-  if (process.env.TURSO_FEE_DATABASE_URL && process.env.TURSO_FEE_AUTH_TOKEN) {
-    feeDbOptions.url = process.env.TURSO_FEE_DATABASE_URL;
-    feeDbOptions.authToken = process.env.TURSO_FEE_AUTH_TOKEN;
+console.log("⚡ Connecting to Unified Turso Cloud DB via Pure v2 Pipeline HTTP Proxy with In-Memory Query Caching...");
+
+// ── In-Memory Server Query Cache for Ultra-Low Read Consumption ──
+const serverQueryCache = new Map();
+const DEFAULT_QUERY_CACHE_TTL_MS = 60 * 1000; // 60 seconds
+
+const STATIC_QUERY_TTL_MAP = {
+  school_banners: 10 * 60 * 1000,
+  holidays: 10 * 60 * 1000,
+  timetable: 5 * 60 * 1000,
+  feestructures: 10 * 60 * 1000,
+  settings: 5 * 60 * 1000,
+  app_notices: 2 * 60 * 1000,
+  app_updates: 2 * 60 * 1000,
+  app_recommended_lessons: 10 * 60 * 1000,
+  teachers: 5 * 60 * 1000,
+  classes: 10 * 60 * 1000,
+  subjects: 10 * 60 * 1000
+};
+
+// NEVER CACHE REAL-TIME TABLES (Voice Calls, Signaling, Audio Rooms, Live Chats, Push Tokens)
+const REALTIME_TABLES = [
+  'app_voice_calls',
+  'app_voice_rooms',
+  'app_voice_signals',
+  'app_teacher_chats',
+  'app_push_tokens'
+];
+
+function isRealTimeQuery(sql) {
+  const lower = (sql || '').toLowerCase();
+  return REALTIME_TABLES.some(tbl => lower.includes(tbl));
+}
+
+function getQueryTTL(sql) {
+  const lower = (sql || '').toLowerCase();
+  if (isRealTimeQuery(sql)) return 0;
+  for (const [tbl, ttl] of Object.entries(STATIC_QUERY_TTL_MAP)) {
+    if (lower.includes(tbl)) return ttl;
+  }
+  return DEFAULT_QUERY_CACHE_TTL_MS;
+}
+
+function invalidateQueryCache(tableHint = null) {
+  if (!tableHint) {
+    serverQueryCache.clear();
   } else {
-    // Fallback: use main DB if fee DB not configured
-    feeDbOptions.url = process.env.TURSO_DATABASE_URL;
-    feeDbOptions.authToken = process.env.TURSO_AUTH_TOKEN;
+    const hint = tableHint.toLowerCase();
+    for (const [key] of serverQueryCache.entries()) {
+      if (key.includes(hint)) {
+        serverQueryCache.delete(key);
+      }
+    }
   }
-} else {
-  feeDbOptions.url = "file:" + feeDbPath;
-  if (process.env.TURSO_FEE_DATABASE_URL && process.env.TURSO_FEE_AUTH_TOKEN) {
-    console.log("💰 Connecting Turso Fee DB Embedded Replica...");
-    feeDbOptions.syncUrl = process.env.TURSO_FEE_DATABASE_URL;
-    feeDbOptions.authToken = process.env.TURSO_FEE_AUTH_TOKEN;
-    feeDbOptions.syncInterval = 60;
+  if (typeof invalidateStoreCache === 'function') {
+    invalidateStoreCache();
   }
 }
 
-let feeDb = (process.env.TURSO_FEE_DATABASE_URL && process.env.TURSO_FEE_AUTH_TOKEN)
-  ? createClient(feeDbOptions)
-  : db; // Fallback to main db if fee db not configured
+const db = {
+  execute: async (statement) => {
+    let sql = typeof statement === 'string' ? statement : statement?.sql;
+    let args = typeof statement === 'object' && statement?.args ? statement.args : [];
+    let skipCache = typeof statement === 'object' && (statement?.skipCache || statement?.fresh || statement?.forceFresh);
 
-// Helper: route to the correct database based on module name
+    if (!sql) throw new Error("Missing SQL query statement");
+
+    const trimmed = sql.trim().toUpperCase();
+    const isSelect = trimmed.startsWith("SELECT ") || trimmed.startsWith("WITH ") || trimmed.startsWith("PRAGMA ");
+    const isRealTime = isRealTimeQuery(sql);
+
+    // Check query cache — strictly bypassed for real-time tables or skipCache
+    const cacheKey = JSON.stringify({ sql: sql.trim().toLowerCase(), args });
+    if (isSelect && !skipCache && !isRealTime) {
+      const cached = serverQueryCache.get(cacheKey);
+      if (cached && (Date.now() - cached.time < cached.ttl)) {
+        return {
+          rows: JSON.parse(JSON.stringify(cached.data.rows)),
+          columns: cached.data.columns,
+          rowsAffected: cached.data.rowsAffected
+        };
+      }
+    }
+
+    const payload = {
+      requests: [
+        {
+          type: 'execute',
+          stmt: { sql, args: formatPipelineArgs(args) }
+        },
+        { type: 'close' }
+      ]
+    };
+
+    const res = await fetch(`${tursoHttpUrl}/v2/pipeline`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${tursoAuthToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      throw new Error(`Turso DB error (${res.status}): ${errText}`);
+    }
+
+    const json = await res.json();
+    const result = parsePipelineResult(json.results?.[0]);
+
+    if (isSelect) {
+      if (!isRealTime) {
+        serverQueryCache.set(cacheKey, {
+          data: result,
+          time: Date.now(),
+          ttl: getQueryTTL(sql)
+        });
+        if (serverQueryCache.size > 2000) {
+          const oldestKey = serverQueryCache.keys().next().value;
+          serverQueryCache.delete(oldestKey);
+        }
+      }
+    } else {
+      invalidateQueryCache();
+    }
+
+    return result;
+  },
+
+  batch: async (statements) => {
+    let hasMutation = false;
+    for (const stmt of statements) {
+      const sql = (typeof stmt === 'string' ? stmt : stmt?.sql || '').trim().toUpperCase();
+      if (!sql.startsWith('SELECT ') && !sql.startsWith('WITH ') && !sql.startsWith('PRAGMA ')) {
+        hasMutation = true;
+        break;
+      }
+    }
+
+    const requests = statements.map(stmt => {
+      const sql = typeof stmt === 'string' ? stmt : stmt.sql;
+      const args = typeof stmt === 'object' && stmt.args ? stmt.args : [];
+      return {
+        type: 'execute',
+        stmt: { sql, args: formatPipelineArgs(args) }
+      };
+    });
+    requests.push({ type: 'close' });
+
+    const res = await fetch(`${tursoHttpUrl}/v2/pipeline`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${tursoAuthToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ requests })
+    });
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      throw new Error(`Turso DB batch error (${res.status}): ${errText}`);
+    }
+
+    const json = await res.json();
+    const results = (json.results || [])
+      .filter(r => r.type !== 'close')
+      .map(parsePipelineResult);
+
+    if (hasMutation) {
+      invalidateQueryCache();
+    }
+
+    return results;
+  }
+};
+
+// Single Unified Database: all fee and due queries route directly to primary database
+const feeDb = db;
 function getDb(moduleName) {
-  return FEE_MODULES.has(moduleName) ? feeDb : db;
-}
-
-// ========== RECOVERY ==========
-async function recoverWalConflict(targetDb, targetOptions, targetPath, label) {
-  console.log(`⚠️ [Recovery:${label}] Detected WalConflict! Rebuilding local replica...`);
-  try {
-    if (targetDb && typeof targetDb.close === 'function') {
-      try { targetDb.close(); } catch (e) {}
-    }
-  } catch(e) {}
-  
-  try {
-    if (fs.existsSync(targetPath)) fs.unlinkSync(targetPath);
-    if (fs.existsSync(targetPath + "-wal")) fs.unlinkSync(targetPath + "-wal");
-    if (fs.existsSync(targetPath + "-shm")) fs.unlinkSync(targetPath + "-shm");
-    console.log(`⚠️ [Recovery:${label}] Deleted corrupted local replica.`);
-  } catch (err) {
-    console.log(`⚠️ [Recovery:${label}] Could not delete file (locked). Creating new db file.`);
-    targetOptions.url = "file:" + targetPath.replace('.db', `-${Date.now()}.db`);
-  }
-  
-  try {
-    const newClient = createClient(targetOptions);
-    await newClient.sync();
-    console.log(`✅ [Recovery:${label}] Successfully rebuilt local replica from cloud!`);
-    if (label === 'main') { db = newClient; }
-    else { feeDb = newClient; }
-    processOfflineQueue();
-  } catch (err) {
-    console.error(`❌ [Recovery:${label}] Failed to rebuild replica:`, err.message);
-  }
-}
-
-function handleSyncError(e) {
-  const msg = (e.message || "").toLowerCase();
-  console.error("❌ Turso Sync Error:", msg);
-  if (msg.includes("walconflict") || msg.includes("wal frame insert conflict")) {
-    recoverWalConflict(db, dbOptions, dbPath, 'main');
-  }
-}
-
-function handleFeeSyncError(e) {
-  const msg = (e.message || "").toLowerCase();
-  console.error("❌ Turso Fee DB Sync Error:", msg);
-  if (msg.includes("walconflict") || msg.includes("wal frame insert conflict")) {
-    recoverWalConflict(feeDb, feeDbOptions, feeDbPath, 'fees');
-  }
-}
-
-// Sync main DB
-if (dbOptions.syncUrl && !(process.env.VERCEL || process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME)) {
-  db.sync().then(() => {
-    console.log("✅ Turso synced successfully");
-    processOfflineQueue();
-  }).catch(handleSyncError);
-  setInterval(() => {
-    if (db && db.sync) {
-      db.sync().then(() => processOfflineQueue()).catch(handleSyncError);
-    }
-  }, 60000);
-}
-
-// Sync fee DB
-if (feeDbOptions.syncUrl && !(process.env.VERCEL || process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME) && feeDb !== db) {
-  feeDb.sync().then(() => {
-    console.log("✅ Turso Fee DB synced successfully");
-  }).catch(handleFeeSyncError);
-  setInterval(() => {
-    if (feeDb && feeDb.sync) {
-      feeDb.sync().catch(handleFeeSyncError);
-    }
-  }, 60000);
+  return db;
 }
 
 async function processOfflineQueue() {
@@ -211,8 +326,9 @@ const MODULES = {
     "session", "admissionDate", "prevSchool", "lastClassPassed", "tcReceived",
     "photo", "birthCert", "aadharDoc", "tcDoc", "parentIdDoc",
     "admissionFee", "monthlyFee", "transportFee", "discount",
-    "status", "remarks", "parentName", "phone", "tc", "reportCard", "fatherAadhar", "motherAadhar",
-    "studentAadharNo", "fatherAadharNo", "motherAadharNo"
+    "status", "remarks", "phone", "tc", "reportCard", "fatherAadhar", "motherAadhar",
+    "studentAadharNo", "fatherAadharNo", "motherAadharNo",
+    "photoUrl", "appPassword", "allow_profile_edit", "allowed_edit_fields"
   ],
   admissions: [
     "admissionNo", "rollNo", "fullName", "className", "section", "gender", "dob", "age",
@@ -222,8 +338,9 @@ const MODULES = {
     "classApplyingFor", "session", "admissionDate", "prevSchool", "lastClassPassed", "tcReceived",
     "photo", "birthCert", "aadharDoc", "tcDoc", "parentIdDoc",
     "admissionFee", "monthlyFee", "transportFee", "discount",
-    "status", "remarks", "isDraft", "draftUserId", "parentName", "phone", "tc", "reportCard", "fatherAadhar", "motherAadhar",
-    "studentAadharNo", "fatherAadharNo", "motherAadharNo"
+    "status", "remarks", "isDraft", "draftUserId", "phone", "tc", "reportCard", "fatherAadhar", "motherAadhar",
+    "studentAadharNo", "fatherAadharNo", "motherAadharNo",
+    "photoUrl", "appPassword", "allow_profile_edit", "allowed_edit_fields"
   ],
   teachers: ["employeeNo", "fullName", "department", "qualification", "phone", "email", "joinDate", "photo"],
   classes: ["className", "section", "classTeacher", "roomNo", "capacity"],
@@ -252,7 +369,9 @@ const MODULES = {
   weeklyEvaluation: ["weekStartDate", "weekEndDate", "className", "section", "studentName", "rollNo", "maths", "english", "hindi", "science", "sst", "readingEng", "readingHindi", "writingEng", "writingHindi", "attanDance", "dicipLine", "uniform", "activities", "overall", "teacherRemark"],
   announcements: ["date", "title", "message", "targetAudience", "postedBy", "category", "targetType", "targetClass", "targetAdmissionNo", "targetStudentName", "priority", "status"],
   settings: ["key", "value", "category", "updatedBy"],
-  app_student_sessions: ["admission_no", "student_name", "class_name", "roll_no", "phone", "status", "device_os", "last_login_at", "last_active_at", "created_at"]
+  app_student_sessions: ["admission_no", "student_name", "class_name", "roll_no", "phone", "status", "device_os", "last_login_at", "last_active_at", "created_at"],
+  app_teacher_chats: ["student_admission_no", "student_name", "class_name", "teacher_id", "teacher_name", "sender", "message", "created_at", "is_read"],
+  app_online_payments: ["admission_no", "student_name", "class_name", "roll_no", "amount", "status", "payId", "payment_method", "utr_number", "remarks", "verified_at", "verified_by", "created_at"]
 };
 
 async function runRaw(sql, params = [], moduleName) {
@@ -284,8 +403,8 @@ async function seedIfEmpty() {
   const now = new Date().toISOString().slice(0, 19).replace("T", " ");
   const today = new Date().toISOString().slice(0, 10);
 
-  await insert("students", { admissionNo: "ADM001", rollNo: "10A-01", fullName: "Aarav Sharma", className: "10-A", gender: "Male", dob: "2010-03-12", parentName: "Rohit Sharma", phone: "9876501234", address: "Sector 5", status: "Active", aadhar: "", tc: "", reportCard: "" });
-  await insert("students", { admissionNo: "ADM002", rollNo: "9B-07", fullName: "Ananya Singh", className: "9-B", gender: "Female", dob: "2011-07-20", parentName: "Vikas Singh", phone: "9823401234", address: "Green Park", status: "Active", aadhar: "", tc: "", reportCard: "" });
+  await insert("students", { admissionNo: "ADM001", rollNo: "10A-01", fullName: "Aarav Sharma", className: "10-A", gender: "Male", dob: "2010-03-12", fatherName: "Rohit Sharma", phone: "9876501234", address: "Sector 5", status: "Active", aadhar: "", tc: "", reportCard: "" });
+  await insert("students", { admissionNo: "ADM002", rollNo: "9B-07", fullName: "Ananya Singh", className: "9-B", gender: "Female", dob: "2011-07-20", fatherName: "Vikas Singh", phone: "9823401234", address: "Green Park", status: "Active", aadhar: "", tc: "", reportCard: "" });
   await insert("teachers", { employeeNo: "EMP100", fullName: "Neha Verma", department: "Science", qualification: "M.Sc", phone: "9900112233", email: "neha@school.com", joinDate: "2018-06-10" });
   await insert("teachers", { employeeNo: "EMP101", fullName: "Amit Kumar", department: "Math", qualification: "M.Ed", phone: "9900112244", email: "amit@school.com", joinDate: "2019-01-05" });
   await insert("classes", { className: "10", section: "A", classTeacher: "Neha Verma", roomNo: "204", capacity: "40" });
@@ -408,16 +527,128 @@ async function list(moduleName) {
     rows = [...inserts, ...rows];
   }
 
-  return rows;
+  return rows.map(r => normalizeRow(moduleName, r));
 }
 
 function triggerSync() {} // Turso autosyncs in background now
 
+const CANONICAL_CLASS_MAP = {
+  '1-A': 'I-A', 'CLASS 1-A': 'I-A', 'CLASS 1': 'I-A', '1': 'I-A', 'CLASS I-A': 'I-A', 'CLASS I': 'I-A', 'I-A': 'I-A', 'I': 'I-A',
+  '2-A': 'II-A', 'CLASS 2-A': 'II-A', 'CLASS 2': 'II-A', '2': 'II-A', 'CLASS II-A': 'II-A', 'CLASS II': 'II-A', 'II-A': 'II-A', 'II': 'II-A',
+  '3-A': 'III-A', 'CLASS 3-A': 'III-A', 'CLASS 3': 'III-A', '3': 'III-A', 'CLASS III-A': 'III-A', 'CLASS III': 'III-A', 'III-A': 'III-A', 'III': 'III-A',
+  '4-A': 'IV-A', 'CLASS 4-A': 'IV-A', 'CLASS 4': 'IV-A', '4': 'IV-A', 'CLASS IV-A': 'IV-A', 'CLASS IV': 'IV-A', 'IV-A': 'IV-A', 'IV': 'IV-A',
+  '5-A': 'V-A', 'CLASS 5-A': 'V-A', 'CLASS 5': 'V-A', '5': 'V-A', 'CLASS V-A': 'V-A', 'CLASS V': 'V-A', 'V-A': 'V-A', 'V': 'V-A',
+  '6-A': 'VI-A', 'CLASS 6-A': 'VI-A', 'CLASS 6': 'VI-A', '6': 'VI-A', 'CLASS VI-A': 'VI-A', 'CLASS VI': 'VI-A', 'VI-A': 'VI-A', 'VI': 'VI-A',
+  '7-A': 'VII-A', 'CLASS 7-A': 'VII-A', 'CLASS 7': 'VII-A', '7': 'VII-A', 'CLASS VII-A': 'VII-A', 'CLASS VII': 'VII-A', 'VII-A': 'VII-A', 'VII': 'VII-A',
+  '8-A': 'VIII-A', 'CLASS 8-A': 'VIII-A', 'CLASS 8': 'VIII-A', '8': 'VIII-A', 'CLASS VIII-A': 'VIII-A', 'CLASS VIII': 'VIII-A', 'VIII-A': 'VIII-A', 'VIII': 'VIII-A',
+  '9-A': 'IX-A', 'CLASS 9-A': 'IX-A', 'CLASS 9': 'IX-A', '9': 'IX-A', 'CLASS IX-A': 'IX-A', 'CLASS IX': 'IX-A', 'IX-A': 'IX-A', 'IX': 'IX-A',
+  '10-A': 'X-A', 'CLASS 10-A': 'X-A', 'CLASS 10': 'X-A', '10': 'X-A', 'CLASS X-A': 'X-A', 'CLASS X': 'X-A', 'X-A': 'X-A', 'X': 'X-A',
+  'LKG-A': 'LKG-A', 'CLASS LKG-A': 'LKG-A', 'CLASS LKG': 'LKG-A', 'LKG': 'LKG-A',
+  'UKG-A': 'UKG-A', 'CLASS UKG-A': 'UKG-A', 'CLASS UKG': 'UKG-A', 'UKG': 'UKG-A',
+  'NURSERY-A': 'Nursery-A', 'CLASS NURSERY-A': 'Nursery-A', 'CLASS NURSERY': 'Nursery-A', 'NURSERY': 'Nursery-A', 'NUR-A': 'Nursery-A', 'CLASS NUR-A': 'Nursery-A'
+};
+
+function normalizeCanonicalClass(val) {
+  if (!val) return '';
+  const clean = String(val).trim().toUpperCase();
+  if (CANONICAL_CLASS_MAP[clean]) return CANONICAL_CLASS_MAP[clean];
+  const stripped = clean.replace(/^(CLASS|GRADE)\s+/i, '').trim();
+  if (CANONICAL_CLASS_MAP[stripped]) return CANONICAL_CLASS_MAP[stripped];
+  return String(val).trim();
+}
+
+function normalizeRow(moduleName, row) {
+  if (!row || typeof row !== 'object') return row;
+  if (moduleName === "students") {
+    row.admissionNo = row.admissionno ?? row.admissionNo ?? "";
+    row.fullName = row.fullname ?? row.fullName ?? "";
+    row.rollNo = row.rollno ?? row.rollNo ?? "";
+    row.className = normalizeCanonicalClass(row.classname ?? row.className ?? "");
+    row.section = row.section ?? "A";
+    row.gender = row.gender ?? "Male";
+    row.fatherName = row.fathername ?? row.fatherName ?? "";
+    row.motherName = row.mothername ?? row.motherName ?? "";
+    row.phone = row.phone ?? row.phone1 ?? "";
+    row.status = row.status ?? "Active";
+    if (row.photoUrl && typeof row.photoUrl === 'string' && row.photoUrl.startsWith('data:image')) {
+      row.photoUrl = `/api/photo/students/${row.id}`;
+    }
+  } else if (moduleName === "dueManagement") {
+    row.admissionNo = row.admissionno ?? row.admissionNo ?? "";
+    row.studentName = row.studentname ?? row.studentName ?? "";
+    row.className = normalizeCanonicalClass(row.classname ?? row.className ?? "");
+    row.rollNo = row.rollno ?? row.rollNo ?? "";
+    row.dueAmount = String(row.dueamount ?? row.dueAmount ?? "0");
+    row.paidAmount = String(row.paidamount ?? row.paidAmount ?? "0");
+    row.balance = String(row.balance ?? "0");
+    row.payId = row.payid ?? row.payId ?? "";
+    row.status = row.status ?? "Unpaid";
+    row.session = row.session ?? "";
+    row.month = row.month ?? "";
+    row.particulars = row.particulars ?? "";
+    row.remarks = row.remarks ?? "";
+  } else if (moduleName === "feeStructures") {
+    row.className = normalizeCanonicalClass(row.classname ?? row.className ?? "");
+    row.feeType = row.feetype ?? row.feeType ?? "";
+    row.amount = row.amount ?? 0;
+    row.term = row.term ?? "";
+    row.description = row.description ?? "";
+  } else if (moduleName === "fees") {
+    row.admissionNo = row.admissionno ?? row.admissionNo ?? "";
+    row.studentName = row.studentname ?? row.studentName ?? "";
+    row.className = normalizeCanonicalClass(row.classname ?? row.className ?? "");
+    row.rollNo = row.rollno ?? row.rollNo ?? "";
+    row.fatherName = row.fathername ?? row.fatherName ?? "";
+    row.term = row.term ?? "";
+    row.month = row.month ?? "";
+    row.feeTypes = row.feetypes ?? row.feeTypes ?? "";
+    row.tuitionFee = row.tuitionfee ?? row.tuitionFee ?? "0";
+    row.admissionFee = row.admissionfee ?? row.admissionFee ?? "0";
+    row.computerFee = row.computerfee ?? row.computerFee ?? "0";
+    row.developmentFee = row.developmentfee ?? row.developmentFee ?? "0";
+    row.labFee = row.labfee ?? row.labFee ?? "0";
+    row.sportsFee = row.sportsfee ?? row.sportsFee ?? "0";
+    row.libraryFee = row.libraryfee ?? row.libraryFee ?? "0";
+    row.examFee = row.examfee ?? row.examFee ?? "0";
+    row.transportFee = row.transportfee ?? row.transportFee ?? "0";
+    row.hostelFee = row.hostelfee ?? row.hostelFee ?? "0";
+    row.otherFee = row.otherfee ?? row.otherFee ?? "0";
+    row.lateFee = row.latefee ?? row.lateFee ?? "0";
+    row.totalFee = row.totalfee ?? row.totalFee ?? "0";
+    row.paidAmount = row.paidamount ?? row.paidAmount ?? "0";
+    row.balance = row.balance ?? "0";
+    row.status = row.status ?? "Paid";
+    row.paymentDate = row.paymentdate ?? row.paymentDate ?? "";
+    row.paymentMethod = row.paymentmethod ?? row.paymentMethod ?? "Cash";
+    row.monthlyFee = row.monthlyfee ?? row.monthlyFee ?? "0";
+    row.monthlyFeeLabel = row.monthlyfeelabel ?? row.monthlyFeeLabel ?? "";
+    row.payId = row.payid ?? row.payId ?? "";
+  }
+  return row;
+}
+
 async function _insert(moduleName, payload) {
+  if (payload && payload.className) {
+    payload.className = normalizeCanonicalClass(payload.className);
+  }
+  if (moduleName === "students" && payload && payload.photoUrl && payload.photoUrl.startsWith('data:image')) {
+    if (!payload.photo || payload.photo.length < 50) {
+      payload.photo = payload.photoUrl;
+    }
+  }
   if ((moduleName === "fees" || moduleName === "dueManagement") && !payload.payId) {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let p = ''; for (let i = 0; i < 6; i++) p += chars.charAt(Math.floor(Math.random() * chars.length));
     payload.payId = p;
+  }
+  if (!payload.id) {
+    try {
+      const maxRes = await getDb(moduleName).execute(`SELECT COALESCE(MAX(id), 0) + 1 AS nextId FROM ${moduleName}`);
+      payload.id = Number(maxRes.rows[0]?.nextId || (Date.now() % 1000000));
+    } catch(e) {}
+  }
+  if (moduleName === "students" && payload && payload.photoUrl && payload.photoUrl.startsWith('data:image')) {
+    payload.photoUrl = `/api/photo/students/${payload.id}`;
   }
   if (moduleName === "faceEmbeddings" && payload.name && payload.targetType) {
     try {
@@ -428,14 +659,16 @@ async function _insert(moduleName, payload) {
     } catch(e) {}
   }
   const fields = MODULES[moduleName];
-  const cols = fields.join(", ");
+  const cols = payload.id ? `id, ${fields.join(", ")}` : fields.join(", ");
   
   // Use positional ? params — Turso embedded replica silently fails with named :params
-  const placeholders = fields.map(() => '?').join(", ");
-  const values = fields.map(f => payload[f] ?? "");
+  const placeholders = payload.id ? `?, ${fields.map(() => '?').join(", ")}` : fields.map(() => '?').join(", ");
+  const values = payload.id ? [payload.id, ...fields.map(f => payload[f] ?? "")] : fields.map(f => payload[f] ?? "");
   
   const res = await getDb(moduleName).execute({ sql: `INSERT INTO ${moduleName} (${cols}) VALUES (${placeholders})`, args: values });
-  return await getById(moduleName, Number(res.lastInsertRowid));
+  invalidateStoreCache();
+  const finalId = payload.id || Number(res.lastInsertRowid);
+  return await getById(moduleName, finalId);
 }
 
 async function insert(moduleName, payload) {
@@ -461,16 +694,25 @@ async function getById(moduleName, id) {
   // Check if it's a queued offline insert
   if (typeof id === 'string' && id.startsWith("TEMP-")) {
     const queued = offlineQueue.find(q => q.action === 'insert' && q.module === moduleName && q.tempId === id);
-    if (queued) return queued.payload;
+    if (queued) return normalizeRow(moduleName, queued.payload);
     return undefined;
   }
   const result = await getDb(moduleName).execute({ sql: `SELECT * FROM ${moduleName} WHERE id = ?`, args: [finalId] });
-  return result.rows[0];
+  return normalizeRow(moduleName, result.rows[0]);
 }
 
 async function _update(moduleName, id, payload) {
   const numId = Number(id);
   const finalId = isNaN(numId) ? id : numId;
+  if (payload && payload.className) {
+    payload.className = normalizeCanonicalClass(payload.className);
+  }
+  if (moduleName === "students" && payload && payload.photoUrl && payload.photoUrl.startsWith('data:image')) {
+    if (!payload.photo || payload.photo.length < 50) {
+      payload.photo = payload.photoUrl;
+    }
+    payload.photoUrl = `/api/photo/students/${finalId}`;
+  }
   const fields = MODULES[moduleName] || [];
   const allowedKeys = Object.keys(payload || {}).filter((k) => fields.includes(k));
   if (!allowedKeys.length) return await getById(moduleName, id);
@@ -481,6 +723,7 @@ async function _update(moduleName, id, payload) {
   values.push(finalId); // for WHERE id=?
   
   await getDb(moduleName).execute({ sql: `UPDATE ${moduleName} SET ${setSql} WHERE id=?`, args: values });
+  invalidateStoreCache();
 
   if (moduleName === "fees" && String(payload.status).toLowerCase() === "paid") {
       const fee = await getById("fees", id);
@@ -489,7 +732,7 @@ async function _update(moduleName, id, payload) {
               const mgmtIds = JSON.parse(fee.consolidatedDueMgmtIds);
               if (Array.isArray(mgmtIds) && mgmtIds.length > 0) {
                   for (const mid of mgmtIds) {
-                      await getDb("dueManagement").execute({ sql: "UPDATE dueManagement SET status = 'Paid', paidAmount = dueAmount, balance = '0' WHERE id = ? AND status != 'Paid'", args: [mid] });
+                      await getDb("dueManagement").execute({ sql: "DELETE FROM dueManagement WHERE id = ?", args: [mid] });
                   }
               }
           } catch (e) {}
@@ -539,6 +782,7 @@ async function _remove(moduleName, id) {
           } catch(e) {}
       }
   }
+  invalidateStoreCache();
   return await getDb(moduleName).execute({ sql: `DELETE FROM ${moduleName} WHERE id = ?`, args: [finalId] });
 }
 
@@ -565,7 +809,24 @@ async function remove(moduleName, id) {
   }
 }
 
+let memoryStoreCache = null;
+let memoryStoreCacheTime = 0;
+const STORE_CACHE_TTL_MS = 60 * 1000; // 60 seconds in-memory cache TTL
+let lastStoreVersion = Date.now();
+const tableColsCache = {};
+
+function invalidateStoreCache() {
+  memoryStoreCache = null;
+  memoryStoreCacheTime = 0;
+  lastStoreVersion = Date.now();
+}
+
+function getStoreVersion() {
+  return lastStoreVersion;
+}
+
 async function replaceAll(moduleName, rows) {
+  invalidateStoreCache();
   const tx = await db.transaction();
   await tx.execute(`DELETE FROM ${moduleName}`);
   await tx.commit();
@@ -573,35 +834,118 @@ async function replaceAll(moduleName, rows) {
 }
 
 async function rawList(moduleName) {
-  const heavyFields = ["photo", "birthCert", "aadharDoc", "tcDoc", "parentIdDoc", "reportCard", "fatherAadhar", "motherAadhar", "aadhar", "tc"];
+  const heavyFields = ["photo", "photoUrl", "birthCert", "aadharDoc", "tcDoc", "parentIdDoc", "reportCard", "fatherAadhar", "motherAadhar", "aadhar", "tc"];
   
   try {
     const db = getDb(moduleName);
     
-    // Fetch actual columns to avoid querying non-existent ones
-    const pragmaRes = await db.execute(`PRAGMA table_info(${moduleName})`);
-    const actualCols = pragmaRes.rows.map(r => r.name);
+    // Cache column info to avoid repeated PRAGMA queries
+    if (!tableColsCache[moduleName]) {
+      const pragmaRes = await db.execute(`PRAGMA table_info(${moduleName})`);
+      tableColsCache[moduleName] = pragmaRes.rows.map(r => r.name);
+    }
+    const actualCols = tableColsCache[moduleName] || [];
     
     const selectCols = actualCols.map(col => {
       if (heavyFields.includes(col)) {
-        return `CASE WHEN length("${col}") > 50 THEN 'true' ELSE NULL END as "${col}"`;
+        // Instead of sending full base64, just mark presence with length check
+        return `CASE WHEN length("${col}") > 50 THEN 'HAS_DATA' ELSE NULL END as "${col}"`;
       }
       return `"${col}"`;
     });
 
     const selectClause = selectCols.length > 0 ? selectCols.join(", ") : "*";
     const res = await db.execute(`SELECT ${selectClause} FROM ${moduleName} ORDER BY id DESC`);
-    return res.rows;
+    
+    // Convert 'HAS_DATA' markers to proper streaming URLs and normalize casing
+    const rows = (res.rows || []).map(row => {
+      if (row.photo === 'HAS_DATA') row.photo = `/api/photo/${moduleName}/${row.id}`;
+      if (row.photoUrl === 'HAS_DATA') row.photoUrl = `/api/photo/${moduleName}/${row.id}`;
+      if (row.studentPhoto === 'HAS_DATA') row.studentPhoto = `/api/photo/${moduleName}/${row.id}?col=studentPhoto`;
+      if (row.facePhoto === 'HAS_DATA') row.facePhoto = `/api/photo/${moduleName}/${row.id}?col=facePhoto`;
+      return normalizeRow(moduleName, row);
+    });
+
+    // ── UNIFIED EXAMS & APP_EXAM_MARKS BRIDGE ──
+    // Automatically merge any subjects recorded in app_exam_marks into exams so mobile and web always share 100% of subjects
+    if (moduleName === 'exams') {
+      try {
+        const appMarksRes = await db.execute(`SELECT exam_name, class_name, subject, student_name, admission_no, roll_no, marks_obtained, max_marks, passing_marks, grade, remarks, pa1_marks, notebook_marks, enrichment_marks, subjective_marks FROM app_exam_marks ORDER BY id ASC`);
+        const appRows = appMarksRes.rows || [];
+        if (appRows.length > 0) {
+          const appMarksMap = new Map();
+          for (const ar of appRows) {
+            const key = `${(ar.exam_name || '').trim().toLowerCase()}:::${(ar.class_name || '').trim().toLowerCase()}:::${(ar.student_name || '').trim().toLowerCase()}`;
+            if (!appMarksMap.has(key)) appMarksMap.set(key, []);
+            appMarksMap.get(key).push({
+              subject: (ar.subject || '').trim(),
+              max: parseFloat(ar.max_marks) || 100,
+              min: parseFloat(ar.passing_marks) || 33,
+              pa1: parseFloat(ar.pa1_marks) || 0,
+              pa2: 0,
+              notebook: parseFloat(ar.notebook_marks) || 0,
+              enrichment: parseFloat(ar.enrichment_marks) || 0,
+              theory: parseFloat(ar.subjective_marks) || 0,
+              subjective: parseFloat(ar.subjective_marks) || 0,
+              practical: (parseFloat(ar.pa1_marks) || 0) + (parseFloat(ar.notebook_marks) || 0) + (parseFloat(ar.enrichment_marks) || 0),
+              total: parseFloat(ar.marks_obtained) || 0,
+              grade: ar.grade || ''
+            });
+          }
+
+          rows.forEach(r => {
+            const key = `${(r.examName || '').trim().toLowerCase()}:::${(r.className || '').trim().toLowerCase()}:::${(r.studentName || '').trim().toLowerCase()}`;
+            const appSubjects = appMarksMap.get(key);
+            if (appSubjects && appSubjects.length > 0) {
+              let existingSubjects = [];
+              try {
+                existingSubjects = typeof r.subjectMarks === 'string' ? JSON.parse(r.subjectMarks) : r.subjectMarks;
+                if (!Array.isArray(existingSubjects)) existingSubjects = [];
+              } catch(e) { existingSubjects = []; }
+
+              const mergedMap = new Map();
+              existingSubjects.forEach(s => {
+                if (s && s.subject) mergedMap.set(s.subject.trim().toLowerCase(), s);
+              });
+              appSubjects.forEach(s => {
+                if (s && s.subject) mergedMap.set(s.subject.trim().toLowerCase(), s);
+              });
+              const mergedList = Array.from(mergedMap.values());
+              r.subjectMarks = JSON.stringify(mergedList);
+
+              let grandTotal = 0;
+              let grandMax = 0;
+              mergedList.forEach(s => {
+                grandTotal += (parseFloat(s.total) || 0);
+                grandMax += (parseFloat(s.max) || 100);
+              });
+              r.totalMarks = String(grandTotal);
+              r.percentage = grandMax > 0 ? ((grandTotal / grandMax) * 100).toFixed(1) : (r.percentage || '0');
+              r.resultStatus = parseFloat(r.percentage) >= 33 ? 'PASS' : 'FAIL';
+            }
+          });
+        }
+      } catch(e) {
+        console.warn("Exam marks unification note:", e.message);
+      }
+    }
+
+    return rows;
   } catch (err) {
     console.error(`Error in rawList for ${moduleName}:`, err.message);
     throw err;
   }
 }
 
-async function getStore() {
+async function getStore(forceRefresh = false) {
+  const now = Date.now();
+  if (!forceRefresh && memoryStoreCache && (now - memoryStoreCacheTime < STORE_CACHE_TTL_MS)) {
+    return memoryStoreCache;
+  }
+
   const store = {};
   const moduleKeys = Object.keys(MODULES);
-  const BATCH_SIZE = 5; // Safe limit for Turso free tier
+  const BATCH_SIZE = 5; // Safe limit for Turso
 
   try {
     for (let i = 0; i < moduleKeys.length; i += BATCH_SIZE) {
@@ -616,9 +960,72 @@ async function getStore() {
         }
       });
     }
+    memoryStoreCache = store;
+    memoryStoreCacheTime = Date.now();
     return store;
   } catch (err) {
     console.error("GETSTORE CRITICAL ERROR:", err);
+    return memoryStoreCache || store;
+  }
+}
+
+async function fullList(moduleName) {
+  const heavyModules = ["students", "admissions", "teachers", "attendance", "exams", "faceEmbeddings"];
+  const db = getDb(moduleName);
+
+  try {
+    if (heavyModules.includes(moduleName)) {
+      // Fetch in paginated chunks to avoid Turso mem_hrana_response memory limits
+      const allRows = [];
+      const PAGE_SIZE = 25;
+      let offset = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        const res = await db.execute({
+          sql: `SELECT * FROM ${moduleName} ORDER BY id DESC LIMIT ? OFFSET ?`,
+          args: [PAGE_SIZE, offset]
+        });
+        const rows = res.rows || [];
+        allRows.push(...rows);
+        if (rows.length < PAGE_SIZE) {
+          hasMore = false;
+        } else {
+          offset += PAGE_SIZE;
+        }
+      }
+      return allRows.map(r => normalizeRow(moduleName, r));
+    } else {
+      const res = await db.execute(`SELECT * FROM ${moduleName} ORDER BY id DESC`);
+      return (res.rows || []).map(r => normalizeRow(moduleName, r));
+    }
+  } catch (err) {
+    console.error(`Error in fullList for ${moduleName}:`, err.message);
+    throw err;
+  }
+}
+
+async function getFullStore() {
+  const store = {};
+  const moduleKeys = Object.keys(MODULES);
+  const BATCH_SIZE = 3;
+
+  try {
+    for (let i = 0; i < moduleKeys.length; i += BATCH_SIZE) {
+      const batch = moduleKeys.slice(i, i + BATCH_SIZE);
+      const results = await Promise.allSettled(batch.map(m => fullList(m)));
+      batch.forEach((m, idx) => {
+        if (results[idx].status === "fulfilled") {
+          store[m] = results[idx].value;
+        } else {
+          console.error(`[getFullStore] Failed to load module '${m}':`, results[idx].reason);
+          store[m] = [];
+        }
+      });
+    }
+    return store;
+  } catch (err) {
+    console.error("GETFULLSTORE CRITICAL ERROR:", err);
     return store;
   }
 }
@@ -629,14 +1036,9 @@ const withRetry = (fn) => async (...args) => {
     try {
       return await fn(...args);
     } catch (err) {
-      if (err.message && err.message.includes("WalConflict") && retries < 5) {
+      if (err.message && (err.message.includes("busy") || err.message.includes("locked")) && retries < 3) {
         retries++;
-        console.warn(`[DB] WalConflict detected, forcing sync and retrying (${retries}/5)...`);
-        try {
-          if (db.sync) await db.sync();
-        } catch(e) {
-          console.warn("[DB] Sync failed during WalConflict retry:", e.message);
-        }
+        console.warn(`[DB] Database busy/locked, retrying (${retries}/3)...`);
         await new Promise(r => setTimeout(r, retries * 500));
       } else {
         throw err;
@@ -646,7 +1048,8 @@ const withRetry = (fn) => async (...args) => {
 };
 
 module.exports = { 
-  db, feeDb, MODULES, initDb, list, getById, getStore, resetAndSeed, runRaw, seedIfEmpty,
+  db, feeDb, MODULES, initDb, list, getById, getStore, getFullStore, resetAndSeed, runRaw, seedIfEmpty,
+  DEFAULT_TURSO_URL, tursoHttpUrl, invalidateQueryCache, invalidateStoreCache, getStoreVersion,
   insert: withRetry(insert), 
   update: withRetry(update), 
   remove: withRetry(remove), 

@@ -153,12 +153,18 @@ const moduleConfig = {
     subtitle: "Track student weekly academic growth", 
     fields: ["weekStartDate", "weekEndDate", "className", "section", "studentName", "rollNo", "maths", "english", "hindi", "science", "sst", "readingEng", "readingHindi", "writingEng", "writingHindi", "attanDance", "dicipLine", "uniform", "activities", "overall", "teacherRemark"], 
     columns: ["weekStartDate", "className", "studentName", "rollNo", "overall"] 
+  },
+  onlineClasses: { 
+    title: "Online Classes", 
+    subtitle: "Live Interactive Video Classroom, Voice Studio & Calling Directory", 
+    fields: [], 
+    columns: [] 
   }
 };
 
 const moduleSections = [
   { label: "Core", modules: ["admissions", "dashboard", "announcements", "appLiveUsers", "aiAssistant", "myProfile", "students", "teachers", "classes"] },
-  { label: "ACADEMIC", modules: ["subjects", "exams", "timetable", "holidays", "weeklyEvaluation"] },
+  { label: "ACADEMIC", modules: ["onlineClasses", "subjects", "exams", "timetable", "holidays", "weeklyEvaluation"] },
   { label: "ANALYTICS", modules: ["reportsAnalytics"] },
   { label: "DAILY", modules: ["attendance", "teacherAttendance"] },
   { label: "FINANCE", modules: ["fees", "dueManagement", "payroll", "booksAndDress", "bookSales", "whatsappAlerts"] },
@@ -167,6 +173,7 @@ const moduleSections = [
 
 const moduleIcons = {
   dashboard: "📊", myProfile: "👤", admissions: "🎯", announcements: "📢", appLiveUsers: "📱", students: "🎓", teachers: "👨‍🏫", classes: "🏢",
+  onlineClasses: "🎥",
   subjects: "📚", exams: "📝", timetable: "⏰",
   attendance: "📅", teacherAttendance: "👨‍🏫",
   fees: "💳", dueManagement: "💸", payroll: "💼", booksAndDress: "💰", bookSales: "📦", whatsappAlerts: "📲",
@@ -178,6 +185,15 @@ const moduleIcons = {
 const moduleOrder = Object.keys(moduleConfig);
 const printableModules = new Set(["students", "exams", "fees", "announcements"]);
 let currentModule = "dashboard";
+try {
+  Object.defineProperty(window, 'currentModule', {
+    get() { return currentModule; },
+    set(val) { currentModule = val; },
+    configurable: true
+  });
+} catch (e) {
+  window.currentModule = currentModule;
+}
 let currentUser = null; // ← global session user for role checks
 
 // Auto-shorten long fee term descriptions
@@ -223,10 +239,10 @@ function getLinkedStudent() {
 }
 
 // Modules visible per role
-const STUDENT_VISIBLE_MODULES = new Set(["dashboard", "myProfile", "announcements", "attendance", "exams", "fees", "timetable", "subjects", "holidays", "weeklyEvaluation"]);
-const TEACHER_VISIBLE_MODULES = new Set(["dashboard", "admissions", "announcements", "students", "teachers", "classes", "subjects", "attendance", "teacherAttendance", "exams", "timetable", "library", "holidays", "weeklyEvaluation"]);
+const STUDENT_VISIBLE_MODULES = new Set(["dashboard", "onlineClasses", "myProfile", "announcements", "attendance", "exams", "fees", "timetable", "subjects", "holidays", "weeklyEvaluation"]);
+const TEACHER_VISIBLE_MODULES = new Set(["dashboard", "onlineClasses", "admissions", "announcements", "students", "teachers", "classes", "subjects", "attendance", "teacherAttendance", "exams", "timetable", "library", "holidays", "weeklyEvaluation"]);
 // Modules where teacher can add/edit
-const TEACHER_WRITE_MODULES = new Set(["announcements", "attendance", "teacherAttendance", "weeklyEvaluation"]);
+const TEACHER_WRITE_MODULES = new Set(["onlineClasses", "announcements", "attendance", "teacherAttendance", "weeklyEvaluation"]);
 // Modules only admin can see
 const ADMIN_ONLY_MODULES = new Set(["users", "payroll", "backup"]);
 let faceStream = null;
@@ -541,7 +557,9 @@ const refs = {
   exportCsvBtn: document.getElementById("exportCsvBtn"),
   importDataBtn: document.getElementById("importDataBtn"),
   smartGenerateBtn: document.getElementById("smartGenerateBtn"),
+  setPeriodTimingsBtn: document.getElementById("setPeriodTimingsBtn"),
   freeTeachersBtn: document.getElementById("freeTeachersBtn"),
+  tableWrap: document.querySelector(".table-wrap"),
   importFile: document.getElementById("importFile"),
   exportPdfBtn: document.getElementById("exportPdfBtn"),
   printDocBtn: document.getElementById("printDocBtn"),
@@ -789,17 +807,24 @@ function splitClassName(value) {
   return { classPart, sectionPart };
 }
 
-function fileToResizedDataUrl(file, maxDim = 240, quality = 0.85, skipCompressUnder10MB = false) {
+// Test WebP canvas export support once
+const supportsWebP = (function() {
+  try {
+    const c = document.createElement("canvas");
+    c.width = 1;
+    c.height = 1;
+    return c.toDataURL("image/webp").indexOf("data:image/webp") === 0;
+  } catch (e) {
+    return false;
+  }
+})();
+
+function fileToResizedDataUrl(file, maxDim = 600, quality = 0.85) {
   return new Promise((resolve, reject) => {
     if (!file) return resolve("");
     const reader = new FileReader();
     reader.onerror = () => reject(new Error("Failed to read image file."));
     reader.onload = () => {
-      // Per user request: only compress if photo size is more than 10 mb
-      if (skipCompressUnder10MB && file.size <= 10 * 1024 * 1024) {
-        resolve(reader.result);
-        return;
-      }
       const img = new Image();
       img.onerror = () => reject(new Error("Failed to load image."));
       img.onload = () => {
@@ -813,8 +838,12 @@ function fileToResizedDataUrl(file, maxDim = 240, quality = 0.85, skipCompressUn
         canvas.width = w;
         canvas.height = h;
         const ctx = canvas.getContext("2d");
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
         ctx.drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL("image/jpeg", quality));
+
+        const mime = supportsWebP ? "image/webp" : "image/jpeg";
+        resolve(canvas.toDataURL(mime, quality));
       };
       img.src = reader.result;
     };
@@ -822,7 +851,7 @@ function fileToResizedDataUrl(file, maxDim = 240, quality = 0.85, skipCompressUn
   });
 }
 
-function videoFrameToResizedDataUrl(videoEl, maxDim = 240, quality = 0.7) {
+function videoFrameToResizedDataUrl(videoEl, maxDim = 320, quality = 0.82) {
   const width = videoEl.videoWidth || 640;
   const height = videoEl.videoHeight || 360;
   const scale = Math.min(1, maxDim / Math.max(width, height));
@@ -833,8 +862,11 @@ function videoFrameToResizedDataUrl(videoEl, maxDim = 240, quality = 0.7) {
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
   ctx.drawImage(videoEl, 0, 0, w, h);
-  return canvas.toDataURL("image/jpeg", quality);
+  const mime = supportsWebP ? "image/webp" : "image/jpeg";
+  return canvas.toDataURL(mime, quality);
 }
 
 function normalizeApiBaseUrl(v) {
@@ -1455,15 +1487,17 @@ async function openAdmissionForm() {
   window.handleAdmUpload = async (input, key) => {
     const file = input.files[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) return showToast("File size too large (>2MB)", "error");
+    if (file.size > 25 * 1024 * 1024) return showToast("File size too large (>25MB)", "error");
     
     try {
-      const dataUrl = await fileToResizedDataUrl(file, 600, 0.8, key === "photo");
+      const isPhoto = key === "photo";
+      const maxDim = isPhoto ? 600 : 1200;
+      const dataUrl = await fileToResizedDataUrl(file, maxDim, 0.85);
       admissionDraft[key] = dataUrl;
       const prev = document.getElementById('prev_' + key);
       if (prev) { prev.src = dataUrl; prev.style.display = 'block'; }
       saveAdmissionDraft(false);
-    } catch (e) { showToast("Upload failed", "error"); }
+    } catch (e) { showToast("Upload failed: " + e.message, "error"); }
   };
   window.changeAdmStep = (delta) => {
     if (delta > 0 && !validateAdmStep(admissionCurrentStep)) return;
@@ -1585,7 +1619,7 @@ async function submitAdmission() {
           body: JSON.stringify({
             className: payload.className,
             studentName: payload.fullName,
-            fatherName: payload.fatherName || payload.parentName || "",
+            fatherName: payload.fatherName || "",
             feeType: "Tuition Fee",
             amount: payload.monthlyFee,
             term: "Monthly"
@@ -1771,11 +1805,11 @@ function renderForm(forceRefresh) {
     const store = getStore();
     const studentOptions = (store.students || []).map((s) => ({
       value: s.fullName,
-      label: `${s.admissionNo ? `${s.admissionNo} - ` : ""}${s.fullName}${s.rollNo ? ` (${s.rollNo})` : ""}${s.parentName ? ` (F: ${s.parentName})` : ""}${s.className ? ` - ${s.className}` : ""}`,
+      label: `${s.admissionNo ? `${s.admissionNo} - ` : ""}${s.fullName}${s.rollNo ? ` (${s.rollNo})` : ""}${s.fatherName ? ` (F: ${s.fatherName})` : ""}${s.className ? ` - ${s.className}` : ""}`,
       rollNo: s.rollNo || "",
       className: s.className || "",
-      parentName: s.parentName || s.fatherName || "",
-      fatherName: s.fatherName || s.parentName || "",
+      fatherName: s.fatherName || "",
+      parentName: s.fatherName || "",
       admissionNo: s.admissionNo || "",
       monthlyFee: s.monthlyFee || ""
     }));
@@ -1838,8 +1872,8 @@ function renderForm(forceRefresh) {
       label: `${s.admissionNo ? `${s.admissionNo} - ` : ""}${s.fullName}${s.rollNo ? ` (${s.rollNo})` : ""}${s.className ? ` - ${s.className}` : ""}`,
       rollNo: s.rollNo || "",
       className: s.className || "",
-      parentName: s.parentName || s.fatherName || "",
-      fatherName: s.fatherName || s.parentName || "",
+      fatherName: s.fatherName || "",
+      parentName: s.fatherName || "",
       admissionNo: s.admissionNo || ""
     }));
   const teacherOptions = (store.teachers || []).map((t) => ({
@@ -2083,8 +2117,8 @@ function renderForm(forceRefresh) {
         formRefs.className.dispatchEvent(new Event("change"));
       }
       if (formRefs.rollNo) formRefs.rollNo.value = selected.rollNo || formRefs.rollNo.value;
-      if (formRefs.parentName) formRefs.parentName.value = selected.parentName || formRefs.parentName.value;
-      if (formRefs.fatherName) formRefs.fatherName.value = selected.fatherName || selected.parentName || formRefs.fatherName.value;
+      if (formRefs.parentName) formRefs.parentName.value = selected.fatherName || formRefs.parentName.value;
+      if (formRefs.fatherName) formRefs.fatherName.value = selected.fatherName || formRefs.fatherName.value;
       if (formRefs.admissionNo) {
         formRefs.admissionNo.value = selected.admissionNo || formRefs.admissionNo.value;
         // Trigger due alert update
@@ -2316,7 +2350,7 @@ function getCurrentList() {
     list = list.filter(item => {
       // Priority fields for quick matching
       const p = (item.fullName || "").toLowerCase();
-      const f = (item.fatherName || item.parentName || "").toLowerCase();
+      const f = (item.fatherName || "").toLowerCase();
       const a = (item.admissionNo || "").toLowerCase();
       const r = (item.rollNo || "").toLowerCase();
       
@@ -2349,6 +2383,33 @@ function renderTable() {
   refs.tableBody.innerHTML = "";
 
   const list = getCurrentList();
+
+  // Handle timetable banner
+  const tableWrapEl = refs.tableWrap || document.querySelector(".table-wrap");
+  let timingBanner = document.getElementById("timetableTimingsBanner");
+  if (currentModule === "timetable") {
+    if (!timingBanner && tableWrapEl && tableWrapEl.parentNode) {
+      timingBanner = document.createElement("div");
+      timingBanner.id = "timetableTimingsBanner";
+      timingBanner.style.cssText = "background:linear-gradient(135deg,#eff6ff,#f0fdf4);border:1.5px solid #bfdbfe;border-radius:14px;padding:14px 20px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;box-shadow:0 2px 8px rgba(37,99,235,0.06);";
+      timingBanner.innerHTML = `
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span class="material-symbols-outlined" style="color:#2563eb;font-size:28px;background:#fff;border-radius:10px;padding:6px;box-shadow:0 2px 4px rgba(0,0,0,0.05);">schedule</span>
+          <div>
+            <div style="font-weight:800;color:#1e293b;font-size:1rem;">School Working Hours & Period Timings</div>
+            <div style="font-size:0.82rem;color:#475569;margin-top:2px;">Set arrival & departure hours and period start/end schedule. Existing subjects & teachers remain untouched.</div>
+          </div>
+        </div>
+        <button type="button" onclick="if(window.openSetPeriodTimingsModal) window.openSetPeriodTimingsModal()" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border:none;border-radius:10px;padding:10px 20px;font-weight:800;font-size:0.88rem;cursor:pointer;display:inline-flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(37,99,235,0.3);transition:transform 0.15s;">
+          <span class="material-symbols-outlined" style="font-size:18px;">tune</span> Set Period Timings & School Hours
+        </button>
+      `;
+      tableWrapEl.parentNode.insertBefore(timingBanner, tableWrapEl);
+    }
+    if (timingBanner) timingBanner.style.display = "flex";
+  } else {
+    if (timingBanner) timingBanner.style.display = "none";
+  }
 
   if (currentModule === "timetable") {
     const daySelect = refs.dayFilter?.value || "Monday";
@@ -2385,7 +2446,6 @@ function renderTable() {
         return a.localeCompare(b, undefined, {numeric: true});
     });
 
-
     const allPeriods = Array.from(new Set(dayRecords.map(r => parseInt(r.period.replace(/\D/g,'')) || 0))).filter(p=>p>0).sort((a,b)=>a-b);
     
     // Auto-detect lunch break gap by looking for a gap >= 20 mins between periods
@@ -2406,12 +2466,12 @@ function renderTable() {
            theadHtml += '<th style="color:#000000;font-weight:800;white-space:nowrap;background:#e2e8f0;text-align:center;padding:12px;">LUNCH BREAK</th>';
        } else {
            let sampleRec = dayRecords.find(r => r.period === col && r.startTime);
-           let timeStr = (sampleRec && sampleRec.startTime) ? '<br><span style="font-size:0.75rem;color:#64748b;font-weight:600;text-transform:uppercase;">' + sampleRec.startTime + ' - ' + sampleRec.endTime + '</span>' : '';
-           theadHtml += '<th style="color:#000000;font-weight:800;white-space:nowrap;padding:12px;text-align:center;">' + col + timeStr + '</th>';
+           let timeStr = (sampleRec && sampleRec.startTime) ? '<br><span style="font-size:0.75rem;color:#2563eb;font-weight:700;text-transform:uppercase;">' + sampleRec.startTime + ' - ' + sampleRec.endTime + ' ✏️</span>' : '<br><span style="font-size:0.75rem;color:#94a3b8;font-weight:600;">+ Set Time</span>';
+           theadHtml += '<th onclick="if(window.openSetPeriodTimingsModal) window.openSetPeriodTimingsModal(\'' + col + '\')" style="color:#000000;font-weight:800;white-space:nowrap;padding:12px;text-align:center;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background=\'#eff6ff\'" onmouseout="this.style.background=\'\'" title="Click to edit timings for ' + col + '">' + col + timeStr + '</th>';
        }
     });
     
-    theadHtml += '<th style="color:#000000;font-weight:800;white-space:nowrap;padding:12px;">Action</th></tr>';
+    theadHtml += '<th style="color:#000000;font-weight:800;white-space:nowrap;padding:12px;text-align:center;"><button type="button" onclick="if(window.openSetPeriodTimingsModal) window.openSetPeriodTimingsModal()" style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;padding:4px 10px;border-radius:6px;cursor:pointer;font-weight:700;font-size:0.75rem;" title="Set Timings"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">schedule</span> Timings</button></th></tr>';
     refs.tableHead.innerHTML = theadHtml;
 
     uniqueClasses.forEach((cls, i) => {
@@ -2431,17 +2491,20 @@ function renderTable() {
                   let subName = rec.subject;
                   let color = subName.toLowerCase() === "free" ? "#94a3b8" : "#2563eb";
                   let bg = subName.toLowerCase() === "free" ? "#f8fafc" : "#eff6ff";
-                  trHtml += '<td style="border-bottom:1px solid #e2e8f0;padding:8px;vertical-align:top;"><div style="background:'+bg+';border-radius:8px;padding:8px;text-align:center;height:100%;display:flex;flex-direction:column;justify-content:center;">' +
-                    '<div style="font-weight:700;color:'+color+';margin-bottom:4px;font-size:0.85rem;">' + subName + '</div>' +
+                  let recId = rec.id || 0;
+                  trHtml += '<td onclick="openEditTimetableSlotModal(\'' + cls + '\', \'' + daySelect + '\', \'' + col + '\', ' + recId + ')" style="border-bottom:1px solid #e2e8f0;padding:8px;vertical-align:top;cursor:pointer;" title="Click to edit or remove ' + subName + ' for ' + col + '"><div style="background:'+bg+';border-radius:8px;padding:8px;text-align:center;height:100%;display:flex;flex-direction:column;justify-content:center;transition:all 0.15s;" onmouseover="this.style.transform=\'scale(1.03)\';this.style.boxShadow=\'0 4px 10px rgba(0,0,0,0.08)\'" onmouseout="this.style.transform=\'\';this.style.boxShadow=\'\'">' +
+                    '<div style="font-weight:700;color:'+color+';margin-bottom:4px;font-size:0.85rem;">' + subName + ' <span style="font-size:0.72rem;opacity:0.7;">✏️</span></div>' +
                     '<div style="font-size:0.75rem;color:#475569;white-space:nowrap;">' + (rec.teacher || '-') + '</div>' +
                   '</div></td>';
               } else {
-                  trHtml += '<td style="border-bottom:1px solid #e2e8f0;text-align:center;"><span style="color:#cbd5e1;">-</span></td>';
+                  trHtml += '<td onclick="openEditTimetableSlotModal(\'' + cls + '\', \'' + daySelect + '\', \'' + col + '\', 0)" style="border-bottom:1px solid #e2e8f0;text-align:center;cursor:pointer;padding:8px;" title="Click to assign subject/teacher"><span style="color:#94a3b8;font-size:0.78rem;font-weight:600;">+ Assign</span></td>';
               }
           }
        });
        
-       trHtml += '<td style="border-bottom:1px solid #e2e8f0;vertical-align:middle;"><button onclick="deleteClassDayTimetable(\'' + cls + '\', \'' + daySelect + '\')" class="btn-icon" style="color:#ef4444;padding:8px;background:#fee2e2;border-radius:6px;border:none;cursor:pointer;" title="Clear Day"><span class="material-icons" style="font-size:1.1rem;">delete</span></button></td>';
+       trHtml += '<td style="border-bottom:1px solid #e2e8f0;vertical-align:middle;text-align:center;white-space:nowrap;">' +
+         '<button onclick="deleteClassDayTimetable(\'' + cls + '\', \'' + daySelect + '\')" class="btn-icon" style="color:#ef4444;padding:8px;background:#fee2e2;border-radius:6px;border:none;cursor:pointer;" title="Clear Entire Day for ' + cls + '"><span class="material-symbols-outlined" style="font-size:1.1rem;">delete</span></button>' +
+       '</td>';
        
        tr.innerHTML = trHtml;
        refs.tableBody.appendChild(tr);
@@ -3068,7 +3131,7 @@ function renderStudentProfile() {
             <div style="width:36px; height:36px; background:#fff; color:#9333ea; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.1rem; box-shadow:0 2px 4px rgba(147,51,234,0.1);">👨‍👩‍👧</div>
             <div>
               <div style="font-size:0.62rem; color:#64748b; font-weight:800; text-transform:uppercase; letter-spacing:0.04em;">Parent / Guardian</div>
-              <div style="color:#0f172a; font-weight:700; font-size:0.85rem;">${student.fatherName || student.parentName || "-"}</div>
+              <div style="color:#0f172a; font-weight:700; font-size:0.85rem;">${student.fatherName || "-"}</div>
             </div>
           </div>
         </div>
@@ -3918,7 +3981,7 @@ function printStudentReport(student) {
       <div class="row"><b>Gender:</b> ${student.gender || "-"}</div>
       <div class="row"><b>Address:</b> ${student.address || "-"}</div>
       <div class="row"><b>Mobile:</b> ${student.phone || "-"}</div>
-      <div class="row"><b>Parent:</b> ${student.parentName || "-"}</div>
+      <div class="row"><b>Father:</b> ${student.fatherName || "-"}</div>
     </div>
     <div class="id-grid">
       <div class="box"><b>Exams %:</b> ${pct}% • <b>Result:</b> ${result}</div>
@@ -4160,15 +4223,9 @@ function getDashboardStats(store) {
   const curMonth = today.slice(0, 7);
   const curYear = today.slice(0, 4);
 
-  const dues = store.dueManagement || [];
-  
-  const allCollections = [...fees.map(f => ({ ...f, type: 'fee' })), ...dues.map(d => ({ ...d, type: 'due' }))];
-
   let allTimeTotal = 0;
-  const filteredTotal = allCollections.reduce((sum, item) => {
-    // Fees use paymentDate, Dues use today for collection day stats
-    let rawDate = item.type === 'fee' ? item.paymentDate : today;
-    const date = normalizeToISO(rawDate);
+  const filteredTotal = (fees || []).reduce((sum, item) => {
+    const date = normalizeToISO(item.paymentDate);
     const amount = asNum(item.paidAmount);
     allTimeTotal += amount;
     
@@ -4709,6 +4766,13 @@ function renderModuleTools() {
   if (refs.smartGenerateBtn) {
     refs.smartGenerateBtn.classList.toggle("hidden", currentModule !== "timetable" || !canCurrentUserWrite("timetable"));
   }
+  const setTimingsBtn = refs.setPeriodTimingsBtn || document.getElementById("setPeriodTimingsBtn");
+  if (setTimingsBtn) {
+    const isStudent = String(currentUser?.role || "").toLowerCase() === "student";
+    const showTimings = currentModule === "timetable" && !isStudent;
+    setTimingsBtn.style.display = showTimings ? "inline-flex" : "none";
+    setTimingsBtn.classList.toggle("hidden", !showTimings);
+  }
   if (refs.freeTeachersBtn) {
     refs.freeTeachersBtn.classList.toggle("hidden", currentModule !== "timetable");
   }
@@ -5078,6 +5142,11 @@ function renderStudentPortalTimetable(student) {
 }
 
 function renderAll(forceFormRefresh) {
+  if (window.currentModule && window.currentModule !== currentModule) {
+    currentModule = window.currentModule;
+  }
+  window.currentModule = currentModule;
+
   if (!userIsStudent()) {
     // Mount Vidya for Admins/Principal as well
     if (userIsStaffOrAbove() && !document.getElementById("vidyaWidget")) {
@@ -5098,6 +5167,7 @@ function renderAll(forceFormRefresh) {
   const isBackup = currentModule === "backup";
   const isReports = currentModule === "reportsAnalytics";
   const isBookSales = currentModule === "bookSales";
+  const isOnlineClasses = currentModule === "onlineClasses";
 
   const sc = document.getElementById("statsCards");
   if (sc) sc.style.display = isDashboard ? "grid" : "none";
@@ -5117,8 +5187,8 @@ function renderAll(forceFormRefresh) {
   }
   const contentArea = document.querySelector(".content-area");
   if (contentArea) {
-    contentArea.querySelectorAll(".panel:not(#facePanel):not(#assistantPanel):not(#waAlertPanel):not(#bd-panel):not(#ai-panel):not(#schoolCalendarPanel):not(#examPanel):not(#backupPanel):not(#reportsPanel):not(#bookSalesPanel)").forEach(p => {
-      p.style.display = (isBD || isWA || isAI || isExams || isDashboard || isBackup || isReports || isBookSales) ? "none" : "";
+    contentArea.querySelectorAll(".panel:not(#facePanel):not(#assistantPanel):not(#waAlertPanel):not(#bd-panel):not(#ai-panel):not(#schoolCalendarPanel):not(#examPanel):not(#backupPanel):not(#reportsPanel):not(#bookSalesPanel):not(#onlineClassesPanel)").forEach(p => {
+      p.style.display = (isBD || isWA || isAI || isExams || isDashboard || isBackup || isReports || isBookSales || isOnlineClasses) ? "none" : "";
     });
   }
 
@@ -5132,6 +5202,38 @@ function renderAll(forceFormRefresh) {
     renderHeader();
     renderBackupModule();
     return;
+  }
+
+  const onlineClassesPanel = document.getElementById("onlineClassesPanel");
+  if (isOnlineClasses) {
+    renderNav();
+    renderHeader();
+    if (onlineClassesPanel) {
+      onlineClassesPanel.classList.remove("hidden");
+      onlineClassesPanel.style.display = "block";
+    }
+    if (typeof window.renderOnlineClassesWorkspace === "function") {
+      window.renderOnlineClassesWorkspace();
+    } else if (typeof window.renderOnlineClassesModule === "function") {
+      window.renderOnlineClassesModule();
+    } else {
+      if (onlineClassesPanel) {
+        onlineClassesPanel.innerHTML = '<div style="padding: 40px; text-align: center; color: #64748b;"><div style="font-size: 32px; margin-bottom: 12px;">⏳</div>Loading Online Classes Studio...</div>';
+      }
+      const checkInterval = setInterval(() => {
+        if (typeof window.renderOnlineClassesWorkspace === "function") {
+          clearInterval(checkInterval);
+          if (currentModule === "onlineClasses") {
+            window.renderOnlineClassesWorkspace();
+          }
+        }
+      }, 100);
+      setTimeout(() => clearInterval(checkInterval), 5000);
+    }
+    return;
+  } else if (onlineClassesPanel) {
+    onlineClassesPanel.classList.add("hidden");
+    onlineClassesPanel.style.display = "none";
   }
 
   const bdPanel = document.getElementById("bd-panel");
@@ -5531,7 +5633,7 @@ async function importAllCsvFiles(e) {
   let imported = 0;
   let errors = [];
 
-  const validModules = Object.keys(moduleConfig).filter(m => m !== "dashboard" && m !== "myProfile" && m !== "aiAssistant" && m !== "backup");
+  const validModules = Object.keys(moduleConfig).filter(m => m !== "dashboard" && m !== "myProfile" && m !== "aiAssistant" && m !== "backup" && m !== "reportsAnalytics" && m !== "bookSales" && m !== "onlineClasses");
   const moduleNameMap = {};
   validModules.forEach(m => {
     const config = moduleConfig[m] || {};
@@ -7410,7 +7512,7 @@ window.showStudentIdentityPopup = function(person, role) {
         ${isStudent ? `
           <div><b style="color:#94a3b8;">Class:</b> ${person.className || person.section || 'N/A'}</div>
           <div><b style="color:#94a3b8;">Roll No:</b> ${person.rollNo || 'N/A'}</div>
-          <div><b style="color:#94a3b8;">Father:</b> ${person.fatherName || person.parentName || 'N/A'}</div>
+          <div><b style="color:#94a3b8;">Father:</b> ${person.fatherName || 'N/A'}</div>
           <div><b style="color:#94a3b8;">Mother:</b> ${person.motherName || 'N/A'}</div>
           <div><b style="color:#94a3b8;">Mobile:</b> ${person.phone1 || person.phone || 'N/A'}</div>
           <div><b style="color:#94a3b8;">DOB:</b> ${person.dob || 'N/A'}</div>
@@ -7685,8 +7787,8 @@ async function getDetectSource() {
   return refs.faceVideo;
 }
 
-// Capture a JPEG snapshot from the current camera source
-async function snapshotFromSource(w = 220, q = 0.68) {
+// Capture a WebP snapshot from the current camera source
+async function snapshotFromSource(w = 240, q = 0.80) {
   if (ipCamMode) {
     const src = await getDetectSource();
     if (!src) return '';
@@ -7694,8 +7796,12 @@ async function snapshotFromSource(w = 220, q = 0.68) {
     const ratio = src.height / src.width;
     tmp.width = w;
     tmp.height = Math.round(w * ratio);
-    tmp.getContext('2d').drawImage(src, 0, 0, tmp.width, tmp.height);
-    return tmp.toDataURL('image/jpeg', q);
+    const ctx = tmp.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(src, 0, 0, tmp.width, tmp.height);
+    const mime = supportsWebP ? 'image/webp' : 'image/jpeg';
+    return tmp.toDataURL(mime, q);
   }
   return videoFrameToResizedDataUrl(refs.faceVideo, w, q);
 }
@@ -8214,8 +8320,9 @@ refs.dynamicForm.addEventListener("submit", async (e) => {
       if ((currentModule === "students" || currentModule === "teachers" || currentModule === "admissions") && ["photo", "aadhar", "tc", "reportCard", "fatherAadhar", "motherAadhar", "birthCert", "aadharDoc", "tcDoc", "parentIdDoc"].includes(field)) {
         const file = form.get(field);
         if (file && file.size > 0) {
-          const maxDim = field === "photo" ? 240 : 360;
-          payload[field] = await fileToResizedDataUrl(file, maxDim, 0.85, field === "photo");
+          const isDoc = ["aadhar", "tc", "reportCard", "fatherAadhar", "motherAadhar", "birthCert", "aadharDoc", "tcDoc", "parentIdDoc"].includes(field);
+          const maxDim = isDoc ? 1200 : 600;
+          payload[field] = await fileToResizedDataUrl(file, maxDim, 0.85);
         } else if (!isEditingStudent && !isEditingGeneric) {
           payload[field] = "";
         }
@@ -8367,7 +8474,31 @@ refs.dynamicForm.addEventListener("submit", async (e) => {
       payload.balance = String(Math.max(0, bal));
       payload.status = bal <= 0 ? "Paid" : paid > 0 ? "Partial" : "Pending";
       
-      if (editRecordId != null) {
+      if (bal <= 0 && paid > 0) {
+        // Due is fully paid - move payment into fees module and remove from dueManagement
+        const feePayload = {
+          admissionNo: payload.admissionNo || "",
+          studentName: payload.studentName || "",
+          className: payload.className || "",
+          rollNo: payload.rollNo || "",
+          term: payload.session || "2026-27",
+          month: payload.month || "",
+          feeTypes: payload.particulars || "Tuition Fee",
+          tuitionFee: String(paid),
+          totalFee: String(due),
+          paidAmount: String(paid),
+          balance: "0",
+          status: "Paid",
+          paymentDate: today,
+          paymentMethod: "Cash",
+          payId: payload.payId || ""
+        };
+        await addRecord("fees", feePayload);
+        if (editRecordId != null) {
+          await api(`/api/modules/dueManagement/${editRecordId}`, { method: "DELETE" });
+          editRecordId = null;
+        }
+      } else if (editRecordId != null) {
         await api(`/api/modules/${currentModule}/${editRecordId}`, { method: "PUT", body: JSON.stringify(payload) });
         editRecordId = null;
       } else {
@@ -8383,10 +8514,10 @@ refs.dynamicForm.addEventListener("submit", async (e) => {
       await addRecord(currentModule, payload);
     }
 
-    // ── Post-Save: Mark consolidated dues as Merged (instead of deleting) ──
+    // ── Post-Save: Remove consolidated dues from dueManagement (due is paid & moved to fees) ──
     if (currentModule === "fees" && (appliedDueMgmtIds.length > 0 || appliedFeeIds.length > 0)) {
       for (const id of appliedDueMgmtIds) {
-        try { await api(`/api/modules/dueManagement/${id}`, { method: "PUT", body: JSON.stringify({ balance: "0", status: "Merged", remarks: "Merged into new receipt" }) }); } catch (err) {}
+        try { await api(`/api/modules/dueManagement/${id}`, { method: "DELETE" }); } catch (err) {}
       }
       for (const id of appliedFeeIds) {
         try { await api(`/api/modules/fees/${id}`, { method: "PUT", body: JSON.stringify({ balance: "0", status: "Merged", remarks: "Merged into new receipt" }) }); } catch (err) {}
@@ -8693,7 +8824,7 @@ async function executePrint4in1() {
       const student = (store.students || []).find(s => s.fullName === f.studentName);
       if (student) {
         if (!f.admissionNo) f.admissionNo = student.admissionNo || "";
-        if (!f.fatherName) f.fatherName = student.parentName || "";
+        if (!f.fatherName) f.fatherName = student.fatherName || "";
       }
     }
     return buildSingleFeeHtmlForGrid(f);
@@ -8747,7 +8878,7 @@ async function executePrint4in1Slip() {
       const student = (store.students || []).find(s => s.fullName === f.studentName);
       if (student) {
         if (!f.admissionNo) f.admissionNo = student.admissionNo || "";
-        if (!f.fatherName) f.fatherName = student.parentName || "";
+        if (!f.fatherName) f.fatherName = student.fatherName || "";
       }
     }
     return buildSingleSlipHtmlForGrid(f);
@@ -9534,11 +9665,12 @@ refs.assistantPrintIdBtn?.addEventListener("click", async () => {
 
 // Initial assistant hint
 const MODULE_ICONS = {
-  dashboard: 'space_dashboard', appLiveUsers: 'smartphone', aiAssistant: 'temp_preferences_custom', admissions: 'person_add', students: 'school', teachers: 'badge', classes: 'meeting_room',
+  dashboard: 'space_dashboard', appLiveUsers: 'smartphone', onlineClasses: 'videocam', aiAssistant: 'temp_preferences_custom', admissions: 'person_add', students: 'school', teachers: 'badge', classes: 'meeting_room',
   subjects: 'menu_book', attendance: 'how_to_reg', teacherAttendance: 'assignment_ind',
   exams: 'quiz', fees: 'account_balance_wallet', library: 'library_books', transport: 'directions_bus',
   hostel: 'apartment', payroll: 'payments', users: 'manage_accounts', timetable: 'calendar_month',
-  booksAndDress: 'account_tree', bookSales: 'shopping_bag', whatsappAlerts: 'forum', dueManagement: 'receipt_long', holidays: 'event', backup: 'cloud_download', reportsAnalytics: 'insights'
+  booksAndDress: 'account_tree', bookSales: 'shopping_bag', whatsappAlerts: 'forum', dueManagement: 'receipt_long', holidays: 'event', backup: 'cloud_download', reportsAnalytics: 'insights',
+  weeklyEvaluation: 'grade'
 };
 
 if (refs.assistantOutput) {
@@ -9664,7 +9796,7 @@ function addLiveLog(name, confidence, status = 'Present') {
 
 const NAV_GROUPS = {
   'Core': ['admissions', 'dashboard', 'announcements', 'appLiveUsers', 'aiAssistant', 'myProfile', 'students', 'teachers', 'classes'],
-  'Academic': ['subjects', 'exams', 'timetable', 'holidays', 'weeklyEvaluation'],
+  'Academic': ['onlineClasses', 'subjects', 'exams', 'timetable', 'holidays', 'weeklyEvaluation'],
   'Analytics': ['reportsAnalytics'],
   'Daily': ['attendance', 'teacherAttendance'],
   'Finance': ['fees', 'dueManagement', 'payroll', 'booksAndDress', 'bookSales', 'whatsappAlerts'],
@@ -9820,7 +9952,7 @@ function generateIdCardsHTML(store) {
   const frontCards = students.map((s, idx) => {
     const initials   = (s.fullName || 'ST').split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
     const cardId     = s.admissionNo || String(s.id || idx+1).padStart(4,'0');
-    const parentName = escapeHtml(s.parentName || s.fatherName || '—');
+    const fatherName = escapeHtml(s.fatherName || '—');
     const photoHtml = s.photo
       ? `<img src="${getImageUrl('students', s.id, 'photo', s.photo)}" alt="Photo" style="width:100%;height:100%;object-fit:cover;" />`
       : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#e2e8f0;color:#64748b;font-size:2rem;font-weight:900;">${initials}</div>`;
@@ -9853,7 +9985,7 @@ function generateIdCardsHTML(store) {
              <tr><td class="lbl">Adm. No</td><td class="sep">:</td><td class="val">${escapeHtml(cardId)}</td></tr>
              <tr><td class="lbl">Class</td><td class="sep">:</td><td class="val">${escapeHtml(s.className || '—')} &nbsp;&nbsp;&nbsp; <b>Roll:</b> ${escapeHtml(s.rollNo || '—')}</td></tr>
              <tr><td class="lbl">D.O.B</td><td class="sep">:</td><td class="val">${escapeHtml(s.dob || '—')}</td></tr>
-             <tr><td class="lbl">Father</td><td class="sep">:</td><td class="val">${parentName}</td></tr>
+             <tr><td class="lbl">Father</td><td class="sep">:</td><td class="val">${fatherName}</td></tr>
              <tr><td class="lbl">Mother</td><td class="sep">:</td><td class="val">${escapeHtml(s.motherName || '—')}</td></tr>
              <tr><td class="lbl" style="vertical-align:top;">Address</td><td class="sep" style="vertical-align:top;">:</td><td class="val" style="line-height:1.15;">${escapeHtml(s.address || '—')}</td></tr>
              <tr><td class="lbl">Phone</td><td class="sep">:</td><td class="val">${escapeHtml(s.phone || '—')}</td></tr>
@@ -13534,7 +13666,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
       const student = (store.students || []).find(s => s.fullName === f.studentName);
       if (student) {
         if (!f.admissionNo) f.admissionNo = student.admissionNo || "";
-        if (!f.fatherName) f.fatherName = student.parentName || "";
+        if (!f.fatherName) f.fatherName = student.fatherName || "";
       }
     }
 
@@ -13661,7 +13793,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
       const student = (store.students || []).find(s => s.fullName === f.studentName);
       if (student) {
         if (!f.admissionNo) f.admissionNo = student.admissionNo || "";
-        if (!f.fatherName) f.fatherName = student.parentName || "";
+        if (!f.fatherName) f.fatherName = student.fatherName || "";
       }
     }
 
@@ -13879,7 +14011,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
       const student = (store.students || []).find(s => s.fullName === f.studentName);
       if (student) {
         if (!f.admissionNo) f.admissionNo = student.admissionNo || "";
-        if (!f.fatherName) f.fatherName = student.parentName || "";
+        if (!f.fatherName) f.fatherName = student.fatherName || "";
       }
     }
 
@@ -14834,7 +14966,7 @@ Thank you 🙏`;
   function buildMessage(template, row) {
     return template
       .replace(/\{studentName\}/g, row.studentName || "Student")
-      .replace(/\{parentName\}/g, row.parentName || "Parent")
+      .replace(/\{parentName\}|\{fatherName\}/g, row.fatherName || row.parentName || "Parent")
       .replace(/\{className\}/g, row.className || "—")
       .replace(/\{balance\}/g, row.balance || "0")
       .replace(/\{term\}/g, row.term || "—")
@@ -14936,7 +15068,7 @@ function openWhatsApp(phone, message) {
     try {
       await api("/api/whatsapp/log-alert", {
         method: "POST",
-        body: JSON.stringify({ studentName: row.studentName, className: row.className, phone: row.phone, parentName: row.parentName, balance: row.balance, term: row.term, message })
+        body: JSON.stringify({ studentName: row.studentName, className: row.className, phone: row.phone, fatherName: row.fatherName || row.parentName || "", parentName: row.fatherName || row.parentName || "", balance: row.balance, term: row.term, message })
       });
     } catch (e) { console.warn("WhatsApp log failed:", e.message); }
   }
@@ -14990,7 +15122,7 @@ function openWhatsApp(phone, message) {
           admissionNo: s.admissionNo,
           rollNo: s.rollNo,
           className: s.className,
-          parentName: s.parentName,
+          parentName: s.fatherName || "", fatherName: s.fatherName || "",
           phone: s.phone,
           address: s.address || "",
           balance: String(totalBal),
@@ -15008,7 +15140,7 @@ function openWhatsApp(phone, message) {
       return {
         ...item,
         motherName: student.motherName || "",
-        fatherName: student.fatherName || item.parentName || "",
+        fatherName: student.fatherName || item.fatherName || "",
         gender: student.gender || "",
         dob: student.dob || ""
       };
@@ -15022,7 +15154,7 @@ function openWhatsApp(phone, message) {
         (r.admissionNo || "").toLowerCase().includes(q) ||
         (r.phone || "").toLowerCase().includes(q) ||
         (r.address || "").toLowerCase().includes(q) ||
-        (r.parentName || "").toLowerCase().includes(q)
+        (r.fatherName || r.parentName || "").toLowerCase().includes(q)
       );
     }
     waCurrentList = displayList;
@@ -15166,7 +15298,7 @@ function openWhatsApp(phone, message) {
                     <td><strong>${row.studentName}</strong><br><small style="color:#64748b">${row.rollNo || "No Roll"}</small></td>
                     <td>${row.className}</td>
                     <td>
-                      <div style="font-weight:600">${row.parentName || "—"}</div>
+                      <div style="font-weight:600">${row.fatherName || row.parentName || "—"}</div>
                       <div style="color:#64748b;font-size:0.82rem">${row.phone ? "📞 " + row.phone : "<span style='color:#ef4444'>No phone</span>"}</div>
                     </td>
                     <td>
@@ -15580,7 +15712,7 @@ function openWhatsApp(phone, message) {
       const phoneHtml = row.phone ? "📞 " + row.phone : "<span style='color:#ef4444;font-weight:bold'>No phone found</span>";
       document.getElementById("waQueueStatus").innerHTML = 
         `Sending <b>${waQueueIndex + 1} of ${waQueue.length}</b><br><br>` +
-        `Student: <b>${row.studentName}</b><br>Parent: ${row.parentName || "—"} (${phoneHtml})`;
+        `Student: <b>${row.studentName}</b><br>Father: ${row.fatherName || row.parentName || "—"} (${phoneHtml})`;
     }
 
     document.getElementById("waQueueNextWA")?.addEventListener("click", async () => {
@@ -15918,7 +16050,7 @@ async function sendSmsFeeSlip(feeId) {
     const student = (store.students || []).find(s => s.fullName === f.studentName || s.admissionNo === f.admissionNo);
     if (student) {
       if (!f.admissionNo) f.admissionNo = student.admissionNo || "";
-      if (!f.fatherName) f.fatherName = student.parentName || "";
+      if (!f.fatherName) f.fatherName = student.fatherName || "";
       if (!f.phone) f.phone = student.phone || "";
       if (!f.rollNo) f.rollNo = student.rollNo || student.roll || "";
     }
@@ -16579,7 +16711,7 @@ async function renderDueManagementForm(cfg, studentOptions, classOptions, initia
                             if (formRefs.className) formRefs.className.value = s.className || "";
                             if (formRefs.rollNo) formRefs.rollNo.value = s.rollNo || "";
                             if (formRefs.admissionNo) formRefs.admissionNo.value = s.admissionNo || "";
-                            if (formRefs.fatherName) formRefs.fatherName.value = s.fatherName || s.parentName || "";
+                            if (formRefs.fatherName) formRefs.fatherName.value = s.fatherName || "";
                             if (formRefs.dueAmount && s.monthlyFee && parseFloat(s.monthlyFee) > 0) {
                                 formRefs.dueAmount.value = s.monthlyFee;
                                 calc();
@@ -16596,7 +16728,7 @@ async function renderDueManagementForm(cfg, studentOptions, classOptions, initia
                 if (formRefs.className) formRefs.className.value = s.className || "";
                 if (formRefs.rollNo) formRefs.rollNo.value = s.rollNo || "";
                 if (formRefs.admissionNo) formRefs.admissionNo.value = s.admissionNo || "";
-                if (formRefs.fatherName) formRefs.fatherName.value = s.fatherName || s.parentName || "";
+                if (formRefs.fatherName) formRefs.fatherName.value = s.fatherName || "";
                 if (formRefs.dueAmount && s.monthlyFee && parseFloat(s.monthlyFee) > 0) {
                     formRefs.dueAmount.value = s.monthlyFee;
                     calc();
@@ -18025,7 +18157,17 @@ document.addEventListener("keydown", function(e) {
 window.getStore = typeof getStore !== 'undefined' ? getStore : undefined;
 window.showToast = typeof showToast !== 'undefined' ? showToast : undefined;
 window.moduleConfig = typeof moduleConfig !== 'undefined' ? moduleConfig : undefined;
-window.currentModule = typeof currentModule !== 'undefined' ? currentModule : undefined;
+if (!Object.getOwnPropertyDescriptor(window, 'currentModule')) {
+  try {
+    Object.defineProperty(window, 'currentModule', {
+      get() { return currentModule; },
+      set(val) { currentModule = val; },
+      configurable: true
+    });
+  } catch (e) {
+    window.currentModule = currentModule;
+  }
+}
 window.renderAll = typeof renderAll !== 'undefined' ? renderAll : undefined;
 window.splitClassName = typeof splitClassName !== 'undefined' ? splitClassName : undefined;
 
@@ -18366,18 +18508,32 @@ async function saveStore(store) {
 
 window.deleteClassDayTimetable = async function(className, day) {
   if (await window.appConfirm('Are you sure you want to clear all timetable entries for ' + className + ' on ' + day + '?')) {
-    const store = getStore();
-    const beforeCount = store.timetable.length;
-    store.timetable = store.timetable.filter(r => !(r.className === className && r.day === day));
-    if (store.timetable.length < beforeCount) {
+    try {
+      let res = null;
       try {
-        await saveStore(store);
-        await loadStore();
-        if (typeof showToast === 'function') showToast('Timetable cleared for ' + className, 'success');
-        if (window.renderAll) window.renderAll();
-      } catch (e) {
-        if (typeof showToast === 'function') showToast('Error clearing timetable', 'error');
+        res = await api("/api/timetable/slot/delete", {
+          method: "POST",
+          body: JSON.stringify({ className, day, clearOnly: false })
+        });
+      } catch (err) {
+        const resp = await fetch("/api/timetable/slot/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ className, day, clearOnly: false })
+        });
+        res = await resp.json();
       }
+      const store = getStore();
+      if (store && Array.isArray(store.timetable)) {
+        store.timetable = store.timetable.filter(r => !(r.className === className && r.day === day));
+      }
+      if (typeof showToast === 'function') showToast('Timetable cleared for ' + className, 'success');
+      if (window.renderAll) window.renderAll();
+      else if (window.renderTable) window.renderTable();
+    } catch (e) {
+      console.error("Error clearing timetable day:", e);
+      if (typeof showToast === 'function') showToast('Error clearing timetable: ' + e.message, 'error');
+      else alert('Error clearing timetable: ' + e.message);
     }
   }
 };
@@ -18467,6 +18623,1172 @@ window.checkFreeTeachers = function() {
   html += `</div>`;
   
   resultsDiv.innerHTML = html;
+};
+
+// ----------------------------------------------------------------------
+// EDIT & DELETE TIMETABLE SLOT MODAL
+// ----------------------------------------------------------------------
+window.openEditTimetableSlotModal = async function(className, day, period, slotId) {
+  const oldModal = document.getElementById("editTimetableSlotModal");
+  if (oldModal) oldModal.remove();
+
+  const store = getStore();
+  const timetable = store.timetable || [];
+  
+  // Find current slot record
+  let currentRec = null;
+  if (slotId && parseInt(slotId, 10) > 0) {
+    currentRec = timetable.find(r => r.id == slotId);
+  }
+  if (!currentRec) {
+    currentRec = timetable.find(r => 
+      (r.className || '').trim().toLowerCase() === (className || '').trim().toLowerCase() &&
+      (r.day || '').trim().toLowerCase() === (day || '').trim().toLowerCase() &&
+      (r.period || '').trim().toLowerCase() === (period || '').trim().toLowerCase()
+    );
+  }
+
+  const currSubject = currentRec?.subject || "";
+  const currTeacher = currentRec?.teacher || "";
+  const currRoom = currentRec?.roomNo || "";
+  const actualSlotId = currentRec?.id || slotId || 0;
+
+  // Teachers list
+  const teachers = (store.teachers || []).map(t => t.fullName || t.name).filter(Boolean);
+  
+  // Busy teachers for this day & period (excluding current record's teacher)
+  const busyRecords = timetable.filter(r => 
+    r.day === day && 
+    r.period === period && 
+    r.teacher && 
+    r.id !== actualSlotId
+  );
+  const busyTeachers = new Set(busyRecords.map(r => r.teacher.trim().toLowerCase()));
+
+  // Common CBSE subjects
+  const commonSubjects = [
+    "Mathematics", "Science", "Social Science", "English", "Hindi", "Sanskrit",
+    "Computer Science", "General Knowledge", "Art & Craft", "Physical Education",
+    "Moral Science", "EVS", "Free"
+  ];
+  if (currSubject && !commonSubjects.includes(currSubject)) {
+    commonSubjects.unshift(currSubject);
+  }
+
+  const modalWrap = document.createElement("div");
+  modalWrap.id = "editTimetableSlotModal";
+  modalWrap.style.cssText = "position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(15,23,42,0.65);backdrop-filter:blur(4px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;font-family:inherit;";
+
+  modalWrap.innerHTML = `
+    <div style="background:#ffffff;width:100%;max-width:520px;border-radius:16px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);display:flex;flex-direction:column;overflow:hidden;border:1px solid #e2e8f0;">
+      <!-- Header -->
+      <div style="padding:16px 20px;background:linear-gradient(135deg,#1e293b,#334155);color:#fff;display:flex;align-items:center;justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="material-symbols-outlined" style="font-size:24px;background:rgba(255,255,255,0.15);border-radius:8px;padding:6px;">edit_calendar</span>
+          <div>
+            <h3 style="margin:0;font-size:1.05rem;font-weight:700;">Edit Timetable Slot</h3>
+            <p style="margin:2px 0 0;font-size:0.78rem;color:#cbd5e1;">${className} &nbsp;•&nbsp; ${day} &nbsp;•&nbsp; <b>${period}</b></p>
+          </div>
+        </div>
+        <button id="etsmCloseBtn" style="background:rgba(255,255,255,0.15);border:none;color:#fff;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:1.1rem;">✕</button>
+      </div>
+
+      <!-- Form Body -->
+      <div style="padding:20px;display:flex;flex-direction:column;gap:16px;">
+        <!-- Subject Selection -->
+        <div>
+          <label style="display:block;font-size:0.82rem;font-weight:700;color:#334155;margin-bottom:6px;">Subject</label>
+          <select id="etsmSubjectSelect" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:0.88rem;font-weight:600;color:#0f172a;background:#fff;">
+            <option value="">-- Choose or Type Subject --</option>
+            ${commonSubjects.map(s => `<option value="${s}" ${s.toLowerCase() === currSubject.toLowerCase() ? 'selected' : ''}>${s}</option>`).join('')}
+            <option value="__custom__">✏️ Other / Custom Subject...</option>
+          </select>
+          <input type="text" id="etsmCustomSubject" placeholder="Enter custom subject name" value="${currSubject}" style="display:${commonSubjects.some(s => s.toLowerCase() === currSubject.toLowerCase()) ? 'none' : 'block'};width:100%;margin-top:8px;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:0.88rem;font-weight:600;box-sizing:border-box;">
+        </div>
+
+        <!-- Teacher Assignment -->
+        <div>
+          <label style="display:block;font-size:0.82rem;font-weight:700;color:#334155;margin-bottom:6px;">Assign Teacher</label>
+          <select id="etsmTeacherSelect" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:0.88rem;font-weight:600;color:#0f172a;background:#fff;">
+            <option value="">-- No Teacher / Free --</option>
+            ${teachers.map(t => {
+              const isSelected = t.trim().toLowerCase() === currTeacher.trim().toLowerCase();
+              const isBusy = busyTeachers.has(t.trim().toLowerCase());
+              return `<option value="${t}" ${isSelected ? 'selected' : ''}>${t} ${isBusy ? '⚠️ (Busy in another class)' : '✅ (Available)'}</option>`;
+            }).join('')}
+          </select>
+        </div>
+
+        <!-- Room No -->
+        <div>
+          <label style="display:block;font-size:0.82rem;font-weight:700;color:#334155;margin-bottom:6px;">Room No. (Optional)</label>
+          <input type="text" id="etsmRoomNo" placeholder="e.g. Room 101, Lab 2" value="${currRoom}" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:0.88rem;font-weight:600;box-sizing:border-box;">
+        </div>
+
+        <!-- Status Info -->
+        <div id="etsmStatusMsg" style="font-size:0.8rem;color:#64748b;display:flex;align-items:center;gap:6px;">
+          <span class="material-symbols-outlined" style="font-size:16px;color:#2563eb;">info</span>
+          Changes sync directly to the cloud timetable.
+        </div>
+      </div>
+
+      <!-- Action Footer -->
+      <div style="padding:14px 20px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+        <div style="display:flex;gap:8px;">
+          <button id="etsmDeleteBtn" type="button" style="padding:8px 14px;border:1px solid #fecaca;background:#fef2f2;color:#dc2626;border-radius:8px;font-weight:700;font-size:0.82rem;cursor:pointer;display:inline-flex;align-items:center;gap:4px;" title="Delete this entry completely (useful for removing duplicate subjects)">
+            <span class="material-symbols-outlined" style="font-size:16px;">delete</span> Delete Entry
+          </button>
+          <button id="etsmClearBtn" type="button" style="padding:8px 14px;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:8px;font-weight:700;font-size:0.82rem;cursor:pointer;display:inline-flex;align-items:center;gap:4px;" title="Clear subject and set as Free">
+            <span class="material-symbols-outlined" style="font-size:16px;">clear_all</span> Set as Free
+          </button>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button id="etsmCancelBtn" type="button" style="padding:8px 14px;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:8px;font-weight:600;font-size:0.85rem;cursor:pointer;">Cancel</button>
+          <button id="etsmSaveBtn" type="button" style="padding:8px 18px;border:none;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border-radius:8px;font-weight:700;font-size:0.85rem;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(37,99,235,0.3);">
+            <span class="material-symbols-outlined" style="font-size:16px;">save</span> Save Changes
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modalWrap);
+
+  const subSelect = document.getElementById("etsmSubjectSelect");
+  const customSub = document.getElementById("etsmCustomSubject");
+  const teacherSelect = document.getElementById("etsmTeacherSelect");
+  const roomInput = document.getElementById("etsmRoomNo");
+  const saveBtn = document.getElementById("etsmSaveBtn");
+  const clearBtn = document.getElementById("etsmClearBtn");
+  const delBtn = document.getElementById("etsmDeleteBtn");
+  const cancelBtn = document.getElementById("etsmCancelBtn");
+  const closeBtn = document.getElementById("etsmCloseBtn");
+  const statusMsg = document.getElementById("etsmStatusMsg");
+
+  subSelect.onchange = () => {
+    if (subSelect.value === "__custom__") {
+      customSub.style.display = "block";
+      customSub.focus();
+    } else {
+      customSub.style.display = "none";
+      customSub.value = subSelect.value;
+    }
+  };
+
+  const closeModal = () => modalWrap.remove();
+  closeBtn.onclick = closeModal;
+  cancelBtn.onclick = closeModal;
+  modalWrap.onclick = (e) => { if (e.target === modalWrap) closeModal(); };
+
+  // Save changes
+  saveBtn.onclick = async () => {
+    let finalSubject = subSelect.value === "__custom__" ? customSub.value.trim() : subSelect.value;
+    if (!finalSubject && customSub.value.trim()) finalSubject = customSub.value.trim();
+    if (!finalSubject) finalSubject = "Free";
+
+    const finalTeacher = teacherSelect.value.trim();
+    const finalRoom = roomInput.value.trim();
+
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px;animation:spin 1s linear infinite;">sync</span> Saving...`;
+
+    try {
+      let res = null;
+      try {
+        res = await api("/api/timetable/slot/save", {
+          method: "POST",
+          body: JSON.stringify({
+            id: actualSlotId,
+            className,
+            day,
+            period,
+            subject: finalSubject,
+            teacher: finalTeacher,
+            roomNo: finalRoom
+          })
+        });
+      } catch (err) {
+        const resp = await fetch("/api/timetable/slot/save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: actualSlotId,
+            className,
+            day,
+            period,
+            subject: finalSubject,
+            teacher: finalTeacher,
+            roomNo: finalRoom
+          })
+        });
+        res = await resp.json();
+      }
+
+      if (res && (res.ok || res.success)) {
+        // Update in-memory store
+        const s = getStore();
+        if (s && Array.isArray(s.timetable)) {
+          let rec = s.timetable.find(r => (actualSlotId && r.id == actualSlotId) || (r.className === className && r.day === day && r.period === period));
+          if (rec) {
+            rec.subject = finalSubject;
+            rec.teacher = finalTeacher;
+            rec.roomNo = finalRoom;
+          } else {
+            s.timetable.push({
+              id: actualSlotId || Date.now(),
+              className,
+              day,
+              period,
+              subject: finalSubject,
+              teacher: finalTeacher,
+              roomNo: finalRoom
+            });
+          }
+        }
+        if (typeof showToast === "function") showToast("Timetable slot updated!", "success");
+        if (window.renderAll) window.renderAll();
+        else if (window.renderTable) window.renderTable();
+        closeModal();
+      } else {
+        throw new Error(res?.error || "Failed to update slot");
+      }
+    } catch (e) {
+      console.error("Save slot error:", e);
+      statusMsg.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px;color:#ef4444;">error</span> ${e.message}`;
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px;">save</span> Save Changes`;
+    }
+  };
+
+  // Set as Free
+  clearBtn.onclick = async () => {
+    clearBtn.disabled = true;
+    try {
+      let res = null;
+      try {
+        res = await api("/api/timetable/slot/delete", {
+          method: "POST",
+          body: JSON.stringify({
+            id: actualSlotId,
+            className,
+            day,
+            period,
+            clearOnly: true
+          })
+        });
+      } catch (err) {
+        const resp = await fetch("/api/timetable/slot/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: actualSlotId,
+            className,
+            day,
+            period,
+            clearOnly: true
+          })
+        });
+        res = await resp.json();
+      }
+
+      const s = getStore();
+      if (s && Array.isArray(s.timetable)) {
+        let rec = s.timetable.find(r => (actualSlotId && r.id == actualSlotId) || (r.className === className && r.day === day && r.period === period));
+        if (rec) {
+          rec.subject = "Free";
+          rec.teacher = "";
+          rec.roomNo = "";
+        }
+      }
+      if (typeof showToast === "function") showToast("Slot set to Free", "info");
+      if (window.renderAll) window.renderAll();
+      else if (window.renderTable) window.renderTable();
+      closeModal();
+    } catch (e) {
+      alert("Failed to clear slot: " + e.message);
+      clearBtn.disabled = false;
+    }
+  };
+
+  // Delete Entry completely (for duplicates)
+  delBtn.onclick = async () => {
+    if (!confirm("Are you sure you want to delete this slot entry? This completely removes the entry (useful if duplicate subjects exist).")) return;
+    delBtn.disabled = true;
+    try {
+      let res = null;
+      try {
+        res = await api("/api/timetable/slot/delete", {
+          method: "POST",
+          body: JSON.stringify({
+            id: actualSlotId,
+            className,
+            day,
+            period,
+            clearOnly: false
+          })
+        });
+      } catch (err) {
+        const resp = await fetch("/api/timetable/slot/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: actualSlotId,
+            className,
+            day,
+            period,
+            clearOnly: false
+          })
+        });
+        res = await resp.json();
+      }
+
+      const s = getStore();
+      if (s && Array.isArray(s.timetable)) {
+        s.timetable = s.timetable.filter(r => !( (actualSlotId && r.id == actualSlotId) || (r.className === className && r.day === day && r.period === period) ));
+      }
+      if (typeof showToast === "function") showToast("Slot entry deleted", "info");
+      if (window.renderAll) window.renderAll();
+      else if (window.renderTable) window.renderTable();
+      closeModal();
+    } catch (e) {
+      alert("Failed to delete slot: " + e.message);
+      delBtn.disabled = false;
+    }
+  };
+};
+
+// ----------------------------------------------------------------------
+// PERIOD TIMINGS & SCHOOL HOURS MODAL (Zero subject/teacher modification)
+// ----------------------------------------------------------------------
+window.openSetPeriodTimingsModal = async function(highlightPeriod) {
+  const oldModal = document.getElementById("setPeriodTimingsModal");
+  if (oldModal) oldModal.remove();
+
+  function to24h(t12) {
+    if (!t12) return "";
+    t12 = t12.trim();
+    const m = t12.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+    if (!m) return t12;
+    let h = parseInt(m[1], 10);
+    const min = m[2];
+    const ampm = m[3] ? m[3].toUpperCase() : null;
+    if (ampm === "PM" && h < 12) h += 12;
+    if (ampm === "AM" && h === 12) h = 0;
+    return (h < 10 ? "0" + h : "" + h) + ":" + min;
+  }
+
+  function to12h(t24) {
+    if (!t24) return "";
+    t24 = t24.trim();
+    const m = t24.match(/^(\d{1,2}):(\d{2})/);
+    if (!m) return t24;
+    let h = parseInt(m[1], 10);
+    const min = m[2];
+    const ampm = h >= 12 ? "PM" : "AM";
+    h = h % 12 || 12;
+    return (h < 10 ? "0" + h : "" + h) + ":" + min + " " + ampm;
+  }
+
+  function addMinutes(t24, mins) {
+    if (!t24 || !t24.includes(":")) return "";
+    const p = t24.split(":").map(Number);
+    let total = p[0] * 60 + p[1] + mins;
+    while (total < 0) total += 24 * 60;
+    const newH = Math.floor(total / 60) % 24;
+    const newM = total % 60;
+    return (newH < 10 ? "0" + newH : "" + newH) + ":" + (newM < 10 ? "0" + newM : "" + newM);
+  }
+
+  function calcDuration(start24, end24) {
+    if (!start24 || !end24 || !start24.includes(":") || !end24.includes(":")) return null;
+    const [h1, m1] = start24.split(":").map(Number);
+    const [h2, m2] = end24.split(":").map(Number);
+    return (h2 * 60 + m2) - (h1 * 60 + m1);
+  }
+
+  const modalWrap = document.createElement("div");
+  modalWrap.id = "setPeriodTimingsModal";
+  modalWrap.style.cssText = "position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(15,23,42,0.65);backdrop-filter:blur(4px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;font-family:inherit;";
+
+  modalWrap.innerHTML = `
+    <div style="background:#ffffff;width:100%;max-width:760px;max-height:92vh;border-radius:18px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);display:flex;flex-direction:column;overflow:hidden;border:1px solid #cbd5e1;">
+      <!-- Modal Header -->
+      <div style="padding:16px 24px;background:linear-gradient(135deg,#1e293b,#2563eb);color:#fff;display:flex;align-items:center;justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span class="material-symbols-outlined" style="font-size:28px;background:rgba(255,255,255,0.2);border-radius:10px;padding:6px;">schedule</span>
+          <div>
+            <h3 style="margin:0;font-size:1.18rem;font-weight:800;letter-spacing:-0.01em;">Arrange Period Timings & School Hours</h3>
+            <p style="margin:2px 0 0;font-size:0.8rem;color:#bfdbfe;">Arrange all period times automatically or customize manually slot-by-slot.</p>
+          </div>
+        </div>
+        <button id="sptCloseBtn" style="background:rgba(255,255,255,0.15);border:none;color:#fff;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:1.1rem;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.15)'">✕</button>
+      </div>
+
+      <!-- Segmented Mode Switcher (Auto vs Manual) -->
+      <div style="padding:10px 24px;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <div style="display:flex;background:#e2e8f0;padding:4px;border-radius:10px;gap:4px;">
+          <button id="sptTabAutoBtn" type="button" style="padding:7px 18px;border-radius:8px;font-weight:700;font-size:0.84rem;cursor:pointer;border:none;background:#2563eb;color:#fff;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 4px rgba(37,99,235,0.25);transition:all 0.15s;">
+            <span class="material-symbols-outlined" style="font-size:18px;">bolt</span> ⚡ Auto Arrange
+          </button>
+          <button id="sptTabManualBtn" type="button" style="padding:7px 18px;border-radius:8px;font-weight:700;font-size:0.84rem;cursor:pointer;border:none;background:transparent;color:#475569;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s;">
+            <span class="material-symbols-outlined" style="font-size:18px;">tune</span> ✍️ Manual Arrange
+          </button>
+        </div>
+        <div style="font-size:0.78rem;color:#64748b;font-weight:600;display:flex;align-items:center;gap:4px;">
+          <span class="material-symbols-outlined" style="font-size:15px;color:#2563eb;">sync</span> Both modes sync with each other
+        </div>
+      </div>
+
+      <!-- Scrollable Body Container -->
+      <div id="sptBody" style="padding:20px 24px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:18px;">
+        <!-- Container 1: Auto Arrange Mode -->
+        <div id="sptAutoModeSection" style="display:flex;flex-direction:column;gap:16px;">
+          <!-- Quick Shift Presets -->
+          <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:12px 16px;">
+            <div style="font-size:0.82rem;font-weight:700;color:#1e40af;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+              <span class="material-symbols-outlined" style="font-size:18px;">speed</span> 1-Click Quick Shift Presets:
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;">
+              <button type="button" id="sptPresetMorning" style="padding:6px 12px;border-radius:8px;background:#fff;border:1px solid #93c5fd;color:#1d4ed8;font-size:0.78rem;font-weight:700;cursor:pointer;">☀️ Morning (08:00 AM - 01:45 PM)</button>
+              <button type="button" id="sptPresetRegular" style="padding:6px 12px;border-radius:8px;background:#fff;border:1px solid #93c5fd;color:#1d4ed8;font-size:0.78rem;font-weight:700;cursor:pointer;">🏫 Standard (09:00 AM - 03:15 PM)</button>
+              <button type="button" id="sptPresetWinter" style="padding:6px 12px;border-radius:8px;background:#fff;border:1px solid #93c5fd;color:#1d4ed8;font-size:0.78rem;font-weight:700;cursor:pointer;">❄️ Winter (09:30 AM - 03:30 PM)</button>
+            </div>
+          </div>
+
+          <!-- Parameter Configuration Grid -->
+          <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+            <div style="font-size:0.9rem;font-weight:700;color:#0f172a;margin-bottom:14px;display:flex;align-items:center;gap:6px;">
+              <span class="material-symbols-outlined" style="font-size:20px;color:#2563eb;">tune</span> Auto-Calculate Parameters
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:14px;">
+              <div>
+                <label style="display:block;font-size:0.75rem;font-weight:700;color:#475569;margin-bottom:5px;">1st Period Start Time</label>
+                <input type="time" id="sptAutoStart" value="08:00" style="width:100%;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:0.9rem;font-weight:700;box-sizing:border-box;">
+              </div>
+              <div>
+                <label style="display:block;font-size:0.75rem;font-weight:700;color:#475569;margin-bottom:5px;">Period Duration (mins)</label>
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <input type="number" id="sptAutoPeriodDur" value="45" min="20" max="90" style="width:100%;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:0.9rem;font-weight:700;box-sizing:border-box;">
+                  <span style="font-size:0.75rem;color:#64748b;font-weight:600;">mins</span>
+                </div>
+              </div>
+              <div>
+                <label style="display:block;font-size:0.75rem;font-weight:700;color:#475569;margin-bottom:5px;">Total Periods</label>
+                <select id="sptAutoCount" style="width:100%;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:0.9rem;font-weight:700;background:#fff;box-sizing:border-box;">
+                  <option value="5">5 Periods</option>
+                  <option value="6">6 Periods</option>
+                  <option value="7">7 Periods</option>
+                  <option value="8" selected>8 Periods</option>
+                  <option value="9">9 Periods</option>
+                  <option value="10">10 Periods</option>
+                </select>
+              </div>
+              <div>
+                <label style="display:block;font-size:0.75rem;font-weight:700;color:#475569;margin-bottom:5px;">Lunch Break Position</label>
+                <select id="sptAutoLunchAfter" style="width:100%;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:0.9rem;font-weight:700;background:#fff;box-sizing:border-box;">
+                  <option value="3">After Period 3</option>
+                  <option value="4" selected>After Period 4</option>
+                  <option value="5">After Period 5</option>
+                  <option value="0">No Lunch Break</option>
+                </select>
+              </div>
+              <div>
+                <label style="display:block;font-size:0.75rem;font-weight:700;color:#475569;margin-bottom:5px;">Lunch Duration</label>
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <input type="number" id="sptAutoLunchDur" value="40" min="15" max="90" style="width:100%;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:0.9rem;font-weight:700;box-sizing:border-box;">
+                  <span style="font-size:0.75rem;color:#64748b;font-weight:600;">mins</span>
+                </div>
+              </div>
+              <div>
+                <label style="display:block;font-size:0.75rem;font-weight:700;color:#475569;margin-bottom:5px;">Morning Assembly Buffer</label>
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <input type="number" id="sptAutoAssemblyDur" value="15" min="0" max="45" style="width:100%;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:0.9rem;font-weight:700;box-sizing:border-box;">
+                  <span style="font-size:0.75rem;color:#64748b;font-weight:600;">mins</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Live Generated Preview Box -->
+          <div style="background:#f8fafc;border:1px solid #cbd5e1;border-radius:14px;padding:16px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+              <span style="font-size:0.85rem;font-weight:700;color:#1e293b;display:flex;align-items:center;gap:6px;">
+                <span class="material-symbols-outlined" style="font-size:18px;color:#16a34a;">visibility</span> Live Schedule Flow Preview
+              </span>
+              <span id="sptAutoTotalSpan" style="font-size:0.75rem;font-weight:700;color:#2563eb;background:#eff6ff;padding:3px 8px;border-radius:6px;">8 Periods • 1 Lunch</span>
+            </div>
+            
+            <div id="sptAutoPreviewList" style="display:flex;flex-wrap:wrap;gap:8px;padding:10px 0;">
+              <!-- Generated timeline chips will populate here -->
+            </div>
+
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-top:12px;border-top:1px dashed #cbd5e1;font-size:0.82rem;font-weight:700;color:#334155;">
+              <div>🚪 School Arrival: <span id="sptAutoCalculatedArrival" style="color:#2563eb;">07:45 AM</span></div>
+              <div>🔔 School Departure: <span id="sptAutoCalculatedDeparture" style="color:#2563eb;">02:25 PM</span></div>
+            </div>
+          </div>
+
+          <!-- Auto Action Buttons -->
+          <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <button type="button" id="sptAutoApplyToManualBtn" style="padding:10px 18px;border:1.5px solid #2563eb;background:#eff6ff;color:#2563eb;border-radius:10px;font-weight:700;font-size:0.86rem;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+              <span class="material-symbols-outlined" style="font-size:18px;">edit_note</span> Apply & Fine-Tune in Manual Mode ➔
+            </button>
+            <button type="button" id="sptAutoSaveDirectBtn" style="padding:10px 20px;border:none;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border-radius:10px;font-weight:700;font-size:0.86rem;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 3px 8px rgba(37,99,235,0.3);">
+              <span class="material-symbols-outlined" style="font-size:18px;">save</span> ⚡ Apply & Save All Now
+            </button>
+          </div>
+        </div>
+
+        <!-- Container 2: Manual Arrange Mode -->
+        <div id="sptManualModeSection" style="display:none;flex-direction:column;gap:16px;">
+          <!-- School Hours Strip -->
+          <div style="background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:1px solid #bae6fd;border-radius:12px;padding:14px 18px;">
+            <div style="font-size:0.88rem;font-weight:700;color:#0369a1;display:flex;align-items:center;gap:6px;margin-bottom:10px;">
+              <span class="material-symbols-outlined" style="font-size:18px;color:#0284c7;">door_sliding</span> School Working Hours
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+              <div>
+                <label style="display:block;font-size:0.75rem;font-weight:700;color:#0c4a6e;margin-bottom:4px;">School Arrival Time</label>
+                <div style="display:flex;align-items:center;gap:6px;background:#fff;border:1px solid #7dd3fc;border-radius:8px;padding:5px 10px;">
+                  <input type="time" id="sptArrivalInput" value="07:45" style="border:none;outline:none;font-size:0.9rem;font-weight:700;color:#0f172a;width:100%;background:transparent;cursor:pointer;">
+                  <span id="sptArrivalBadge" style="font-size:0.72rem;font-weight:700;color:#0284c7;background:#e0f2fe;padding:2px 6px;border-radius:4px;white-space:nowrap;">07:45 AM</span>
+                </div>
+              </div>
+              <div>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+                  <label style="font-size:0.75rem;font-weight:700;color:#0c4a6e;">School Departure Time</label>
+                  <button type="button" id="sptSyncDepartureBtn" style="border:none;background:transparent;color:#0284c7;font-size:0.72rem;font-weight:700;cursor:pointer;text-decoration:underline;">Match Last Period</button>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;background:#fff;border:1px solid #7dd3fc;border-radius:8px;padding:5px 10px;">
+                  <input type="time" id="sptDepartureInput" value="14:25" style="border:none;outline:none;font-size:0.9rem;font-weight:700;color:#0f172a;width:100%;background:transparent;cursor:pointer;">
+                  <span id="sptDepartureBadge" style="font-size:0.72rem;font-weight:700;color:#0284c7;background:#e0f2fe;padding:2px 6px;border-radius:4px;white-space:nowrap;">02:25 PM</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Manual Period Table -->
+          <div style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;background:#fff;">
+            <div style="padding:10px 16px;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+              <span style="font-size:0.85rem;font-weight:700;color:#1e293b;">Individual Period Rows (Editable)</span>
+              <div style="display:flex;gap:6px;">
+                <button id="sptChainAllBtn" type="button" style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;padding:5px 10px;border-radius:6px;font-size:0.75rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;" title="Align all periods consecutively starting from Period 1">
+                  <span class="material-symbols-outlined" style="font-size:15px;">link</span> Auto-Chain All
+                </button>
+                <button id="sptAddPeriodBtn" type="button" style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;padding:5px 10px;border-radius:6px;font-size:0.75rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
+                  <span class="material-symbols-outlined" style="font-size:15px;">add</span> Add Period
+                </button>
+              </div>
+            </div>
+
+            <div style="max-height:320px;overflow-y:auto;">
+              <table style="width:100%;border-collapse:collapse;font-size:0.82rem;">
+                <thead style="background:#f1f5f9;color:#475569;text-align:left;position:sticky;top:0;z-index:2;">
+                  <tr>
+                    <th style="padding:8px 12px;font-weight:700;width:100px;">Period</th>
+                    <th style="padding:8px 12px;font-weight:700;">Start Time</th>
+                    <th style="padding:8px 4px;text-align:center;width:20px;"></th>
+                    <th style="padding:8px 12px;font-weight:700;">End Time</th>
+                    <th style="padding:8px 12px;font-weight:700;text-align:center;width:80px;">Duration</th>
+                    <th style="padding:8px 12px;font-weight:700;text-align:center;width:120px;">Quick Adjust</th>
+                    <th style="padding:8px 12px;font-weight:700;text-align:center;width:50px;"></th>
+                  </tr>
+                </thead>
+                <tbody id="sptTableBody">
+                  <!-- Rows populated dynamically -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer Bar -->
+      <div style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+        <div id="sptStatusMsg" style="font-size:0.8rem;color:#64748b;display:flex;align-items:center;gap:6px;">
+          <span class="material-symbols-outlined" style="font-size:16px;color:#2563eb;">info</span> Timetable subjects & teachers remain 100% untouched.
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button id="sptCancelBtn" style="padding:9px 18px;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:8px;font-weight:600;cursor:pointer;font-size:0.88rem;">Cancel</button>
+          <button id="sptSaveBtn" style="padding:9px 22px;border:none;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.88rem;display:flex;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(37,99,235,0.3);">
+            <span class="material-symbols-outlined" style="font-size:18px;">save</span> Save All Timings
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modalWrap);
+
+  const closeBtn = document.getElementById("sptCloseBtn");
+  const cancelBtn = document.getElementById("sptCancelBtn");
+  const saveBtn = document.getElementById("sptSaveBtn");
+  const statusMsg = document.getElementById("sptStatusMsg");
+
+  // Tab buttons and sections
+  const tabAutoBtn = document.getElementById("sptTabAutoBtn");
+  const tabManualBtn = document.getElementById("sptTabManualBtn");
+  const autoSection = document.getElementById("sptAutoModeSection");
+  const manualSection = document.getElementById("sptManualModeSection");
+
+  let activeTab = highlightPeriod ? "manual" : "auto";
+
+  function switchTab(tab) {
+    activeTab = tab;
+    if (tab === "auto") {
+      tabAutoBtn.style.background = "#2563eb";
+      tabAutoBtn.style.color = "#fff";
+      tabAutoBtn.style.boxShadow = "0 2px 4px rgba(37,99,235,0.25)";
+      tabManualBtn.style.background = "transparent";
+      tabManualBtn.style.color = "#475569";
+      tabManualBtn.style.boxShadow = "none";
+      autoSection.style.display = "flex";
+      manualSection.style.display = "none";
+    } else {
+      tabManualBtn.style.background = "#2563eb";
+      tabManualBtn.style.color = "#fff";
+      tabManualBtn.style.boxShadow = "0 2px 4px rgba(37,99,235,0.25)";
+      tabAutoBtn.style.background = "transparent";
+      tabAutoBtn.style.color = "#475569";
+      tabAutoBtn.style.boxShadow = "none";
+      manualSection.style.display = "flex";
+      autoSection.style.display = "none";
+    }
+  }
+
+  tabAutoBtn.onclick = () => switchTab("auto");
+  tabManualBtn.onclick = () => switchTab("manual");
+
+  const closeModal = () => modalWrap.remove();
+  closeBtn.onclick = closeModal;
+  cancelBtn.onclick = closeModal;
+  modalWrap.onclick = (e) => { if (e.target === modalWrap) closeModal(); };
+
+  // Fetch current timings
+  let currentSettings = null;
+  try {
+    const res = await fetch("/api/timetable/timings-settings");
+    if (res.ok) currentSettings = await res.json();
+  } catch (err) {}
+
+  const store = getStore();
+  let arrivalTime = currentSettings?.arrivalTime || "07:45 AM";
+  let departureTime = currentSettings?.departureTime || "02:30 PM";
+  let periodTimings = currentSettings?.periodTimings || [];
+
+  if (periodTimings.length === 0 && store && Array.isArray(store.timetable)) {
+    const periodMap = new Map();
+    store.timetable.forEach((r) => {
+      if (r.period && r.startTime && r.endTime) {
+        const pNorm = r.period.trim();
+        if (!periodMap.has(pNorm)) {
+          periodMap.set(pNorm, {
+            period: pNorm,
+            startTime: r.startTime,
+            endTime: r.endTime,
+            departureTime: r.departureTime || ""
+          });
+        }
+      }
+    });
+    if (periodMap.size > 0) {
+      periodTimings = Array.from(periodMap.values()).sort((a, b) => {
+        const numA = parseInt(a.period.replace(/\D/g, "")) || 0;
+        const numB = parseInt(b.period.replace(/\D/g, "")) || 0;
+        return numA - numB;
+      });
+      if (!departureTime && periodTimings[0]?.departureTime) {
+        departureTime = periodTimings[0].departureTime;
+      }
+    }
+  }
+
+  if (periodTimings.length === 0) {
+    periodTimings = [
+      { period: "Period 1", startTime: "08:00 AM", endTime: "08:45 AM" },
+      { period: "Period 2", startTime: "08:45 AM", endTime: "09:30 AM" },
+      { period: "Period 3", startTime: "09:30 AM", endTime: "10:15 AM" },
+      { period: "Period 4", startTime: "10:15 AM", endTime: "11:00 AM" },
+      { period: "Period 5", startTime: "11:40 AM", endTime: "12:20 PM" },
+      { period: "Period 6", startTime: "12:20 PM", endTime: "01:00 PM" },
+      { period: "Period 7", startTime: "01:00 PM", endTime: "01:40 PM" },
+      { period: "Period 8", startTime: "01:40 PM", endTime: "02:20 PM" }
+    ];
+  }
+
+  periodTimings.sort((a, b) => {
+    const numA = parseInt(a.period.replace(/\D/g, "")) || 0;
+    const numB = parseInt(b.period.replace(/\D/g, "")) || 0;
+    return numA - numB;
+  });
+
+  // Wire Manual School Hours inputs
+  const arrInput = document.getElementById("sptArrivalInput");
+  const arrBadge = document.getElementById("sptArrivalBadge");
+  const depInput = document.getElementById("sptDepartureInput");
+  const depBadge = document.getElementById("sptDepartureBadge");
+  const syncDepBtn = document.getElementById("sptSyncDepartureBtn");
+
+  arrInput.value = to24h(arrivalTime);
+  arrBadge.innerText = to12h(to24h(arrivalTime));
+  depInput.value = to24h(departureTime);
+  depBadge.innerText = to12h(to24h(departureTime));
+
+  arrInput.oninput = () => { arrBadge.innerText = to12h(arrInput.value); };
+  depInput.oninput = () => { depBadge.innerText = to12h(depInput.value); };
+
+  syncDepBtn.onclick = () => {
+    const lastRow = tbody.querySelector("tr:last-child");
+    if (lastRow) {
+      const lastEnd = lastRow.querySelector(".spt-row-end").value;
+      if (lastEnd) {
+        depInput.value = lastEnd;
+        depBadge.innerText = to12h(lastEnd);
+      }
+    }
+  };
+
+  // Wire Manual Period Table Body
+  const tbody = document.getElementById("sptTableBody");
+
+  function renderPeriodRow(t, index) {
+    const tr = document.createElement("tr");
+    tr.style.borderBottom = "1px solid #f1f5f9";
+    tr.setAttribute("data-period", t.period);
+
+    const start24 = to24h(t.startTime);
+    const end24 = to24h(t.endTime);
+    const dur = calcDuration(start24, end24);
+
+    tr.innerHTML = `
+      <td style="padding:8px 12px;font-weight:700;color:#1e293b;vertical-align:middle;">
+        <span style="background:#eff6ff;color:#1d4ed8;padding:3px 8px;border-radius:6px;font-size:0.78rem;font-weight:700;border:1px solid #bfdbfe;white-space:nowrap;">
+          ${t.period}
+        </span>
+      </td>
+      <td style="padding:6px 12px;vertical-align:middle;">
+        <input type="time" class="spt-row-start" value="${start24}" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.82rem;font-weight:700;cursor:pointer;background:#fff;width:105px;">
+      </td>
+      <td style="padding:6px 4px;vertical-align:middle;text-align:center;color:#94a3b8;font-size:0.82rem;">→</td>
+      <td style="padding:6px 12px;vertical-align:middle;">
+        <input type="time" class="spt-row-end" value="${end24}" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.82rem;font-weight:700;cursor:pointer;background:#fff;width:105px;">
+      </td>
+      <td style="padding:6px 12px;vertical-align:middle;text-align:center;">
+        <span class="spt-row-dur" style="font-size:0.75rem;font-weight:700;padding:2px 7px;border-radius:10px;background:${dur > 0 ? '#f0fdf4' : '#fef2f2'};color:${dur > 0 ? '#16a34a' : '#ef4444'};border:1px solid ${dur > 0 ? '#bbf7d0' : '#fecaca'};white-space:nowrap;">
+          ${dur > 0 ? dur + 'm' : 'Invalid'}
+        </span>
+      </td>
+      <td style="padding:6px 12px;vertical-align:middle;text-align:center;white-space:nowrap;">
+        <div style="display:inline-flex;gap:4px;">
+          <button type="button" class="spt-minus-5" style="border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:4px;padding:3px 6px;font-size:0.72rem;font-weight:700;cursor:pointer;" title="Subtract 5 mins from this period">-5m</button>
+          <button type="button" class="spt-plus-5" style="border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:4px;padding:3px 6px;font-size:0.72rem;font-weight:700;cursor:pointer;" title="Add 5 mins to this period">+5m</button>
+          <button type="button" class="spt-chain-row" style="border:1px solid #bfdbfe;background:#eff6ff;color:#2563eb;border-radius:4px;padding:3px 6px;font-size:0.72rem;font-weight:700;cursor:pointer;" title="Chain shift all subsequent periods from this end time">🔗 Chain</button>
+        </div>
+      </td>
+      <td style="padding:6px 12px;vertical-align:middle;text-align:center;">
+        <button class="spt-row-del" style="background:none;border:none;color:#94a3b8;cursor:pointer;padding:3px;border-radius:4px;display:flex;align-items:center;justify-content:center;" title="Remove period" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#94a3b8'">
+          <span class="material-symbols-outlined" style="font-size:18px;">delete_outline</span>
+        </button>
+      </td>
+    `;
+
+    const startIn = tr.querySelector(".spt-row-start");
+    const endIn = tr.querySelector(".spt-row-end");
+    const durB = tr.querySelector(".spt-row-dur");
+    const delBtn = tr.querySelector(".spt-row-del");
+    const minus5Btn = tr.querySelector(".spt-minus-5");
+    const plus5Btn = tr.querySelector(".spt-plus-5");
+    const chainBtn = tr.querySelector(".spt-chain-row");
+
+    const updateRowDur = () => {
+      const d = calcDuration(startIn.value, endIn.value);
+      if (d > 0) {
+        durB.innerText = d + "m";
+        durB.style.background = "#f0fdf4";
+        durB.style.color = "#16a34a";
+        durB.style.border = "1px solid #bbf7d0";
+      } else {
+        durB.innerText = "Invalid";
+        durB.style.background = "#fef2f2";
+        durB.style.color = "#ef4444";
+        durB.style.border = "1px solid #fecaca";
+      }
+    };
+
+    startIn.oninput = updateRowDur;
+    endIn.oninput = updateRowDur;
+
+    minus5Btn.onclick = () => {
+      endIn.value = addMinutes(endIn.value, -5);
+      updateRowDur();
+    };
+
+    plus5Btn.onclick = () => {
+      endIn.value = addMinutes(endIn.value, 5);
+      updateRowDur();
+    };
+
+    chainBtn.onclick = () => {
+      chainFromRow(tr);
+    };
+
+    delBtn.onclick = () => {
+      tr.remove();
+      refreshPeriodNames();
+    };
+
+    return tr;
+  }
+
+  function chainFromRow(startTr) {
+    const allRows = Array.from(tbody.querySelectorAll("tr"));
+    const startIdx = allRows.indexOf(startTr);
+    if (startIdx === -1) return;
+
+    let curStart = startTr.querySelector(".spt-row-end").value;
+    for (let i = startIdx + 1; i < allRows.length; i++) {
+      const r = allRows[i];
+      const sIn = r.querySelector(".spt-row-start");
+      const eIn = r.querySelector(".spt-row-end");
+      const prevDur = calcDuration(sIn.value, eIn.value) || 45;
+
+      sIn.value = curStart;
+      eIn.value = addMinutes(curStart, prevDur);
+      sIn.dispatchEvent(new Event("input"));
+      eIn.dispatchEvent(new Event("input"));
+      curStart = eIn.value;
+    }
+
+    if (depInput && curStart) {
+      depInput.value = curStart;
+      depBadge.innerText = to12h(curStart);
+    }
+  }
+
+  function chainAllPeriods() {
+    const allRows = Array.from(tbody.querySelectorAll("tr"));
+    if (allRows.length === 0) return;
+
+    let curStart = allRows[0].querySelector(".spt-row-start").value || "08:00";
+    allRows.forEach((r, idx) => {
+      const sIn = r.querySelector(".spt-row-start");
+      const eIn = r.querySelector(".spt-row-end");
+      const prevDur = calcDuration(sIn.value, eIn.value) || 45;
+
+      sIn.value = curStart;
+      eIn.value = addMinutes(curStart, prevDur);
+      sIn.dispatchEvent(new Event("input"));
+      eIn.dispatchEvent(new Event("input"));
+      curStart = eIn.value;
+    });
+
+    if (depInput && curStart) {
+      depInput.value = curStart;
+      depBadge.innerText = to12h(curStart);
+    }
+  }
+
+  const chainAllBtn = document.getElementById("sptChainAllBtn");
+  if (chainAllBtn) chainAllBtn.onclick = chainAllPeriods;
+
+  function refreshPeriodNames() {
+    const rows = tbody.querySelectorAll("tr");
+    rows.forEach((r, idx) => {
+      const pName = "Period " + (idx + 1);
+      r.setAttribute("data-period", pName);
+      const badge = r.querySelector("td span");
+      if (badge) badge.innerText = pName;
+    });
+  }
+
+  function populateManualTable(timings) {
+    tbody.innerHTML = "";
+    timings.forEach((t, i) => {
+      tbody.appendChild(renderPeriodRow(t, i));
+    });
+  }
+
+  // Populate initially
+  populateManualTable(periodTimings);
+
+  // Add Period button in Manual mode
+  const addPeriodBtn = document.getElementById("sptAddPeriodBtn");
+  if (addPeriodBtn) {
+    addPeriodBtn.onclick = () => {
+      const currentCount = tbody.querySelectorAll("tr").length;
+      const nextNum = currentCount + 1;
+      const lastRow = tbody.querySelector("tr:last-child");
+      let nextStart = "14:00";
+      let nextEnd = "14:45";
+      if (lastRow) {
+        const lastEnd = lastRow.querySelector(".spt-row-end").value;
+        if (lastEnd) {
+          nextStart = lastEnd;
+          nextEnd = addMinutes(lastEnd, 45);
+        }
+      }
+      const newRec = {
+        period: "Period " + nextNum,
+        startTime: to12h(nextStart),
+        endTime: to12h(nextEnd)
+      };
+      tbody.appendChild(renderPeriodRow(newRec, nextNum - 1));
+    };
+  }
+
+  // Auto Arrange Calculation Logic
+  const autoStartIn = document.getElementById("sptAutoStart");
+  const autoPeriodDurIn = document.getElementById("sptAutoPeriodDur");
+  const autoCountIn = document.getElementById("sptAutoCount");
+  const autoLunchAfterIn = document.getElementById("sptAutoLunchAfter");
+  const autoLunchDurIn = document.getElementById("sptAutoLunchDur");
+  const autoAssemblyDurIn = document.getElementById("sptAutoAssemblyDur");
+  const previewList = document.getElementById("sptAutoPreviewList");
+  const autoTotalSpan = document.getElementById("sptAutoTotalSpan");
+  const autoCalculatedArrival = document.getElementById("sptAutoCalculatedArrival");
+  const autoCalculatedDeparture = document.getElementById("sptAutoCalculatedDeparture");
+
+  function calculateAutoTimings() {
+    const startT = autoStartIn.value || "08:00";
+    const pDur = parseInt(autoPeriodDurIn.value, 10) || 45;
+    const totalCount = parseInt(autoCountIn.value, 10) || 8;
+    const lunchAfter = parseInt(autoLunchAfterIn.value, 10) || 4;
+    const lunchDur = parseInt(autoLunchDurIn.value, 10) || 40;
+    const assemblyDur = parseInt(autoAssemblyDurIn.value, 10) || 15;
+
+    const calculatedTimings = [];
+    let cur = startT;
+
+    for (let i = 1; i <= totalCount; i++) {
+      if (lunchAfter > 0 && i === lunchAfter + 1) {
+        const lunchStart = cur;
+        cur = addMinutes(cur, lunchDur);
+      }
+      const pStart = cur;
+      cur = addMinutes(cur, pDur);
+      calculatedTimings.push({
+        period: "Period " + i,
+        startTime: to12h(pStart),
+        endTime: to12h(cur)
+      });
+    }
+
+    const arrival24 = addMinutes(startT, -assemblyDur);
+    const departure24 = cur;
+
+    // Render Preview Chips
+    let previewHtml = "";
+    if (assemblyDur > 0) {
+      previewHtml += `<div style="background:#fef3c7;border:1px solid #fde68a;color:#92400e;padding:4px 10px;border-radius:8px;font-size:0.75rem;font-weight:700;">🌅 Assembly (${to12h(arrival24)} - ${to12h(startT)})</div>`;
+    }
+
+    let curP = startT;
+    for (let i = 1; i <= totalCount; i++) {
+      if (lunchAfter > 0 && i === lunchAfter + 1) {
+        const lEnd = addMinutes(curP, lunchDur);
+        previewHtml += `<div style="background:#fee2e2;border:1px solid #fecaca;color:#b91c1c;padding:4px 10px;border-radius:8px;font-size:0.75rem;font-weight:700;">🥪 Lunch (${to12h(curP)} - ${to12h(lEnd)})</div>`;
+        curP = lEnd;
+      }
+      const pEnd = addMinutes(curP, pDur);
+      previewHtml += `<div style="background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;padding:4px 10px;border-radius:8px;font-size:0.75rem;font-weight:700;">P${i}: ${to12h(curP)} - ${to12h(pEnd)}</div>`;
+      curP = pEnd;
+    }
+
+    previewList.innerHTML = previewHtml;
+    autoTotalSpan.innerText = `${totalCount} Periods • ${lunchAfter > 0 ? 'Lunch (' + lunchDur + 'm)' : 'No Lunch'}`;
+    autoCalculatedArrival.innerText = to12h(arrival24);
+    autoCalculatedDeparture.innerText = to12h(departure24);
+
+    return {
+      timings: calculatedTimings,
+      arrival: to12h(arrival24),
+      departure: to12h(departure24)
+    };
+  }
+
+  // Recalculate preview on any input change
+  [autoStartIn, autoPeriodDurIn, autoCountIn, autoLunchAfterIn, autoLunchDurIn, autoAssemblyDurIn].forEach(el => {
+    el.oninput = calculateAutoTimings;
+    el.onchange = calculateAutoTimings;
+  });
+
+  // Presets
+  document.getElementById("sptPresetMorning").onclick = () => {
+    autoStartIn.value = "08:00";
+    autoPeriodDurIn.value = "40";
+    autoCountIn.value = "8";
+    autoLunchAfterIn.value = "4";
+    autoLunchDurIn.value = "30";
+    autoAssemblyDurIn.value = "15";
+    calculateAutoTimings();
+  };
+
+  document.getElementById("sptPresetRegular").onclick = () => {
+    autoStartIn.value = "09:00";
+    autoPeriodDurIn.value = "45";
+    autoCountIn.value = "8";
+    autoLunchAfterIn.value = "4";
+    autoLunchDurIn.value = "40";
+    autoAssemblyDurIn.value = "15";
+    calculateAutoTimings();
+  };
+
+  document.getElementById("sptPresetWinter").onclick = () => {
+    autoStartIn.value = "09:30";
+    autoPeriodDurIn.value = "40";
+    autoCountIn.value = "8";
+    autoLunchAfterIn.value = "4";
+    autoLunchDurIn.value = "35";
+    autoAssemblyDurIn.value = "10";
+    calculateAutoTimings();
+  };
+
+  // Initial Auto calculation
+  calculateAutoTimings();
+
+  // Button: Apply Auto to Manual Mode
+  document.getElementById("sptAutoApplyToManualBtn").onclick = () => {
+    const calc = calculateAutoTimings();
+    populateManualTable(calc.timings);
+    arrInput.value = to24h(calc.arrival);
+    arrBadge.innerText = calc.arrival;
+    depInput.value = to24h(calc.departure);
+    depBadge.innerText = calc.departure;
+    switchTab("manual");
+  };
+
+  // Button: Save Direct from Auto
+  document.getElementById("sptAutoSaveDirectBtn").onclick = () => {
+    const calc = calculateAutoTimings();
+    populateManualTable(calc.timings);
+    arrInput.value = to24h(calc.arrival);
+    arrBadge.innerText = calc.arrival;
+    depInput.value = to24h(calc.departure);
+    depBadge.innerText = calc.departure;
+    executeSave();
+  };
+
+  // Switch to requested initial tab
+  switchTab(activeTab);
+
+  if (highlightPeriod) {
+    setTimeout(() => {
+      const targetRow = tbody.querySelector(`tr[data-period="${highlightPeriod}"]`);
+      if (targetRow) {
+        targetRow.scrollIntoView({ behavior: "smooth", block: "center" });
+        targetRow.style.background = "#fef3c7";
+        targetRow.style.boxShadow = "0 0 0 2px #f59e0b";
+        setTimeout(() => {
+          targetRow.style.background = "";
+          targetRow.style.boxShadow = "";
+        }, 2200);
+      }
+    }, 150);
+  }
+
+  // Unified Save Function
+  async function executeSave() {
+    const newArrival = to12h(arrInput.value);
+    const newDeparture = to12h(depInput.value);
+
+    const rows = tbody.querySelectorAll("tr");
+    if (rows.length === 0) {
+      alert("Please configure at least one period timing.");
+      return;
+    }
+
+    const timingsToSave = [];
+    let hasInvalid = false;
+
+    rows.forEach((r) => {
+      const p = r.getAttribute("data-period");
+      const sVal = r.querySelector(".spt-row-start").value;
+      const eVal = r.querySelector(".spt-row-end").value;
+      if (!sVal || !eVal) {
+        hasInvalid = true;
+      }
+      timingsToSave.push({
+        period: p,
+        startTime: to12h(sVal),
+        endTime: to12h(eVal)
+      });
+    });
+
+    if (hasInvalid) {
+      alert("Please enter valid start and end times for all periods in the manual table.");
+      switchTab("manual");
+      return;
+    }
+
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = `<span class="material-symbols-outlined" style="font-size:18px;animation:spin 1s linear infinite;">sync</span> Saving...`;
+    statusMsg.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px;color:#3b82f6;animation:spin 1s linear infinite;">sync</span> Updating timetable in Turso cloud database...`;
+
+    try {
+      let saveRes = null;
+      try {
+        saveRes = await api("/api/timetable/update-timings", {
+          method: "POST",
+          body: JSON.stringify({
+            arrivalTime: newArrival,
+            departureTime: newDeparture,
+            timings: timingsToSave
+          })
+        });
+      } catch (err) {
+        const resp = await fetch("/api/timetable/update-timings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            arrivalTime: newArrival,
+            departureTime: newDeparture,
+            timings: timingsToSave
+          })
+        });
+        saveRes = await resp.json();
+      }
+
+      if (saveRes && (saveRes.ok || saveRes.success)) {
+        const s = getStore();
+        if (s && Array.isArray(s.timetable)) {
+          s.timetable.forEach(row => {
+            const match = timingsToSave.find(t => (t.period || "").trim().toLowerCase() === (row.period || "").trim().toLowerCase());
+            if (match) {
+              row.startTime = match.startTime;
+              row.endTime = match.endTime;
+            }
+            if (newDeparture) {
+              row.departureTime = newDeparture;
+            }
+          });
+        }
+
+        if (typeof showToast === "function") {
+          showToast("Period timings and school hours updated successfully!", "success");
+        } else {
+          alert("Period timings and school hours updated successfully!");
+        }
+
+        if (window.renderAll) {
+          window.renderAll();
+        } else if (window.renderTable) {
+          window.renderTable();
+        }
+
+        closeModal();
+      } else {
+        throw new Error(saveRes?.error || "Failed to save timings");
+      }
+    } catch (err) {
+      console.error("Save timings error:", err);
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = `<span class="material-symbols-outlined" style="font-size:18px;">save</span> Save All Timings`;
+      statusMsg.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px;color:#ef4444;">error</span> Error saving timings: ${err.message || err}`;
+      alert("Failed to save timings: " + (err.message || err));
+    }
+  }
+
+  saveBtn.onclick = executeSave;
 };
 
 // ----------------------------------------------------------------------

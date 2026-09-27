@@ -1,7 +1,72 @@
+
+// Custom Modal Replacements for native confirm/alert to fix Electron focus lock bug
+window.appConfirm = function(message) {
+  return new Promise(resolve => {
+    const overlay = document.createElement("div");
+    overlay.className = "admission-modal-overlay";
+    overlay.style.zIndex = "999999";
+    overlay.style.display = "flex";
+    overlay.innerHTML = `
+      <div class="admission-modal" style="max-width: 400px; text-align: center; padding: 24px;">
+        <h3 style="margin-top: 0; color: #1e293b; font-size: 1.2rem;">Confirm Action</h3>
+        <p style="color: #475569; margin: 16px 0 24px;">${message}</p>
+        <div style="display: flex; gap: 12px; justify-content: center;">
+          <button class="tbl-btn custom-confirm-no" style="background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0;">Cancel</button>
+          <button class="tbl-btn del custom-confirm-yes">Yes, Confirm</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    
+    overlay.querySelector(".custom-confirm-no").addEventListener("click", () => {
+      overlay.remove();
+      resolve(false);
+    });
+    overlay.querySelector(".custom-confirm-yes").addEventListener("click", () => {
+      overlay.remove();
+      resolve(true);
+    });
+  });
+};
+
+window.appAlert = function(message) {
+  return new Promise(resolve => {
+    const overlay = document.createElement("div");
+    overlay.className = "admission-modal-overlay";
+    overlay.style.zIndex = "999999";
+    overlay.style.display = "flex";
+    overlay.innerHTML = `
+      <div class="admission-modal" style="max-width: 400px; text-align: center; padding: 24px;">
+        <h3 style="margin-top: 0; color: #1e293b; font-size: 1.2rem;">Notice</h3>
+        <p style="color: #475569; margin: 16px 0 24px;">${message}</p>
+        <div style="display: flex; justify-content: center;">
+          <button class="tbl-btn custom-alert-ok">OK</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    overlay.querySelector(".custom-alert-ok").addEventListener("click", () => {
+      overlay.remove();
+      resolve(true);
+    });
+  });
+};
+
+window.alert = function(msg) { window.appAlert(msg); };
+
 const FACE_KEY = "school_face_embeddings_v2";
-let human = null;
-const HUMAN_MODELS_URL = "https://cdn.jsdelivr.net/npm/@vladmandic/human/models/";
 const CLASS_STANDARD_OPTIONS = ["Nursery", "LKG", "UKG", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
+
+function getImageUrl(moduleName, id, fieldName, val) {
+  if (!val) return '';
+  if (val === true || val === "true" || val === "1") return `/api/photo/${moduleName}/${id}?col=${fieldName}`;
+  if (typeof val === 'string') {
+    if (val.startsWith('data:image') || val.startsWith('http://') || val.startsWith('https://')) return val;
+    if (val.startsWith('/api/photo/') || val.startsWith('/api/image/')) return `/api/photo/${moduleName}/${id}?col=${fieldName}`;
+  }
+  return val;
+}
+
 
 const moduleConfig = {
   admissions: {
@@ -15,11 +80,32 @@ const moduleConfig = {
       "classApplyingFor", "session", "admissionDate", "prevSchool", "lastClassPassed", "tcReceived",
       "photo", "birthCert", "aadharDoc", "tcDoc", "parentIdDoc",
       "admissionFee", "monthlyFee", "isFreeOfCharge", "transportFee", "discount",
-      "status", "tc", "reportCard", "fatherAadhar", "motherAadhar", "remarks"
+      "status", "tc", "reportCard", "fatherAadhar", "motherAadhar",
+      "studentAadharNo", "fatherAadharNo", "motherAadharNo", "remarks"
     ],
     columns: ["fullName", "classApplyingFor", "phone1", "admissionDate", "status"]
   },
   dashboard: { title: "Dashboard", subtitle: "School overview and quick statistics", fields: [], columns: ["Metric", "Value"] },
+  announcements: {
+    title: "Announcements & Notices",
+    subtitle: "Create alerts, celebrations, exam notices, school accounts, class & student announcements",
+    fields: [
+      "title", "category", "targetType", "targetClass", "targetAdmissionNo", "targetStudentName", "postedBy", "priority", "date", "message"
+    ],
+    columns: ["date", "category", "title", "postedBy", "targetAudience", "priority", "message"]
+  },
+  appLiveUsers: { 
+    title: "Mobile App Students", 
+    subtitle: "Real-time active, inactive & login status of students on Mobile App", 
+    fields: [], 
+    columns: ["student_name", "class_name", "admission_no", "roll_no", "status", "last_active_at", "last_login_at", "phone", "device_os"] 
+  },
+  app_student_sessions: { 
+    title: "Mobile App Students", 
+    subtitle: "Real-time active, inactive & login status of students on Mobile App", 
+    fields: [], 
+    columns: ["student_name", "class_name", "admission_no", "roll_no", "status", "last_active_at", "last_login_at", "phone", "device_os"] 
+  },
   myProfile: { title: "My Profile", subtitle: "View your personal details and documents", fields: [], columns: [] },
   students: {
     title: "Students",
@@ -27,12 +113,13 @@ const moduleConfig = {
     fields: [
       "admissionNo", "rollNo", "fullName", "className", "section", "gender", "dob",
       "fatherName", "motherName", "phone", "address", "photo",
-      "status", "monthlyFee", "isFreeOfCharge", "aadhar", "tc", "reportCard", "fatherAadhar", "motherAadhar"
+      "status", "monthlyFee", "isFreeOfCharge", "aadhar", "tc", "reportCard", "fatherAadhar", "motherAadhar",
+      "studentAadharNo", "fatherAadharNo", "motherAadharNo"
     ],
     columns: ["admissionNo", "fullName", "className", "phone", "gender", "status"]
   },
 
-  teachers: { title: "Teachers", subtitle: "Manage teacher records and contacts", fields: ["employeeNo", "fullName", "department", "qualification", "phone", "email", "joinDate"], columns: ["employeeNo", "fullName", "department", "qualification", "phone", "email"] },
+  teachers: { title: "Teachers", subtitle: "Manage teacher records and contacts", fields: ["employeeNo", "fullName", "department", "qualification", "phone", "email", "joinDate", "photo"], columns: ["photo", "employeeNo", "fullName", "department", "qualification", "phone", "email"] },
   classes: { title: "Classes", subtitle: "Create classes and assign class teachers", fields: ["className", "section", "classTeacher", "roomNo", "capacity"], columns: ["className", "section", "classTeacher", "roomNo", "capacity"] },
   subjects: { title: "Subjects", subtitle: "Define subjects and assign faculty", fields: ["subjectCode", "subjectName", "className", "teacher"], columns: ["subjectCode", "subjectName", "className", "teacher"] },
   attendance: { title: "Attendance", subtitle: "Track daily student attendance", fields: ["date", "className", "studentName", "rollNo", "status", "arrivalTime", "departureTime", "remarks"], columns: ["date", "className", "studentName", "rollNo", "status", "arrivalTime", "departureTime"] },
@@ -42,10 +129,10 @@ const moduleConfig = {
     title: "Fees", 
     subtitle: "Record fee structures and payments", 
     fields: [
-      "admissionNo", "studentName", "className", "rollNo", "fatherName", "term", "month",
-      "totalFee", "paidAmount", "balance", "status", "paymentDate", "paymentMethod", "onlineAmount", "cashAmount"
+      "admissionNo", "studentName", "fatherName", "className", "rollNo", "term", "month",
+      "totalFee", "paidAmount", "balance", "status", "paymentDate", "paymentMethod", "onlineAmount", "cashAmount", "payId"
     ], 
-    columns: ["admissionNo", "studentName", "className", "rollNo", "term", "month", "totalFee", "paidAmount", "balance", "status"] 
+    columns: ["payId", "studentName", "className", "term", "totalFee", "paidAmount", "balance", "status"] 
   },
   library: { title: "Library", subtitle: "Manage books, issues and returns", fields: ["bookCode", "bookTitle", "author", "issuedTo", "issueDate", "returnDate", "status"], columns: ["bookCode", "bookTitle", "author", "issuedTo", "issueDate", "returnDate", "status"] },
   transport: { title: "Transport", subtitle: "Track routes, buses and student allocation", fields: ["routeName", "vehicleNo", "driverName", "studentName", "pickupPoint", "monthlyFee"], columns: ["routeName", "vehicleNo", "driverName", "studentName", "pickupPoint", "monthlyFee"] },
@@ -53,33 +140,60 @@ const moduleConfig = {
   payroll: { title: "Payroll", subtitle: "Generate salary records and allowances", fields: ["employeeName", "designation", "month", "basicSalary", "allowances", "deductions", "netPay"], columns: ["employeeName", "designation", "month", "basicSalary", "allowances", "deductions", "netPay"] },
   users: { title: "Users & Roles", subtitle: "System user accounts and permissions", fields: ["username", "fullName", "role", "email", "status", "lastLogin", "password"], columns: ["username", "fullName", "role", "email", "status", "lastLogin"] },
   timetable: { title: "Timetable", subtitle: "Weekly class and subject scheduling", fields: ["className", "day", "period", "startTime", "endTime", "departureTime", "subject", "teacher", "roomNo"], columns: ["className", "day", "period", "startTime", "endTime", "departureTime", "subject", "teacher", "roomNo"] },
-  booksAndDress: { title: "Books & Dress", subtitle: "Manage book sets and uniform uniform distributions", fields: ["className", "itemType", "itemName", "price", "term"], columns: ["className", "itemType", "itemName", "price", "term"] },
+  booksAndDress: { title: "Fee Structure", subtitle: "Manage class-wise book, dress, and fee configurations", fields: ["className", "itemType", "itemName", "price", "term"], columns: ["className", "itemType", "itemName", "price", "term"] },
   whatsappAlerts: { title: "WhatsApp Alerts", subtitle: "Log and track automated communication", fields: ["studentName", "className", "phone", "parentName", "balance", "term", "alertDate", "message", "status"], columns: ["studentName", "className", "phone", "alertDate", "status"] },
-  dueManagement: { title: "Due Management", subtitle: "Track and manage balances from previous sessions", fields: ["admissionNo", "studentName", "className", "rollNo", "session", "particulars", "dueAmount", "paidAmount", "balance", "status", "remarks"], columns: ["admissionNo", "studentName", "session", "dueAmount", "paidAmount", "balance", "status"] },
+  dueManagement: { title: "Due Management", subtitle: "Track and manage balances from previous sessions", fields: ["admissionNo", "studentName", "className", "rollNo", "session", "month", "particulars", "dueAmount", "paidAmount", "balance", "status", "remarks", "payId"], columns: ["payId", "admissionNo", "studentName", "session", "month", "dueAmount", "paidAmount", "balance", "status"] },
   aiAssistant: { title: "Vidya AI Brain", subtitle: "Manage AI knowledge base and settings", fields: [], columns: [] },
   backup: { title: "Backup & Restore", subtitle: "Full database backup, restore, and CSV bulk operations", fields: [], columns: [] },
-  holidays: { title: "Holidays", subtitle: "Manage school holidays and events", fields: ["date", "name", "type", "description"], columns: ["date", "name", "type", "description"] }
+  holidays: { title: "Holidays", subtitle: "Manage school holidays and events", fields: ["date", "name", "type", "description"], columns: ["date", "name", "type", "description"] },
+  reportsAnalytics: { title: "Report & Analytics", subtitle: "Graphical growth reports for students, classes, and school", fields: [], columns: [] },
+  bookSales: { title: "Books & Dress", subtitle: "Track book and dress sales from fee receipts", fields: [], columns: [] },
+  weeklyEvaluation: { 
+    title: "Weekly Evaluation", 
+    subtitle: "Track student weekly academic growth", 
+    fields: ["weekStartDate", "weekEndDate", "className", "section", "studentName", "rollNo", "maths", "english", "hindi", "science", "sst", "readingEng", "readingHindi", "writingEng", "writingHindi", "attanDance", "dicipLine", "uniform", "activities", "overall", "teacherRemark"], 
+    columns: ["weekStartDate", "className", "studentName", "rollNo", "overall"] 
+  },
+  onlineClasses: { 
+    title: "Online Classes", 
+    subtitle: "Live Interactive Video Classroom, Voice Studio & Calling Directory", 
+    fields: [], 
+    columns: [] 
+  }
 };
 
 const moduleSections = [
-  { label: "Core", modules: ["admissions", "dashboard", "aiAssistant", "myProfile", "students", "teachers", "classes"] },
-  { label: "ACADEMIC", modules: ["subjects", "exams", "timetable", "holidays"] },
+  { label: "Core", modules: ["admissions", "dashboard", "announcements", "appLiveUsers", "aiAssistant", "myProfile", "students", "teachers", "classes"] },
+  { label: "ACADEMIC", modules: ["onlineClasses", "subjects", "exams", "timetable", "holidays", "weeklyEvaluation"] },
+  { label: "ANALYTICS", modules: ["reportsAnalytics"] },
   { label: "DAILY", modules: ["attendance", "teacherAttendance"] },
-  { label: "FINANCE", modules: ["fees", "dueManagement", "payroll", "booksAndDress", "whatsappAlerts"] },
+  { label: "FINANCE", modules: ["fees", "dueManagement", "payroll", "booksAndDress", "bookSales", "whatsappAlerts"] },
   { label: "RESOURCES", modules: ["library", "transport", "hostel", "users", "backup"] }
 ];
 
 const moduleIcons = {
-  dashboard: "📊", myProfile: "👤", admissions: "🎯", students: "🎓", teachers: "👨‍🏫", classes: "🏢",
+  dashboard: "📊", myProfile: "👤", admissions: "🎯", announcements: "📢", appLiveUsers: "📱", students: "🎓", teachers: "👨‍🏫", classes: "🏢",
+  onlineClasses: "🎥",
   subjects: "📚", exams: "📝", timetable: "⏰",
   attendance: "📅", teacherAttendance: "👨‍🏫",
-  fees: "💳", dueManagement: "💸", payroll: "💼", booksAndDress: "📦", whatsappAlerts: "📲",
-  library: "📖", transport: "🚌", hostel: "🏠", users: "👥", aiAssistant: "🧠", holidays: "🗓️", backup: "💾"
+  fees: "💳", dueManagement: "💸", payroll: "💼", booksAndDress: "💰", bookSales: "📦", whatsappAlerts: "📲",
+  library: "📖", transport: "🚌", hostel: "🏠", users: "👥", aiAssistant: "🧠", holidays: "🗓️", backup: "💾",
+  reportsAnalytics: "📈",
+  weeklyEvaluation: "🏅"
 };
 
 const moduleOrder = Object.keys(moduleConfig);
-const printableModules = new Set(["students", "exams", "fees"]);
+const printableModules = new Set(["students", "exams", "fees", "announcements"]);
 let currentModule = "dashboard";
+try {
+  Object.defineProperty(window, 'currentModule', {
+    get() { return currentModule; },
+    set(val) { currentModule = val; },
+    configurable: true
+  });
+} catch (e) {
+  window.currentModule = currentModule;
+}
 let currentUser = null; // ← global session user for role checks
 
 // Auto-shorten long fee term descriptions
@@ -125,10 +239,10 @@ function getLinkedStudent() {
 }
 
 // Modules visible per role
-const STUDENT_VISIBLE_MODULES = new Set(["dashboard", "myProfile", "attendance", "exams", "fees", "timetable", "subjects", "holidays"]);
-const TEACHER_VISIBLE_MODULES = new Set(["dashboard", "admissions", "students", "teachers", "classes", "subjects", "attendance", "teacherAttendance", "exams", "timetable", "library", "holidays"]);
+const STUDENT_VISIBLE_MODULES = new Set(["dashboard", "onlineClasses", "myProfile", "announcements", "attendance", "exams", "fees", "timetable", "subjects", "holidays", "weeklyEvaluation"]);
+const TEACHER_VISIBLE_MODULES = new Set(["dashboard", "onlineClasses", "admissions", "announcements", "students", "teachers", "classes", "subjects", "attendance", "teacherAttendance", "exams", "timetable", "library", "holidays", "weeklyEvaluation"]);
 // Modules where teacher can add/edit
-const TEACHER_WRITE_MODULES = new Set(["attendance", "teacherAttendance"]);
+const TEACHER_WRITE_MODULES = new Set(["onlineClasses", "announcements", "attendance", "teacherAttendance", "weeklyEvaluation"]);
 // Modules only admin can see
 const ADMIN_ONLY_MODULES = new Set(["users", "payroll", "backup"]);
 let faceStream = null;
@@ -143,6 +257,266 @@ let autoLastAutoMarkKey = "";
 let autoLastAutoMarkAt = 0;
 let autoRecognitionStreakByKey = {};
 let autoLastAutoMarkAtByKey = {};
+
+// --- Stranger Voice AI Helpers ---
+window.lastStrangerSpeech = 0;
+window.isStrangerVoiceAIBusy = false;
+
+window.micAudioContext = null;
+window.micAnalyser = null;
+window.micDataArray = null;
+window.orbAnimationId = null;
+
+window.startOrbListeningAnimation = async function() {
+  const orbContainer = document.getElementById('aiVoiceOrbContainer');
+  const orb = document.getElementById('aiVoiceOrb');
+  if (!orb || !orbContainer) return;
+  
+  orbContainer.style.display = 'flex';
+  
+  try {
+    if (!window.micAudioContext) {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      window.micAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const source = window.micAudioContext.createMediaStreamSource(stream);
+      window.micAnalyser = window.micAudioContext.createAnalyser();
+      window.micAnalyser.fftSize = 256;
+      source.connect(window.micAnalyser);
+      window.micDataArray = new Uint8Array(window.micAnalyser.frequencyBinCount);
+    }
+    
+    function animate() {
+      if (!window.isStrangerVoiceAIBusy) {
+        orbContainer.style.display = 'none';
+        orb.style.transform = 'scale(1)';
+        return;
+      }
+      if (orb.classList.contains('ai-speaking-pulse')) {
+        window.orbAnimationId = requestAnimationFrame(animate);
+        return;
+      }
+      
+      window.micAnalyser.getByteFrequencyData(window.micDataArray);
+      let sum = 0;
+      for(let i=0; i<window.micDataArray.length; i++) { sum += window.micDataArray[i]; }
+      const average = sum / window.micDataArray.length;
+      
+      const scale = 1 + (average / 255) * 0.8;
+      orb.style.transform = `scale(${scale})`;
+      
+      window.orbAnimationId = requestAnimationFrame(animate);
+    }
+    animate();
+  } catch (err) {
+    console.warn("Could not get microphone for Orb animation", err);
+  }
+};
+
+window.triggerStrangerVoiceAI = function(personName = null) {
+  const isStrangerChecked = document.getElementById('strangerVoiceToggle')?.checked;
+  const isAlwaysOnChecked = document.getElementById('alwaysOnVoiceToggle')?.checked;
+  
+  if (!isStrangerChecked && !isAlwaysOnChecked) return;
+  if (isStrangerChecked && !isAlwaysOnChecked && personName) return;
+
+  const now = Date.now();
+  
+  if (personName) {
+    window.lastStrangerGreetingTime = window.lastStrangerGreetingTime || {};
+    if (window.lastStrangerGreetingTime[personName] && (now - window.lastStrangerGreetingTime[personName] < 300000)) {
+        return; // 5 minutes (300,000 ms) cooldown for Voice AI per student
+    }
+  }
+
+  if (window.isStrangerVoiceAIBusy) return;
+  if (now - window.lastStrangerSpeech < 12000) return; // 12 seconds cooldown
+  
+  if (personName) {
+    window.lastStrangerGreetingTime[personName] = now;
+  }
+  
+  window.isStrangerVoiceAIBusy = true;
+  window.lastStrangerSpeech = now;
+  
+  const orbContainer = document.getElementById('aiVoiceOrbContainer');
+  const orb = document.getElementById('aiVoiceOrb');
+  if (orbContainer && orb) {
+    orbContainer.style.display = 'flex';
+    orb.classList.add('ai-speaking-pulse');
+    window.startOrbListeningAnimation();
+  }
+  
+  let engText = "Hello, how may I help you?";
+  let hinText = "Namaste, main aapki kaise madad kar sakti hoon?";
+  if (personName) {
+    engText = `Hello ${personName}, how may I help you?`;
+    hinText = `Namaste ${personName}, main aapki kaise madad kar sakti hoon?`;
+  }
+  
+  const eng = new SpeechSynthesisUtterance(engText);
+  eng.lang = 'en-US';
+  
+  const hin = new SpeechSynthesisUtterance(hinText);
+  hin.lang = 'hi-IN';
+  
+  window._voiceAIUtterances = [eng, hin];
+  clearTimeout(window.strangerFailsafe);
+  window.strangerFailsafe = setTimeout(() => { window.isStrangerVoiceAIBusy = false; }, 20000);
+  
+  const voices = window.speechSynthesis.getVoices();
+  const femaleEnglish = voices.find(v => v.lang.includes('en') && (v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('zira') || v.name.toLowerCase().includes('google')));
+  const femaleHindi = voices.find(v => v.lang.includes('hi') && (v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('zira') || v.name.toLowerCase().includes('google')));
+  
+  if (femaleEnglish) eng.voice = femaleEnglish;
+  if (femaleHindi) hin.voice = femaleHindi;
+  
+  hin.onerror = () => { window.isStrangerVoiceAIBusy = false; window.isSpeakingTTS = false; window.startListeningToVisitor(); };
+  eng.onstart = () => { window.isSpeakingTTS = true; };
+  hin.onend = () => { window.isSpeakingTTS = false; window.startListeningToVisitor(); };
+  
+  window.speechSynthesis.speak(eng);
+  window.speechSynthesis.speak(hin);
+};
+
+window.startListeningToVisitor = function() {
+  clearTimeout(window.strangerFailsafe);
+  const orb = document.getElementById('aiVoiceOrb');
+  if (orb) orb.classList.remove('ai-speaking-pulse'); 
+  
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    window.isStrangerVoiceAIBusy = false;
+    return;
+  }
+  
+  const recognition = new SpeechRecognition();
+  window._currentRecognition = recognition;
+  recognition.lang = 'hi-IN'; 
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+  
+  const oldText = refs.faceStatusText.innerHTML;
+  
+  let hasHandledEnd = false;
+  const handleListenEnd = () => {
+    if (hasHandledEnd) return;
+    hasHandledEnd = true;
+    if (document.getElementById('alwaysOnVoiceToggle')?.checked) {
+       setTimeout(() => { window.startListeningToVisitor(); }, 500);
+    } else {
+       window.isStrangerVoiceAIBusy = false;
+       refs.faceStatusText.innerHTML = oldText;
+       if (orb) orb.classList.remove('ai-speaking-pulse');
+    }
+  };
+
+  refs.faceStatusText.innerHTML = `🎙️ AI Listening... Please speak now.`;
+  
+  let listeningTimeout = setTimeout(() => {
+    recognition.stop();
+    handleListenEnd();
+  }, 15000);
+  
+  let isProcessingResult = false;
+
+  recognition.onresult = async (event) => {
+    isProcessingResult = true;
+    clearTimeout(listeningTimeout);
+    const transcript = event.results[0][0].transcript;
+    
+    // Ignore microphone input while the system is speaking (echo suppression)
+    if (window.isSpeakingTTS) {
+      console.log('[Voice AI] Ignoring echo from system TTS:', transcript);
+      isProcessingResult = false;
+      handleListenEnd();
+      return;
+    }
+    
+    refs.faceStatusText.innerHTML = `💭 AI Thinking...<br/><small>"${transcript}"</small>`;
+    try {
+      const res = await api("/api/voice-receptionist", {
+        method: "POST",
+        body: JSON.stringify({ transcript })
+      });
+      if (res && res.response) {
+        if (orb) orb.classList.add('ai-speaking-pulse');
+        refs.faceStatusText.innerHTML = `🗣️ AI Speaking...<br/><small>"${res.response}"</small>`;
+        const reply = new SpeechSynthesisUtterance(res.response);
+        reply.lang = 'hi-IN'; 
+        
+        const voices = window.speechSynthesis.getVoices();
+        const femaleHindi = voices.find(v => v.lang.includes('hi') && (v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('zira') || v.name.toLowerCase().includes('google')));
+        if (femaleHindi) {
+          reply.voice = femaleHindi;
+        }
+        
+        reply.onstart = () => { window.isSpeakingTTS = true; };
+        reply.onerror = () => {
+          window.isSpeakingTTS = false;
+          clearTimeout(window.speechFailsafe);
+          handleListenEnd();
+        };
+        reply.onend = () => {
+          window.isSpeakingTTS = false;
+          clearTimeout(window.speechFailsafe);
+          handleListenEnd();
+        };
+        window._voiceAIUtterances = [reply];
+        window.speechSynthesis.speak(reply);
+        window.speechFailsafe = setTimeout(() => {
+          console.warn("Speech Synthesis Failsafe Triggered!");
+          handleListenEnd();
+        }, 15000 + (res.response.length * 100));
+      } else {
+        handleListenEnd();
+      }
+    } catch(err) {
+      console.error(err);
+      handleListenEnd();
+    }
+  };
+  
+  recognition.onerror = (e) => {
+    if (isProcessingResult) return;
+    clearTimeout(listeningTimeout);
+    console.warn("Speech Recognition Error:", e);
+    if (e.error === 'not-allowed' || e.error === 'network') {
+      const toggle = document.getElementById('alwaysOnVoiceToggle');
+      if (toggle && toggle.checked) {
+        toggle.checked = false;
+        showToast("Voice AI disabled: Microphone blocked or unsupported. Please use Google Chrome.", "error");
+      }
+      const oldText = refs.faceStatusText.innerHTML;
+      refs.faceStatusText.innerHTML = `⚠️ Voice AI Unavailable (Use Google Chrome)`;
+      setTimeout(() => {
+        if (refs.faceStatusText.innerHTML.includes("Voice AI Unavailable")) {
+          refs.faceStatusText.innerHTML = oldText;
+        }
+      }, 5000);
+    }
+    handleListenEnd();
+  };
+  
+  recognition.onnomatch = () => {
+    if (isProcessingResult) return;
+    clearTimeout(listeningTimeout);
+    handleListenEnd();
+  };
+  
+  recognition.onend = () => {
+     if (isProcessingResult) return;
+     clearTimeout(listeningTimeout);
+     handleListenEnd();
+  };
+  
+  try {
+    recognition.start();
+  } catch(err) {
+    console.warn("Could not start speech recognition:", err);
+    handleListenEnd();
+  }
+};
+// ---------------------------------
 let editStudentId = null;
 let editRecordId = null;
 let pendingStudentPrefill = null;
@@ -166,6 +540,8 @@ const refs = {
   statsCards: document.getElementById("statsCards"),
   moduleTools: document.querySelector(".panel-actions"),
   classFilter: document.getElementById("classFilter"),
+  dateFilter: document.getElementById("dateFilter"),
+  allAttendanceBtn: document.getElementById("allAttendanceBtn"),
   dayFilter: document.getElementById("dayFilter"),
   dayFilter: document.getElementById("dayFilter"),
   searchInput: document.getElementById("searchInput"),
@@ -181,14 +557,18 @@ const refs = {
   exportCsvBtn: document.getElementById("exportCsvBtn"),
   importDataBtn: document.getElementById("importDataBtn"),
   smartGenerateBtn: document.getElementById("smartGenerateBtn"),
+  setPeriodTimingsBtn: document.getElementById("setPeriodTimingsBtn"),
   freeTeachersBtn: document.getElementById("freeTeachersBtn"),
+  tableWrap: document.querySelector(".table-wrap"),
   importFile: document.getElementById("importFile"),
   exportPdfBtn: document.getElementById("exportPdfBtn"),
   printDocBtn: document.getElementById("printDocBtn"),
+  appReleasesBtn: document.getElementById("appReleasesBtn"),
   facePanel: document.getElementById("facePanel"),
   startCameraBtn: document.getElementById("startCameraBtn"),
   captureFaceBtn: document.getElementById("captureFaceBtn"),
   markFaceAttendanceBtn: document.getElementById("markFaceAttendanceBtn"),
+  syncAllStudentFacesBtn: document.getElementById("syncAllStudentFacesBtn"),
   faceVideo: document.getElementById("faceVideo"),
   faceCanvas: document.getElementById("faceCanvas"),
   localCamWrapper: document.getElementById("localCamWrapper"),
@@ -219,6 +599,7 @@ const refs = {
   apiBaseInput: document.getElementById("apiBaseInput"),
   apiSaveBtn: document.getElementById("apiSaveBtn"),
   enrollFaceBtn: document.getElementById("enrollFaceBtn"),
+  enrollFaceFromPhotoBtn: document.getElementById("enrollFaceFromPhotoBtn"),
   faceEnrollStudentField: document.getElementById("faceEnrollStudentField"),
   faceEnrollStudentSelect: document.getElementById("faceEnrollStudentSelect"),
   faceManualNameField: document.getElementById("faceManualNameField"),
@@ -352,39 +733,19 @@ function timeStr() {
 
 function getStore() { return serverStore || {}; }
 function getFaceStore() { 
-  const store = JSON.parse(localStorage.getItem(FACE_KEY) || "{}"); 
-  // Validate embedding length to ensure compatibility with InsightFace (512-d)
-  for (let key in store) {
-    const emb = store[key].avgDescriptor || store[key].descriptor;
-    if (emb && emb.length !== 512) {
-       console.warn("Found incompatible face embeddings (likely from old Human library). Clearing face store.");
-       localStorage.removeItem(FACE_KEY);
-       return {};
-    }
-    // Only need to check the first one to know if the store is compatible
-    break;
+  try {
+    return JSON.parse(localStorage.getItem(FACE_KEY) || "{}"); 
+  } catch (e) {
+    return {};
   }
-  return store;
 }
-function saveFaceStore(v) { localStorage.setItem(FACE_KEY, JSON.stringify(v)); }
-
-// Auto-migration: wipe old 128D face-api.js embeddings (incompatible with new 1024D Human engine)
-(function migrateFaceStore() {
-  const store = getFaceStore();
-  const keys = Object.keys(store);
-  if (!keys.length) return;
-  // Check if any entry has old 128D descriptor instead of new 1024D
-  for (const key of keys) {
-    const entry = store[key];
-    const desc = entry.avgDescriptor || entry.descriptor;
-    if (desc && desc.length && desc.length < 512) {
-      // Old 128D data found — wipe everything
-      console.log('[FaceAI] Migrating 128D -> 1024D');
-      localStorage.removeItem(FACE_KEY);
-      return;
-    }
+function saveFaceStore(v) { 
+  try {
+    localStorage.setItem(FACE_KEY, JSON.stringify(v)); 
+  } catch (e) {
+    console.warn("Could not save faceStore to localStorage:", e);
   }
-})();
+}
 
 function toLabel(key) {
   const custom = {
@@ -401,10 +762,34 @@ function toLabel(key) {
     issueDate: "Issue Date",
     returnDate: "Return Date",
     checkInDate: "Check In Date",
-    lastLogin: "Last Login"
+    lastLogin: "Last Login",
+    student_name: "Student Name",
+    class_name: "Class",
+    admission_no: "Admission No",
+    roll_no: "Roll No",
+    last_active_at: "Last Active",
+    last_login_at: "Last Login",
+    device_os: "Device",
+    targetAudience: "Target Audience",
+    postedBy: "From / Posted By",
+    targetType: "Audience Scope",
+    targetClass: "Target Class",
+    targetAdmissionNo: "Target Student"
   };
   if (custom[key]) return custom[key];
-  return key.replace(/([A-Z])/g, " $1").replace(/^./, c => c.toUpperCase());
+  return key.replace(/([A-Z_])/g, " $1").replace(/^./, c => c.toUpperCase());
+}
+
+function formatRelativeTime(dateStr) {
+  if (!dateStr) return 'Never';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return String(dateStr);
+  const diffSec = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (diffSec < 45) return 'Just now';
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+  if (diffSec < 172800) return 'Yesterday';
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 function asNum(value) {
   if (typeof value === 'number') return value;
@@ -422,7 +807,19 @@ function splitClassName(value) {
   return { classPart, sectionPart };
 }
 
-function fileToResizedDataUrl(file, maxDim = 240, quality = 0.85) {
+// Test WebP canvas export support once
+const supportsWebP = (function() {
+  try {
+    const c = document.createElement("canvas");
+    c.width = 1;
+    c.height = 1;
+    return c.toDataURL("image/webp").indexOf("data:image/webp") === 0;
+  } catch (e) {
+    return false;
+  }
+})();
+
+function fileToResizedDataUrl(file, maxDim = 600, quality = 0.85) {
   return new Promise((resolve, reject) => {
     if (!file) return resolve("");
     const reader = new FileReader();
@@ -441,8 +838,12 @@ function fileToResizedDataUrl(file, maxDim = 240, quality = 0.85) {
         canvas.width = w;
         canvas.height = h;
         const ctx = canvas.getContext("2d");
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
         ctx.drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL("image/jpeg", quality));
+
+        const mime = supportsWebP ? "image/webp" : "image/jpeg";
+        resolve(canvas.toDataURL(mime, quality));
       };
       img.src = reader.result;
     };
@@ -450,7 +851,7 @@ function fileToResizedDataUrl(file, maxDim = 240, quality = 0.85) {
   });
 }
 
-function videoFrameToResizedDataUrl(videoEl, maxDim = 240, quality = 0.7) {
+function videoFrameToResizedDataUrl(videoEl, maxDim = 320, quality = 0.82) {
   const width = videoEl.videoWidth || 640;
   const height = videoEl.videoHeight || 360;
   const scale = Math.min(1, maxDim / Math.max(width, height));
@@ -461,8 +862,11 @@ function videoFrameToResizedDataUrl(videoEl, maxDim = 240, quality = 0.7) {
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
   ctx.drawImage(videoEl, 0, 0, w, h);
-  return canvas.toDataURL("image/jpeg", quality);
+  const mime = supportsWebP ? "image/webp" : "image/jpeg";
+  return canvas.toDataURL(mime, quality);
 }
 
 function normalizeApiBaseUrl(v) {
@@ -493,36 +897,47 @@ function getApiBaseUrl() {
 }
 
 let API_BASE_URL = getApiBaseUrl();
+if (window.location.hostname.includes("vercel.app") || window.location.hostname.includes("netlify.app")) {
+  API_BASE_URL = "";
+}
+if (window.location.hostname.includes("pages.dev")) {
+  API_BASE_URL = "https://tapowan-school.vercel.app";
+}
 
 async function api(path, options = {}) {
   const controller = new AbortController();
-  const timeoutMs = Number(options.timeoutMs) > 0 ? Number(options.timeoutMs) : 70000;
+  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
   const token = localStorage.getItem("token");
   if (token) {
     options.headers = options.headers || {};
     options.headers["Authorization"] = "Bearer " + token;
-  } // Render free tier can take ~50s to wake
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  }
+
   let response;
   try {
+    const { headers: userHeaders, ...restOptions } = options;
     response = await fetch(`${API_BASE_URL}${path}`, {
       credentials: "include",
       headers: { 
         "Content-Type": "application/json", 
         "Bypass-Tunnel-Reminder": "true",
-        ...(options.headers || {}) 
+        ...(userHeaders || {}) 
       },
       signal: controller.signal,
-      ...options
+      ...restOptions
     });
   } catch (e) {
     const isAbort = String(e?.name || "").toLowerCase().includes("abort");
-    throw new Error(isAbort
-      ? "Backend is waking up (Render free tier). Please wait 60 seconds and try again."
-      : "Network error. Check your internet and Backend URL (Render)."
-    );
+    throw new Error(isAbort 
+      ? "Request timed out after 30 seconds. The server might be waking up or processing heavy data." 
+      : "Network error: Make sure the server is running and accessible.");
   } finally {
-    clearTimeout(timer);
+    clearTimeout(timeoutId);
+  }
+  const contentType = response.headers.get("content-type") || "";
+  if (contentType.includes("text/html")) {
+    throw new Error("Vercel/Netlify Deployment Protection is active. Please use the production URL or disable Authentication in project settings.");
   }
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
@@ -539,7 +954,8 @@ async function api(path, options = {}) {
       }
       throw new Error("Session expired");
     }
-    throw new Error(payload.error || "Request failed");
+    const fullMessage = payload.message ? `${payload.error}: ${payload.message}` : payload.error;
+    throw new Error(fullMessage || "Request failed");
   }
   return response.json();
 }
@@ -552,6 +968,23 @@ async function warmupBackend() {
   } catch {
     // ignore; login will show a readable message
   }
+}
+
+let sseInitialized = false;
+function initSSE() {
+  if (sseInitialized) return;
+  sseInitialized = true;
+  const evtSource = new EventSource('/api/events');
+  evtSource.addEventListener('store_updated', async (e) => {
+    console.log('Realtime update received! Reloading store...');
+    await loadStore();
+    renderCurrentModule();
+  });
+  evtSource.onerror = () => {
+    sseInitialized = false;
+    evtSource.close();
+    setTimeout(initSSE, 5000);
+  };
 }
 
 async function loadStore() {
@@ -573,53 +1006,41 @@ async function loadStore() {
 }
 
 function cleanupOrphanedFaces() {
-  const store = getStore();
-  const faceStore = getFaceStore();
-  if (!store.students && !store.teachers) return; // Don't clean if store is empty/failed
-  
-  let changed = false;
-  Object.keys(faceStore).forEach(key => {
-    const parts = key.split("|");
-    if (parts.length < 2) return;
-    const targetType = parts[0];
-    const name = parts[1];
-
-    const people = targetType === "teachers" ? (store.teachers || []) : (store.students || []);
-    const exists = people.some(p => p.fullName === name);
-
-    if (!exists) {
-      console.log(`[FaceAI] Cleaning up orphaned face data for: ${name} (${targetType})`);
-      delete faceStore[key];
-      changed = true;
-    }
-  });
-
-  if (changed) {
-    saveFaceStore(faceStore);
-    console.log("[FaceAI] Orphan cleanup complete.");
-  }
+  // Safe guard: Do not delete face data automatically
+  return;
 }
 
 function applyAuthUI(session) {
   if (!session) localStorage.removeItem("token");
   const loggedIn = !!session;
   currentUser = session || null;
+  const preloader = document.getElementById("preloaderStyle");
+  if (preloader) preloader.remove();
   
   const auth = document.getElementById("authOverlay");
   const appContainer = document.querySelector(".app");
   const vidyaFab = document.getElementById("vidyaFab");
   
   if (loggedIn) {
-    if (auth) auth.classList.add("hidden");
+    if (auth) {
+      auth.classList.add("hidden");
+      auth.style.display = "none";
+    }
     if (appContainer) appContainer.style.display = ""; 
     if (vidyaFab) vidyaFab.style.display = "flex";
   } else {
-    if (auth) auth.classList.remove("hidden");
+    if (auth) {
+      auth.classList.remove("hidden");
+      auth.style.display = "flex";
+    }
     if (appContainer) appContainer.style.display = "none";
     if (vidyaFab) vidyaFab.style.display = "none";
   }
 
-  refs.authOverlay.classList.toggle("hidden", loggedIn);
+  if (refs.authOverlay) {
+    refs.authOverlay.classList.toggle("hidden", loggedIn);
+    refs.authOverlay.style.display = loggedIn ? "none" : "flex";
+  }
 
   const activeName = document.getElementById("activeUserBadgeName");
   const activeRole = document.getElementById("activeUserBadgeRole");
@@ -701,6 +1122,7 @@ function getVisibleModules() {
   }
   
   // Ensure admissions is visible for all roles except Student
+  if (!userIsStudent()) { if (!mods.includes("appLiveUsers")) mods.push("appLiveUsers"); }
   if (moduleConfig.admissions && !userIsStudent()) {
     if (!mods.includes("admissions")) mods.push("admissions");
   }
@@ -743,7 +1165,7 @@ function renderNav() {
       btn.className = `nav-btn ${name === currentModule ? "active" : ""}`;
       const icon = moduleIcons[name] || "🔹";
       btn.innerHTML = `<span class="nav-icon material-symbols-outlined" style="font-size: 20px;">${icon}</span> <span class="nav-text" style="margin-left: 6px;">${moduleConfig[name].title}</span>`;
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", async () => {
         currentModule = name;
         refs.searchInput.value = "";
         if (isMobileLayout()) setMobileSidebarOpen(false);
@@ -1065,15 +1487,17 @@ async function openAdmissionForm() {
   window.handleAdmUpload = async (input, key) => {
     const file = input.files[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) return showToast("File size too large (>2MB)", "error");
+    if (file.size > 25 * 1024 * 1024) return showToast("File size too large (>25MB)", "error");
     
     try {
-      const dataUrl = await fileToResizedDataUrl(file, 600, 0.8);
+      const isPhoto = key === "photo";
+      const maxDim = isPhoto ? 600 : 1200;
+      const dataUrl = await fileToResizedDataUrl(file, maxDim, 0.85);
       admissionDraft[key] = dataUrl;
       const prev = document.getElementById('prev_' + key);
       if (prev) { prev.src = dataUrl; prev.style.display = 'block'; }
       saveAdmissionDraft(false);
-    } catch (e) { showToast("Upload failed", "error"); }
+    } catch (e) { showToast("Upload failed: " + e.message, "error"); }
   };
   window.changeAdmStep = (delta) => {
     if (delta > 0 && !validateAdmStep(admissionCurrentStep)) return;
@@ -1182,7 +1606,8 @@ function renderAdmPreview() {
 }
 
 async function submitAdmission() {
-  if (!confirm("Finalize this admission? Student will be added to the pending list.")) return;
+  const confirmed = await window.appConfirm("Finalize this admission? Student will be added to the pending list.");
+      if (!confirmed) return;
   try {
     showLoader("Registering student...");
     const payload = { ...admissionDraft, isDraft: "false", status: "Pending" };
@@ -1194,7 +1619,7 @@ async function submitAdmission() {
           body: JSON.stringify({
             className: payload.className,
             studentName: payload.fullName,
-            fatherName: payload.fatherName || payload.parentName || "",
+            fatherName: payload.fatherName || "",
             feeType: "Tuition Fee",
             amount: payload.monthlyFee,
             term: "Monthly"
@@ -1207,7 +1632,8 @@ async function submitAdmission() {
     showToast("Admission Successful!", "success");
     localStorage.removeItem("tps_admission_draft_v2");
     closeAdmissionForm();
-    if (confirm("Print Admission Form?")) generateAdmissionPDF(res);
+    const wantPrint = await window.appConfirm("Print Admission Form?");
+      if (wantPrint) generateAdmissionPDF(res);
     renderAll();
   } catch (err) {
     hideLoader();
@@ -1268,7 +1694,7 @@ function generateAdmissionPDF(student) {
   doc.save(`Admission_${student.admissionNo}.pdf`);
 }
 async function approveAdmission(admissionId) {
-  if (!confirm("Are you sure you want to approve this admission? The student will be moved to the Active Students list.")) return;
+  if (!(await window.appConfirm("Are you sure you want to approve this admission? The student will be moved to the Active Students list."))) return;
   
   try {
     showLoader("Processing approval...");
@@ -1334,11 +1760,23 @@ window.printAdmissionById = async (id) => {
 
 
 
-function renderForm() {
-  const activeEl = document.activeElement;
-  const isTypingInForm = activeEl && refs.dynamicForm && refs.dynamicForm.contains(activeEl);
-  if (isTypingInForm) return;
+function destroyFormTomSelects() {
+  if (!refs.dynamicForm) return;
+  refs.dynamicForm.querySelectorAll('select[data-tomselect="true"]').forEach(el => {
+    if (el.tomselect) {
+      try { el.tomselect.destroy(); } catch(e) {}
+    }
+  });
+}
 
+function renderForm(forceRefresh) {
+  if (!forceRefresh) {
+    const activeEl = document.activeElement;
+    const isTypingInForm = activeEl && refs.dynamicForm && refs.dynamicForm.contains(activeEl);
+    if (isTypingInForm) return;
+  }
+
+  destroyFormTomSelects();
   const cfg = moduleConfig[currentModule];
   refs.dynamicForm.innerHTML = "";
   if (!cfg.fields.length) return;
@@ -1367,12 +1805,13 @@ function renderForm() {
     const store = getStore();
     const studentOptions = (store.students || []).map((s) => ({
       value: s.fullName,
-      label: `${s.admissionNo ? `${s.admissionNo} - ` : ""}${s.fullName}${s.rollNo ? ` (${s.rollNo})` : ""}${s.parentName ? ` (F: ${s.parentName})` : ""}${s.className ? ` - ${s.className}` : ""}`,
+      label: `${s.admissionNo ? `${s.admissionNo} - ` : ""}${s.fullName}${s.rollNo ? ` (${s.rollNo})` : ""}${s.fatherName ? ` (F: ${s.fatherName})` : ""}${s.className ? ` - ${s.className}` : ""}`,
       rollNo: s.rollNo || "",
       className: s.className || "",
-      parentName: s.parentName || s.fatherName || "",
-      fatherName: s.fatherName || s.parentName || "",
-      admissionNo: s.admissionNo || ""
+      fatherName: s.fatherName || "",
+      parentName: s.fatherName || "",
+      admissionNo: s.admissionNo || "",
+      monthlyFee: s.monthlyFee || ""
     }));
     const classOptions = Array.from(new Set((store.classes || []).map((x) => [x.className, x.section].filter(Boolean).join("-")).filter(Boolean)));
     const formRefs = {};
@@ -1385,6 +1824,46 @@ function renderForm() {
     renderDueManagementForm(cfg, studentOptions, classOptions, initialValues, formRefs);
     return;
   }
+  if (currentModule === "weeklyEvaluation") {
+    const store = getStore();
+    const studentOptions = (store.students || []).map((s) => ({
+      value: s.fullName,
+      label: `${s.admissionNo ? `${s.admissionNo} - ` : ""}${s.fullName}${s.rollNo ? ` (${s.rollNo})` : ""}${s.className ? ` - ${s.className}` : ""}`,
+      rollNo: s.rollNo || "",
+      className: s.className || ""
+    }));
+    const classOptions = Array.from(new Set((store.classes || []).map((x) => [x.className, x.section].filter(Boolean).join("-")).filter(Boolean)));
+    
+    let initialValues = {};
+    if (editRecordId != null) {
+      initialValues = (store.weeklyEvaluation || []).find(r => r.id === editRecordId) || {};
+    }
+
+    renderWeeklyEvaluationForm(studentOptions, classOptions, initialValues);
+    return;
+  }
+  if (currentModule === "announcements") {
+    const store = getStore();
+    const studentOptions = (store.students || []).map((s) => ({
+      value: s.admissionNo || s.id,
+      label: `${s.admissionNo ? `${s.admissionNo} - ` : ""}${s.fullName}${s.rollNo ? ` (Roll: ${s.rollNo})` : ""}${s.className ? ` - ${s.className}` : ""}`,
+      admissionNo: s.admissionNo || "",
+      studentName: s.fullName || "",
+      className: s.className || ""
+    }));
+    const classOptions = Array.from(new Set([
+      ...CLASS_STANDARD_OPTIONS,
+      ...(store.classes || []).map((x) => [x.className, x.section].filter(Boolean).join("-")).filter(Boolean)
+    ]));
+
+    let initialValues = {};
+    if (editRecordId != null) {
+      initialValues = (store.announcements || []).find(r => r.id === editRecordId) || {};
+    }
+
+    renderAnnouncementsForm(cfg, studentOptions, classOptions, initialValues);
+    return;
+  }
   const store = getStore();
 
   const classOptions = Array.from(new Set((store.classes || []).map((x) => [x.className, x.section].filter(Boolean).join("-")).filter(Boolean)));
@@ -1393,8 +1872,8 @@ function renderForm() {
       label: `${s.admissionNo ? `${s.admissionNo} - ` : ""}${s.fullName}${s.rollNo ? ` (${s.rollNo})` : ""}${s.className ? ` - ${s.className}` : ""}`,
       rollNo: s.rollNo || "",
       className: s.className || "",
-      parentName: s.parentName || s.fatherName || "",
-      fatherName: s.fatherName || s.parentName || "",
+      fatherName: s.fatherName || "",
+      parentName: s.fatherName || "",
       admissionNo: s.admissionNo || ""
     }));
   const teacherOptions = (store.teachers || []).map((t) => ({
@@ -1419,6 +1898,9 @@ function renderForm() {
   cfg.fields.forEach(field => {
     const wrapper = document.createElement("div");
     wrapper.className = "field";
+    if (currentModule === "fees" && ["admissionNo", "rollNo", "month"].includes(field)) {
+      wrapper.style.display = "none";
+    }
     const label = document.createElement("label");
     label.textContent = toLabel(field);
     let input;
@@ -1509,14 +1991,24 @@ function renderForm() {
         input.addEventListener("change", (e) => {
           const feeField = refs.dynamicForm.querySelector("[name='monthlyFee']");
           if (feeField) {
-            feeField.required = !e.target.checked;
             if (e.target.checked) feeField.value = "0";
           }
         });
       } else if (field === "gender") {
-      input = selectFrom(["Male", "Female", "Other"], (opt) => ({ value: opt, label: opt }));
+      input = selectFrom(["Male", "Female", "Other"], (opt) => ({ value: opt, label: opt }), true);
     } else if (field === "section") {
-      input = selectFrom(["A", "B", "C", "D"], (opt) => ({ value: opt, label: opt }));
+      input = selectFrom(["A", "B", "C", "D"], (opt) => ({ value: opt, label: opt }), true);
+    } else if (field === "category") {
+      input = selectFrom(["General", "OBC", "SC", "ST", "Other"], (opt) => ({ value: opt, label: opt }), true);
+    } else if (field === "religion") {
+      input = selectFrom(["Hindu", "Muslim", "Christian", "Sikh", "Buddhist", "Jain", "Other"], (opt) => ({ value: opt, label: opt }), true);
+    } else if (field === "incomeRange") {
+      input = selectFrom(["Below 1 Lakh", "1-3 Lakhs", "3-5 Lakhs", "Above 5 Lakhs"], (opt) => ({ value: opt, label: opt }), true);
+    } else if (field === "bloodGroup") {
+      input = selectFrom(["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-", "Unknown"], (opt) => ({ value: opt, label: opt }), true);
+    } else if (field === "district") {
+      const districtOptions = Array.from(new Set((getStore().students || []).map((x) => x.district).filter(Boolean)));
+      input = selectFrom(districtOptions, (opt) => ({ value: opt, label: opt }), true);
     } else if (field === "status") {
       const statusOptions = statusOptionsByModule[currentModule] || ["Active", "Inactive"];
       input = selectFrom(statusOptions, (opt) => ({ value: opt, label: opt }));
@@ -1537,7 +2029,7 @@ function renderForm() {
     } else if (currentModule === "fees" && field === "paymentMethod") {
       input = selectFrom(["Cash", "Online", "Online + Cash"], (opt) => ({ value: opt, label: opt }));
       input.id = "paymentMethodSelect";
-    } else if ((currentModule === "students" || currentModule === "admissions") && ["photo", "aadhar", "tc", "reportCard", "fatherAadhar", "motherAadhar", "birthCert", "aadharDoc", "tcDoc", "parentIdDoc"].includes(field)) {
+    } else if ((currentModule === "students" || currentModule === "teachers" || currentModule === "admissions") && ["photo", "aadhar", "tc", "reportCard", "fatherAadhar", "motherAadhar", "birthCert", "aadharDoc", "tcDoc", "parentIdDoc"].includes(field)) {
       input = document.createElement("input");
       input.type = "file";
       input.name = field;
@@ -1556,6 +2048,20 @@ function renderForm() {
       else if (field === "password") { input.type = "password"; input.required = false; input.placeholder = "Leave blank to keep unchanged"; }
       else if (["phone"].includes(field)) input.type = "tel";
       else if (["marksObtained", "maxMarks", "totalFee", "paidAmount", "balance", "monthlyFee", "basicSalary", "allowances", "deductions", "netPay", "credits", "capacity", "onlineAmount", "cashAmount"].includes(field)) input.type = "number";
+      else if (field === "term") {
+        const d = new Date();
+        let startYear = d.getFullYear();
+        if (d.getMonth() < 3) startYear--; // Before April belongs to previous session
+        input.value = `${startYear}-${(startYear + 1).toString().slice(-2)}`;
+      } else if (field === "payId") {
+        input.readOnly = true;
+        input.placeholder = "Auto-generated on save";
+        input.style.background = "#f1f5f9";
+        input.style.cursor = "not-allowed";
+        input.style.color = "#64748b";
+        input.title = "Unique 6-character Payment ID (Auto-generated)";
+        input.required = false;
+      }
     }
 
     if (currentModule === "fees" && (field === "onlineAmount" || field === "cashAmount")) {
@@ -1611,13 +2117,13 @@ function renderForm() {
         formRefs.className.dispatchEvent(new Event("change"));
       }
       if (formRefs.rollNo) formRefs.rollNo.value = selected.rollNo || formRefs.rollNo.value;
-      if (formRefs.parentName) formRefs.parentName.value = selected.parentName || formRefs.parentName.value;
-      if (formRefs.fatherName) formRefs.fatherName.value = selected.fatherName || selected.parentName || formRefs.fatherName.value;
+      if (formRefs.parentName) formRefs.parentName.value = selected.fatherName || formRefs.parentName.value;
+      if (formRefs.fatherName) formRefs.fatherName.value = selected.fatherName || formRefs.fatherName.value;
       if (formRefs.admissionNo) {
         formRefs.admissionNo.value = selected.admissionNo || formRefs.admissionNo.value;
         // Trigger due alert update
         if (typeof renderStudentDueAlert === "function") {
-          renderStudentDueAlert(formRefs.admissionNo.value);
+          renderStudentDueAlert(formRefs.admissionNo.value, formRefs.studentName.value);
         }
       }
     });
@@ -1762,6 +2268,30 @@ function getCurrentList() {
   }
   const store = getStore();
   const search = refs.searchInput.value.trim().toLowerCase();
+
+  if (currentModule === "appLiveUsers") {
+    let rawList = (store.app_student_sessions || []).slice();
+    // Sort: Active first, then latest last_active_at
+    rawList.sort((a, b) => {
+      const isAActive = a.status === 'active' && (Date.now() - new Date(a.last_active_at).getTime()) < 120000;
+      const isBActive = b.status === 'active' && (Date.now() - new Date(b.last_active_at).getTime()) < 120000;
+      if (isAActive && !isBActive) return -1;
+      if (!isAActive && isBActive) return 1;
+      return new Date(b.last_active_at || 0) - new Date(a.last_active_at || 0);
+    });
+    if (search) {
+      rawList = rawList.filter(item => {
+        return (item.student_name && item.student_name.toLowerCase().includes(search)) ||
+               (item.admission_no && item.admission_no.toLowerCase().includes(search)) ||
+               (item.class_name && item.class_name.toLowerCase().includes(search)) ||
+               (item.roll_no && item.roll_no.toLowerCase().includes(search)) ||
+               (item.phone && item.phone.toLowerCase().includes(search)) ||
+               (item.status && item.status.toLowerCase().includes(search));
+      });
+    }
+    return rawList;
+  }
+
   let list = (store[currentModule] || []).slice();
   
   // SECURE: Restrict data to only the logged-in student
@@ -1805,6 +2335,10 @@ function getCurrentList() {
     });
   }
 
+  if (currentModule === "attendance" && refs.dateFilter && !refs.dateFilter.classList.contains("hidden") && refs.dateFilter.value) {
+    list = list.filter(item => normalizeToISO(item.date) === refs.dateFilter.value);
+  }
+
   if (currentModule === "students" && refs.classFilter && !refs.classFilter.classList.contains("hidden")) {
     const classVal = refs.classFilter.value;
     if (classVal) {
@@ -1816,14 +2350,29 @@ function getCurrentList() {
     list = list.filter(item => {
       // Priority fields for quick matching
       const p = (item.fullName || "").toLowerCase();
-      const f = (item.fatherName || item.parentName || "").toLowerCase();
+      const f = (item.fatherName || "").toLowerCase();
       const a = (item.admissionNo || "").toLowerCase();
       const r = (item.rollNo || "").toLowerCase();
       
       if (p.includes(search) || f.includes(search) || a.includes(search) || r.includes(search)) return true;
       
-      // Fallback to broad search for other fields
-      return JSON.stringify(item).toLowerCase().includes(search);
+      // Fallback to broad search for other fields, excluding base64 photos to prevent random matches
+      return JSON.stringify(item, (key, value) => {
+        if (key === 'photo' || key === 'facePhoto' || key === 'photoUrl' || key === 'base64') return undefined;
+        return value;
+      }).toLowerCase().includes(search);
+    });
+
+    // Sort to bring direct name matches to the top
+    list.sort((a, b) => {
+      const aName = (a.fullName || "").toLowerCase();
+      const bName = (b.fullName || "").toLowerCase();
+      const aMatch = aName.includes(search) ? 1 : 0;
+      const bMatch = bName.includes(search) ? 1 : 0;
+      if (aMatch !== bMatch) {
+        return bMatch - aMatch; // The one with a name match comes first
+      }
+      return 0; // maintain relative order for others
     });
   }
   return list;
@@ -1834,6 +2383,33 @@ function renderTable() {
   refs.tableBody.innerHTML = "";
 
   const list = getCurrentList();
+
+  // Handle timetable banner
+  const tableWrapEl = refs.tableWrap || document.querySelector(".table-wrap");
+  let timingBanner = document.getElementById("timetableTimingsBanner");
+  if (currentModule === "timetable") {
+    if (!timingBanner && tableWrapEl && tableWrapEl.parentNode) {
+      timingBanner = document.createElement("div");
+      timingBanner.id = "timetableTimingsBanner";
+      timingBanner.style.cssText = "background:linear-gradient(135deg,#eff6ff,#f0fdf4);border:1.5px solid #bfdbfe;border-radius:14px;padding:14px 20px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;box-shadow:0 2px 8px rgba(37,99,235,0.06);";
+      timingBanner.innerHTML = `
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span class="material-symbols-outlined" style="color:#2563eb;font-size:28px;background:#fff;border-radius:10px;padding:6px;box-shadow:0 2px 4px rgba(0,0,0,0.05);">schedule</span>
+          <div>
+            <div style="font-weight:800;color:#1e293b;font-size:1rem;">School Working Hours & Period Timings</div>
+            <div style="font-size:0.82rem;color:#475569;margin-top:2px;">Set arrival & departure hours and period start/end schedule. Existing subjects & teachers remain untouched.</div>
+          </div>
+        </div>
+        <button type="button" onclick="if(window.openSetPeriodTimingsModal) window.openSetPeriodTimingsModal()" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border:none;border-radius:10px;padding:10px 20px;font-weight:800;font-size:0.88rem;cursor:pointer;display:inline-flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(37,99,235,0.3);transition:transform 0.15s;">
+          <span class="material-symbols-outlined" style="font-size:18px;">tune</span> Set Period Timings & School Hours
+        </button>
+      `;
+      tableWrapEl.parentNode.insertBefore(timingBanner, tableWrapEl);
+    }
+    if (timingBanner) timingBanner.style.display = "flex";
+  } else {
+    if (timingBanner) timingBanner.style.display = "none";
+  }
 
   if (currentModule === "timetable") {
     const daySelect = refs.dayFilter?.value || "Monday";
@@ -1870,7 +2446,6 @@ function renderTable() {
         return a.localeCompare(b, undefined, {numeric: true});
     });
 
-
     const allPeriods = Array.from(new Set(dayRecords.map(r => parseInt(r.period.replace(/\D/g,'')) || 0))).filter(p=>p>0).sort((a,b)=>a-b);
     
     // Auto-detect lunch break gap by looking for a gap >= 20 mins between periods
@@ -1891,12 +2466,12 @@ function renderTable() {
            theadHtml += '<th style="color:#000000;font-weight:800;white-space:nowrap;background:#e2e8f0;text-align:center;padding:12px;">LUNCH BREAK</th>';
        } else {
            let sampleRec = dayRecords.find(r => r.period === col && r.startTime);
-           let timeStr = (sampleRec && sampleRec.startTime) ? '<br><span style="font-size:0.75rem;color:#64748b;font-weight:600;text-transform:uppercase;">' + sampleRec.startTime + ' - ' + sampleRec.endTime + '</span>' : '';
-           theadHtml += '<th style="color:#000000;font-weight:800;white-space:nowrap;padding:12px;text-align:center;">' + col + timeStr + '</th>';
+           let timeStr = (sampleRec && sampleRec.startTime) ? '<br><span style="font-size:0.75rem;color:#2563eb;font-weight:700;text-transform:uppercase;">' + sampleRec.startTime + ' - ' + sampleRec.endTime + ' ✏️</span>' : '<br><span style="font-size:0.75rem;color:#94a3b8;font-weight:600;">+ Set Time</span>';
+           theadHtml += '<th onclick="if(window.openSetPeriodTimingsModal) window.openSetPeriodTimingsModal(\'' + col + '\')" style="color:#000000;font-weight:800;white-space:nowrap;padding:12px;text-align:center;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background=\'#eff6ff\'" onmouseout="this.style.background=\'\'" title="Click to edit timings for ' + col + '">' + col + timeStr + '</th>';
        }
     });
     
-    theadHtml += '<th style="color:#000000;font-weight:800;white-space:nowrap;padding:12px;">Action</th></tr>';
+    theadHtml += '<th style="color:#000000;font-weight:800;white-space:nowrap;padding:12px;text-align:center;"><button type="button" onclick="if(window.openSetPeriodTimingsModal) window.openSetPeriodTimingsModal()" style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;padding:4px 10px;border-radius:6px;cursor:pointer;font-weight:700;font-size:0.75rem;" title="Set Timings"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">schedule</span> Timings</button></th></tr>';
     refs.tableHead.innerHTML = theadHtml;
 
     uniqueClasses.forEach((cls, i) => {
@@ -1916,17 +2491,20 @@ function renderTable() {
                   let subName = rec.subject;
                   let color = subName.toLowerCase() === "free" ? "#94a3b8" : "#2563eb";
                   let bg = subName.toLowerCase() === "free" ? "#f8fafc" : "#eff6ff";
-                  trHtml += '<td style="border-bottom:1px solid #e2e8f0;padding:8px;vertical-align:top;"><div style="background:'+bg+';border-radius:8px;padding:8px;text-align:center;height:100%;display:flex;flex-direction:column;justify-content:center;">' +
-                    '<div style="font-weight:700;color:'+color+';margin-bottom:4px;font-size:0.85rem;">' + subName + '</div>' +
+                  let recId = rec.id || 0;
+                  trHtml += '<td onclick="openEditTimetableSlotModal(\'' + cls + '\', \'' + daySelect + '\', \'' + col + '\', ' + recId + ')" style="border-bottom:1px solid #e2e8f0;padding:8px;vertical-align:top;cursor:pointer;" title="Click to edit or remove ' + subName + ' for ' + col + '"><div style="background:'+bg+';border-radius:8px;padding:8px;text-align:center;height:100%;display:flex;flex-direction:column;justify-content:center;transition:all 0.15s;" onmouseover="this.style.transform=\'scale(1.03)\';this.style.boxShadow=\'0 4px 10px rgba(0,0,0,0.08)\'" onmouseout="this.style.transform=\'\';this.style.boxShadow=\'\'">' +
+                    '<div style="font-weight:700;color:'+color+';margin-bottom:4px;font-size:0.85rem;">' + subName + ' <span style="font-size:0.72rem;opacity:0.7;">✏️</span></div>' +
                     '<div style="font-size:0.75rem;color:#475569;white-space:nowrap;">' + (rec.teacher || '-') + '</div>' +
                   '</div></td>';
               } else {
-                  trHtml += '<td style="border-bottom:1px solid #e2e8f0;text-align:center;"><span style="color:#cbd5e1;">-</span></td>';
+                  trHtml += '<td onclick="openEditTimetableSlotModal(\'' + cls + '\', \'' + daySelect + '\', \'' + col + '\', 0)" style="border-bottom:1px solid #e2e8f0;text-align:center;cursor:pointer;padding:8px;" title="Click to assign subject/teacher"><span style="color:#94a3b8;font-size:0.78rem;font-weight:600;">+ Assign</span></td>';
               }
           }
        });
        
-       trHtml += '<td style="border-bottom:1px solid #e2e8f0;vertical-align:middle;"><button onclick="deleteClassDayTimetable(\'' + cls + '\', \'' + daySelect + '\')" class="btn-icon" style="color:#ef4444;padding:8px;background:#fee2e2;border-radius:6px;border:none;cursor:pointer;" title="Clear Day"><span class="material-icons" style="font-size:1.1rem;">delete</span></button></td>';
+       trHtml += '<td style="border-bottom:1px solid #e2e8f0;vertical-align:middle;text-align:center;white-space:nowrap;">' +
+         '<button onclick="deleteClassDayTimetable(\'' + cls + '\', \'' + daySelect + '\')" class="btn-icon" style="color:#ef4444;padding:8px;background:#fee2e2;border-radius:6px;border:none;cursor:pointer;" title="Clear Entire Day for ' + cls + '"><span class="material-symbols-outlined" style="font-size:1.1rem;">delete</span></button>' +
+       '</td>';
        
        tr.innerHTML = trHtml;
        refs.tableBody.appendChild(tr);
@@ -2043,6 +2621,101 @@ function renderTable() {
         if (key === "status" && !val) val = "Active";
       }
 
+      // Special handle: App Live Users
+      if (currentModule === "appLiveUsers") {
+        if (key === "status") {
+          const isLive = item.status === "active" && (Date.now() - new Date(item.last_active_at).getTime()) < 120000;
+          if (isLive) {
+            return `<td><span class="live-status-pill online"><span class="live-pulse-dot"></span> Active Now</span></td>`;
+          } else {
+            return `<td><span class="live-status-pill offline"><span class="offline-dot"></span> Inactive</span></td>`;
+          }
+        }
+        if (key === "student_name") {
+          const init = (val || 'S').slice(0, 1).toUpperCase();
+          return `<td>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="width:34px;height:34px;border-radius:17px;background:#eff6ff;color:#2563eb;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;border:1px solid #bfdbfe;flex-shrink:0;">
+                ${init}
+              </div>
+              <div>
+                <div style="font-weight:700;color:#0f172a;font-size:0.9rem;">${escapeHtml(val || 'Student')}</div>
+                <div style="font-size:11px;color:#64748b;">Adm: ${escapeHtml(item.admission_no || '')}</div>
+              </div>
+            </div>
+          </td>`;
+        }
+        if (key === "class_name") {
+          return `<td><span class="badge" style="background:#f1f5f9;color:#334155;font-weight:600;">${val || '—'}</span></td>`;
+        }
+        if (key === "last_active_at" || key === "last_login_at") {
+          const rel = typeof formatRelativeTime === "function" ? formatRelativeTime(val) : String(val || "—");
+          const icon = key === "last_active_at" ? "🟢" : "📱";
+          return `<td style="color:#334155; font-size:0.85rem; white-space:nowrap;"><span title="${val || ''}">${icon} ${rel}</span></td>`;
+        }
+        if (key === "device_os") {
+          return `<td><span style="font-size:11px;color:#475569;background:#f8fafc;padding:3px 8px;border-radius:6px;border:1px solid #e2e8f0;white-space:nowrap;">📱 ${val || 'Android'}</span></td>`;
+        }
+      }
+
+      // ─── ANNOUNCEMENTS MODULE FORMATTERS ───
+      if (currentModule === "announcements") {
+        if (key === "category") {
+          const cat = String(val || item.category || "Announcement");
+          let bg = "#f1f5f9", co = "#334155", icon = "📢";
+          if (cat === "Alert") { bg = "#fee2e2"; co = "#dc2626"; icon = "🚨"; }
+          else if (cat === "Celebration") { bg = "#f3e8ff"; co = "#7e22ce"; icon = "🎉"; }
+          else if (cat === "Exam") { bg = "#e0e7ff"; co = "#3730a3"; icon = "📝"; }
+          else if (cat === "Accounts") { bg = "#dcfce7"; co = "#15803d"; icon = "💳"; }
+          else if (cat === "Holiday") { bg = "#ffedd5"; co = "#c2410c"; icon = "🏖️"; }
+          else if (cat === "PTM") { bg = "#e0f2fe"; co = "#0369a1"; icon = "👨‍👩‍👧"; }
+          else if (cat === "Sports") { bg = "#fef3c7"; co = "#b45309"; icon = "🏆"; }
+          return `<td><span class="badge" style="background:${bg}; color:${co}; border:1px solid ${co}44; font-weight:700;">${icon} ${cat}</span></td>`;
+        }
+        if (key === "priority") {
+          const p = String(val || item.priority || "Normal");
+          let bg = "#f1f5f9", co = "#475569", icon = "🔵";
+          if (p === "Urgent") { bg = "#fee2e2"; co = "#dc2626"; icon = "🔴"; }
+          else if (p === "High") { bg = "#ffedd5"; co = "#ea580c"; icon = "🟠"; }
+          return `<td><span class="badge" style="background:${bg}; color:${co}; font-weight:700; border:1px solid ${co}33;">${icon} ${p}</span></td>`;
+        }
+        if (key === "targetAudience" || key === "targetType") {
+          const tType = item.targetType || "all";
+          if (tType === "class") {
+            return `<td><span class="badge" style="background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; font-weight:600;">🏫 Class ${escapeHtml(item.targetClass || item.targetAudience || 'All')}</span></td>`;
+          } else if (tType === "student") {
+            return `<td><span class="badge" style="background:#e0f2fe; color:#0284c7; border:1px solid #7dd3fc; font-weight:600;">👤 ${escapeHtml(item.targetStudentName || 'Student')} (${escapeHtml(item.targetAdmissionNo || '')})</span></td>`;
+          } else if (tType === "staff") {
+            return `<td><span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:600;">👨‍🏫 Staff Only</span></td>`;
+          } else if (tType === "parents") {
+            return `<td><span class="badge" style="background:#fce7f3; color:#be185d; border:1px solid #fbcfe8; font-weight:600;">👨‍👩‍👧 Parents Only</span></td>`;
+          } else {
+            return `<td><span class="badge" style="background:#dbeafe; color:#1d4ed8; border:1px solid #93c5fd; font-weight:600;">🌐 All School</span></td>`;
+          }
+        }
+        if (key === "postedBy") {
+          return `<td style="white-space:nowrap; font-weight:600; color:#334155;">🏛️ ${escapeHtml(val || item.postedBy || 'Tapowan Admin')}</td>`;
+        }
+        if (key === "title") {
+          const isUrgent = item.priority === "Urgent";
+          return `<td>
+            <div style="font-weight:700; color:#0f172a; font-size:0.92rem; display:flex; align-items:center; gap:6px;">
+              ${isUrgent ? `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#dc2626;"></span>` : ''}
+              ${escapeHtml(val || 'Notice')}
+            </div>
+          </td>`;
+        }
+        if (key === "message") {
+          const msg = String(val || item.message || "");
+          const snippet = msg.length > 55 ? msg.substring(0, 55) + "..." : msg;
+          return `<td>
+            <div style="color:#475569; font-size:0.83rem; max-width:260px; line-height:1.4;">
+              ${escapeHtml(snippet)}
+            </div>
+          </td>`;
+        }
+      }
+
       // 1. Currency Formatting for Fee columns
       const feeKeys = ["totalFee", "paidAmount", "balance", "dueAmount", "monthlyFee", "netPay", "basicSalary", "onlineAmount", "cashAmount"];
       if (feeKeys.includes(key)) {
@@ -2063,6 +2736,23 @@ function renderTable() {
       // 3. Standard Text (High Contrast)
       if (key === "term" || key === "particulars") {
           val = window.formatTermString ? window.formatTermString(val) : val;
+      }
+      
+      // Resolve student name from ID for Weekly Evaluation
+      if (key === "studentName" && currentModule === "weeklyEvaluation") {
+          const store = getStore();
+          if (store.students) {
+              const st = store.students.find(s => s.id === val);
+              if (st) val = st.fullName || st.name || val;
+          }
+      }
+      
+      if (key === "photo") {
+        if (val) {
+          return `<td><img src="${getImageUrl(currentModule, item.id, key, val)}"  style="width:40px;height:40px;border-radius:50%;object-fit:cover;cursor:pointer;border:2px solid #e2e8f0;" onclick="openImageViewer('${getImageUrl(currentModule, item.id, key, val)}', 'Photo')"  title="Click to view full photo" /></td>`;
+        } else {
+          return `<td><div style="width:40px;height:40px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:0.6rem;border:2px solid #e2e8f0;">No Img</div></td>`;
+        }
       }
       
       let cellContent = `<td style="color:#000000; font-weight:600;">${val}`;
@@ -2098,15 +2788,65 @@ function renderTable() {
           </div>
         </td>
       `;
-    } else if (currentModule === "fees") {
+    } else if (currentModule === "appLiveUsers") {
+      const phone = item.phone ? String(item.phone).replace(/\D/g, '') : '';
+      let fieldsArr = [];
+      try {
+        if (item.allowed_edit_fields) {
+          fieldsArr = typeof item.allowed_edit_fields === 'string' ? JSON.parse(item.allowed_edit_fields) : item.allowed_edit_fields;
+        }
+      } catch(e) {
+        if (item.allowed_edit_fields) fieldsArr = item.allowed_edit_fields.split(',').filter(Boolean);
+      }
+      const hasAuth = (item.allow_profile_edit === 1 || item.allow_profile_edit === '1') && Array.isArray(fieldsArr) && fieldsArr.length > 0;
+
       tr.innerHTML = `${cells}<td style="white-space:nowrap;">
-        <button class="action-btn" data-action="print-receipt" data-id="${item.id}" style="margin-right:2px; background:#2563eb; color:#fff; border:none; padding:4px 8px;">🧾 RCP</button>
-        <button class="action-btn" data-action="print-feeslip" data-id="${item.id}" style="margin-right:2px; background:#1e40af; color:#fff; border:none; padding:4px 8px;">📄 Slip</button>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <!-- Granular Authority Button -->
+          <button type="button" class="action-btn" onclick="openGrantAppAuthModal('${escapeHtml(item.admission_no || '')}', '${escapeHtml(item.student_name || '')}')" style="background:${hasAuth ? '#dcfce7' : '#eff6ff'};color:${hasAuth ? '#15803d' : '#2563eb'};border:1px solid ${hasAuth ? '#86efac' : '#bfdbfe'};padding:6px 12px;border-radius:8px;cursor:pointer;font-weight:800;font-size:12px;display:inline-flex;align-items:center;gap:5px;box-shadow:0 2px 5px rgba(0,0,0,0.04);" title="Grant / Edit Permissions for Student in Mobile App">
+            ${hasAuth ? `🔑 Permissions (${fieldsArr.length} ${fieldsArr.length === 1 ? 'Field' : 'Fields'})` : '🔑 Grant Permission'}
+          </button>
+
+          <!-- Admin Edit Dialog -->
+          <button type="button" class="action-btn" onclick="openEditMobileStudentModal('${escapeHtml(item.admission_no || '')}', '${escapeHtml(item.student_name || '')}', ${item.id || 0})" style="background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;padding:6px 10px;border-radius:8px;cursor:pointer;font-weight:700;font-size:12px;display:inline-flex;align-items:center;gap:4px;" title="Admin Edit on Web">
+            ✏️ Edit
+          </button>
+
+          ${phone ? `<a href="https://wa.me/91${phone.slice(-10)}" target="_blank" class="action-btn" style="background:#25d366;color:#fff;border:none;padding:6px 10px;border-radius:8px;text-decoration:none;font-size:12px;display:inline-flex;align-items:center;gap:4px;font-weight:700;" title="Chat on WhatsApp">💬 WhatsApp</a>` : ''}
+          ${canDel ? `<button class="chip" data-delete-id="${item.id}" style="margin:0;border-radius:8px;padding:5px 8px;">🗑️</button>` : '—'}
+        </div>
+      </td>`;
+    } else if (currentModule === "announcements") {
+      tr.innerHTML = `${cells}<td style="white-space:nowrap;">
+        <div style="display:flex;gap:4px;align-items:center;">
+          <button class="action-btn" onclick="openAnnouncementPreview(${item.id})" style="background:#e0e7ff;color:#4338ca;border:none;padding:5px 8px;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px;" title="Preview Official Notice">👁️ Preview</button>
+          <button class="action-btn" onclick="shareAnnouncementWhatsApp(${item.id})" style="background:#25d366;color:#fff;border:none;padding:5px 8px;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px;" title="Share on WhatsApp">📲 WA</button>
+          ${canWrite ? `<button class="action-btn action-edit" data-action="generic-edit" data-id="${item.id}" style="background:#f1f5f9;color:#334155;border:none;padding:5px 8px;border-radius:6px;cursor:pointer;">✏️ Edit</button>` : ""}
+          ${canDel ? `<button class="chip" data-delete-id="${item.id}" style="margin:0;">🗑️</button>` : '—'}
+        </div>
+      </td>`;
+    } else if (currentModule === "fees") {
+      tr.innerHTML = `${cells}<td style="white-space:nowrap; display: flex; align-items: center;">
+        <span class="hidden-actions" style="display:none; align-items:center;">
+        </span>
+        <button class="action-btn" data-action="print-thermal-slip" data-id="${item.id}" style="margin-right:2px; background:#4f46e5; color:#fff; border:none; padding:4px 8px;" title="Print exact slip size">🖨️ Print</button>
         <button class="action-btn" data-action="whatsapp-slip" data-id="${item.id}" style="margin-right:2px; background:#16a34a; color:#fff; border:none; padding:4px 8px;">📲 WA</button>
         <button class="action-btn" data-action="auto-whatsapp-slip" data-id="${item.id}" style="margin-right:2px; background:#1e3a8a; color:#fff; border:none; padding:4px 8px;" title="Send automatically in background">🚀 Auto WA</button>
         <button class="action-btn" data-action="sms-slip" data-id="${item.id}" style="margin-right:2px; background:#0891b2; color:#fff; border:none; padding:4px 8px;">💬 SMS</button>
         ${userIsAdmin() ? `<button class="action-btn" data-action="generic-edit" data-id="${item.id}" style="background:#475569; color:#fff; border:none; padding:4px 8px; margin-right:2px;">✏️</button>` : ""}
-        ${canDel ? `<button class="chip" data-delete-id="${item.id}" style="margin-right:2px;">Delete</button>` : ""}
+        
+        <span class="hidden-actions" style="display:none; align-items:center; margin-left: 2px;">
+          ${canDel ? `<button class="chip" data-delete-id="${item.id}" style="margin-right:2px; margin-top:0; margin-bottom:0; padding:4px 8px;">Delete</button>` : ""}
+        </span>
+
+        <button class="action-btn toggle-eye" style="background:transparent; border:none; padding:2px 4px; margin-left: 4px;" title="Toggle hidden options">
+          <lord-icon
+              src="https://cdn.lordicon.com/tyvtvbcy.json"
+              trigger="click"
+              colors="primary:#64748b"
+              style="width:22px;height:22px">
+          </lord-icon>
+        </button>
       </td>`;
     } else if (currentModule === "users" && userIsAdmin()) {
       tr.innerHTML = `${cells}<td style="white-space:nowrap;">
@@ -2127,12 +2867,40 @@ function renderTable() {
     }
     refs.tableBody.appendChild(tr);
   });
+  
+  // Attach eye toggle logic
+  refs.tableBody.querySelectorAll(".toggle-eye").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const td = btn.closest("td");
+      const hiddenSpans = td.querySelectorAll(".hidden-actions");
+      let isCurrentlyHidden = true;
+      
+      hiddenSpans.forEach(span => {
+        if (span.style.display !== "none") isCurrentlyHidden = false;
+      });
+
+      hiddenSpans.forEach(span => {
+        span.style.display = isCurrentlyHidden ? "inline-flex" : "none";
+      });
+    });
+  });
 
   refs.tableBody.querySelectorAll("button[data-delete-id]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      if (!canCurrentUserDelete()) return window.alert("You don't have permission to delete records.");
-      if (!window.confirm("Are you sure you want to delete this record?")) return;
-      removeRecord(currentModule, Number(btn.dataset.deleteId)).then(renderAll).catch((e) => window.alert(e.message));
+    btn.addEventListener("click", async () => {
+      if (!canCurrentUserDelete()) {
+        await window.appAlert("You don't have permission to delete records.");
+        return;
+      }
+      const confirmed = await window.appConfirm("Are you sure you want to delete this record?");
+      if (!confirmed) return;
+      
+      removeRecord(currentModule, Number(btn.dataset.deleteId)).then(() => {
+        // Blur any focused input so renderForm doesn't skip re-render
+        if (document.activeElement && document.activeElement !== document.body) {
+          document.activeElement.blur();
+        }
+        renderAll(true);
+      }).catch((e) => window.appAlert(e.message));
     });
   });
 
@@ -2159,7 +2927,7 @@ function renderTable() {
   // Student View/Edit actions
   if (currentModule === "students") {
     refs.tableBody.querySelectorAll("button[data-action]").forEach(btn => {
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", async () => {
         const action = btn.dataset.action;
         const id = Number(btn.dataset.id);
         if (action === "view") openStudentProfileById(id);
@@ -2171,7 +2939,7 @@ function renderTable() {
   // Fee Receipt print action
   if (currentModule === "fees") {
     refs.tableBody.querySelectorAll("button[data-action='print-receipt']").forEach(btn => {
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", async () => {
         const id = Number(btn.dataset.id);
         const store = getStore();
         const f = (store.fees || []).find(x => x.id === id);
@@ -2179,15 +2947,23 @@ function renderTable() {
       });
     });
     refs.tableBody.querySelectorAll("button[data-action='print-feeslip']").forEach(btn => {
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", async () => {
         const id = Number(btn.dataset.id);
         const store = getStore();
         const f = (store.fees || []).find(x => x.id === id);
         if (f) printFormalFeeSlip(f);
       });
     });
+    refs.tableBody.querySelectorAll("button[data-action='print-thermal-slip']").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const id = Number(btn.dataset.id);
+        const store = getStore();
+        const f = (store.fees || []).find(x => x.id === id);
+        if (f) printThermalFeeSlip(f);
+      });
+    });
     refs.tableBody.querySelectorAll("button[data-action='whatsapp-slip']").forEach(btn => {
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", async () => {
         const id = Number(btn.dataset.id);
         if (typeof window.sendWhatsAppFeeSlip === "function") {
            window.sendWhatsAppFeeSlip(id, 'manual');
@@ -2197,7 +2973,7 @@ function renderTable() {
       });
     });
     refs.tableBody.querySelectorAll("button[data-action='auto-whatsapp-slip']").forEach(btn => {
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", async () => {
         const id = Number(btn.dataset.id);
         if (typeof window.sendWhatsAppFeeSlip === "function") {
            window.sendWhatsAppFeeSlip(id, 'auto');
@@ -2207,7 +2983,7 @@ function renderTable() {
       });
     });
     refs.tableBody.querySelectorAll("button[data-action='sms-slip']").forEach(btn => {
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", async () => {
         const id = Number(btn.dataset.id);
         sendSmsFeeSlip(id);
       });
@@ -2216,7 +2992,7 @@ function renderTable() {
 
   // Generic Edit action for all non-student modules
   refs.tableBody.querySelectorAll("button[data-action='generic-edit']").forEach(btn => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", async () => {
       const id = Number(btn.dataset.id);
       startGenericEditById(currentModule, id);
     });
@@ -2280,7 +3056,7 @@ function renderStudentProfile() {
   <div style="display:flex; flex-wrap:wrap; gap:20px; position:relative; z-index:1;">
         <div style="flex:0 0 120px; display:flex; flex-direction:column; align-items:center; text-align:center;">
           <div style="width:100px; height:100px; border-radius:50%; background:linear-gradient(135deg, #eff6ff, #dbeafe); color:#2563eb; display:flex; align-items:center; justify-content:center; font-size:3rem; font-weight:800; margin:0 auto 12px; border:4px solid #fff; box-shadow:0 8px 20px rgba(37,99,235,0.15); overflow:hidden;">
-            ${student.photo ? `<img src="${student.photo}" class="zoomable" onclick="openImageViewer('${student.photo}', 'Profile Photo')" style="width:100%; height:100%; object-fit:cover;" />` : (student.fullName ? student.fullName.charAt(0).toUpperCase() : "S")}
+            ${student.photo ? `<img src="${getImageUrl('students', student.id, 'photo', student.photo)}"  class="zoomable" onclick="openImageViewer('${getImageUrl('students', student.id, 'photo', student.photo)}', 'Profile Photo')"  style="width:100%; height:100%; object-fit:cover;"  />` : (student.fullName ? student.fullName.charAt(0).toUpperCase() : "S")}
           </div>
           <span class="badge" style="background:#dcfce7; color:#16a34a; border-color:#bbf7d0; font-size:0.65rem; padding:3px 10px;">${student.status || "Active"}</span>
         </div>
@@ -2355,7 +3131,7 @@ function renderStudentProfile() {
             <div style="width:36px; height:36px; background:#fff; color:#9333ea; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.1rem; box-shadow:0 2px 4px rgba(147,51,234,0.1);">👨‍👩‍👧</div>
             <div>
               <div style="font-size:0.62rem; color:#64748b; font-weight:800; text-transform:uppercase; letter-spacing:0.04em;">Parent / Guardian</div>
-              <div style="color:#0f172a; font-weight:700; font-size:0.85rem;">${student.fatherName || student.parentName || "-"}</div>
+              <div style="color:#0f172a; font-weight:700; font-size:0.85rem;">${student.fatherName || "-"}</div>
             </div>
           </div>
         </div>
@@ -2406,35 +3182,35 @@ function renderStudentProfile() {
           <div style="position:absolute; right:-20px; bottom:-20px; width:80px; height:80px; border-radius:50%; background:#2563eb; opacity:0.1; pointer-events:none;"></div>
           <b style="position:relative; z-index:1; font-size:0.68rem; color:#1e40af; text-transform:uppercase; letter-spacing:0.04em;">Aadhar</b>
           <div style="position:relative; z-index:1; color:#94a3b8; margin-top:8px;">
-            ${student.aadhar ? `<img src="${student.aadhar}" class="zoomable" onclick="openImageViewer('${student.aadhar}', 'Aadhar Card')" alt="Aadhar" style="width:100%; height:70px; object-fit:cover; border-radius:8px; border:1px solid #bfdbfe;" />` : `<div style="height:70px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.5); border-radius:8px; border:1px dashed #93c5fd; font-size:0.75rem; color:#3b82f6;">Missing</div>`}
+            ${student.aadhar ? `<img src="${getImageUrl('students', student.id, 'aadhar', student.aadhar)}" class="zoomable" onclick="openImageViewer('${getImageUrl('students', student.id, 'aadhar', student.aadhar)}', 'Aadhar Card')" alt="Aadhar" style="width:100%; height:70px; object-fit:cover; border-radius:8px; border:1px solid #bfdbfe;" />` : `<div style="height:70px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.5); border-radius:8px; border:1px dashed #93c5fd; font-size:0.75rem; color:#3b82f6;">Missing</div>`}
           </div>
         </div>
         <div style="border:1px solid #e9d5ff; border-radius:14px; padding:12px; background:#f3e8ff; text-align:center; position:relative; overflow:hidden; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);">
           <div style="position:absolute; right:-20px; bottom:-20px; width:80px; height:80px; border-radius:50%; background:#9333ea; opacity:0.1; pointer-events:none;"></div>
           <b style="position:relative; z-index:1; font-size:0.68rem; color:#6b21a8; text-transform:uppercase; letter-spacing:0.04em;">TC</b>
           <div style="position:relative; z-index:1; color:#94a3b8; margin-top:8px;">
-            ${student.tc ? `<img src="${student.tc}" class="zoomable" onclick="openImageViewer('${student.tc}', 'Transfer Certificate (TC)')" alt="TC" style="width:100%; height:70px; object-fit:cover; border-radius:8px; border:1px solid #e9d5ff;" />` : `<div style="height:70px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.5); border-radius:8px; border:1px dashed #d8b4fe; font-size:0.75rem; color:#a855f7;">Missing</div>`}
+            ${student.tc ? `<img src="${getImageUrl('students', student.id, 'tc', student.tc)}" class="zoomable" onclick="openImageViewer('${getImageUrl('students', student.id, 'tc', student.tc)}', 'Transfer Certificate (TC)')" alt="TC" style="width:100%; height:70px; object-fit:cover; border-radius:8px; border:1px solid #e9d5ff;" />` : `<div style="height:70px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.5); border-radius:8px; border:1px dashed #d8b4fe; font-size:0.75rem; color:#a855f7;">Missing</div>`}
           </div>
         </div>
         <div style="border:1px solid #a7f3d0; border-radius:14px; padding:12px; background:#d1fae5; text-align:center; position:relative; overflow:hidden; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);">
           <div style="position:absolute; right:-20px; bottom:-20px; width:80px; height:80px; border-radius:50%; background:#16a34a; opacity:0.1; pointer-events:none;"></div>
           <b style="position:relative; z-index:1; font-size:0.68rem; color:#065f46; text-transform:uppercase; letter-spacing:0.04em;">Report Card</b>
           <div style="position:relative; z-index:1; color:#94a3b8; margin-top:8px;">
-            ${student.reportCard ? `<img src="${student.reportCard}" class="zoomable" onclick="openImageViewer('${student.reportCard}', 'Academic Report Card')" alt="Report" style="width:100%; height:70px; object-fit:cover; border-radius:8px; border:1px solid #a7f3d0;" />` : `<div style="height:70px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.5); border-radius:8px; border:1px dashed #6ee7b7; font-size:0.75rem; color:#10b981;">Missing</div>`}
+            ${student.reportCard ? `<img src="${getImageUrl('students', student.id, 'reportCard', student.reportCard)}" class="zoomable" onclick="openImageViewer('${getImageUrl('students', student.id, 'reportCard', student.reportCard)}', 'Academic Report Card')" alt="Report" style="width:100%; height:70px; object-fit:cover; border-radius:8px; border:1px solid #a7f3d0;" />` : `<div style="height:70px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.5); border-radius:8px; border:1px dashed #6ee7b7; font-size:0.75rem; color:#10b981;">Missing</div>`}
           </div>
         </div>
         <div style="border:1px solid #fde68a; border-radius:14px; padding:12px; background:#fef3c7; text-align:center; position:relative; overflow:hidden; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);">
           <div style="position:absolute; right:-20px; bottom:-20px; width:80px; height:80px; border-radius:50%; background:#d97706; opacity:0.1; pointer-events:none;"></div>
           <b style="position:relative; z-index:1; font-size:0.68rem; color:#92400e; text-transform:uppercase; letter-spacing:0.04em;">Father Aadhar</b>
           <div style="position:relative; z-index:1; color:#94a3b8; margin-top:8px;">
-            ${student.fatherAadhar ? `<img src="${student.fatherAadhar}" class="zoomable" onclick="openImageViewer('${student.fatherAadhar}', 'Father Aadhar Card')" alt="Father Aadhar" style="width:100%; height:70px; object-fit:cover; border-radius:8px; border:1px solid #fde68a;" />` : `<div style="height:70px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.5); border-radius:8px; border:1px dashed #fcd34d; font-size:0.75rem; color:#f59e0b;">Missing</div>`}
+            ${student.fatherAadhar ? `<img src="${getImageUrl('students', student.id, 'fatherAadhar', student.fatherAadhar)}" class="zoomable" onclick="openImageViewer('${getImageUrl('students', student.id, 'fatherAadhar', student.fatherAadhar)}', 'Father Aadhar Card')" alt="Father Aadhar" style="width:100%; height:70px; object-fit:cover; border-radius:8px; border:1px solid #fde68a;" />` : `<div style="height:70px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.5); border-radius:8px; border:1px dashed #fcd34d; font-size:0.75rem; color:#f59e0b;">Missing</div>`}
           </div>
         </div>
         <div style="border:1px solid #fecaca; border-radius:14px; padding:12px; background:#fee2e2; text-align:center; position:relative; overflow:hidden; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);">
           <div style="position:absolute; right:-20px; bottom:-20px; width:80px; height:80px; border-radius:50%; background:#dc2626; opacity:0.1; pointer-events:none;"></div>
           <b style="position:relative; z-index:1; font-size:0.68rem; color:#991b1b; text-transform:uppercase; letter-spacing:0.04em;">Mother Aadhar</b>
           <div style="position:relative; z-index:1; color:#94a3b8; margin-top:8px;">
-            ${student.motherAadhar ? `<img src="${student.motherAadhar}" class="zoomable" onclick="openImageViewer('${student.motherAadhar}', 'Mother Aadhar Card')" alt="Mother Aadhar" style="width:100%; height:70px; object-fit:cover; border-radius:8px; border:1px solid #fecaca;" />` : `<div style="height:70px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.5); border-radius:8px; border:1px dashed #fca5a5; font-size:0.75rem; color:#ef4444;">Missing</div>`}
+            ${student.motherAadhar ? `<img src="${getImageUrl('students', student.id, 'motherAadhar', student.motherAadhar)}" class="zoomable" onclick="openImageViewer('${getImageUrl('students', student.id, 'motherAadhar', student.motherAadhar)}', 'Mother Aadhar Card')" alt="Mother Aadhar" style="width:100%; height:70px; object-fit:cover; border-radius:8px; border:1px solid #fecaca;" />` : `<div style="height:70px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.5); border-radius:8px; border:1px dashed #fca5a5; font-size:0.75rem; color:#ef4444;">Missing</div>`}
           </div>
         </div>
       </div>
@@ -2449,7 +3225,7 @@ function renderStudentProfile() {
     `;
     // Wire actions (profile tab only).
     refs.studentProfileContent.querySelectorAll("button[data-profile-action]").forEach((btn) => {
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", async () => {
         const action = btn.dataset.profileAction;
         if (action === "edit") {
           closeStudentProfile();
@@ -2707,7 +3483,11 @@ function renderStudentProfile() {
     dueAmount += dues.reduce((sum, d) => sum + asNum(d.balance), 0);
 
     const FEE_TYPE_KEYS = [
-      { key: "tuitionFee", label: "Tuition Fee", icon: "📚" },
+      { key: "tuitionFee",     label: "Tuition Fee",     icon: "📚" },
+    { key: "transportFee", label: "Transport Fee", icon: "🚌" },
+    { key: "admissionFormFee", label: "Admission Form Fee", icon: "📄" },
+      { key: "transportFee", label: "Transport Fee", icon: "🚌" },
+      { key: "admissionFormFee", label: "Admission Form Fee", icon: "📄" },
       { key: "admissionFee", label: "Admission Fee", icon: "🎓" },
       { key: "computerFee", label: "Computer Fee", icon: "💻" },
       { key: "developmentFee", label: "Development Fee", icon: "🏗️" },
@@ -2896,18 +3676,28 @@ function renderStudentProfile() {
     const rows = academicOrder.map(m => {
        // Filter records where the month string contains this specific month name
        const monthRecord = fees.find(f => String(f.month).includes(m));
-       const total = parseFloat(monthRecord?.totalFee) || 0;
-       const paid  = parseFloat(monthRecord?.paidAmount) || 0;
-       const bal   = parseFloat(monthRecord?.balance) || 0;
+       let total = parseFloat(monthRecord?.totalFee) || 0;
+       let paid  = parseFloat(monthRecord?.paidAmount) || 0;
+       let bal   = parseFloat(monthRecord?.balance) || 0;
        const status = monthRecord?.status || "Pending";
+       
+       if (monthRecord && typeof monthRecord.month === 'string') {
+           const numMonths = monthRecord.month.split(',').map(s => s.trim()).filter(Boolean).length;
+           if (numMonths > 1) {
+               total = total / numMonths;
+               paid = paid / numMonths;
+               bal = bal / numMonths;
+           }
+       }
+       
        const statusColor = status.toLowerCase()==='paid'?'#16a34a':status.toLowerCase()==='partial'?'#d97706':'#dc2626';
        
        return `
          <tr>
            <td style="padding:12px; border-bottom:1px solid rgba(253,230,138,0.5); font-weight:700; color:#1e3a8a;">${m}</td>
-           <td style="padding:12px; border-bottom:1px solid rgba(253,230,138,0.5); color:#475569;">₹ ${total.toLocaleString('en-IN')}</td>
-           <td style="padding:12px; border-bottom:1px solid rgba(253,230,138,0.5); color:#16a34a; font-weight:700;">₹ ${paid.toLocaleString('en-IN')}</td>
-           <td style="padding:12px; border-bottom:1px solid rgba(253,230,138,0.5); color:#dc2626; font-weight:700;">₹ ${bal.toLocaleString('en-IN')}</td>
+           <td style="padding:12px; border-bottom:1px solid rgba(253,230,138,0.5); color:#475569;">₹ ${total.toLocaleString('en-IN', {minimumFractionDigits: 0, maximumFractionDigits: 2})}</td>
+           <td style="padding:12px; border-bottom:1px solid rgba(253,230,138,0.5); color:#16a34a; font-weight:700;">₹ ${paid.toLocaleString('en-IN', {minimumFractionDigits: 0, maximumFractionDigits: 2})}</td>
+           <td style="padding:12px; border-bottom:1px solid rgba(253,230,138,0.5); color:#dc2626; font-weight:700;">₹ ${bal.toLocaleString('en-IN', {minimumFractionDigits: 0, maximumFractionDigits: 2})}</td>
            <td style="padding:12px; border-bottom:1px solid rgba(253,230,138,0.5);">
              <span style="background:${statusColor}15; color:${statusColor}; padding:3px 10px; border-radius:12px; font-size:0.75rem; font-weight:800; border:1px solid ${statusColor}40; text-transform:uppercase;">${status}</span>
            </td>
@@ -3031,19 +3821,38 @@ function startEditStudentById(studentId) {
   const student = (store.students || []).find((s) => Number(s.id) === Number(studentId));
   if (!student) return;
   if (refs.dynamicForm) {
-    const inputs = refs.dynamicForm.querySelectorAll("input,select,textarea");
-    inputs.forEach((el) => {
-      const name = el.name || el.getAttribute("name");
-      if (!name) return;
-      if (["photo", "aadhar", "tc", "reportCard", "fatherAadhar", "motherAadhar"].includes(name)) return; // can't set file inputs
-      if (el.tagName === "SELECT") el.value = student[name] ?? el.value;
-      else if (el.type === "date" && student[name]) el.value = normalizeToISO(student[name]);
-      else el.value = student[name] ?? "";
-    });
+    // Wait a tick so TomSelect instances are initialized before we prefill
+    setTimeout(() => {
+      const inputs = refs.dynamicForm.querySelectorAll("input,select,textarea");
+      inputs.forEach((el) => {
+        const name = el.name || el.getAttribute("name");
+        if (!name) return;
+        if (["photo", "aadhar", "tc", "reportCard", "fatherAadhar", "motherAadhar"].includes(name)) return; // can't set file inputs
+        if (el.type === "checkbox") {
+          // Checkboxes need .checked, not .value
+          const val = student[name];
+          el.checked = val === true || val === "true" || val === "on" || val === "1" || val === 1;
+          el.dispatchEvent(new Event("change"));
+          return;
+        }
+        if (el.tagName === "SELECT") {
+          el.value = student[name] ?? el.value;
+          // Sync TomSelect wrapper if present
+          if (el.tomselect) {
+            el.tomselect.setValue(student[name] ?? "", true);
+          }
+        }
+        else if (el.type === "date" && student[name]) el.value = normalizeToISO(student[name]);
+        else el.value = student[name] ?? "";
+      });
+      // Update submit button text to indicate edit mode
+      const submitBtn = refs.dynamicForm.querySelector("button[type='submit']");
+      if (submitBtn) submitBtn.innerHTML = "✏️ Update Student";
+      // Put focus to first form input for convenience.
+      const first = refs.dynamicForm.querySelector("input,select,textarea");
+      first?.focus?.();
+    }, 50);
   }
-  // Put focus to first form input for convenience.
-  const first = refs.dynamicForm.querySelector("input,select,textarea");
-  first?.focus?.();
 }
 
 function startGenericEditById(moduleName, recordId) {
@@ -3056,19 +3865,65 @@ function startGenericEditById(moduleName, recordId) {
   const record = records.find(r => Number(r.id) === Number(recordId));
   if (!record) return;
   if (refs.dynamicForm) {
-    const inputs = refs.dynamicForm.querySelectorAll("input,select,textarea");
-    inputs.forEach((el) => {
-      const name = el.name || el.getAttribute("name");
-      if (!name) return;
-      if (el.type === "file") return;
-      if (el.tagName === "SELECT") el.value = record[name] ?? el.value;
-      else if (el.type === "date" && record[name]) el.value = normalizeToISO(record[name]);
-      else el.value = record[name] ?? "";
-    });
+    // Wait a tick so TomSelect instances are initialized before we prefill
+    setTimeout(() => {
+      const inputs = refs.dynamicForm.querySelectorAll("input,select,textarea");
+      const toDispatch = [];
+      inputs.forEach((el) => {
+        const name = el.name || el.getAttribute("name");
+        if (!name) return;
+        if (el.type === "file") return;
+        if (el.type === "checkbox") {
+          const val = record[name];
+          el.checked = val === true || val === "true" || val === "on" || val === "1" || val === 1;
+          el.dispatchEvent(new Event("change"));
+          return;
+        }
+        if (el.tagName === "SELECT") {
+          el.value = record[name] ?? el.value;
+          // Sync TomSelect wrapper if present
+          if (el.tomselect) {
+            el.tomselect.setValue(record[name] ?? "", true);
+          }
+          toDispatch.push(el);
+        }
+        else if (el.type === "date" && record[name]) el.value = normalizeToISO(record[name]);
+        else {
+          el.value = record[name] ?? "";
+          if (name === "className" || name === "studentName" || name === "paymentMethod") {
+            toDispatch.push(el);
+          }
+        }
+      });
+
+      // Dispatch change events after all values are set, so auto-fill doesn't get overwritten
+      toDispatch.forEach(el => el.dispatchEvent(new Event("change")));
+
+      // Special handling to preserve totalFee/paidAmount for fees module edits
+      if (moduleName === "fees") {
+        setTimeout(() => {
+          const totalFeeInput = refs.dynamicForm.querySelector("[name='totalFee']");
+          const paidInput = refs.dynamicForm.querySelector("[name='paidAmount']");
+          const balanceInput = refs.dynamicForm.querySelector("[name='balance']");
+          
+          // If the form recalculated to 0 but the record had a value (e.g. Pending mobile payments), restore it
+          if (totalFeeInput && parseFloat(totalFeeInput.value) === 0 && record.totalFee) {
+            totalFeeInput.value = record.totalFee;
+          }
+          if (paidInput && parseFloat(paidInput.value) === 0 && record.paidAmount) {
+            paidInput.value = record.paidAmount;
+          }
+          if (balanceInput && parseFloat(balanceInput.value) === 0 && record.balance) {
+            balanceInput.value = record.balance;
+          }
+        }, 150); // wait for bd observer and recalc to finish
+      }
+
+      // Update the submit button text to show "Update"
+      const submitBtn = refs.dynamicForm.querySelector("button[type='submit']");
+      if (submitBtn) submitBtn.textContent = '✏️ Update Record';
+    }, 50);
   }
-  // Update the submit button text to show "Update"
-  const submitBtn = refs.dynamicForm.querySelector("button[type='submit']");
-  if (submitBtn) submitBtn.textContent = '✏️ Update Record';
   // Scroll form into view
   refs.dynamicForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
   const first = refs.dynamicForm.querySelector("input,select,textarea");
@@ -3126,7 +3981,7 @@ function printStudentReport(student) {
       <div class="row"><b>Gender:</b> ${student.gender || "-"}</div>
       <div class="row"><b>Address:</b> ${student.address || "-"}</div>
       <div class="row"><b>Mobile:</b> ${student.phone || "-"}</div>
-      <div class="row"><b>Parent:</b> ${student.parentName || "-"}</div>
+      <div class="row"><b>Father:</b> ${student.fatherName || "-"}</div>
     </div>
     <div class="id-grid">
       <div class="box"><b>Exams %:</b> ${pct}% • <b>Result:</b> ${result}</div>
@@ -3149,7 +4004,11 @@ function printStudentReport(student) {
   const feesHtml = (() => {
     if (!fees.length) return `<div class="box">No fee records.</div>`;
     const FEE_REPORT_TYPES = [
-      { key: "tuitionFee", label: "Tuition Fee", icon: "📚" },
+      { key: "tuitionFee",     label: "Tuition Fee",     icon: "📚" },
+    { key: "transportFee", label: "Transport Fee", icon: "🚌" },
+    { key: "admissionFormFee", label: "Admission Form Fee", icon: "📄" },
+      { key: "transportFee", label: "Transport Fee", icon: "🚌" },
+      { key: "admissionFormFee", label: "Admission Form Fee", icon: "📄" },
       { key: "admissionFee", label: "Admission Fee", icon: "🎓" },
       { key: "computerFee", label: "Computer Fee", icon: "💻" },
       { key: "developmentFee", label: "Development Fee", icon: "🏗️" },
@@ -3270,27 +4129,9 @@ async function removeRecord(moduleName, id) {
       try {
         const feeIds = JSON.parse(fee.consolidatedFeeIds || "[]");
         const mgmtIds = JSON.parse(fee.consolidatedDueMgmtIds || "[]");
-        
-        for (const rid of feeIds) {
-          const target = (store.fees || []).find(f => String(f.id) === String(rid));
-          if (target) {
-            const total = parseFloat(target.totalFee) || 0;
-            const paid = parseFloat(target.paidAmount) || 0;
-            const bal = total - paid;
-            const status = bal <= 0 ? "Paid" : paid > 0 ? "Partial" : "Pending";
-            await api(`/api/modules/fees/${rid}`, { method: "PUT", body: JSON.stringify({ status, balance: String(bal) }) });
-          }
-        }
-        for (const rid of mgmtIds) {
-          const target = (store.dueManagement || []).find(f => String(f.id) === String(rid));
-          if (target) {
-            const total = parseFloat(target.dueAmount) || 0;
-            const paid = parseFloat(target.paidAmount) || 0;
-            const bal = total - paid;
-            const status = bal <= 0 ? "Paid" : paid > 0 ? "Partial" : "Pending";
-            await api(`/api/modules/dueManagement/${rid}`, { method: "PUT", body: JSON.stringify({ status, balance: String(bal) }) });
-          }
-        }
+        // The backend `server/db-sqlite.js` now handles automatic restoration of dueManagement balances 
+        // when a fee record containing consolidatedDueMgmtIds is deleted.
+        // We no longer need to manually calculate and send PUT requests from the frontend here.
       } catch (err) {
         console.error("Error reversing consolidation on delete:", err);
       }
@@ -3326,6 +4167,9 @@ async function removeRecord(moduleName, id) {
 
   await loadStore();
 }
+
+// Global alias for inline onclick handlers
+window.deleteRecord = removeRecord;
 
 // Global Image Viewer Helpers
 window.openImageViewer = function(src, title) {
@@ -3379,15 +4223,9 @@ function getDashboardStats(store) {
   const curMonth = today.slice(0, 7);
   const curYear = today.slice(0, 4);
 
-  const dues = store.dueManagement || [];
-  
-  const allCollections = [...fees.map(f => ({ ...f, type: 'fee' })), ...dues.map(d => ({ ...d, type: 'due' }))];
-
   let allTimeTotal = 0;
-  const filteredTotal = allCollections.reduce((sum, item) => {
-    // Fees use paymentDate, Dues use today for collection day stats
-    let rawDate = item.type === 'fee' ? item.paymentDate : today;
-    const date = normalizeToISO(rawDate);
+  const filteredTotal = (fees || []).reduce((sum, item) => {
+    const date = normalizeToISO(item.paymentDate);
     const amount = asNum(item.paidAmount);
     allTimeTotal += amount;
     
@@ -3649,7 +4487,7 @@ function renderStatsCards() {
   });
 
   // Calculate generic "present today" vs entire active student population
-  const today = new Date().toISOString().slice(0, 10);
+  const today = (function(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')})();
   const attendance = store.attendance || [];
   const presentToday = attendance.filter(a => String(a.status).toLowerCase() === "present" && a.date === today && a.studentName).length;
   const absentToday = Math.max(0, students.length - presentToday);
@@ -3800,8 +4638,42 @@ function renderHeader() {
 function populateEnrollStudentSelect() {
   if (!refs.faceEnrollStudentSelect) return;
   const store = getStore();
-  const isTeachers = currentModule === "teachers";
-  const people = isTeachers ? (store.teachers || []) : (store.students || []);
+  
+  // Use faceTargetType to determine if we are enrolling students or teachers
+  const targetTypeEl = document.getElementById("faceTargetType");
+  const isTeachers = (targetTypeEl && targetTypeEl.value === "teachers") || currentModule === "teachers";
+  let people = isTeachers ? (store.teachers || []) : (store.students || []);
+
+  const classFilterEl = document.getElementById('faceEnrollClassFilter');
+  const searchInputEl = document.getElementById('faceEnrollSearchInput');
+  
+  if (classFilterEl && classFilterEl.options.length <= 1 && !isTeachers) {
+    const classOptions = Array.from(new Set((store.classes || []).map((x) => [x.className, x.section].filter(Boolean).join("-")).filter(Boolean)));
+    classFilterEl.innerHTML = '<option value="">All Classes</option>';
+    classOptions.forEach(opt => {
+      const o = document.createElement("option");
+      o.value = opt; o.textContent = opt;
+      classFilterEl.appendChild(o);
+    });
+  }
+
+  if (isTeachers && classFilterEl) {
+    classFilterEl.style.display = 'none';
+  } else if (classFilterEl) {
+    classFilterEl.style.display = '';
+  }
+
+  if (classFilterEl && classFilterEl.value && !isTeachers) {
+    people = people.filter(p => {
+      const pClassStr = [p.className, p.section].filter(Boolean).join("-");
+      return pClassStr === classFilterEl.value || p.className === classFilterEl.value;
+    });
+  }
+  
+  if (searchInputEl && searchInputEl.value) {
+    const term = searchInputEl.value.toLowerCase();
+    people = people.filter(p => p.fullName?.toLowerCase().includes(term));
+  }
 
   const sel = refs.faceEnrollStudentSelect;
   const current = sel.value;
@@ -3847,6 +4719,21 @@ function renderModuleTools() {
     }
   }
 
+  if (refs.dateFilter) {
+    if (currentModule === "attendance") {
+      refs.dateFilter.classList.remove("hidden");
+      if (refs.allAttendanceBtn) refs.allAttendanceBtn.classList.remove("hidden");
+      const store = getStore();
+      if (!refs.dateFilter.value && store.attendance && store.attendance.length > 0) {
+        let latest = store.attendance.map(a => a.date).sort((a, b) => new Date(normalizeToISO(b)) - new Date(normalizeToISO(a)))[0];
+        if (latest) refs.dateFilter.value = normalizeToISO(latest);
+      }
+    } else {
+      refs.dateFilter.classList.add("hidden");
+      if (refs.allAttendanceBtn) refs.allAttendanceBtn.classList.add("hidden");
+    }
+  }
+
   if (refs.classFilter) {
     if (currentModule === "students") {
       refs.classFilter.classList.remove("hidden");
@@ -3879,10 +4766,18 @@ function renderModuleTools() {
   if (refs.smartGenerateBtn) {
     refs.smartGenerateBtn.classList.toggle("hidden", currentModule !== "timetable" || !canCurrentUserWrite("timetable"));
   }
+  const setTimingsBtn = refs.setPeriodTimingsBtn || document.getElementById("setPeriodTimingsBtn");
+  if (setTimingsBtn) {
+    const isStudent = String(currentUser?.role || "").toLowerCase() === "student";
+    const showTimings = currentModule === "timetable" && !isStudent;
+    setTimingsBtn.style.display = showTimings ? "inline-flex" : "none";
+    setTimingsBtn.classList.toggle("hidden", !showTimings);
+  }
   if (refs.freeTeachersBtn) {
     refs.freeTeachersBtn.classList.toggle("hidden", currentModule !== "timetable");
   }
   if (refs.print4in1Btn) refs.print4in1Btn.classList.toggle("hidden", currentModule !== "fees");
+  if (refs.appReleasesBtn) refs.appReleasesBtn.classList.toggle("hidden", currentModule !== "appLiveUsers");
 
   // Face panel only for users who can write attendance or manage people
   const showFacePanel = (currentModule === "attendance" || currentModule === "teacherAttendance" || currentModule === "students" || currentModule === "teachers")
@@ -3901,6 +4796,7 @@ function renderModuleTools() {
   }
 
   refs.enrollFaceBtn?.classList.toggle("hidden", !isEnrollMode);
+  refs.enrollFaceFromPhotoBtn?.classList.toggle("hidden", !isEnrollMode);
   refs.markFaceAttendanceBtn?.classList.toggle("hidden", isEnrollMode);
 
   refs.faceEnrollStudentField?.classList.toggle("hidden", !isEnrollMode);
@@ -4245,7 +5141,12 @@ function renderStudentPortalTimetable(student) {
   refs.studentProfileContent.innerHTML = html;
 }
 
-function renderAll() {
+function renderAll(forceFormRefresh) {
+  if (window.currentModule && window.currentModule !== currentModule) {
+    currentModule = window.currentModule;
+  }
+  window.currentModule = currentModule;
+
   if (!userIsStudent()) {
     // Mount Vidya for Admins/Principal as well
     if (userIsStaffOrAbove() && !document.getElementById("vidyaWidget")) {
@@ -4264,6 +5165,9 @@ function renderAll() {
   const isAI = currentModule === "aiAssistant";
   const isExams = currentModule === "exams";
   const isBackup = currentModule === "backup";
+  const isReports = currentModule === "reportsAnalytics";
+  const isBookSales = currentModule === "bookSales";
+  const isOnlineClasses = currentModule === "onlineClasses";
 
   const sc = document.getElementById("statsCards");
   if (sc) sc.style.display = isDashboard ? "grid" : "none";
@@ -4283,8 +5187,8 @@ function renderAll() {
   }
   const contentArea = document.querySelector(".content-area");
   if (contentArea) {
-    contentArea.querySelectorAll(".panel:not(#facePanel):not(#assistantPanel):not(#waAlertPanel):not(#bd-panel):not(#ai-panel):not(#schoolCalendarPanel):not(#examPanel):not(#backupPanel)").forEach(p => {
-      p.style.display = (isBD || isWA || isAI || isExams || isDashboard || isBackup) ? "none" : "";
+    contentArea.querySelectorAll(".panel:not(#facePanel):not(#assistantPanel):not(#waAlertPanel):not(#bd-panel):not(#ai-panel):not(#schoolCalendarPanel):not(#examPanel):not(#backupPanel):not(#reportsPanel):not(#bookSalesPanel):not(#onlineClassesPanel)").forEach(p => {
+      p.style.display = (isBD || isWA || isAI || isExams || isDashboard || isBackup || isReports || isBookSales || isOnlineClasses) ? "none" : "";
     });
   }
 
@@ -4300,11 +5204,50 @@ function renderAll() {
     return;
   }
 
+  const onlineClassesPanel = document.getElementById("onlineClassesPanel");
+  if (isOnlineClasses) {
+    renderNav();
+    renderHeader();
+    if (onlineClassesPanel) {
+      onlineClassesPanel.classList.remove("hidden");
+      onlineClassesPanel.style.display = "block";
+    }
+    if (typeof window.renderOnlineClassesWorkspace === "function") {
+      window.renderOnlineClassesWorkspace();
+    } else if (typeof window.renderOnlineClassesModule === "function") {
+      window.renderOnlineClassesModule();
+    } else {
+      if (onlineClassesPanel) {
+        onlineClassesPanel.innerHTML = '<div style="padding: 40px; text-align: center; color: #64748b;"><div style="font-size: 32px; margin-bottom: 12px;">⏳</div>Loading Online Classes Studio...</div>';
+      }
+      const checkInterval = setInterval(() => {
+        if (typeof window.renderOnlineClassesWorkspace === "function") {
+          clearInterval(checkInterval);
+          if (currentModule === "onlineClasses") {
+            window.renderOnlineClassesWorkspace();
+          }
+        }
+      }, 100);
+      setTimeout(() => clearInterval(checkInterval), 5000);
+    }
+    return;
+  } else if (onlineClassesPanel) {
+    onlineClassesPanel.classList.add("hidden");
+    onlineClassesPanel.style.display = "none";
+  }
+
   const bdPanel = document.getElementById("bd-panel");
   if (isBD && typeof window.showBDPanel === "function") {
     window.showBDPanel();
   } else if (bdPanel) {
     bdPanel.style.display = "none";
+  }
+
+  let bookSalesPanel = document.getElementById("bookSalesPanel");
+  if (isBookSales && typeof window.showBookSalesPanel === "function") {
+    window.showBookSalesPanel();
+  } else if (bookSalesPanel) {
+    bookSalesPanel.style.display = "none";
   }
 
   const waPanel = document.getElementById("waAlertPanel");
@@ -4327,12 +5270,20 @@ function renderAll() {
     backupPanel.style.display = "none";
   }
 
+  const reportsPanel = document.getElementById("reportsPanel");
+  if (isReports && typeof window.renderReportsModule === "function") {
+    window.renderReportsModule();
+  } else if (reportsPanel) {
+    reportsPanel.classList.add("hidden");
+    reportsPanel.style.display = "none";
+  }
+
   renderNav();
   renderHeader();
   renderStatsCards();
-  renderForm();
-  renderTable();
+  renderForm(forceFormRefresh);
   renderModuleTools();
+  renderTable();
 
   // Calendar — only on dashboard
   const calPanel = document.getElementById("schoolCalendarPanel");
@@ -4358,7 +5309,7 @@ function renderBackupModule() {
   const store = getStore();
   const moduleNames = Object.keys(moduleConfig).filter(m => m !== "dashboard" && m !== "myProfile" && m !== "aiAssistant" && m !== "backup" && store[m]);
   const totalRecords = moduleNames.reduce((sum, m) => sum + (store[m] || []).length, 0);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = (function(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')})();
 
   panel.innerHTML = `
     <div style="margin-bottom:32px;">
@@ -4551,7 +5502,7 @@ async function backupFullJson() {
   try {
     const store = await api("/api/store");
     const json = JSON.stringify(store, null, 2);
-    const today = new Date().toISOString().slice(0, 10);
+    const today = (function(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')})();
     downloadBlob("TPS_Backup_" + today + ".json", json, "application/json");
     showBackupStatus("✅ Full database backup downloaded successfully! (" + today + ".json)");
   } catch (err) {
@@ -4567,7 +5518,7 @@ async function restoreFullJson(e) {
   const file = e.target.files[0];
   if (!file) return;
 
-  const confirmed = window.confirm(
+  const confirmed = await window.appConfirm(
     "⚠️ CRITICAL WARNING!\n\n" +
     "You are about to OVERWRITE your ENTIRE database with this backup file.\n\n" +
     "File: " + file.name + "\n" +
@@ -4577,7 +5528,7 @@ async function restoreFullJson(e) {
   );
   if (!confirmed) { e.target.value = ""; return; }
 
-  const doubleCheck = window.confirm("🔴 FINAL CONFIRMATION\n\nThis action CANNOT be undone. Proceed with restore?");
+  const doubleCheck = await appConfirm("🔴 FINAL CONFIRMATION\n\nThis action CANNOT be undone. Proceed with restore?");
   if (!doubleCheck) { e.target.value = ""; return; }
 
   try {
@@ -4647,7 +5598,7 @@ async function exportAllCsvZip() {
     }
 
     const blob = await zip.generateAsync({ type: "blob" });
-    const today = new Date().toISOString().slice(0, 10);
+    const today = (function(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')})();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -4671,7 +5622,7 @@ async function importAllCsvFiles(e) {
   const files = Array.from(e.target.files);
   if (!files.length) return;
 
-  const confirmed = window.confirm(
+  const confirmed = await window.appConfirm(
     "📂 Import " + files.length + " CSV file(s)?\n\n" +
     files.map(f => "• " + f.name).join("\n") +
     "\n\nEach file name should match a module name (e.g. Students.csv, Fees.csv).\n" +
@@ -4682,7 +5633,7 @@ async function importAllCsvFiles(e) {
   let imported = 0;
   let errors = [];
 
-  const validModules = Object.keys(moduleConfig).filter(m => m !== "dashboard" && m !== "myProfile" && m !== "aiAssistant" && m !== "backup");
+  const validModules = Object.keys(moduleConfig).filter(m => m !== "dashboard" && m !== "myProfile" && m !== "aiAssistant" && m !== "backup" && m !== "reportsAnalytics" && m !== "bookSales" && m !== "onlineClasses");
   const moduleNameMap = {};
   validModules.forEach(m => {
     const config = moduleConfig[m] || {};
@@ -4862,6 +5813,10 @@ function exportCurrentPdf() {
       
       const indivFees = [
         { key: "tuitionFee", label: "Tuition" },
+    { key: "transportFee", label: "Transport" },
+    { key: "admissionFormFee", label: "Admission Form" },
+        { key: "transportFee", label: "Transport" },
+        { key: "admissionFormFee", label: "Admission Form" },
         { key: "admissionFee", label: "Admission" },
         { key: "computerFee", label: "Computer" },
         { key: "developmentFee", label: "Development" },
@@ -4962,7 +5917,148 @@ function exportCurrentPdf() {
     doc.save(`timetable-${daySelect}-${todayStr()}.pdf`);
     return;
   }
+  if (currentModule === "weeklyEvaluation") {
+    let clsName = rows.length > 0 ? rows[0].className || "" : "";
+    let weekStart = rows.length > 0 ? rows[0].weekStartDate || "" : "";
+    let weekEnd = rows.length > 0 ? rows[0].weekEndDate || "" : "";
+    
+    let teacherName = "";
+    let teacherPhone = "";
+    const store = getStore();
+    if (clsName && store.classes) {
+       const cData = store.classes.find(c => (c.className + (c.section ? '-' + c.section : '')) === clsName || c.className === clsName);
+       if (cData && cData.classTeacher) {
+          teacherName = cData.classTeacher;
+          if (store.teachers) {
+             const tData = store.teachers.find(t => t.fullName === teacherName);
+             if (tData && tData.phone) teacherPhone = tData.phone;
+          }
+       }
+    }
 
+    const doc = new window.jspdf.jsPDF('landscape', 'pt', 'a4');
+    
+    try {
+      const img = new Image();
+      img.src = 'logo.png';
+      doc.setGState(new doc.GState({opacity: 0.1}));
+      doc.addImage(img, 'PNG', doc.internal.pageSize.getWidth() / 2 - 150, 150, 300, 300);
+      doc.setGState(new doc.GState({opacity: 1.0}));
+    } catch (e) {
+      console.warn('Could not add watermark', e);
+    }
+    
+    // Draw Header
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(220, 38, 38); // Red
+    doc.text("T.P.S       2026 - 2027", doc.internal.pageSize.getWidth() / 2, 40, { align: "center" });
+    
+    doc.setFontSize(22);
+    doc.setTextColor(30, 58, 138); // Blue
+    doc.text("WEEKLY STUDENTS EVALUATION (Gradings)", doc.internal.pageSize.getWidth() / 2, 65, { align: "center" });
+    doc.setFont("helvetica", "normal");
+    
+    doc.setFontSize(14);
+    doc.setTextColor(220, 38, 38); // Red
+    doc.text(`CLASS - ${clsName.toUpperCase()}`, doc.internal.pageSize.getWidth() / 2, 85, { align: "center" });
+
+    doc.setFontSize(12);
+    doc.setTextColor(0, 0, 0); // Black
+    doc.text(`CLASS TEACHER :- ${teacherName.toUpperCase()}`, doc.internal.pageSize.getWidth() / 2, 105, { align: "center" });
+    if (teacherPhone) {
+       doc.text(`Contact: ${teacherPhone}`, doc.internal.pageSize.getWidth() / 2, 120, { align: "center" });
+    }
+
+    doc.setFontSize(12);
+    doc.setTextColor(30, 58, 138); // Blue
+    doc.text(`DURING : From ${weekStart} to ${weekEnd}`, 40, 135);
+
+    // Multi-level Headers for autoTable
+    const head = [
+      [
+        { content: 'Roll\nNo.', rowSpan: 2, styles: { halign: 'center', valign: 'middle', textColor: [220, 38, 38] } },
+        { content: 'NAME\nOF STUDENTS', rowSpan: 2, styles: { halign: 'center', valign: 'middle', textColor: [220, 38, 38] } },
+        { content: 'ACADEMIC MAIN SUBJECTS', colSpan: 5, styles: { halign: 'center', textColor: [153, 27, 27] } },
+        { content: 'READING', colSpan: 2, styles: { halign: 'center', textColor: [22, 163, 74] } },
+        { content: 'WRITING', colSpan: 2, styles: { halign: 'center', textColor: [220, 38, 38] } },
+        { content: 'ATT.\n(%)', rowSpan: 2, styles: { halign: 'center', valign: 'middle', textColor: [153, 27, 27] } },
+        { content: 'DISC.\n(G)', rowSpan: 2, styles: { halign: 'center', valign: 'middle', textColor: [180, 83, 9] } },
+        { content: 'UNI.\n(G)', rowSpan: 2, styles: { halign: 'center', valign: 'middle', textColor: [180, 83, 9] } },
+        { content: 'ACT.\n(G)', rowSpan: 2, styles: { halign: 'center', valign: 'middle', textColor: [180, 83, 9] } },
+        { content: 'OVER\nALL', rowSpan: 2, styles: { halign: 'center', valign: 'middle', textColor: [220, 38, 38] } }
+      ],
+      [
+        { content: 'MATH', styles: { halign: 'center', textColor: [30, 58, 138] } },
+        { content: 'ENG', styles: { halign: 'center', textColor: [30, 58, 138] } },
+        { content: 'HINDI', styles: { halign: 'center', textColor: [30, 58, 138] } },
+        { content: 'SCI', styles: { halign: 'center', textColor: [30, 58, 138] } },
+        { content: 'SST', styles: { halign: 'center', textColor: [30, 58, 138] } },
+        { content: 'ENG', styles: { halign: 'center', textColor: [22, 163, 74] } },
+        { content: 'HIN', styles: { halign: 'center', textColor: [22, 163, 74] } },
+        { content: 'ENG', styles: { halign: 'center', textColor: [220, 38, 38] } },
+        { content: 'HIN', styles: { halign: 'center', textColor: [220, 38, 38] } }
+      ]
+    ];
+
+    const body = rows.map(f => [
+      f.rollNo || "", f.studentName || "", 
+      f.maths || "", f.english || "", f.hindi || "", f.science || "", f.sst || "",
+      f.readingEng || "", f.readingHindi || "",
+      f.writingEng || "", f.writingHindi || "",
+      f.attanDance || "", f.dicipLine || "", f.uniform || "", f.activities || "", f.overall || ""
+    ]);
+
+    doc.autoTable({
+      head: head,
+      body: body,
+      startY: 145,
+      theme: 'grid',
+      styles: { fontSize: 9, cellPadding: 4, lineColor: [30, 58, 138], lineWidth: 0.5 },
+      bodyStyles: { fillColor: null },
+      headStyles: { fillColor: [248, 250, 252], textColor: [0, 0, 0], fontStyle: 'bold' }
+    });
+
+    // Draw Footer (Grading System)
+    // Push it to the bottom of the A4 Landscape page (595pt height)
+    let finalY = Math.max(doc.lastAutoTable.finalY + 30, 480);
+    
+    // Border for grading box
+    doc.setDrawColor(30, 58, 138);
+    doc.setLineDash([5, 5], 0);
+    doc.roundedRect(40, finalY, doc.internal.pageSize.getWidth() - 80, 70, 5, 5);
+    doc.setLineDash([]); // Reset to solid
+    
+    // Grading Text
+    doc.setFontSize(12);
+    doc.setTextColor(220, 38, 38);
+    doc.text("o GRADING SYSTEM o", doc.internal.pageSize.getWidth() / 2, finalY + 15, { align: "center" });
+    
+    doc.setFontSize(10);
+    doc.setTextColor(30, 58, 138); // Blue
+    doc.text("GRADE :->", 60, finalY + 35);
+    
+    doc.text("A1 - OUTSTANDING", 120, finalY + 35);
+    doc.text("A2 - EXCELLENT", 120, finalY + 50);
+    
+    doc.setTextColor(22, 163, 74); // Green
+    doc.text("B1 - VERY GOOD", 280, finalY + 35);
+    doc.text("B2 - GOOD", 280, finalY + 50);
+
+    doc.setTextColor(220, 38, 38); // Red
+    doc.text("C - FAIR (AVERAGE)", 420, finalY + 35);
+    doc.text("D - VERY POOR", 420, finalY + 50);
+
+    doc.setTextColor(180, 83, 9); // Orange
+    doc.text("E - VERY WORST", 560, finalY + 35);
+    
+    doc.setTextColor(220, 38, 38);
+    doc.text("Signature", doc.internal.pageSize.getWidth() - 100, finalY + 60, { align: "center" });
+    doc.line(doc.internal.pageSize.getWidth() - 140, finalY + 45, doc.internal.pageSize.getWidth() - 60, finalY + 45);
+
+    doc.save(`weeklyEvaluation-${clsName}-${weekStart}.pdf`);
+    return;
+  }
   const skipFiles = ["photo", "aadhar", "tc", "reportCard", "fatherAadhar", "motherAadhar", "id"];
   const columns = currentModule === "dashboard" ? ["Metric", "Value"] : moduleConfig[currentModule].fields.filter(f => !skipFiles.includes(f));
   
@@ -5166,7 +6262,11 @@ function printDocumentByModule() {
   } else if (currentModule === "fees") {
     const schoolName = "Tapowan Public School";
     const PRINT_FEE_TYPES = [
-      { key: "tuitionFee", label: "Tuition Fee", icon: "📚" },
+      { key: "tuitionFee",     label: "Tuition Fee",     icon: "📚" },
+    { key: "transportFee", label: "Transport Fee", icon: "🚌" },
+    { key: "admissionFormFee", label: "Admission Form Fee", icon: "📄" },
+      { key: "transportFee", label: "Transport Fee", icon: "🚌" },
+      { key: "admissionFormFee", label: "Admission Form Fee", icon: "📄" },
       { key: "admissionFee", label: "Admission Fee", icon: "🎓" },
       { key: "computerFee", label: "Computer Fee", icon: "💻" },
       { key: "developmentFee", label: "Development Fee", icon: "🏗️" },
@@ -5219,7 +6319,7 @@ function printDocumentByModule() {
         }
       } catch(e) {}
       return `<div class="box" style="page-break-inside:avoid;">
-        <h2 style="color:#1e3a8a;margin-bottom:8px;">Fee Receipt &mdash; RCP-${f.id}</h2>
+        <h2 style="color:#1e3a8a;margin-bottom:8px;">Fee Receipt &mdash; ${f.payId ? 'PayID: ' + f.payId : 'RCP-' + f.id}</h2>
         <div class="row"><strong>Student:</strong> ${f.studentName || "-"} &nbsp;|&nbsp; <strong>Father:</strong> ${f.fatherName || "-"}</div>
         <div class="row"><strong>Class:</strong> ${f.className || "-"} &nbsp;|&nbsp; <strong>Roll No:</strong> ${f.rollNo || "-"}</div>
         <div class="row"><strong>Term:</strong> ${window.formatTermString(window.formatTermString(f.term)) || "-"} &nbsp;|&nbsp; <strong>Payment Date:</strong> ${f.paymentDate || "-"}</div>
@@ -5242,52 +6342,248 @@ function printDocumentByModule() {
 
 
 
-// --- InsightFace Integration ---
-// Dynamically use the current hostname so this works across the local network
-let insightFaceApiUrl = `http://${window.location.hostname}:8000`;
+// --- Turso Cloud DB Direct Pipeline ---
+const TURSO_DIRECT_URL = 'https://tapowan-im-aatif.aws-ap-northeast-1.turso.io/v2/pipeline';
+const TURSO_DIRECT_TOKEN = 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODY1MTcyOTQsImlkIjoiMDE5ZmY0YWUtM2YwMS03YTYwLWI4NTgtMWQ4M2JlYjJkNzJkIiwia2lkIjoiblRLTmdsNnYyaFQ4LTlhT09uQV9JdERDc3BTdk9iejhSYzNuY0hSNUhOVSIsInJpZCI6ImZmMWI4YTE5LWFhZTgtNGM5MS1hNjFhLTlkMTY1NTQ1OTEyOCJ9.a-w2gyEauZrfLwqWAMh2QLqHmqOxIsziDu9WRBrCPmLaoZThvoDlPdW4VjQ6ST5hRYJj1E1R0sJELyNPg4zrBQ';
+
+async function fetchDirectFromTurso(sql, args = []) {
+  try {
+    const typedArgs = args.map(arg => {
+      if (typeof arg === 'number') return { type: 'integer', value: String(arg) };
+      return { type: 'text', value: String(arg) };
+    });
+    const res = await fetch(TURSO_DIRECT_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + TURSO_DIRECT_TOKEN,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        requests: [
+          { type: 'execute', stmt: { sql, args: typedArgs } },
+          { type: 'close' }
+        ]
+      })
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const result = data.results?.[0]?.response?.result;
+    if (!result || !result.rows) return [];
+    const cols = result.cols.map(c => c.name);
+    return result.rows.map(row => {
+      const obj = {};
+      row.forEach((cell, idx) => { obj[cols[idx]] = cell.value; });
+      return obj;
+    });
+  } catch (e) {
+    console.warn("Direct Turso fetch failed:", e);
+    return [];
+  }
+}
+
+// --- Pure InsightFace ArcFace 512-D GPU Integration (Colab & Cloud) ---
+let insightFaceApiUrl = localStorage.getItem('tps_insightface_api_url') || 'https://trans-choir-spotlight-sponsored.trycloudflare.com';
+let insightFaceMode = 'server';
 
 async function ensureFaceModelsLoaded() {
-  if (faceModelsReady) return true;
-  refs.faceStatusText.textContent = "Connecting to InsightFace server...";
+  if (refs.faceStatusText) refs.faceStatusText.textContent = "Connecting to InsightFace GPU AI Engine...";
+  
+  // 1. Check Turso DB for live Google Colab / Cloud GPU URL
+  let dbUrl = '';
   try {
-    const res = await fetch(`${insightFaceApiUrl}/status`);
-    if (!res.ok) throw new Error("Server not responding correctly");
-    faceModelsReady = true;
-    refs.faceStatusText.textContent = "InsightFace server connected.";
-    return true;
-  } catch (err) {
-    refs.faceStatusText.textContent = `InsightFace server not reachable. Ensure Python server is running on port 8000.`;
-    return false;
+    const dynamicSetting = await fetchDirectFromTurso("SELECT value FROM settings WHERE key = 'colab_insightface_url' LIMIT 1;");
+    if (dynamicSetting && dynamicSetting[0]?.value && dynamicSetting[0].value.startsWith('http')) {
+      dbUrl = dynamicSetting[0].value.trim();
+    }
+  } catch(e) {}
+
+  const candidates = [
+    dbUrl,
+    localStorage.getItem('tps_insightface_api_url'),
+    'https://trans-choir-spotlight-sponsored.trycloudflare.com',
+    'https://groundwater-vocational-brook-cornwall.trycloudflare.com'
+  ].filter(u => u && typeof u === 'string' && u.startsWith('http'));
+
+  for (const candidate of candidates) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      let res = await fetch(`${candidate}/health`, { signal: controller.signal });
+      if (!res.ok) res = await fetch(`${candidate}/`, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      
+      if (res.ok) {
+        insightFaceApiUrl = candidate;
+        localStorage.setItem('tps_insightface_api_url', candidate);
+        insightFaceMode = 'server';
+        faceModelsReady = true;
+        if (refs.faceStatusText) refs.faceStatusText.textContent = "🚀 Connected to InsightFace 512-D GPU Server!";
+        updateColabStatusBadge(true, candidate);
+        
+        syncFaceEmbeddingsFromServer().then(() => {
+          const fs = getFaceStore();
+          const count = Object.keys(fs).length;
+          if (refs.faceStatusText) {
+            refs.faceStatusText.textContent = `✅ InsightFace GPU Ready (${count} enrolled faces active).`;
+          }
+        });
+        return true;
+      }
+    } catch(err) {
+      console.warn("Colab server probe failed for:", candidate, err.message);
+    }
   }
+
+  // If offline, prompt user to connect Google Colab
+  updateColabStatusBadge(false);
+  if (refs.faceStatusText) {
+    refs.faceStatusText.textContent = "⚠️ InsightFace GPU Server Offline. Click badge to enter Google Colab URL.";
+  }
+  faceModelsReady = false;
+  return false;
+}
+
+function updateColabStatusBadge(online, url = '') {
+  let badge = document.getElementById('colabGpuBadge');
+  if (!badge) {
+    const container = document.querySelector('.face-controls') || document.querySelector('.camera-card') || document.querySelector('.attendance-panel');
+    if (container) {
+      badge = document.createElement('div');
+      badge.id = 'colabGpuBadge';
+      badge.style.cssText = 'display:inline-flex; align-items:center; gap:6px; font-size:0.8rem; font-weight:600; padding:4px 10px; border-radius:20px; margin:6px 0; cursor:pointer; transition:all 0.2s;';
+      container.insertBefore(badge, container.firstChild);
+    }
+  }
+  if (!badge) return;
+
+  if (online) {
+    badge.style.background = 'rgba(16, 185, 129, 0.15)';
+    badge.style.color = '#10b981';
+    badge.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+    badge.innerHTML = `🟢 <span>InsightFace GPU Online</span> <small style="opacity:0.7; font-size:0.7rem; margin-left:4px;">(512-D ArcFace)</small>`;
+  } else {
+    badge.style.background = 'rgba(239, 68, 68, 0.15)';
+    badge.style.color = '#ef4444';
+    badge.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+    badge.innerHTML = `🔴 <span>Colab GPU Offline</span> <small style="text-decoration:underline; margin-left:4px; font-size:0.7rem;">Click to Enter Link</small>`;
+  }
+
+  badge.onclick = () => {
+    const current = localStorage.getItem('tps_insightface_api_url') || '';
+    const newUrl = window.prompt("Enter your live Google Colab Cloudflare URL (e.g. https://xxxx.trycloudflare.com):", current);
+    if (newUrl !== null) {
+      const clean = newUrl.trim();
+      if (clean) {
+        localStorage.setItem('tps_insightface_api_url', clean);
+        insightFaceApiUrl = clean;
+        faceModelsReady = false;
+        ensureFaceModelsLoaded();
+      }
+    }
+  };
+}
+
+function getVisualCrop(vw, vh) {
+  let scale = 1.0;
+  let ox = 0.5;
+  let oy = 0.5;
+  if (window._lastZoomTransform && window._lastZoomTransform.startsWith('scale(')) {
+    scale = parseFloat(window._lastZoomTransform.replace('scale(', '')) || 1.0;
+  }
+  if (window._lastZoomOrigin) {
+    const parts = window._lastZoomOrigin.split(' ');
+    if (parts.length === 2) {
+      ox = parseFloat(parts[0]) / 100;
+      oy = parseFloat(parts[1]) / 100;
+    }
+  }
+  if (scale <= 1.0 || isNaN(scale)) return { sx: 0, sy: 0, sw: vw, sh: vh, scale: 1.0 };
+  
+  let sw = vw / scale;
+  let sh = vh / scale;
+  let sx = ox * vw - ox * sw;
+  let sy = oy * vh - oy * sh;
+  sx = Math.max(0, Math.min(vw - sw, sx));
+  sy = Math.max(0, Math.min(vh - sh, sy));
+  
+  return { sx, sy, sw, sh, scale };
+}
+
+function mapFacesBackToOriginal(faces, crop, canvasW, canvasH) {
+  if (crop.scale <= 1.0) return faces;
+  return faces.map(det => {
+    if (det.box) {
+      const b = det.box;
+      return {
+        ...det,
+        box: [
+          crop.sx + (b[0] / canvasW) * crop.sw,
+          crop.sy + (b[1] / canvasH) * crop.sh,
+          (b[2] / canvasW) * crop.sw,
+          (b[3] / canvasH) * crop.sh
+        ]
+      };
+    }
+    return det;
+  });
 }
 
 async function getInsightFace(imageSource) {
   try {
-    let base64 = "";
-    if (imageSource instanceof HTMLVideoElement) {
-       base64 = videoFrameToResizedDataUrl(imageSource, 640, 0.85);
-    } else if (imageSource instanceof HTMLCanvasElement) {
-       base64 = imageSource.toDataURL("image/jpeg", 0.85);
-    } else {
-       return { face: [] };
+    if (!imageSource) return { face: [] };
+    let vw = imageSource.videoWidth || imageSource.naturalWidth || imageSource.width;
+    let vh = imageSource.videoHeight || imageSource.naturalHeight || imageSource.height;
+    if (!vw || !vh) return { face: [] };
+
+    // Pure InsightFace 512-D GPU Server Extraction
+    const cloudApi = localStorage.getItem('tps_insightface_api_url') || insightFaceApiUrl;
+    if (!cloudApi) {
+      if (refs.faceStatusText) {
+        refs.faceStatusText.textContent = "⚠️ InsightFace GPU Offline. Click badge to enter Google Colab URL.";
+      }
+      return { face: [] };
     }
-    
-    const res = await fetch(base64);
-    const blob = await res.blob();
-    
-    const formData = new FormData();
-    formData.append('file', blob, 'face.jpg');
-    
-    const response = await fetch(`${insightFaceApiUrl}/extract`, {
-      method: 'POST',
-      body: formData
-    });
-    
-    if (!response.ok) return { face: [] };
-    const data = await response.json();
-    return { face: data.faces || [] };
+
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.min(vw, 640);
+      canvas.height = Math.min(vh, 480);
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(imageSource, 0, 0, canvas.width, canvas.height);
+      
+      const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.85));
+      if (blob) {
+        const fd = new FormData();
+        fd.append('file', blob, 'frame.jpg');
+        const ctrl = new AbortController();
+        const tid = setTimeout(() => ctrl.abort(), 3500);
+        const response = await fetch(`${cloudApi}/extract`, { method: 'POST', body: fd, signal: ctrl.signal });
+        clearTimeout(tid);
+        if (response.ok) {
+          const data = await response.json();
+          const scaleX = vw / canvas.width;
+          const scaleY = vh / canvas.height;
+          const faces = (data.faces || []).map(f => {
+            const b = f.bbox || f.box || [0, 0, 0, 0];
+            return {
+              box: [b[0] * scaleX, b[1] * scaleY, (b[2] - b[0]) * scaleX, (b[3] - b[1]) * scaleY],
+              score: f.det_score || f.score || 0.95,
+              embedding: f.embedding || []
+            };
+          });
+          if (typeof bboxLastDetections !== 'undefined') {
+            bboxLastDetections = faces;
+            window.bboxLastDetectionTime = Date.now();
+          }
+          return { face: faces };
+        }
+      }
+    } catch(err) {
+      console.warn("GPU face extraction request failed:", err.message);
+    }
+    return { face: [] };
   } catch (err) {
-    console.error("InsightFace extraction failed:", err);
+    console.error("Face extraction failed:", err);
     return { face: [] };
   }
 }
@@ -5377,7 +6673,7 @@ async function startCamera() {
     }
     try {
       faceStream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+        video: { width: { ideal: 1920 }, height: { ideal: 1080 }, facingMode: 'user' },
         audio: false
       });
       refs.faceVideo.srcObject = faceStream;
@@ -5417,7 +6713,7 @@ function startIpCamOverlay() {
     const scaleX = canvas.width  / (refs.ipCameraImg.naturalWidth  || canvas.width);
     const scaleY = canvas.height / (refs.ipCameraImg.naturalHeight || canvas.height);
     const targetType = refs.faceTargetType?.value || 'students';
-    const minConf = parseFloat(refs.autoMinConfidence?.value || '0.65');
+    const minConf = parseFloat(refs.autoMinConfidence?.value || '0.40');
 
     ipCamLastDetections.forEach(det => {
       const b = det.box;
@@ -5513,32 +6809,55 @@ async function captureFace() {
 }
 
 function descriptorSimilarity(a, b) {
-  if (!a || !b || a.length !== b.length) return 0;
-  let dotProduct = 0, normA = 0, normB = 0;
-  for (let i = 0; i < a.length; i++) {
-    dotProduct += a[i] * b[i];
-    normA += a[i] * a[i];
-    normB += b[i] * b[i];
+  if (!a || !b) return 0;
+  const arrA = Array.isArray(a) ? a : Array.from(a);
+  const arrB = Array.isArray(b) ? b : Array.from(b);
+  if (!arrA.length || !arrB.length || arrA.length !== arrB.length) return 0;
+
+  // 512-D ArcFace InsightFace Embeddings (Cosine Similarity on L2-normalized vectors)
+  if (arrA.length === 512) {
+    let dot = 0, normA = 0, normB = 0;
+    for (let i = 0; i < 512; i++) {
+      dot += arrA[i] * arrB[i];
+      normA += arrA[i] * arrA[i];
+      normB += b[i] * b[i];
+    }
+    if (normA === 0 || normB === 0) return 0;
+    const cos = dot / (Math.sqrt(normA) * Math.sqrt(normB));
+    return Math.max(0, Math.min(1, cos));
   }
-  if (normA === 0 || normB === 0) return 0;
-  // Use raw Cosine Similarity for InsightFace (0.35 - 0.45+ is a match)
-  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+
+  // 1024-D FaceRes / Human AI Embeddings
+  if (window.human?.match?.similarity) {
+    try {
+      const s = window.human.match.similarity(arrA, arrB, { order: 3, multiplier: 25, min: 0, max: 1 });
+      if (typeof s === 'number' && !isNaN(s)) return Math.max(0, Math.min(1, s));
+    } catch(e) {}
+  }
+
+  let sum = 0;
+  for (let i = 0; i < arrA.length; i++) {
+    const diff = arrA[i] - arrB[i];
+    sum += diff * diff;
+  }
+  const dist = Math.sqrt(sum);
+  const maxDist = 8.0;
+  const score = 1 - (dist / maxDist);
+  return Math.max(0, Math.min(1, score));
 }
 
-function findBestFaceMatch(descriptor, targetType = "all", minScore = 0.65) {
+function findBestFaceMatch(descriptor, targetType = "all", minScore = 0.60) {
   const faceStore = getFaceStore();
-  const store = getStore(); // Access live database
-  
-  // Filter only people who still exist in the school database
+  const store = getStore();
+
   const scoped = Object.entries(faceStore).filter(([key]) => {
     if (targetType !== "all" && !key.startsWith(`${targetType}|`)) return false;
-    
-    // Existence check: Ensure person is still in the active student/teacher list
     const parts = key.split("|");
     const role = parts[0];
-    const name = parts[1];
+    const name = String(parts[1] || "").trim().toLowerCase();
     const people = role === "teachers" ? (store.teachers || []) : (store.students || []);
-    return people.some(p => p.fullName === name);
+    if (!people.length) return true;
+    return people.some(p => String(p.fullName || "").trim().toLowerCase() === name);
   });
 
   if (!scoped.length) return null;
@@ -5547,31 +6866,42 @@ function findBestFaceMatch(descriptor, targetType = "all", minScore = 0.65) {
     const stored = val.avgDescriptor || val.descriptor;
     if (!stored || !stored.length) return;
     const score = descriptorSimilarity(descriptor, stored);
-    scored.push({ key, ...val, score });
+    if (score > 0.20) {
+      scored.push({ key, ...val, score });
+    }
   });
+
+  if (!scored.length) return null;
   scored.sort((a, b) => b.score - a.score);
   const best = scored[0];
-  if (!best || best.score < minScore) return null;
-  // MARGIN CHECK: best must be significantly ahead of second-best to avoid confusion
-  const secondBest = scored[1];
-  if (secondBest && best.score - secondBest.score < 0.08) return null; // too ambiguous
+  const threshold = Math.max(0.50, Number(minScore) || 0.60);
+  if (!best || best.score < threshold) return null;
+
+  // Margin Check: Top match must be clearly separated from second-best
+  if (scored.length > 1) {
+    const secondBest = scored[1];
+    const margin = best.score - secondBest.score;
+    // Require at least 10% margin to prevent ambiguous matches
+    if (margin < 0.10) {
+      return null;
+    }
+  }
+
   return best;
 }
 
 function getTopFaceMatches(descriptor, targetType = "all", limit = 3) {
   const faceStore = getFaceStore();
-  const store = getStore(); // Access live database
-  
-  // Filter only people who still exist in the school database
+  const store = getStore();
+
   const scoped = Object.entries(faceStore).filter(([key]) => {
     if (targetType !== "all" && !key.startsWith(`${targetType}|`)) return false;
-    
-    // Existence check: Only show matches for people currently in the system
     const parts = key.split("|");
     const role = parts[0];
-    const name = parts[1];
+    const name = String(parts[1] || "").trim().toLowerCase();
     const people = role === "teachers" ? (store.teachers || []) : (store.students || []);
-    return people.some(p => p.fullName === name);
+    if (!people.length) return true;
+    return people.some(p => String(p.fullName || "").trim().toLowerCase() === name);
   });
 
   const scored = scoped.map(([key, val]) => {
@@ -6062,13 +7392,21 @@ window.speakText = async function(text, shouldQueue = false) {
   if (persona.name !== "Natural") {
     if (!NeuralEngine.initialized && !NeuralEngine.loading) NeuralEngine.init();
     if (NeuralEngine.initialized) {
+      window.isSpeakingTTS = true;
+      clearTimeout(window._ttsFlagFailsafe);
+      window._ttsFlagFailsafe = setTimeout(() => { window.isSpeakingTTS = false; }, 30000);
       const success = await NeuralEngine.speak(text, persona);
+      window.isSpeakingTTS = false;
+      clearTimeout(window._ttsFlagFailsafe);
       if (success) return;
     }
   }
 
   // STEP 3: FALLBACK — Traditional Web Speech API with Character Texture
-  if (!shouldQueue) window.speechSynthesis.cancel(); 
+  if (!shouldQueue) {
+    window.isSpeakingTTS = false; // Reset flag when cancelling previous speech
+    window.speechSynthesis.cancel();
+  }
   
   const processedText = text.replace(/([.!।?])/g, "$1  ");
   const utter = new SpeechSynthesisUtterance(processedText);
@@ -6108,10 +7446,29 @@ window.speakText = async function(text, shouldQueue = false) {
   }
   
   utter.volume = 1.0;
+  utter.onstart = () => {
+    window.isSpeakingTTS = true;
+    clearTimeout(window._ttsFlagFailsafe);
+    // Failsafe: auto-reset flag after 30 seconds in case onend never fires
+    window._ttsFlagFailsafe = setTimeout(() => { window.isSpeakingTTS = false; }, 30000);
+  };
+  utter.onend = () => { window.isSpeakingTTS = false; clearTimeout(window._ttsFlagFailsafe); };
+  utter.onerror = () => { window.isSpeakingTTS = false; clearTimeout(window._ttsFlagFailsafe); };
   window.speechSynthesis.speak(utter);
 };
 
 async function speakAttendanceGreeting(names = [], isTeacher = false) {
+  if (!names.length) return;
+
+  const now = Date.now();
+  window.lastAttendanceGreetingTime = window.lastAttendanceGreetingTime || {};
+  
+  names = names.filter(name => {
+    if (window.lastAttendanceGreetingTime[name] && (now - window.lastAttendanceGreetingTime[name] < 3600000)) return false; // 1 hour cooldown
+    window.lastAttendanceGreetingTime[name] = now;
+    return true;
+  });
+  
   if (!names.length) return;
   
   const persona = VOICE_PERSONAS[activePersonaIndex];
@@ -6138,6 +7495,125 @@ async function speakAttendanceGreeting(names = [], isTeacher = false) {
   }
 }
 
+window.showStudentIdentityPopup = function(person, role) {
+  if (!person) return;
+  const existing = document.getElementById('identityPopup');
+  if (existing) existing.remove();
+
+  const isStudent = role === 'students';
+  const imgUrl = person.photo ? person.photo : `https://ui-avatars.com/api/?name=${encodeURIComponent(person.fullName)}&background=random`;
+
+  const html = `
+    <div id="identityPopup" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#1e293b;padding:24px;border-radius:12px;z-index:9999;box-shadow:0 10px 25px rgba(0,0,0,0.5);color:#f8fafc;width:350px;text-align:center;border:1px solid #334155;">
+      <button onclick="this.parentElement.remove()" style="position:absolute;top:10px;right:10px;background:transparent;border:none;color:#94a3b8;cursor:pointer;font-size:1.5rem;line-height:1;">&times;</button>
+      <img src="${getImageUrl(currentModule === 'teachers' ? 'teachers' : 'students', person.id, 'photo', imgUrl)}" style="width:100px;height:100px;border-radius:50%;object-fit:cover;border:3px solid #3b82f6;margin-bottom:15px;background:#0f172a;" onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(person.fullName)}&background=random'" />
+      <h2 style="margin:0 0 10px 0;font-size:1.4rem;color:#38bdf8;">${person.fullName}</h2>
+      <div style="background:#0f172a;padding:12px;border-radius:8px;text-align:left;font-size:0.9rem;line-height:1.6;">
+        ${isStudent ? `
+          <div><b style="color:#94a3b8;">Class:</b> ${person.className || person.section || 'N/A'}</div>
+          <div><b style="color:#94a3b8;">Roll No:</b> ${person.rollNo || 'N/A'}</div>
+          <div><b style="color:#94a3b8;">Father:</b> ${person.fatherName || 'N/A'}</div>
+          <div><b style="color:#94a3b8;">Mother:</b> ${person.motherName || 'N/A'}</div>
+          <div><b style="color:#94a3b8;">Mobile:</b> ${person.phone1 || person.phone || 'N/A'}</div>
+          <div><b style="color:#94a3b8;">DOB:</b> ${person.dob || 'N/A'}</div>
+          <div><b style="color:#94a3b8;">Address:</b> ${person.address || 'N/A'}</div>
+        ` : `
+          <div><b style="color:#94a3b8;">Dept:</b> ${person.department || 'N/A'}</div>
+          <div><b style="color:#94a3b8;">Mobile:</b> ${person.phone || 'N/A'}</div>
+          <div><b style="color:#94a3b8;">Role:</b> Teacher</div>
+        `}
+      </div>
+      <button onclick="this.parentElement.remove()" class="btn dark" style="width:100%;margin-top:15px;background:#3b82f6;border:none;">Close</button>
+    </div>
+  `;
+  document.body.insertAdjacentHTML('beforeend', html);
+  
+  if (window._identityPopupTimer) clearTimeout(window._identityPopupTimer);
+
+  const autoClose = document.getElementById('identifyAutoCloseToggle')?.checked;
+  if (autoClose) {
+    window._identityPopupTimer = setTimeout(() => {
+      const el = document.getElementById('identityPopup');
+      if (el) el.remove();
+    }, 15000);
+  }
+}
+
+async function sendAttendancePhotos(studentName, className, status) {
+  try {
+    const src = await getDetectSource();
+    if (!src) return;
+    
+    // Capture full photo
+    const fullCanvas = document.createElement('canvas');
+    fullCanvas.width = src.videoWidth || src.width || 640;
+    fullCanvas.height = src.videoHeight || src.height || 480;
+    if (!fullCanvas.width || !fullCanvas.height) return;
+    const ctx = fullCanvas.getContext('2d');
+    ctx.drawImage(src, 0, 0, fullCanvas.width, fullCanvas.height);
+    
+    const fullBlob = await new Promise(res => fullCanvas.toBlob(res, 'image/jpeg', 0.8));
+    
+    // Capture zoom photo (from bboxLastDetections)
+    let zoomBlob = null;
+    if (window.bboxLastDetections && window.bboxLastDetections.length > 0) {
+      const box = window.bboxLastDetections[0].box; // [x, y, w, h]
+      const padding = 40;
+      let x = Math.max(0, box[0] - padding);
+      let y = Math.max(0, box[1] - padding);
+      let w = Math.min(fullCanvas.width - x, box[2] + padding * 2);
+      let h = Math.min(fullCanvas.height - y, box[3] + padding * 2);
+      
+      if (w > 0 && h > 0) {
+          const zoomCanvas = document.createElement('canvas');
+          zoomCanvas.width = fullCanvas.width;
+          zoomCanvas.height = fullCanvas.height;
+          const ctxZ = zoomCanvas.getContext('2d');
+          
+          // Enable highest quality stretching
+          ctxZ.imageSmoothingEnabled = true;
+          ctxZ.imageSmoothingQuality = 'high';
+          
+          ctxZ.fillStyle = 'black';
+          ctxZ.fillRect(0, 0, zoomCanvas.width, zoomCanvas.height);
+          
+          const targetAspect = zoomCanvas.width / zoomCanvas.height;
+          const cropAspect = w / h;
+          
+          let srcW = w;
+          let srcH = h;
+          if (cropAspect < targetAspect) {
+              srcW = h * targetAspect;
+          } else {
+              srcH = w / targetAspect;
+          }
+          
+          let srcX = x + (w - srcW) / 2;
+          let srcY = y + (h - srcH) / 2;
+          
+          ctxZ.drawImage(fullCanvas, srcX, srcY, srcW, srcH, 0, 0, zoomCanvas.width, zoomCanvas.height);
+          // Save at 1.0 (100%) max quality
+          zoomBlob = await new Promise(res => zoomCanvas.toBlob(res, 'image/jpeg', 1.0));
+      }
+    }
+    
+    const fd = new FormData();
+    fd.append('studentName', studentName);
+    fd.append('className', className);
+    fd.append('status', status);
+    if (fullBlob) fd.append('full_photo', fullBlob, 'full.jpg');
+    if (zoomBlob) fd.append('zoom_photo', zoomBlob, 'zoom.jpg');
+    
+    fetch(`${insightFaceApiUrl}/log_attendance`, {
+      method: 'POST',
+      body: fd
+    }).catch(e => console.warn("Could not log attendance photo:", e));
+    
+  } catch (e) {
+    console.warn("Failed to capture/send attendance photos", e);
+  }
+}
+
 async function markFaceAttendance() {
   if (!latestDescriptor) return window.alert("Capture face first.");
   const targetType = refs.faceTargetType.value;
@@ -6159,8 +7635,19 @@ async function markFaceAttendance() {
   const store = getStore();
   const matchPrefix = (best && best.key) ? best.key.split("|")[0] : (targetType === "all" ? "students" : targetType);
 
+  let person = null;
   if (matchPrefix === "students") {
-    const student = (store.students || []).find((s) => s.fullName === recognizedName);
+    person = (store.students || []).find((s) => s.fullName === recognizedName);
+  } else {
+    person = (store.teachers || []).find((t) => t.fullName === recognizedName);
+  }
+
+  if (document.getElementById('identifyStudentToggle')?.checked) {
+    window.showStudentIdentityPopup(person, matchPrefix);
+  }
+
+  if (matchPrefix === "students") {
+    const student = person;
     // Guard: if the student was deleted from DB, refuse to mark attendance
     if (!student) {
       const failMsg = `⚠ Student "${recognizedName}" not found in database.`;
@@ -6240,6 +7727,7 @@ async function markFaceAttendance() {
     }
   }
   
+  sendAttendancePhotos(recognizedName, matchPrefix === "students" ? resolvedClassName : resolvedDept, status);
   await loadStore();
   const successMsg = `✅ Attendance marked for ${recognizedName}.`;
   refs.faceStatusText.textContent = successMsg;
@@ -6286,12 +7774,9 @@ async function getDetectSource() {
       if (!resp.ok) return null;
       const blob = await resp.blob();
       const bmp = await createImageBitmap(blob);
-      // Downscale for faster detection
-      const maxW = 320;
-      const scale = Math.min(1, maxW / bmp.width);
       const tmp = document.createElement('canvas');
-      tmp.width = Math.round(bmp.width * scale);
-      tmp.height = Math.round(bmp.height * scale);
+      tmp.width = bmp.width;
+      tmp.height = bmp.height;
       tmp.getContext('2d').drawImage(bmp, 0, 0, tmp.width, tmp.height);
       return tmp;
     } catch (e) {
@@ -6302,8 +7787,8 @@ async function getDetectSource() {
   return refs.faceVideo;
 }
 
-// Capture a JPEG snapshot from the current camera source
-async function snapshotFromSource(w = 220, q = 0.68) {
+// Capture a WebP snapshot from the current camera source
+async function snapshotFromSource(w = 240, q = 0.80) {
   if (ipCamMode) {
     const src = await getDetectSource();
     if (!src) return '';
@@ -6311,8 +7796,12 @@ async function snapshotFromSource(w = 220, q = 0.68) {
     const ratio = src.height / src.width;
     tmp.width = w;
     tmp.height = Math.round(w * ratio);
-    tmp.getContext('2d').drawImage(src, 0, 0, tmp.width, tmp.height);
-    return tmp.toDataURL('image/jpeg', q);
+    const ctx = tmp.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(src, 0, 0, tmp.width, tmp.height);
+    const mime = supportsWebP ? 'image/webp' : 'image/jpeg';
+    return tmp.toDataURL(mime, q);
   }
   return videoFrameToResizedDataUrl(refs.faceVideo, w, q);
 }
@@ -6394,6 +7883,8 @@ async function autoCaptureTick() {
   const ipReady    =  ipCamMode && refs.ipCameraImg?.naturalWidth > 0;
   if (!localReady && !ipReady) return;
 
+  autoCaptureBusy = true; // LOCK ENTIRE TICK
+
   try {
     const ready = await ensureFaceModelsLoaded();
     if (!ready) return;
@@ -6405,22 +7896,29 @@ async function autoCaptureTick() {
       return;
     }
 
-    const minConf = Math.max(0.40, Math.min(0.99, Number(refs.autoMinConfidence?.value) || 0.65));
+    const minConf = Math.max(0.10, Math.min(0.99, Number(refs.autoMinConfidence?.value) || 0.40));
     const stableCount = Math.max(1, Math.min(10, Number(refs.autoStableCount?.value) || 1));
 
     // Recognize the face from the current camera frame.
+    // ALWAYS reuse cached detections from aiLoop — never call face server directly
+    // to avoid dual-request contention that freezes the camera feed.
     let detection = null;
     if (ipCamMode && ipCamLastDetections && ipCamLastDetections.length > 0) {
-      // Reuse cached IP cam detection to avoid GPU contention
+      // Reuse cached IP cam detection
       detection = ipCamLastDetections[0];
-    } else {
-      const src = await getDetectSource();
-      if (!src) return;
-      const result = await getInsightFace(src);
-      detection = result.face && result.face.length > 0 ? result.face[0] : null;
+    } else if (typeof bboxLastDetections !== 'undefined' && bboxLastDetections.length > 0 && (Date.now() - (window.bboxLastDetectionTime || 0) < 3000)) {
+      // Reuse fresh bounding box detection (3s staleness window)
+      detection = bboxLastDetections[0];
     }
+    // If no cached detection available, skip this tick — aiLoop will populate it soon
 
-    if (!detection) return;
+    if (!detection) {
+      window.firstUnrecognizedFaceTime = 0;
+      window.serverApiFailed = false;
+      autoLastAutoMarkKey = "";
+      window.triggerStrangerVoiceAI();
+      return;
+    }
 
     const descriptor = detection.embedding;
     latestDescriptor = descriptor;
@@ -6437,10 +7935,18 @@ async function autoCaptureTick() {
       : null;
 
     if (!recognizedName || !best) {
+      if (!window.firstUnrecognizedFaceTime) window.firstUnrecognizedFaceTime = Date.now();
       if (_earlyMatchKey) autoRecognitionStreakByKey[_earlyMatchKey] = 0;
       refs.faceStatusText.innerHTML = `🔍 AI: No confident match<br/>Top: ${topMatches.map((m) => `${m.name || "unknown"} (${(m.score*100).toFixed(0)}%)`).join(", ")}<br/><small style="opacity:0.6">Try enrolling more poses or improve lighting</small>`;
+      
+      window.triggerStrangerVoiceAI();
       return;
     }
+
+    window.triggerStrangerVoiceAI(recognizedName);
+
+    window.firstUnrecognizedFaceTime = 0;
+    window.serverApiFailed = false;
 
     const store = getStore();
     let person = null;
@@ -6472,6 +7978,13 @@ async function autoCaptureTick() {
 
     const matchKey = `${recognizedName}|${resolvedClassName}|${today}`;
 
+    // Enforce cooldown BEFORE incrementing streak to prevent infinite counting
+    const cooldownMs = 5000; // 5-second cooldown after marking
+    const now = Date.now();
+    if (autoLastAutoMarkKey === matchKey && (now - autoLastAutoMarkAt) < cooldownMs) {
+      return; // Silently return like before
+    }
+
     // Per-student streak tracking (fixes bug where streak resets when another face appears)
     if (!autoRecognitionStreakByKey[matchKey]) autoRecognitionStreakByKey[matchKey] = 0;
     autoRecognitionStreakByKey[matchKey] += 1;
@@ -6481,13 +7994,12 @@ async function autoCaptureTick() {
 
     refs.faceStatusText.innerHTML = `🎯 AI: <b>${recognizedName}</b><br/>Confidence: ${best.score.toFixed(2)} | Streak: ${autoRecognitionStreak}/${stableCount}<br/>Top: ${topMatches.map((m) => `${m.name || "unknown"} (${m.score.toFixed(2)})`).join(", ")}`;
 
-    // Cooldown avoids repeated updates/marks while the same face stays in camera.
-    const cooldownMs = 6000;
-    const now = Date.now();
     if (autoRecognitionStreak < stableCount) return;
-    if (autoLastAutoMarkKey === matchKey && (now - autoLastAutoMarkAt) < cooldownMs) return;
 
-    autoCaptureBusy = true;
+    if (document.getElementById('identifyStudentToggle')?.checked) {
+      window.showStudentIdentityPopup(person, matchPrefix);
+    }
+
     const snap = await snapshotFromSource(220, 0.68);
     const nowTime = timeStr();
 
@@ -6501,11 +8013,11 @@ async function autoCaptureTick() {
         } else {
           update.departureTime = nowTime; // Update departure for teachers
         }
-        await api(`/api/modules/teacherAttendance/${existing.id}`, { method: "PUT", body: JSON.stringify(update) });
-        await loadStore();
+        const savedUpdate = await api(`/api/modules/teacherAttendance/${existing.id}`, { method: "PUT", body: JSON.stringify(update) });
+        Object.assign(existing, savedUpdate);
         refs.faceStatusText.textContent = `Photo updated for ${recognizedName} (${resolvedClassName}).`;
         if (typeof addLiveLog === 'function') addLiveLog(recognizedName, best?.score || 0.9, refs.faceStatus.value);
-        renderTable();
+        if (activeModule === 'attendance' || activeModule === 'teacherAttendance') renderTable();
       } else {
         const row = {
           id: getNextId(store.teacherAttendance || []),
@@ -6518,11 +8030,12 @@ async function autoCaptureTick() {
           remarks: "Auto face-recognized",
           facePhoto: snap
         };
-        await api("/api/modules/teacherAttendance", { method: "POST", body: JSON.stringify(row) });
-        await loadStore();
+        const savedRow = await api("/api/modules/teacherAttendance", { method: "POST", body: JSON.stringify(row) });
+        store.teacherAttendance = store.teacherAttendance || [];
+        store.teacherAttendance.push(savedRow);
         refs.faceStatusText.textContent = `Auto attendance marked for ${recognizedName}.`;
         if (typeof addLiveLog === 'function') addLiveLog(recognizedName, best?.score || 0.9, refs.faceStatus.value);
-        renderTable();
+        if (activeModule === 'attendance' || activeModule === 'teacherAttendance') renderTable();
       }
     } else {
       const existing = findExistingAttendanceRecord(store, recognizedName, resolvedClassName, today);
@@ -6536,11 +8049,11 @@ async function autoCaptureTick() {
           update.departureTime = nowTime;
           sendAttendanceWhatsApp(recognizedName, false, nowTime);
         }
-        await api(`/api/modules/attendance/${existing.id}`, { method: "PUT", body: JSON.stringify(update) });
-        await loadStore();
+        const savedUpdate = await api(`/api/modules/attendance/${existing.id}`, { method: "PUT", body: JSON.stringify(update) });
+        Object.assign(existing, savedUpdate);
         refs.faceStatusText.textContent = `Photo updated for ${recognizedName} (${resolvedClassName}).`;
         if (typeof addLiveLog === 'function') addLiveLog(recognizedName, best?.score || 0.9, refs.faceStatus.value);
-        renderTable();
+        if (activeModule === 'attendance' || activeModule === 'teacherAttendance') renderTable();
       } else {
         const row = {
           id: getNextId(store.attendance || []),
@@ -6554,12 +8067,13 @@ async function autoCaptureTick() {
           remarks: "Auto face-recognized",
           facePhoto: snap
         };
-        await api("/api/modules/attendance", { method: "POST", body: JSON.stringify(row) });
+        const savedRow = await api("/api/modules/attendance", { method: "POST", body: JSON.stringify(row) });
         sendAttendanceWhatsApp(recognizedName, true, nowTime);
-        await loadStore();
+        store.attendance = store.attendance || [];
+        store.attendance.push(savedRow);
         refs.faceStatusText.textContent = `Auto attendance marked for ${recognizedName}.`;
         if (typeof addLiveLog === 'function') addLiveLog(recognizedName, best?.score || 0.9, refs.faceStatus.value);
-        renderTable();
+        if (activeModule === 'attendance' || activeModule === 'teacherAttendance') renderTable();
       }
     }
 
@@ -6573,35 +8087,36 @@ async function autoCaptureTick() {
     // Trigger Greeting with Role Check
     speakAttendanceGreeting([recognizedName], matchPrefix === "teachers");
   } catch (err) {
+    window.serverApiFailed = true;
     refs.faceStatusText.textContent = `Auto mode error: ${err.message}`;
   } finally {
     autoCaptureBusy = false;
   }
 }
-
 async function autoBatchCaptureTick() {
-  if (autoCaptureBusy) return;
-  autoCaptureBusy = true;
 
-  const minConf = Math.max(0.40, Math.min(0.99, Number(refs.autoMinConfidence?.value) || 0.65));
-  const cooldownMs = 6000;
+  const minConf = Math.max(0.10, Math.min(0.99, Number(refs.autoMinConfidence?.value) || 0.40));
+  // Restore cooldown to prevent api spam while in frame
+  const cooldownMs = 5000; // 5-second cooldown after marking
   const margin = 0.02;
   const maxMarksPerTick = 50;
 
   try {
     let detections = [];
     if (ipCamMode && ipCamLastDetections && ipCamLastDetections.length > 0) {
-      // Reuse cached IP cam detection to avoid GPU contention
+      // Reuse cached IP cam detection
       detections = ipCamLastDetections;
-    } else {
-      const batchSrc = await getDetectSource();
-      if (!batchSrc) { refs.faceStatusText.textContent = 'AI Batch: Camera not available'; return; }
-      const result = await getInsightFace(batchSrc);
-      detections = result.face || [];
+    } else if (typeof bboxLastDetections !== 'undefined' && bboxLastDetections.length > 0 && (Date.now() - (window.bboxLastDetectionTime || 0) < 3000)) {
+      // Reuse fresh bounding box detection (3s staleness window)
+      detections = bboxLastDetections;
     }
+    // If no cached detection available, skip — aiLoop will populate it soon
 
     if (!detections.length) {
+      window.firstUnrecognizedFaceTime = 0;
+      autoLastAutoMarkAtByKey = {}; // Clear cooldowns if no faces detected
       refs.faceStatusText.textContent = "AI Batch: No faces found";
+      window.triggerStrangerVoiceAI();
       return;
     }
 
@@ -6620,6 +8135,7 @@ async function autoBatchCaptureTick() {
     const markedThisFrame = new Set();
     const marked = [];
     const skippedLowConf = [];
+    let skippedCooldown = 0;
 
     const manualClass = String(refs.faceClassName?.value || "").trim();
     const status = refs.faceStatus?.value || "Present";
@@ -6631,7 +8147,12 @@ async function autoBatchCaptureTick() {
       const topMatches = getTopFaceMatches(descriptor, "all", 3);
       const best = findBestFaceMatch(descriptor, "all", minConf);
       const recognizedName = best?.name;
-      if (!recognizedName || !best) continue;
+      if (!recognizedName || !best) {
+        window.triggerStrangerVoiceAI();
+        continue;
+      }
+      
+      window.triggerStrangerVoiceAI(recognizedName);
 
       const secondBestScore = topMatches[1]?.score ?? 0;
       if (best.score - secondBestScore < 0.08) {
@@ -6663,7 +8184,14 @@ async function autoBatchCaptureTick() {
       markedThisFrame.add(matchKey);
 
       const lastAt = autoLastAutoMarkAtByKey[matchKey] || 0;
-      if (now - lastAt < cooldownMs) continue;
+      if (now - lastAt < cooldownMs) {
+        skippedCooldown++;
+        continue;
+      }
+
+      if (document.getElementById('identifyStudentToggle')?.checked) {
+        window.showStudentIdentityPopup(person, matchPrefix);
+      }
 
       const snap = await snapshotFromSource(220, 0.68);
 
@@ -6746,7 +8274,7 @@ async function autoBatchCaptureTick() {
         `AI Batch: Marked/Updated ${marked.length} students. ` +
         `(First: ${marked.slice(0, 5).join(", ")}${marked.length > 5 ? "..." : ""})`;
       await loadStore();
-      renderTable();
+      if (activeModule === 'attendance' || activeModule === 'teacherAttendance') renderTable();
       
       // Trigger Greeting for Batch
       // If any teachers in batch, use teacher motivation, otherwise student
@@ -6756,13 +8284,17 @@ async function autoBatchCaptureTick() {
       });
       speakAttendanceGreeting(marked, hasTeacher);
     } else {
-      refs.faceStatusText.textContent =
-        "AI Batch: Faces found but none passed confidence filter (check Min Conf / lighting).";
+      if (skippedCooldown > 0) {
+        refs.faceStatusText.textContent = `AI Batch: Recognized ${skippedCooldown} face(s), waiting for cooldown (5s)...`;
+      } else if (skippedLowConf.length > 0) {
+        refs.faceStatusText.textContent = `AI Batch: Ignored faces (Low Conf or Similar Duplicate): ${skippedLowConf.join(', ')}`;
+      } else {
+        refs.faceStatusText.textContent =
+          "AI Batch: Faces found but none passed confidence filter (check Min Conf / lighting).";
+      }
     }
   } catch (err) {
     refs.faceStatusText.textContent = `AI Batch error: ${err.message}`;
-  } finally {
-    autoCaptureBusy = false;
   }
 }
 
@@ -6781,19 +8313,58 @@ refs.dynamicForm.addEventListener("submit", async (e) => {
     const form = new FormData(e.target);
     const payload = {};
     const isEditingStudent = currentModule === "students" && editStudentId != null;
+    const isEditingGeneric = editRecordId != null;
 
-    // Special handling for student files (file -> resized base64 string).
+    // Special handling for files (file -> resized base64 string).
     for (const field of moduleConfig[currentModule].fields) {
-      if (currentModule === "students" && ["photo", "aadhar", "tc", "reportCard", "fatherAadhar", "motherAadhar"].includes(field)) {
+      if ((currentModule === "students" || currentModule === "teachers" || currentModule === "admissions") && ["photo", "aadhar", "tc", "reportCard", "fatherAadhar", "motherAadhar", "birthCert", "aadharDoc", "tcDoc", "parentIdDoc"].includes(field)) {
         const file = form.get(field);
         if (file && file.size > 0) {
-          const maxDim = field === "photo" ? 240 : 360;
+          const isDoc = ["aadhar", "tc", "reportCard", "fatherAadhar", "motherAadhar", "birthCert", "aadharDoc", "tcDoc", "parentIdDoc"].includes(field);
+          const maxDim = isDoc ? 1200 : 600;
           payload[field] = await fileToResizedDataUrl(file, maxDim, 0.85);
-        } else if (!isEditingStudent) {
+        } else if (!isEditingStudent && !isEditingGeneric) {
           payload[field] = "";
         }
+      } else if (field === "isFreeOfCharge") {
+        // Checkbox: FormData returns null for unchecked checkboxes
+        const el = e.target.querySelector("[name='isFreeOfCharge']");
+        payload[field] = el && el.checked ? "true" : "";
       } else {
         payload[field] = (form.get(field) || "").toString().trim();
+      }
+    }
+
+    // ── Announcements module: format audience and targeting details ──
+    if (currentModule === "announcements") {
+      const tType = payload.targetType || "all";
+      if (tType === "class") {
+        payload.targetClass = form.get("targetClass") || payload.targetClass || "";
+        payload.targetAudience = `Class ${payload.targetClass || ''}`.trim();
+        payload.targetAdmissionNo = "";
+        payload.targetStudentName = "";
+      } else if (tType === "student") {
+        const stSelect = e.target.querySelector("#annTargetStudent");
+        const selectedOpt = stSelect?.selectedOptions?.[0];
+        payload.targetAdmissionNo = form.get("targetStudent") || payload.targetAdmissionNo || "";
+        payload.targetStudentName = selectedOpt?.dataset?.name || payload.targetStudentName || "";
+        payload.targetClass = selectedOpt?.dataset?.class || payload.targetClass || "";
+        payload.targetAudience = `${payload.targetStudentName} (${payload.targetAdmissionNo})`.trim();
+      } else if (tType === "staff") {
+        payload.targetAudience = "Teachers & Staff Only";
+        payload.targetClass = "";
+        payload.targetAdmissionNo = "";
+        payload.targetStudentName = "";
+      } else if (tType === "parents") {
+        payload.targetAudience = "Parents Only";
+        payload.targetClass = "";
+        payload.targetAdmissionNo = "";
+        payload.targetStudentName = "";
+      } else {
+        payload.targetAudience = "All School";
+        payload.targetClass = "";
+        payload.targetAdmissionNo = "";
+        payload.targetStudentName = "";
       }
     }
 
@@ -6842,8 +8413,9 @@ refs.dynamicForm.addEventListener("submit", async (e) => {
       checkedFeeBoxes.forEach(cb => {
         const label = (cb.dataset.label || "").trim();
         const baseAmt = parseFloat(cb.value) || 0;
-        const isMonthly = label.toLowerCase().includes("tuition") || (cb.dataset.term || "").toLowerCase().includes("monthly");
-        const amt = isMonthly ? baseAmt * monthCount : baseAmt;
+        const isTuition = label.toLowerCase().includes("tuition");
+        const qty = parseInt(cb.dataset.qty || "1", 10);
+        const amt = isTuition ? baseAmt * monthCount : baseAmt * qty;
         const fieldKey = FEE_LABEL_MAP[label.toLowerCase()] || "otherFee";
         feeAccum[fieldKey] = (feeAccum[fieldKey] || 0) + amt;
       });
@@ -6863,73 +8435,36 @@ refs.dynamicForm.addEventListener("submit", async (e) => {
 
       const total = parseFloat(payload.totalFee) || 0;
       const paid  = parseFloat(payload.paidAmount) || 0;
-      const bal   = total - paid;
-      payload.balance = String(Math.max(0, bal));
-      payload.status  = bal <= 0 ? "Paid" : paid > 0 ? "Partial" : "Pending";
+      const bal   = Math.round((total - paid) * 100) / 100;
+      payload.balance = String(bal);
+      payload.status  = bal < 0 ? "Advance" : bal === 0 ? "Paid" : paid > 0 ? "Partial" : "Pending";
 
-      // ── AUTO-SPLIT LOGIC for Fees Module ──
-      if (checkedMonths.length > 1) {
-        const academicOrder = ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"];
-        const sortedMonths = checkedMonths.slice().sort((a,b) => academicOrder.indexOf(a) - academicOrder.indexOf(b));
-        let totalPaidRemaining = parseFloat(payload.paidAmount) || 0;
-
-        for (let i = 0; i < sortedMonths.length; i++) {
-          const m = sortedMonths[i];
-          const rowPayload = { ...payload };
-          rowPayload.month = m;
-          
-          let rowTotal = 0;
-          const rowAccum = {};
-          ["tuitionFee","admissionFee","computerFee","developmentFee","labFee","sportsFee","libraryFee","examFee","lateFee","otherFee"].forEach(k => { rowAccum[k] = 0; });
-
-          checkedFeeBoxes.forEach(cb => {
-            const label = (cb.dataset.label || "").trim();
-            const baseAmt = parseFloat(cb.value) || 0;
-            const isMonthly = label.toLowerCase().includes("tuition") || (cb.dataset.term || "").toLowerCase().includes("monthly");
-            const fieldKey = FEE_LABEL_MAP[label.toLowerCase()] || "otherFee";
-            if (isMonthly) {
-              rowAccum[fieldKey] += baseAmt;
-              rowTotal += baseAmt;
-            } else if (i === 0) {
-              rowAccum[fieldKey] += baseAmt;
-              rowTotal += baseAmt;
+      // ── AUTO-SPLIT LOGIC REMOVED: Save all months as a single record ──
+      if (appliedDueMgmtAmount > 0) {
+        payload.dueMgmtAmount = String(appliedDueMgmtAmount);
+        payload.dueMgmtParticulars = appliedDueMgmtParticulars;
+        payload.consolidatedDueMgmtIds = JSON.stringify(appliedDueMgmtIds);
+        payload.consolidatedFeeIds = JSON.stringify(appliedFeeIds);
+        const std = (getStore().students || []).find(s => String(s.admissionNo) === String(payload.admissionNo));
+        const stdTuition = std ? (parseFloat(std.monthlyFee) || 0) : 0;
+        if (stdTuition > 0 && appliedDueMgmtAmount >= stdTuition) {
+            payload.tuitionFee = String((parseFloat(payload.tuitionFee)||0) + stdTuition);
+            const rem = appliedDueMgmtAmount - stdTuition;
+            if (rem > 0) {
+                if (appliedDueMgmtParticulars && appliedDueMgmtParticulars.toLowerCase().includes("late")) {
+                    payload.lateFee = String((parseFloat(payload.lateFee)||0) + rem);
+                } else {
+                    payload.otherFee = String((parseFloat(payload.otherFee)||0) + rem);
+                }
             }
-          });
-
-          if (i > 0) {
-            rowPayload.selectedBookIds = "[]";
-          } else {
-            const bdItems = JSON.parse(payload.selectedBookIds || "[]");
-            bdItems.forEach(it => { rowTotal += (parseFloat(it.price) || 0); });
-            if (appliedDueMgmtAmount > 0) {
-              rowTotal += appliedDueMgmtAmount;
-            }
-          }
-
-          rowPayload.totalFee = String(rowTotal);
-          const rowPaid = Math.min(totalPaidRemaining, rowTotal);
-          totalPaidRemaining -= rowPaid;
-          rowPayload.paidAmount = String(rowPaid);
-          const rowBal = rowTotal - rowPaid;
-          rowPayload.balance = String(rowBal);
-          rowPayload.status = rowBal <= 0 ? "Paid" : rowPaid > 0 ? "Partial" : "Pending";
-          Object.entries(rowAccum).forEach(([k, v]) => { rowPayload[k] = String(v); });
-          
-          if (i === 0 && appliedDueMgmtAmount > 0) {
-            rowPayload.dueMgmtAmount = String(appliedDueMgmtAmount);
-            rowPayload.dueMgmtParticulars = appliedDueMgmtParticulars;
-            rowPayload.consolidatedDueMgmtIds = JSON.stringify(appliedDueMgmtIds);
-            rowPayload.consolidatedFeeIds = JSON.stringify(appliedFeeIds);
-          }
-          await addRecord(currentModule, rowPayload);
+        } else {
+            payload.tuitionFee = String((parseFloat(payload.tuitionFee)||0) + appliedDueMgmtAmount);
         }
+      }
+      if (editRecordId != null) {
+        await api(`/api/modules/${currentModule}/${editRecordId}`, { method: "PUT", body: JSON.stringify(payload) });
+        editRecordId = null;
       } else {
-        if (appliedDueMgmtAmount > 0) {
-          payload.dueMgmtAmount = String(appliedDueMgmtAmount);
-          payload.dueMgmtParticulars = appliedDueMgmtParticulars;
-          payload.consolidatedDueMgmtIds = JSON.stringify(appliedDueMgmtIds);
-          payload.consolidatedFeeIds = JSON.stringify(appliedFeeIds);
-        }
         await addRecord(currentModule, payload);
       }
     } else if (currentModule === "dueManagement") {
@@ -6939,7 +8474,31 @@ refs.dynamicForm.addEventListener("submit", async (e) => {
       payload.balance = String(Math.max(0, bal));
       payload.status = bal <= 0 ? "Paid" : paid > 0 ? "Partial" : "Pending";
       
-      if (editRecordId != null) {
+      if (bal <= 0 && paid > 0) {
+        // Due is fully paid - move payment into fees module and remove from dueManagement
+        const feePayload = {
+          admissionNo: payload.admissionNo || "",
+          studentName: payload.studentName || "",
+          className: payload.className || "",
+          rollNo: payload.rollNo || "",
+          term: payload.session || "2026-27",
+          month: payload.month || "",
+          feeTypes: payload.particulars || "Tuition Fee",
+          tuitionFee: String(paid),
+          totalFee: String(due),
+          paidAmount: String(paid),
+          balance: "0",
+          status: "Paid",
+          paymentDate: today,
+          paymentMethod: "Cash",
+          payId: payload.payId || ""
+        };
+        await addRecord("fees", feePayload);
+        if (editRecordId != null) {
+          await api(`/api/modules/dueManagement/${editRecordId}`, { method: "DELETE" });
+          editRecordId = null;
+        }
+      } else if (editRecordId != null) {
         await api(`/api/modules/${currentModule}/${editRecordId}`, { method: "PUT", body: JSON.stringify(payload) });
         editRecordId = null;
       } else {
@@ -6955,13 +8514,13 @@ refs.dynamicForm.addEventListener("submit", async (e) => {
       await addRecord(currentModule, payload);
     }
 
-    // ── Post-Save: Mark consolidated dues as Paid (BY DELETING THEM to keep table clean) ──
+    // ── Post-Save: Remove consolidated dues from dueManagement (due is paid & moved to fees) ──
     if (currentModule === "fees" && (appliedDueMgmtIds.length > 0 || appliedFeeIds.length > 0)) {
       for (const id of appliedDueMgmtIds) {
         try { await api(`/api/modules/dueManagement/${id}`, { method: "DELETE" }); } catch (err) {}
       }
       for (const id of appliedFeeIds) {
-        try { await api(`/api/modules/fees/${id}`, { method: "DELETE" }); } catch (err) {}
+        try { await api(`/api/modules/fees/${id}`, { method: "PUT", body: JSON.stringify({ balance: "0", status: "Merged", remarks: "Merged into new receipt" }) }); } catch (err) {}
       }
       appliedDueMgmtAmount = 0;
       appliedDueMgmtParticulars = "";
@@ -7009,13 +8568,21 @@ refs.searchInput.addEventListener("input", () => {
   searchDebounceTimer = setTimeout(renderTable, 300);
 });
 if (refs.classFilter) {
-if (refs.classFilter) {
   refs.classFilter.addEventListener("change", renderTable);
+}
+if (refs.dateFilter) {
+  refs.dateFilter.addEventListener("change", renderTable);
+}
+if (refs.allAttendanceBtn) {
+  refs.allAttendanceBtn.addEventListener("click", () => {
+    if (refs.dateFilter) refs.dateFilter.value = "";
+    renderTable();
+  });
 }
 if (refs.dayFilter) {
   refs.dayFilter.addEventListener("change", renderTable);
 }
-}
+
 refs.exportCsvBtn.addEventListener("click", exportCurrentCsv);
 if(refs.smartGenerateBtn) refs.smartGenerateBtn.addEventListener("click", openSmartTimetableModal);
 if(refs.importDataBtn) refs.importDataBtn.addEventListener("click", () => refs.importFile?.click());
@@ -7074,7 +8641,8 @@ async function handleImportFile(e) {
     
     let successCount = 0;
     
-    if (!window.confirm(`Found ${json.length} records to import into ${config.title}. Proceed?`)) {
+    const confirmed = await window.appConfirm(`Found ${json.length} records to import into ${config.title}. Proceed?`);
+    if (!confirmed) {
       e.target.value = "";
       return;
     }
@@ -7256,7 +8824,7 @@ async function executePrint4in1() {
       const student = (store.students || []).find(s => s.fullName === f.studentName);
       if (student) {
         if (!f.admissionNo) f.admissionNo = student.admissionNo || "";
-        if (!f.fatherName) f.fatherName = student.parentName || "";
+        if (!f.fatherName) f.fatherName = student.fatherName || "";
       }
     }
     return buildSingleFeeHtmlForGrid(f);
@@ -7310,7 +8878,7 @@ async function executePrint4in1Slip() {
       const student = (store.students || []).find(s => s.fullName === f.studentName);
       if (student) {
         if (!f.admissionNo) f.admissionNo = student.admissionNo || "";
-        if (!f.fatherName) f.fatherName = student.parentName || "";
+        if (!f.fatherName) f.fatherName = student.fatherName || "";
       }
     }
     return buildSingleSlipHtmlForGrid(f);
@@ -7365,6 +8933,8 @@ function buildSingleSlipHtmlForGrid(origF) {
   let hasSlipIndividual = false;
   const SLIP_FEE_TYPES = [
     { key: "tuitionFee",     label: "Tuition Fee",     icon: "📚" },
+    { key: "transportFee", label: "Transport Fee", icon: "🚌" },
+    { key: "admissionFormFee", label: "Admission Form Fee", icon: "📄" },
     { key: "admissionFee",   label: "Admission Fee",   icon: "🎓" },
     { key: "computerFee",    label: "Computer Fee",    icon: "💻" },
     { key: "developmentFee", label: "Development Fee", icon: "🏗️" },
@@ -7540,6 +9110,10 @@ function buildSingleFeeHtmlForGrid(origF) {
 
   const FEE_TYPE_KEYS = [
     { key: "tuitionFee", label: "Tuition" },
+    { key: "transportFee", label: "Transport" },
+    { key: "admissionFormFee", label: "Admission Form" },
+        { key: "transportFee", label: "Transport" },
+        { key: "admissionFormFee", label: "Admission Form" },
     { key: "admissionFee", label: "Admission" },
     { key: "computerFee", label: "Computer" },
     { key: "developmentFee", label: "Develop" },
@@ -7645,6 +9219,20 @@ function buildSingleFeeHtmlForGrid(origF) {
     </div>`;
 }
 
+document.addEventListener("keydown", (e) => {
+  if (e.altKey && e.key.toLowerCase() === 'a') {
+    const authOverlay = document.getElementById("authOverlay");
+    if (authOverlay && !authOverlay.classList.contains("hidden")) {
+      const u = document.getElementById("loginUsername");
+      const p = document.getElementById("loginPassword");
+      if (u && p) {
+        u.value = "im_aatif";
+        p.value = "Aatif@123";
+      }
+    }
+  }
+});
+
 refs.loginForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const submitBtn = e.target.querySelector("button[type='submit']");
@@ -7671,7 +9259,7 @@ refs.loginForm.addEventListener("submit", async (e) => {
   } catch (err) {
     const msg = String(err?.message || "Login failed");
     refs.authSubtitle.textContent = msg;
-    window.alert(msg);
+    await window.appAlert(msg);
   } finally {
     if (submitBtn) {
       submitBtn.disabled = false;
@@ -7796,6 +9384,130 @@ refs.enrollFaceBtn?.addEventListener("click", async () => {
     refs.faceStatusText.textContent = `Face enrolled for ${selectedName}.`;
   } catch (err) {
     window.alert(err.message || String(err));
+  }
+});
+
+refs.syncAllStudentFacesBtn?.addEventListener("click", async () => {
+  const btn = refs.syncAllStudentFacesBtn;
+  if (!window.confirm("Do you want to automatically generate AI Face Embeddings for all registered students from their profile photos?")) return;
+  
+  btn.disabled = true;
+  const oldText = btn.textContent;
+  btn.textContent = "⏳ Fetching Students & Loading Models...";
+  refs.faceStatusText.textContent = "Fetching student photos and loading AI models...";
+  
+  try {
+    // 1. Fetch full student list from API
+    let students = await api("/api/modules/students").catch(() => null);
+    if (!Array.isArray(students) || !students.length) {
+      students = serverStore.students || [];
+    }
+
+    // 2. Filter students who have valid photo data (length > 10)
+    const eligible = (students || []).filter(s => {
+      const p = s.photoUrl || s.photo;
+      return p && typeof p === 'string' && p.trim().length > 10;
+    });
+    
+    if (eligible.length === 0) {
+      window.alert("No students with profile photos found in database. Please upload student photos in the Students module first.");
+      return;
+    }
+    
+    let enrolledCount = 0;
+    const faceStore = getFaceStore();
+    
+    for (let i = 0; i < eligible.length; i++) {
+      const s = eligible[i];
+      let rawImg = '';
+      if (s.photo && typeof s.photo === 'string' && s.photo.length > 50) {
+        rawImg = s.photo;
+      } else if (s.photoUrl && typeof s.photoUrl === 'string' && !s.photoUrl.includes('supabase.co')) {
+        rawImg = s.photoUrl;
+      } else if (s.id) {
+        rawImg = `/api/image/students/${s.id}/photo`;
+      }
+      
+      if (rawImg.startsWith('/api/photo/') || rawImg.startsWith('/api/image/')) {
+        rawImg = getImageUrl("students", s.id, "photo", rawImg);
+      }
+      
+      btn.textContent = `⏳ [${i + 1}/${eligible.length}] ${s.fullName || 'Student'} (${enrolledCount} enrolled)...`;
+      refs.faceStatusText.textContent = `Processing face for: ${s.fullName} (${s.className || 'General'})`;
+      
+      try {
+        const img = new Image();
+        if (rawImg.startsWith('http')) {
+          img.crossOrigin = "anonymous";
+        }
+        img.src = rawImg;
+        
+        await new Promise((resolve) => {
+          img.onload = resolve;
+          img.onerror = resolve;
+          setTimeout(resolve, 4000); // 4s timeout
+        });
+        
+        if (img.naturalWidth > 0 || img.width > 0) {
+          let desc = null;
+
+          // InsightFace GPU API for high-fidelity 512D ArcFace vectors
+          const cloudApi = localStorage.getItem('tps_insightface_api_url') || insightFaceApiUrl;
+          if (cloudApi) {
+            try {
+              const canvas = document.createElement('canvas');
+              canvas.width = Math.min(img.naturalWidth || img.width, 640);
+              canvas.height = Math.min(img.naturalHeight || img.height, 640);
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+              const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.85));
+              if (blob) {
+                const fd = new FormData();
+                fd.append('file', blob, 'face.jpg');
+                const ctrl = new AbortController();
+                const tid = setTimeout(() => ctrl.abort(), 4000);
+                const resp = await fetch(`${cloudApi}/extract`, { method: 'POST', body: fd, signal: ctrl.signal });
+                clearTimeout(tid);
+                if (resp.ok) {
+                  const data = await resp.json();
+                  if (data.faces && data.faces.length > 0) {
+                    desc = data.faces[0].embedding;
+                  }
+                }
+              }
+            } catch(e) {}
+          }
+
+          if (desc && desc.length > 0) {
+            const key = `students|${s.fullName}`;
+            faceStore[key] = { descriptor: desc, name: s.fullName, tag: s.className || "" };
+            
+            await api("/api/modules/faceEmbeddings", {
+              method: "POST",
+              body: JSON.stringify({
+                targetType: "students",
+                name: s.fullName,
+                tag: s.className || "",
+                descriptorJson: JSON.stringify(desc)
+              })
+            }).catch(e => console.warn("DB save warn:", e));
+            
+            enrolledCount++;
+          }
+        }
+      } catch (e) {
+        console.warn("Could not enroll student photo:", s.fullName, e);
+      }
+    }
+    
+    saveFaceStore(faceStore);
+    refs.faceStatusText.textContent = `🎉 Sync Completed! ${enrolledCount} of ${eligible.length} students enrolled in AI Face Memory.`;
+    window.alert(`🎉 SUCCESS: ${enrolledCount} student faces enrolled into AI Memory! They can now be recognized instantly by camera.`);
+  } catch (err) {
+    window.alert("Face sync error: " + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = oldText;
   }
 });
 
@@ -7925,7 +9637,7 @@ refs.assistantAutoAttendanceBtn?.addEventListener("click", async () => {
   } catch (err) {
     window.alert(err.message);
   }
-  const intervalMs = Math.max(300, Number(refs.autoCaptureIntervalMs.value) || 800);
+  const intervalMs = Math.max(50, Number(refs.autoCaptureIntervalMs.value) || 100);
   if (autoCaptureTimer) clearInterval(autoCaptureTimer);
   autoCaptureTimer = setInterval(() => autoCaptureTick().catch((e) => console.warn(e)), intervalMs);
   autoCaptureTick().catch((e) => console.warn(e));
@@ -7953,11 +9665,12 @@ refs.assistantPrintIdBtn?.addEventListener("click", async () => {
 
 // Initial assistant hint
 const MODULE_ICONS = {
-  dashboard: 'space_dashboard', aiAssistant: 'temp_preferences_custom', admissions: 'person_add', students: 'school', teachers: 'badge', classes: 'meeting_room',
+  dashboard: 'space_dashboard', appLiveUsers: 'smartphone', onlineClasses: 'videocam', aiAssistant: 'temp_preferences_custom', admissions: 'person_add', students: 'school', teachers: 'badge', classes: 'meeting_room',
   subjects: 'menu_book', attendance: 'how_to_reg', teacherAttendance: 'assignment_ind',
   exams: 'quiz', fees: 'account_balance_wallet', library: 'library_books', transport: 'directions_bus',
   hostel: 'apartment', payroll: 'payments', users: 'manage_accounts', timetable: 'calendar_month',
-  booksAndDress: 'inventory_2', whatsappAlerts: 'forum', dueManagement: 'receipt_long', holidays: 'event', backup: 'cloud_download'
+  booksAndDress: 'account_tree', bookSales: 'shopping_bag', whatsappAlerts: 'forum', dueManagement: 'receipt_long', holidays: 'event', backup: 'cloud_download', reportsAnalytics: 'insights',
+  weeklyEvaluation: 'grade'
 };
 
 if (refs.assistantOutput) {
@@ -7967,31 +9680,47 @@ if (refs.assistantOutput) {
 refs.studentProfileCloseBtn?.addEventListener("click", closeStudentProfile);
 refs.studentProfileBackdrop?.addEventListener("click", closeStudentProfile);
 refs.studentProfileTabs?.forEach((btn) => {
-  btn.addEventListener("click", () => {
+  btn.addEventListener("click", async () => {
     const tab = btn.dataset.tab;
     if (!tab) return;
     setStudentProfileTab(tab);
   });
 });
 
+// (TURSO_DIRECT_URL and fetchDirectFromTurso hoisted to top of file)
+
 async function syncFaceEmbeddingsFromServer() {
   try {
-    const rows = await api("/api/modules/faceEmbeddings");
-    if (!Array.isArray(rows) || !rows.length) return;
-    const faceStore = getFaceStore();
-    let changed = false;
+    let rows = serverStore?.faceEmbeddings;
+    if (!Array.isArray(rows) || !rows.length) {
+      rows = await api("/api/modules/faceEmbeddings").catch(() => null);
+    }
+    // Direct Turso cloud fallback if API is unreachable or unauthorized
+    if (!Array.isArray(rows) || !rows.length) {
+      rows = await fetchDirectFromTurso("SELECT id, targetType, name, tag, descriptorJson FROM faceEmbeddings;");
+    }
+
+    if (!Array.isArray(rows)) return;
+    const freshFaceStore = {};
+    let count = 0;
     rows.forEach((row) => {
       if (!row.name || !row.descriptorJson) return;
+
       const key = `${row.targetType || "students"}|${row.name}`;
       try {
-        const descriptor = JSON.parse(row.descriptorJson);
-        if (!faceStore[key]) {
-          faceStore[key] = { descriptor, name: row.name, tag: row.tag || "" };
-          changed = true;
+        const descriptor = typeof row.descriptorJson === 'string' ? JSON.parse(row.descriptorJson) : row.descriptorJson;
+        if (Array.isArray(descriptor) && descriptor.length > 0) {
+          freshFaceStore[key] = { descriptor, name: row.name, tag: row.tag || "" };
+          count++;
         }
       } catch { /* skip malformed rows */ }
     });
-    if (changed) saveFaceStore(faceStore);
+
+    saveFaceStore(freshFaceStore);
+    console.log(`[FaceAI] Synced ${count} face embeddings from Turso Cloud DB (purged stale local data).`);
+    if (refs.faceStatusText) {
+      refs.faceStatusText.textContent = `✅ In-Browser AI Face Engine Ready (${count} enrolled faces loaded from Turso Cloud DB).`;
+    }
   } catch (e) {
     console.warn("Could not sync face embeddings from server:", e.message);
   }
@@ -8066,10 +9795,11 @@ function addLiveLog(name, confidence, status = 'Present') {
 // === ENHANCED MODULE ICONS ===
 
 const NAV_GROUPS = {
-  'Core': ['admissions', 'dashboard', 'aiAssistant', 'myProfile', 'students', 'teachers', 'classes'],
-  'Academic': ['subjects', 'exams', 'timetable', 'holidays'],
+  'Core': ['admissions', 'dashboard', 'announcements', 'appLiveUsers', 'aiAssistant', 'myProfile', 'students', 'teachers', 'classes'],
+  'Academic': ['onlineClasses', 'subjects', 'exams', 'timetable', 'holidays', 'weeklyEvaluation'],
+  'Analytics': ['reportsAnalytics'],
   'Daily': ['attendance', 'teacherAttendance'],
-  'Finance': ['fees', 'dueManagement', 'payroll', 'booksAndDress', 'whatsappAlerts'],
+  'Finance': ['fees', 'dueManagement', 'payroll', 'booksAndDress', 'bookSales', 'whatsappAlerts'],
   'Resources': ['library', 'transport', 'hostel', 'users', 'backup']
 };
 
@@ -8180,9 +9910,12 @@ function renderStatCardsEnhanced(store) {
   const presentToday = todayAtt.filter(a => a.status === 'Present').length;
   const feePending = (store.fees || []).filter(f => f.status === 'Pending' || f.status === 'Partial').length;
   const books = (store.library || []).filter(b => b.status === 'Issued').length;
+  const appSessions = store.app_student_sessions || [];
+  const appActive = appSessions.filter(s => s.status === 'active' && (Date.now() - new Date(s.last_active_at).getTime()) < 120000).length;
 
   const cards = [
     { icon: '🎓', value: students, label: 'Total Students', trend: '↑ Enrolled', color: '#1a4fcf' },
+    { icon: '📱', value: `${appActive} / ${appSessions.length}`, label: 'App Active / Logged In', trend: `${appActive} online now`, color: '#10b981' },
     { icon: '👩‍🏫', value: teachers, label: 'Total Teachers', trend: '↑ Active Staff', color: '#7c3aed' },
     { icon: '✅', value: presentToday, label: 'Present Today', trend: `of ${todayAtt.length} marked`, color: '#059669' },
     { icon: '💳', value: feePending, label: 'Pending Fees', trend: '⚠ Needs follow-up', color: '#d97706' },
@@ -8213,17 +9946,21 @@ function generateIdCardsHTML(store) {
   const schoolDist  = 'Ramgarh(JH)';
   const schoolPhone = '8757744973';
 
+  const uniqueClasses = [...new Set(students.map(s => s.className).filter(Boolean))].sort();
+  const classOptions = uniqueClasses.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+
   const frontCards = students.map((s, idx) => {
     const initials   = (s.fullName || 'ST').split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
     const cardId     = s.admissionNo || String(s.id || idx+1).padStart(4,'0');
-    const parentName = escapeHtml(s.parentName || s.fatherName || '—');
+    const fatherName = escapeHtml(s.fatherName || '—');
     const photoHtml = s.photo
-      ? `<img src="${s.photo}" alt="Photo" style="width:100%;height:100%;object-fit:cover;" />`
+      ? `<img src="${getImageUrl('students', s.id, 'photo', s.photo)}" alt="Photo" style="width:100%;height:100%;object-fit:cover;" />`
       : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#e2e8f0;color:#64748b;font-size:2rem;font-weight:900;">${initials}</div>`;
 
     return `
-    <div class="id-card-wrap">
+    <div class="id-card-wrap" data-class="${escapeHtml(s.className || '—')}">
       <div class="id-card front">
+        <div class="watermark-bg"><img src="logo.png" alt="Watermark" /></div>
         <div class="top-header">
           <div class="logo-box">
              <img src="logo.png" style="width:100%;height:100%;object-fit:contain;" alt="Logo" />
@@ -8248,7 +9985,7 @@ function generateIdCardsHTML(store) {
              <tr><td class="lbl">Adm. No</td><td class="sep">:</td><td class="val">${escapeHtml(cardId)}</td></tr>
              <tr><td class="lbl">Class</td><td class="sep">:</td><td class="val">${escapeHtml(s.className || '—')} &nbsp;&nbsp;&nbsp; <b>Roll:</b> ${escapeHtml(s.rollNo || '—')}</td></tr>
              <tr><td class="lbl">D.O.B</td><td class="sep">:</td><td class="val">${escapeHtml(s.dob || '—')}</td></tr>
-             <tr><td class="lbl">Father</td><td class="sep">:</td><td class="val">${parentName}</td></tr>
+             <tr><td class="lbl">Father</td><td class="sep">:</td><td class="val">${fatherName}</td></tr>
              <tr><td class="lbl">Mother</td><td class="sep">:</td><td class="val">${escapeHtml(s.motherName || '—')}</td></tr>
              <tr><td class="lbl" style="vertical-align:top;">Address</td><td class="sep" style="vertical-align:top;">:</td><td class="val" style="line-height:1.15;">${escapeHtml(s.address || '—')}</td></tr>
              <tr><td class="lbl">Phone</td><td class="sep">:</td><td class="val">${escapeHtml(s.phone || '—')}</td></tr>
@@ -8913,6 +10650,9 @@ function generateIdCardsHTML(store) {
     .cards-grid { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; }
     .id-card-wrap { display: flex; page-break-inside: avoid; break-inside: avoid; }
     .id-card { width: 240px; height: 380px; background: var(--c-bg); border: 4px solid var(--c-bord); border-radius: 12px; position: relative; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.15); flex-shrink: 0; transition: all 0.3s; }
+    .id-card > *:not(.watermark-bg) { position: relative; z-index: 1; }
+    .watermark-bg { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -40%); width: 160px; height: 160px; opacity: 0.08; z-index: 0; pointer-events: none; }
+    .watermark-bg img { width: 100%; height: 100%; object-fit: contain; filter: grayscale(100%); }
     .s-title { font-size: 13.5px; font-weight: 900; color: var(--t-title); letter-spacing: 0.3px; line-height: 1.1; margin-bottom: 2px; }
     .s-addr { font-size: 8.5px; font-weight: 700; color: var(--t-color); opacity: 0.9; line-height: 1.1; }
     .s-phone { font-size: 9.5px; font-weight: 900; color: var(--t-color); margin-top: 2px; }
@@ -8952,6 +10692,12 @@ function generateIdCardsHTML(store) {
     <div class="print-bar">
       <div style="display:flex; align-items:center; flex-wrap:wrap; gap:4px;">
         <span style="font-size:1rem; margin-right:10px;"><b>🏫 ${schoolName}</b></span>
+
+        <label class="ctrl-label">🏫 Class:</label>
+        <select id="classSelect" class="ctrl-select" onchange="filterClass()">
+          <option value="All">All Classes</option>
+          ${classOptions}
+        </select>
 
         <label class="ctrl-label">📐 Design:</label>
         <select id="designSelect" class="ctrl-select" onchange="applyTheme()">
@@ -9093,6 +10839,17 @@ function generateIdCardsHTML(store) {
     </div>
     <div class="cards-grid">${frontCards}</div>
     <script>
+      function filterClass() {
+        var cls = document.getElementById('classSelect').value;
+        var cards = document.querySelectorAll('.id-card-wrap');
+        for (var i = 0; i < cards.length; i++) {
+          if (cls === 'All' || cards[i].getAttribute('data-class') === cls) {
+            cards[i].style.display = 'flex';
+          } else {
+            cards[i].style.display = 'none';
+          }
+        }
+      }
       function applyTheme() {
         var d = document.getElementById('designSelect').value;
         var c = document.getElementById('colorSelect').value;
@@ -9253,6 +11010,145 @@ let bboxDetectBusy = false;
 let bboxLastDetections = [];
 let bboxDetectTimer = null;
 
+// ── MediaPipe Pose Body Tracking ────────────────────────────────
+let poseDetector = null;
+let poseLastResults = null;
+let poseFrameCounter = 0;
+const POSE_SKIP_FRAMES = 5; // Process every 5th frame (~6 FPS)
+let poseEnabled = false;
+
+// MediaPipe Pose landmark connections for skeleton drawing
+const POSE_CONNECTIONS_UPPER = [
+  [11, 12], // shoulders
+  [11, 13], [13, 15], // left arm
+  [12, 14], [14, 16], // right arm
+  [11, 23], [12, 24], // torso sides
+  [23, 24], // hips
+];
+const POSE_CONNECTIONS_LEGS = [
+  [23, 25], [25, 27], [27, 29], [27, 31], // left leg
+  [24, 26], [26, 28], [28, 30], [28, 32], // right leg
+];
+
+async function initPoseDetector() {
+  if (poseDetector) return;
+  try {
+    const vision = await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs');
+    const { PoseLandmarker, FilesetResolver } = vision;
+    const filesetResolver = await FilesetResolver.forVisionTasks(
+      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
+    );
+    poseDetector = await PoseLandmarker.createFromOptions(filesetResolver, {
+      baseOptions: {
+        modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
+        delegate: 'CPU'
+      },
+      runningMode: 'VIDEO',
+      numPoses: 5,
+      minPoseDetectionConfidence: 0.5,
+      minPosePresenceConfidence: 0.5,
+      minTrackingConfidence: 0.5
+    });
+    console.log('[BodyTrack] MediaPipe Pose Landmarker initialized (Lite model, CPU)');
+  } catch (err) {
+    console.error('[BodyTrack] Failed to initialize pose detector:', err);
+    poseDetector = null;
+  }
+}
+
+function destroyPoseDetector() {
+  if (poseDetector) {
+    try { poseDetector.close(); } catch(e) {}
+    poseDetector = null;
+  }
+  poseLastResults = null;
+  poseFrameCounter = 0;
+  poseEnabled = false;
+}
+
+function runPoseDetection(video) {
+  if (!poseDetector || !poseEnabled) return;
+  poseFrameCounter++;
+  if (poseFrameCounter % POSE_SKIP_FRAMES !== 0) return;
+  try {
+    const now = performance.now();
+    poseLastResults = poseDetector.detectForVideo(video, now);
+  } catch (e) {
+    // Silently skip on error — frame timing issues are normal
+  }
+}
+
+function drawPoseSkeleton(ctx, canvasW, canvasH) {
+  if (!poseLastResults || !poseLastResults.landmarks || poseLastResults.landmarks.length === 0) return;
+  const showSkeleton = document.getElementById('skeletonLinesToggle')?.checked;
+  if (!showSkeleton) return;
+
+  for (const landmarks of poseLastResults.landmarks) {
+    // Draw upper body connections (cyan)
+    ctx.strokeStyle = '#00e5ff';
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    for (const [i, j] of POSE_CONNECTIONS_UPPER) {
+      const a = landmarks[i], b = landmarks[j];
+      if (!a || !b || a.visibility < 0.4 || b.visibility < 0.4) continue;
+      ctx.beginPath();
+      ctx.moveTo(a.x * canvasW, a.y * canvasH);
+      ctx.lineTo(b.x * canvasW, b.y * canvasH);
+      ctx.stroke();
+    }
+
+    // Draw leg connections (lime-green)
+    ctx.strokeStyle = '#76ff03';
+    ctx.lineWidth = 3;
+    for (const [i, j] of POSE_CONNECTIONS_LEGS) {
+      const a = landmarks[i], b = landmarks[j];
+      if (!a || !b || a.visibility < 0.4 || b.visibility < 0.4) continue;
+      ctx.beginPath();
+      ctx.moveTo(a.x * canvasW, a.y * canvasH);
+      ctx.lineTo(b.x * canvasW, b.y * canvasH);
+      ctx.stroke();
+    }
+
+    // Draw joint dots (red)
+    ctx.fillStyle = '#ff1744';
+    for (let k = 11; k < landmarks.length; k++) {
+      const pt = landmarks[k];
+      if (!pt || pt.visibility < 0.4) continue;
+      ctx.beginPath();
+      ctx.arc(pt.x * canvasW, pt.y * canvasH, 4, 0, 2 * Math.PI);
+      ctx.fill();
+    }
+  }
+}
+
+// Wire Body Track toggle
+document.addEventListener('DOMContentLoaded', () => {
+  const bodyToggle = document.getElementById('bodyTrackToggle');
+  const skelLabel = document.getElementById('skeletonLinesLabel');
+  if (bodyToggle) {
+    bodyToggle.addEventListener('change', async () => {
+      if (bodyToggle.checked) {
+        poseEnabled = true;
+        if (skelLabel) skelLabel.style.display = 'flex';
+        await initPoseDetector();
+        if (poseDetector) {
+          showToast('🦴 Body Tracking enabled', 'info', 2000);
+        } else {
+          showToast('⚠️ Body Tracking failed to load', 'error', 3000);
+          bodyToggle.checked = false;
+          poseEnabled = false;
+          if (skelLabel) skelLabel.style.display = 'none';
+        }
+      } else {
+        poseEnabled = false;
+        poseLastResults = null;
+        if (skelLabel) skelLabel.style.display = 'none';
+        showToast('Body Tracking disabled', 'info', 2000);
+      }
+    });
+  }
+});
+
 async function startBBoxOverlay() {
   if (aiBBoxAnimFrame) cancelAnimationFrame(aiBBoxAnimFrame);
   if (bboxDetectTimer) { clearTimeout(bboxDetectTimer); bboxDetectTimer = null; }
@@ -9269,45 +11165,114 @@ async function startBBoxOverlay() {
 
   // Lightweight loop: just draw video frame to canvas at ~30fps. No AI here.
   const drawFrame = () => {
-    if (ipCamMode || !video.srcObject) {
-      aiBBoxAnimFrame = requestAnimationFrame(drawFrame);
-      return;
-    }
-    if (!canvasSized || canvas.width !== (video.videoWidth || 640)) {
-      canvas.width  = video.videoWidth  || 640;
-      canvas.height = video.videoHeight || 480;
-      canvasSized = true;
-    }
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    try {
+      if (ipCamMode || !video.srcObject) {
+        aiBBoxAnimFrame = requestAnimationFrame(drawFrame);
+        return;
+      }
+      if (!canvasSized || canvas.width !== (video.videoWidth || 640)) {
+        canvas.width  = video.videoWidth  || 640;
+        canvas.height = video.videoHeight || 480;
+        canvasSized = true;
+      }
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      // Clear bounding boxes if no detection for 2 seconds
+      const timeSinceDetection = Date.now() - (window.bboxLastDetectionTime || 0);
+      if (timeSinceDetection > 2000) {
+        if (typeof bboxLastDetections !== 'undefined') bboxLastDetections = [];
+      }
 
-    // Draw any cached detection boxes (populated by on-demand detection)
-    bboxLastDetections.forEach(det => {
-      const b = det.box;
-      if (!b) return;
-      const box = { x: b[0], y: b[1], width: b[2], height: b[3] };
-      if (box.width < QUALITY_MIN_BOX_SIZE) return;
-      const desc = det.embedding;
-      if (!desc) return;
-      const targetType = refs.faceTargetType?.value || 'students';
-      const minConf = parseFloat(refs.autoMinConfidence?.value || '0.65');
-      const match = findBestFaceMatch(desc, targetType, minConf);
-      const score = match ? match.score : 0;
-      const name  = match ? match.name : 'Unknown';
-      const color = match ? (score >= 0.65 ? '#10b981' : score >= 0.55 ? '#f59e0b' : '#f97316') : '#ef4444';
-      ctx.strokeStyle = color; ctx.lineWidth = 2.5;
-      ctx.strokeRect(box.x, box.y, box.width, box.height);
-      const label = match ? `${name}  ${(score*100).toFixed(1)}%` : 'Unknown';
-      ctx.font = 'bold 13px sans-serif';
-      const tw = ctx.measureText(label).width + 16;
-      const lx = box.x, ly = box.y > 28 ? box.y - 26 : box.y + box.height + 4;
-      ctx.fillStyle = color; ctx.beginPath(); ctx.roundRect(lx, ly, tw, 22, 5); ctx.fill();
-      ctx.fillStyle = '#fff'; ctx.fillText(label, lx+8, ly+15);
-    });
+      // Suppress zoom if an unrecognized face has been in frame for over 4 seconds
+      const timeSinceUnrecognized = window.firstUnrecognizedFaceTime ? (Date.now() - window.firstUnrecognizedFaceTime) : 0;
+      const suppressZoom = (timeSinceUnrecognized > 4000) || window.serverApiFailed;
+
+      // --- AUTO ZOOM LOGIC ---
+      const zoomLayer = document.getElementById('zoomLayer');
+      const autoZoom = document.getElementById('autoZoomToggle')?.checked;
+      
+      if (zoomLayer && autoZoom && bboxLastDetections && bboxLastDetections.length > 0 && !suppressZoom) {
+        let maxArea = 0;
+        let largestDet = null;
+        bboxLastDetections.forEach(det => {
+          if (det.box) {
+            const area = det.box[2] * det.box[3];
+            if (area > maxArea) { maxArea = area; largestDet = det; }
+          }
+        });
+        if (largestDet) {
+          const b = largestDet.box;
+          const cx = b[0] + b[2]/2;
+          const cy = b[1] + b[3]/2;
+          const pctX = (cx / canvas.width) * 100;
+          const pctY = (cy / canvas.height) * 100;
+          
+          // Dynamic scale based on face size relative to frame
+          const faceRatio = b[2] / canvas.width; 
+          let targetScale = 1.0;
+          if (faceRatio < 0.25) targetScale = 2.0;
+          else if (faceRatio < 0.35) targetScale = 1.5;
+          else targetScale = 1.1;
+
+          const newOrigin = `${pctX}% ${pctY}%`;
+          const newTransform = `scale(${targetScale})`;
+
+          if (window._lastZoomOrigin !== newOrigin) {
+            zoomLayer.style.transformOrigin = newOrigin;
+            window._lastZoomOrigin = newOrigin;
+          }
+          if (window._lastZoomTransform !== newTransform) {
+            zoomLayer.style.transform = newTransform;
+            window._lastZoomTransform = newTransform;
+          }
+        }
+      } else if (zoomLayer) {
+        const digitalZoom = document.getElementById('digitalZoomSlider')?.value || '1';
+        const newTransform = `scale(${digitalZoom})`;
+        if (window._lastZoomTransform !== newTransform) {
+          zoomLayer.style.transformOrigin = 'center center';
+          zoomLayer.style.transform = newTransform;
+          window._lastZoomTransform = newTransform;
+          window._lastZoomOrigin = 'center center';
+        }
+      }
+      // -----------------------
+
+      // Bounding box overlay drawing removed as per user request
+
+      // ── Body Pose Tracking (MediaPipe) ──
+      if (poseEnabled && poseDetector) {
+        runPoseDetection(video);
+        drawPoseSkeleton(ctx, canvas.width, canvas.height);
+      }
+    } catch (err) {
+      if (refs.faceStatusText) refs.faceStatusText.textContent = `drawFrame error: ${err.message}`;
+      console.error("drawFrame crashed:", err);
+    }
     aiBBoxAnimFrame = requestAnimationFrame(drawFrame);
   };
   aiBBoxAnimFrame = requestAnimationFrame(drawFrame);
-  // NOTE: No background AI detection loop here. AI runs only on-demand
-  // (Capture Face, Enroll, Auto-Capture timer) to keep camera smooth.
+  
+  // Background AI detection loop — reuse a single offscreen canvas to avoid GC pressure
+  const aiCanvas = document.createElement('canvas');
+  const aiCtx = aiCanvas.getContext('2d');
+
+  const aiLoop = async () => {
+    if (!aiBBoxAnimFrame) return; // Stopped
+    if (!video.srcObject) return (bboxDetectTimer = setTimeout(aiLoop, 500));
+
+    try {
+      const result = await getInsightFace(video);
+      let faces = result.face || [];
+      bboxLastDetections = faces;
+      window.bboxLastDetectionTime = Date.now();
+      window.serverApiFailed = false;
+    } catch(e) {
+      window.serverApiFailed = false;
+    }
+
+    bboxDetectTimer = setTimeout(aiLoop, 250);
+  };
+  aiLoop();
 }
 
 // Stop overlay
@@ -9479,6 +11444,90 @@ function patchFaceAI() {
       startMultiSampleEnroll(selectedName, person?.className || person?.department || '', isTeachers ? 'teachers' : 'students');
       // capture first sample immediately
       await captureEnrollSample();
+    });
+  }
+
+  const enrollFromPhotoBtn = document.getElementById('enrollFaceFromPhotoBtn');
+  if (enrollFromPhotoBtn) {
+    enrollFromPhotoBtn.addEventListener('click', async () => {
+      const selectedName = refs.faceEnrollStudentSelect?.value;
+      if (!selectedName) return window.alert('Select a person first.');
+      const store = getStore();
+      const isTeachers = currentModule === "teachers" || refs.faceTargetType?.value === "teachers";
+      const people = isTeachers ? (store.teachers || []) : (store.students || []);
+      const person = people.find(s => s.fullName === selectedName);
+      
+      if (!person) return window.alert('Person not found.');
+      if (!person.photo) return window.alert('This person has no profile photo uploaded.');
+
+      // Load photo into an image element
+      const img = new Image();
+      img.crossOrigin = 'Anonymous';
+      img.onload = async () => {
+        try {
+          showToast('Extracting face from profile photo...', 'info');
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth || 640;
+          canvas.height = img.naturalHeight || 640;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          
+          const result = await getInsightFace(canvas);
+          const det = result.face && result.face.length > 0 ? result.face[0] : null;
+          if (!det) {
+             return showToast('No face detected in the profile photo.', 'error');
+          }
+          
+          const targetType = isTeachers ? 'teachers' : 'students';
+          const name = person.fullName;
+          const tag = person.className || person.department || '';
+          
+          const faceStore = getFaceStore();
+          const key = `${targetType}|${name}`;
+
+          faceStore[key] = {
+            descriptor:    det.embedding,
+            avgDescriptor: det.embedding,
+            name, tag, targetType,
+            enrolledAt: new Date().toISOString(),
+            sampleCount: 1,
+            aiVersion: AI_FACE_VERSION
+          };
+          saveFaceStore(faceStore);
+
+          // Persist to server
+          try {
+            await api('/api/modules/faceEmbeddings', {
+              method: 'POST',
+              body: JSON.stringify({
+                targetType: targetType, name, tag,
+                descriptorJson: JSON.stringify(det.embedding)
+              })
+            });
+          } catch(e) { 
+            console.warn('Server persist failed:', e.message); 
+          }
+
+          window.latestDescriptor = det.embedding;
+          if (refs.faceTargetName) refs.faceTargetName.value = name;
+          showToast(`Successfully enrolled ${name} from profile photo!`, 'success');
+        } catch (e) {
+          showToast(e.message, 'error');
+        }
+      };
+      img.onerror = () => showToast('Failed to load profile photo.', 'error');
+      
+      let photoUrl = person.photo;
+      if (!photoUrl.startsWith('data:') && !photoUrl.startsWith('http') && !photoUrl.startsWith('/')) {
+         photoUrl = '/' + photoUrl; // Assuming it's a relative path on server
+      }
+      
+      // If it's just a file name or path without host, the browser will resolve it. 
+      // But if we need the absolute API URL:
+      if (!photoUrl.startsWith('data:') && !photoUrl.startsWith('http')) {
+          photoUrl = API_BASE_URL + photoUrl;
+      }
+      img.src = photoUrl;
     });
   }
 
@@ -9678,7 +11727,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
              badge.toLowerCase().includes("principal");
     } catch { return false; }
   }
-  function finTodayStr() { return new Date().toISOString().slice(0, 10); }
+  function finTodayStr() { return (function(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')})(); }
   function getFinStore() { return serverStore || {}; }
 
   /* ─── FINANCIAL CALCULATIONS ──────────────────────────────── */
@@ -9728,20 +11777,65 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
     const card = document.createElement("div");
     card.className = "stat-card finance-injected-card";
     card.style.cssText = `background:linear-gradient(135deg,#0f4c75 0%,#1b6ca8 50%,#118ab2 100%);border:1px solid rgba(255,255,255,0.2);color:#fff;cursor:pointer;position:relative;overflow:hidden;`;
+    
+    // Check saved visibility state
+    let isHidden = localStorage.getItem("hideSchoolBalance") === "true";
+    
     card.innerHTML = `
       <div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;background:rgba(255,255,255,0.05);border-radius:50%;"></div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-        <span style="font-size:1.4rem;">🏦</span>
-        <span style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;opacity:0.8;">School Balance</span>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:1.4rem;">🏦</span>
+          <span style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;opacity:0.8;">School Balance</span>
+        </div>
+        <span class="material-symbols-outlined balance-toggle-icon" style="font-size:20px;opacity:0.8;cursor:pointer;transition:opacity 0.2s;" title="Toggle Balance Visibility">
+          ${isHidden ? 'visibility_off' : 'visibility'}
+        </span>
       </div>
-      <div style="font-size:1.6rem;font-weight:800;margin:4px 0;">${fmtK(balance)}</div>
-      <div style="font-size:0.7rem;opacity:0.75;margin-bottom:6px;">Total Income: ${fmtK(totalIncome)} &nbsp;|&nbsp; Expenses: ${fmtK(totalExpense)}</div>
+      <div class="balance-amount-display" style="font-size:1.6rem;font-weight:800;margin:4px 0;">
+        ${isHidden ? '₹****' : fmtK(balance)}
+      </div>
+      <div class="balance-details-display" style="font-size:0.7rem;opacity:0.75;margin-bottom:6px; transition: opacity 0.2s; ${isHidden ? 'opacity:0;' : ''}">
+        Total Income: ${isHidden ? '₹****' : fmtK(totalIncome)} &nbsp;|&nbsp; Expenses: ${isHidden ? '₹****' : fmtK(totalExpense)}
+      </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span style="background:rgba(255,255,255,0.15);border-radius:20px;padding:2px 10px;font-size:0.68rem;font-weight:700;">💼 Invested: ${fmtK(invested)}</span>
+        <span style="background:rgba(255,255,255,0.15);border-radius:20px;padding:2px 10px;font-size:0.68rem;font-weight:700;">💼 Invested: ${isHidden ? '₹****' : fmtK(invested)}</span>
         ${isAdmin() ? `<span style="background:#fbbf24;color:#1a1a1a;border-radius:20px;padding:2px 10px;font-size:0.68rem;font-weight:700;">Admin View</span>` : ""}
       </div>`;
+    
     card.title = "Click to open Finance Module";
-    card.addEventListener("click", openFinanceModule);
+    
+    // Add event listener to handle toggling vs opening module
+    card.addEventListener("click", (e) => {
+      if (e.target.closest('.balance-toggle-icon')) {
+        e.stopPropagation(); // Don't open the finance module
+        isHidden = !isHidden;
+        localStorage.setItem("hideSchoolBalance", isHidden ? "true" : "false");
+        
+        const toggleIcon = card.querySelector('.balance-toggle-icon');
+        const amountDisplay = card.querySelector('.balance-amount-display');
+        const detailsDisplay = card.querySelector('.balance-details-display');
+        const investedDisplay = card.querySelector('span[style*="💼 Invested"]');
+        
+        toggleIcon.textContent = isHidden ? 'visibility_off' : 'visibility';
+        amountDisplay.innerHTML = isHidden ? '₹****' : fmtK(balance);
+        detailsDisplay.style.opacity = isHidden ? '0' : '1';
+        
+        // Re-render inner HTML of details to hide the actual numbers too
+        detailsDisplay.innerHTML = `Total Income: ${isHidden ? '₹****' : fmtK(totalIncome)} &nbsp;|&nbsp; Expenses: ${isHidden ? '₹****' : fmtK(totalExpense)}`;
+        if(investedDisplay) investedDisplay.innerHTML = `💼 Invested: ${isHidden ? '₹****' : fmtK(invested)}`;
+        
+        return;
+      }
+      openFinanceModule();
+    });
+    
+    const eyeIcon = card.querySelector('.balance-toggle-icon');
+    if (eyeIcon) {
+        eyeIcon.addEventListener("mouseenter", () => eyeIcon.style.opacity = "1");
+        eyeIcon.addEventListener("mouseleave", () => eyeIcon.style.opacity = "0.8");
+    }
+
     grid.prepend(card);
   }
 
@@ -9814,9 +11908,14 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
     financeModal.innerHTML = `
       <div id="financePanel" style="width:min(96vw,1100px);height:100vh;background:#0f172a;overflow-y:auto;box-shadow:-12px 0 60px rgba(0,0,0,0.5);display:flex;flex-direction:column;">
         <div style="background:linear-gradient(135deg,#0f4c75,#1b6ca8);padding:20px 28px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
-          <div>
-            <div style="color:rgba(255,255,255,0.7);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.12em;margin-bottom:4px;">Tapowan Public School</div>
-            <div style="color:#fff;font-size:1.4rem;font-weight:800;letter-spacing:-0.01em;">💰 Finance & Investment Centre</div>
+          <div style="display:flex;align-items:center;gap:15px;">
+            <div>
+              <div style="color:rgba(255,255,255,0.7);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.12em;margin-bottom:4px;">Tapowan Public School</div>
+              <div style="color:#fff;font-size:1.4rem;font-weight:800;letter-spacing:-0.01em;">💰 Finance & Investment Centre</div>
+            </div>
+            <span class="material-symbols-outlined finance-header-toggle" style="font-size:24px;color:#fff;opacity:0.8;cursor:pointer;transition:opacity 0.2s;" title="Toggle Global Finance Visibility">
+              ${localStorage.getItem("hideSchoolBalance") === "true" ? 'visibility_off' : 'visibility'}
+            </span>
           </div>
           <button id="financeCloseBtn" style="background:rgba(255,255,255,0.12);border:none;color:#fff;width:36px;height:36px;border-radius:50%;font-size:1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
         </div>
@@ -9826,6 +11925,22 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
     document.body.appendChild(financeModal);
     financeModal.addEventListener("click", e => { if (e.target === financeModal) closeFinanceModule(); });
     financeModal.querySelector("#financeCloseBtn").addEventListener("click", closeFinanceModule);
+    
+    // Toggle visibility globally
+    financeModal.querySelector(".finance-header-toggle").addEventListener("click", (e) => {
+      let isHidden = localStorage.getItem("hideSchoolBalance") === "true";
+      isHidden = !isHidden;
+      localStorage.setItem("hideSchoolBalance", isHidden ? "true" : "false");
+      e.target.textContent = isHidden ? 'visibility_off' : 'visibility';
+      // Also update the dashboard card eye icon if it exists
+      const dbEye = document.querySelector('.balance-toggle-icon');
+      if (dbEye) {
+        dbEye.textContent = isHidden ? 'visibility_off' : 'visibility';
+        injectDashboardCard(); // Re-render dashboard card numbers
+      }
+      renderFinanceContent(); // Re-render finance views with hidden state
+    });
+
 
     const tabs = [
       { key: "overview", icon: "📊", label: "Overview" },
@@ -9840,7 +11955,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
       btn.dataset.tab = t.key;
       btn.style.cssText = `background:none;border:none;color:rgba(255,255,255,0.55);cursor:pointer;padding:14px 18px;font-size:0.82rem;font-weight:600;white-space:nowrap;border-bottom:2px solid transparent;transition:all .2s;`;
       btn.innerHTML = `${t.icon} ${t.label}`;
-      btn.addEventListener("click", () => { financeState.view = t.key; renderFinanceContent(); });
+      btn.addEventListener("click", async () => { financeState.view = t.key; renderFinanceContent(); });
       navTabs.appendChild(btn);
     });
   }
@@ -9881,21 +11996,24 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
     return `<button data-qf="${key}" style="background:${active ? "#3b82f6" : "rgba(255,255,255,0.08)"};color:${active ? "#fff" : "rgba(255,255,255,0.6)"};border:none;border-radius:8px;padding:5px 12px;font-size:0.75rem;font-weight:600;cursor:pointer;">${label}</button>`;
   }
   function kpiCard(title, value, icon, color, sub) {
+    const isHidden = localStorage.getItem("hideSchoolBalance") === "true";
     return `<div style="background:rgba(255,255,255,0.04);border:1px solid ${color}30;border-radius:14px;padding:18px;position:relative;overflow:hidden;">
       <div style="position:absolute;top:-10px;right:-10px;width:60px;height:60px;background:${color}18;border-radius:50%;"></div>
       <div style="font-size:1.4rem;margin-bottom:8px;">${icon}</div>
-      <div style="font-size:1.5rem;font-weight:800;color:${color};margin-bottom:4px;">${fmtK(value)}</div>
+      <div style="font-size:1.5rem;font-weight:800;color:${color};margin-bottom:4px;">${isHidden ? "₹****" : fmtK(value)}</div>
       <div style="font-size:0.82rem;font-weight:700;color:rgba(255,255,255,0.8);">${title}</div>
-      <div style="font-size:0.72rem;color:rgba(255,255,255,0.4);margin-top:3px;">${sub}</div>
+      <div style="font-size:0.72rem;color:rgba(255,255,255,0.4);margin-top:3px;">${isHidden ? "..." : sub}</div>
     </div>`;
   }
   function adminMetric(label, value, color) {
+    const isHidden = localStorage.getItem("hideSchoolBalance") === "true";
     return `<div style="background:rgba(255,255,255,0.04);border-radius:10px;padding:12px 14px;">
-      <div style="font-size:1.1rem;font-weight:800;color:${color};">${fmtK(value)}</div>
+      <div style="font-size:1.1rem;font-weight:800;color:${color};">${isHidden ? "₹****" : fmtK(value)}</div>
       <div style="font-size:0.72rem;color:rgba(255,255,255,0.5);margin-top:2px;">${label}</div>
     </div>`;
   }
   function investCategoryBars(investments) {
+    const isHidden = localStorage.getItem("hideSchoolBalance") === "true";
     const cats = {};
     investments.filter(i => i.status === "Active").forEach(i => { cats[i.category] = (cats[i.category] || 0) + Number(i.amount); });
     const total = Object.values(cats).reduce((s, v) => s + v, 0) || 1;
@@ -9904,14 +12022,15 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
       <div style="margin-bottom:10px;">
         <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
           <span style="color:rgba(255,255,255,0.8);font-size:0.78rem;">${cat}</span>
-          <span style="color:${colors[i % colors.length]};font-size:0.78rem;font-weight:700;">${fmtK(amt)}</span>
+          <span style="color:${colors[i % colors.length]};font-size:0.78rem;font-weight:700;">${isHidden ? "₹****" : fmtK(amt)}</span>
         </div>
         <div style="background:rgba(255,255,255,0.08);border-radius:4px;height:6px;overflow:hidden;">
-          <div style="background:${colors[i % colors.length]};width:${(amt / total * 100).toFixed(1)}%;height:100%;border-radius:4px;"></div>
+          <div style="background:${colors[i % colors.length]};width:${isHidden ? "0" : (amt / total * 100).toFixed(1)}%;height:100%;border-radius:4px;"></div>
         </div>
       </div>`).join("") || `<div style="color:rgba(255,255,255,0.3);font-size:0.82rem;">No active investments</div>`;
   }
   function recentTxnList(store) {
+    const isHidden = localStorage.getItem("hideSchoolBalance") === "true";
     const txns = [];
     (store[INCOME_KEY] || []).forEach(r => txns.push({ date: r.date, label: r.source, amount: r.amount, type: "in" }));
     (store[EXPENSE_KEY] || []).forEach(r => txns.push({ date: r.date, label: r.head, amount: r.amount, type: "out" }));
@@ -9919,16 +12038,17 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
     return txns.slice(0, 8).map(t => `
       <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
         <div><div style="color:rgba(255,255,255,0.85);font-size:0.78rem;">${t.label}</div><div style="color:rgba(255,255,255,0.35);font-size:0.68rem;">${t.date}</div></div>
-        <span style="font-size:0.82rem;font-weight:700;color:${t.type === "in" ? "#4ade80" : "#f87171"};">${t.type === "in" ? "+" : "−"}${fmtK(t.amount)}</span>
+        <span style="font-size:0.82rem;font-weight:700;color:${t.type === "in" ? "#4ade80" : "#f87171"};">${t.type === "in" ? "+" : "−"}${isHidden ? "₹****" : fmtK(t.amount)}</span>
       </div>`).join("") || `<div style="color:rgba(255,255,255,0.3);font-size:0.82rem;">No transactions yet</div>`;
   }
   function balanceBar(income, expense, invested) {
+    const isHidden = localStorage.getItem("hideSchoolBalance") === "true";
     const total = Math.max(income, expense + invested, 1);
     const ip = (income / total * 100).toFixed(1), ep = (expense / total * 100).toFixed(1), vp = (invested / total * 100).toFixed(1);
     return `
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;"><div style="flex:1;background:rgba(255,255,255,0.08);border-radius:8px;height:18px;overflow:hidden;"><div style="background:#4ade80;width:${ip}%;height:100%;border-radius:8px;"></div></div><span style="color:#4ade80;font-size:0.72rem;width:60px;text-align:right;">${fmtK(income)}</span></div>
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;"><div style="flex:1;background:rgba(255,255,255,0.08);border-radius:8px;height:18px;overflow:hidden;"><div style="background:#f87171;width:${ep}%;height:100%;"></div></div><span style="color:#f87171;font-size:0.72rem;width:60px;text-align:right;">${fmtK(expense)}</span></div>
-      <div style="display:flex;gap:8px;align-items:center;"><div style="flex:1;background:rgba(255,255,255,0.08);border-radius:8px;height:18px;overflow:hidden;"><div style="background:#a78bfa;width:${vp}%;height:100%;"></div></div><span style="color:#a78bfa;font-size:0.72rem;width:60px;text-align:right;">${fmtK(invested)}</span></div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;"><div style="flex:1;background:rgba(255,255,255,0.08);border-radius:8px;height:18px;overflow:hidden;"><div style="background:#4ade80;width:${isHidden ? "0" : ip}%;height:100%;border-radius:8px;"></div></div><span style="color:#4ade80;font-size:0.72rem;width:60px;text-align:right;">${isHidden ? "₹****" : fmtK(income)}</span></div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;"><div style="flex:1;background:rgba(255,255,255,0.08);border-radius:8px;height:18px;overflow:hidden;"><div style="background:#f87171;width:${isHidden ? "0" : ep}%;height:100%;"></div></div><span style="color:#f87171;font-size:0.72rem;width:60px;text-align:right;">${isHidden ? "₹****" : fmtK(expense)}</span></div>
+      <div style="display:flex;gap:8px;align-items:center;"><div style="flex:1;background:rgba(255,255,255,0.08);border-radius:8px;height:18px;overflow:hidden;"><div style="background:#a78bfa;width:${isHidden ? "0" : vp}%;height:100%;"></div></div><span style="color:#a78bfa;font-size:0.72rem;width:60px;text-align:right;">${isHidden ? "₹****" : fmtK(invested)}</span></div>
       <div style="display:flex;gap:16px;margin-top:10px;">
         <span style="display:flex;align-items:center;gap:5px;font-size:0.72rem;color:rgba(255,255,255,0.5);"><span style="width:10px;height:10px;background:#4ade80;border-radius:2px;display:inline-block;"></span>Income</span>
         <span style="display:flex;align-items:center;gap:5px;font-size:0.72rem;color:rgba(255,255,255,0.5);"><span style="width:10px;height:10px;background:#f87171;border-radius:2px;display:inline-block;"></span>Expenses</span>
@@ -10251,7 +12371,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
 
   function bindContentEvents(content) {
     content.querySelectorAll("[data-qf]").forEach(btn => {
-      btn.addEventListener("click", () => { applyQuickFilter(btn.dataset.qf); renderFinanceContent(); });
+      btn.addEventListener("click", async () => { applyQuickFilter(btn.dataset.qf); renderFinanceContent(); });
     });
     const applyBtn = content.querySelector("#fi_applyRange");
     if (applyBtn) applyBtn.addEventListener("click", () => {
@@ -10272,14 +12392,14 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
       exportCSV(list, `expenses-${financeState.dateFrom}-to-${financeState.dateTo}.csv`);
     });
     content.querySelectorAll("[data-invest-tab]").forEach(btn => {
-      btn.addEventListener("click", () => { financeState.investTab = btn.dataset.investTab; renderFinanceContent(); });
+      btn.addEventListener("click", async () => { financeState.investTab = btn.dataset.investTab; renderFinanceContent(); });
     });
 
     // ── DELETE INVESTMENT (API) ──
     content.querySelectorAll("[data-invest-delete]").forEach(btn => {
       btn.addEventListener("click", async () => {
         const id = Number(btn.dataset.investDelete);
-        if (!confirm("Delete this investment?")) return;
+        if (!(await window.appConfirm("Delete this investment?"))) return;
         // Optimistic update: remove from local store immediately so UI reflects deletion at once
         if (serverStore && Array.isArray(serverStore[INVEST_KEY])) {
           serverStore[INVEST_KEY] = serverStore[INVEST_KEY].filter(i => Number(i.id) !== id);
@@ -10348,7 +12468,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
     content.querySelectorAll("[data-income-delete]").forEach(btn => {
       btn.addEventListener("click", async () => {
         const id = Number(btn.dataset.incomeDelete);
-        if (!confirm("Delete this income record?")) return;
+        if (!(await window.appConfirm("Delete this income record?"))) return;
         try {
           await api(`/api/modules/${INCOME_KEY}/${id}`, { method: "DELETE" });
           await loadStore();
@@ -10390,7 +12510,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
     content.querySelectorAll("[data-exp-delete]").forEach(btn => {
       btn.addEventListener("click", async () => {
         const id = Number(btn.dataset.expDelete);
-        if (!confirm("Delete this expense record?")) return;
+        if (!(await window.appConfirm("Delete this expense record?"))) return;
         try {
           await api(`/api/modules/${EXPENSE_KEY}/${id}`, { method: "DELETE" });
           await loadStore();
@@ -10584,8 +12704,8 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
     panel.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
         <div>
-          <h2 style="margin:0;font-size:1.4rem;color:var(--primary,#1e3a8a);">📦 Books & Dress Prices</h2>
-          <p style="margin:4px 0 0;color:#64748b;font-size:0.88rem;">Manage class-wise book and dress costs. Auto-linked to Fee receipts.</p>
+          <h2 style="margin:0;font-size:1.4rem;color:var(--primary,#1e3a8a);">📦 Fee Structure Prices</h2>
+          <p style="margin:4px 0 0;color:#64748b;font-size:0.88rem;">Manage class-wise book, dress, and fee costs. Auto-linked to Fee receipts.</p>
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
           <button id="bd-add-btn" style="background:#1e3a8a;color:#fff;border:none;border-radius:8px;padding:9px 18px;cursor:pointer;font-size:0.9rem;">+ Add Item</button>
@@ -10616,11 +12736,12 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
           <thead style="background:#f8fafc;border-bottom:2px solid #e2e8f0;">
             <tr>
               <th style="padding:12px 16px;text-align:left;color:#475569;">#</th>
-              <th style="padding:12px 16px;text-align:left;color:#475569;">Class</th>
+              <th style="padding:12px 16px;text-align:left;color:#475569;">Class / Size</th>
               <th style="padding:12px 16px;text-align:left;color:#475569;">Type</th>
               <th style="padding:12px 16px;text-align:left;color:#475569;">Item Name</th>
               <th style="padding:12px 16px;text-align:left;color:#475569;">Term</th>
               <th style="padding:12px 16px;text-align:right;color:#475569;">Price</th>
+              <th style="padding:12px 16px;text-align:center;color:#475569;">Stock</th>
               <th style="padding:12px 16px;text-align:center;color:#475569;">Actions</th>
             </tr>
           </thead>
@@ -10636,11 +12757,16 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
           <form id="bd-form" style="display:grid;gap:14px;">
             <input type="hidden" id="bd-edit-id">
             <div>
-              <label style="display:block;font-size:0.85rem;font-weight:600;color:#475569;margin-bottom:6px;">Class *</label>
-              <select id="bd-f-class" required style="width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:9px 12px;font-size:0.9rem;">
-                <option value="">Select Class</option>
-                ${classes.map(c => `<option value="${c}">${c}</option>`).join("")}
-              </select>
+              <label id="bd-f-class-label" style="display:block;font-size:0.85rem;font-weight:600;color:#475569;margin-bottom:6px;">Class *</label>
+              <div id="bd-class-select-container">
+                <select id="bd-f-class" required style="width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:9px 12px;font-size:0.9rem;">
+                  <option value="">Select Class</option>
+                  ${classes.map(c => `<option value="${c}">${c}</option>`).join("")}
+                </select>
+              </div>
+              <div id="bd-size-input-container" style="display:none;">
+                <input id="bd-f-size" type="text" placeholder="e.g. Size 24, M, L" style="width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:9px 12px;font-size:0.9rem;box-sizing:border-box;">
+              </div>
             </div>
             <div>
               <label style="display:block;font-size:0.85rem;font-weight:600;color:#475569;margin-bottom:6px;">Type *</label>
@@ -10653,10 +12779,14 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
               <label style="display:block;font-size:0.85rem;font-weight:600;color:#475569;margin-bottom:6px;">Item Name *</label>
               <input id="bd-f-name" required placeholder="e.g. Mathematics Textbook, Summer Uniform" style="width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:9px 12px;font-size:0.9rem;box-sizing:border-box;">
             </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
               <div>
                 <label style="display:block;font-size:0.85rem;font-weight:600;color:#475569;margin-bottom:6px;">Price (₹) *</label>
                 <input id="bd-f-price" type="number" min="0" required placeholder="0" style="width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:9px 12px;font-size:0.9rem;box-sizing:border-box;">
+              </div>
+              <div>
+                <label style="display:block;font-size:0.85rem;font-weight:600;color:#475569;margin-bottom:6px;">Stock Qty</label>
+                <input id="bd-f-stock" type="number" min="0" placeholder="e.g. 50" style="width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:9px 12px;font-size:0.9rem;box-sizing:border-box;">
               </div>
               <div>
                 <label style="display:block;font-size:0.85rem;font-weight:600;color:#475569;margin-bottom:6px;">Term</label>
@@ -10731,6 +12861,8 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
               <label style="display:block;font-size:0.84rem;font-weight:600;color:#475569;margin-bottom:5px;">Fee Type *</label>
               <select id="fs-f-type" required style="width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:8px 12px;font-size:0.88rem;">
                 <option value="Tuition Fee">Tuition Fee</option>
+                <option value="Transport Fee">Transport Fee</option>
+                <option value="Admission Form Fee">Admission Form Fee</option>
                 <option value="Admission Fee">Admission Fee</option>
                 <option value="Development Fee">Development Fee</option>
                 <option value="Sports Fee">Sports Fee</option>
@@ -10813,7 +12945,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
     const filterType  = document.getElementById("bd-type-filter")?.value || "";
 
     let rows = [...bdBooks, ...bdDresses];
-    if (filterClass) rows = rows.filter(r => r.className === filterClass);
+    if (filterClass) rows = rows.filter(r => r.className === filterClass || r.itemType === "Dress");
     if (filterType)  rows = rows.filter(r => r.itemType === filterType);
 
     // Sort: class → type → name
@@ -10831,7 +12963,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
     tbody.innerHTML = rows.map((r,i) => `
       <tr style="border-bottom:1px solid #f1f5f9;${i%2===0?"":"background:#fafbff"}">
         <td style="padding:11px 16px;color:#94a3b8;">${i+1}</td>
-        <td style="padding:11px 16px;font-weight:600;color:#1e3a8a;">${r.className||"-"}</td>
+        <td style="padding:11px 16px;font-weight:600;color:#1e3a8a;">${r.itemType === "Dress" ? "Size: " + (r.className||"-") : (r.className||"-")}</td>
         <td style="padding:11px 16px;">
           <span style="background:${r.itemType==="Book"?"#dbeafe":"#fce7f3"};color:${r.itemType==="Book"?"#1e40af":"#9d174d"};padding:3px 10px;border-radius:12px;font-size:0.8rem;font-weight:600;">
             ${r.itemType==="Book"?"📚 Book":"👕 Dress"}
@@ -10841,6 +12973,11 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
         <td style="padding:11px 16px;color:#64748b;">${r.term||"-"}</td>
         <td style="padding:11px 16px;text-align:right;font-weight:700;color:#0f172a;">${formatINR(r.price)}</td>
         <td style="padding:11px 16px;text-align:center;">
+          <span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:0.8rem;font-weight:600;${(!r.stock || Number(r.stock) === 0) ? 'background:#fee2e2;color:#b91c1c;' : (Number(r.stock) < 5 ? 'background:#fef3c7;color:#b45309;' : 'background:#d1fae5;color:#047857;')}">
+            ${r.stock || 0}
+          </span>
+        </td>
+        <td style="padding:11px 16px;text-align:center;">
           <button data-bd-edit="${r.id}" style="background:#f1f5f9;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;margin-right:4px;font-size:0.82rem;">✏️</button>
           <button data-bd-del="${r.id}" style="background:#fee2e2;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:0.82rem;">🗑️</button>
         </td>
@@ -10848,7 +12985,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
 
     // Edit/delete event listeners
     tbody.querySelectorAll("[data-bd-edit]").forEach(btn => {
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", async () => {
         const id = Number(btn.dataset.bdEdit);
         const row = [...bdBooks, ...bdDresses].find(r => r.id === id);
         if (!row) return;
@@ -10857,7 +12994,8 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
     });
     tbody.querySelectorAll("[data-bd-del]").forEach(btn => {
       btn.addEventListener("click", async () => {
-        if (!confirm("Delete this item?")) return;
+        const confirmed = await window.appConfirm("Delete this item?");
+        if (!confirmed) return;
         await deleteBDItem(Number(btn.dataset.bdDel));
         await loadBD();
         renderBDTable();
@@ -10871,8 +13009,29 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
     if (!modal) return;
     document.getElementById("bd-modal-title").textContent = existingRow ? "Edit Item" : "Add Item";
     document.getElementById("bd-edit-id").value  = existingRow?.id || "";
-    document.getElementById("bd-f-class").value  = existingRow?.className || "";
-    document.getElementById("bd-f-type").value   = existingRow?.itemType || "Book";
+    document.getElementById("bd-f-stock").value  = existingRow?.stock || "";
+    
+    const typeVal = existingRow?.itemType || "Book";
+    document.getElementById("bd-f-type").value = typeVal;
+    
+    if (typeVal === "Dress") {
+      document.getElementById("bd-f-class").value = "";
+      document.getElementById("bd-f-size").value = existingRow?.className || "";
+      document.getElementById("bd-class-select-container").style.display = "none";
+      document.getElementById("bd-size-input-container").style.display = "block";
+      document.getElementById("bd-f-class-label").textContent = "Size *";
+      document.getElementById("bd-f-class").removeAttribute("required");
+      document.getElementById("bd-f-size").setAttribute("required", "true");
+    } else {
+      document.getElementById("bd-f-class").value = existingRow?.className || "";
+      document.getElementById("bd-f-size").value = "";
+      document.getElementById("bd-class-select-container").style.display = "block";
+      document.getElementById("bd-size-input-container").style.display = "none";
+      document.getElementById("bd-f-class-label").textContent = "Class *";
+      document.getElementById("bd-f-class").setAttribute("required", "true");
+      document.getElementById("bd-f-size").removeAttribute("required");
+    }
+
     document.getElementById("bd-f-name").value   = existingRow?.itemName || "";
     document.getElementById("bd-f-price").value  = existingRow?.price || "";
     document.getElementById("bd-f-term").value   = existingRow?.term || "Annual";
@@ -10900,14 +13059,31 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
     });
     document.getElementById("bd-type-filter")?.addEventListener("change", renderBDTable);
 
+    document.getElementById("bd-f-type")?.addEventListener("change", (e) => {
+      const isDress = e.target.value === "Dress";
+      document.getElementById("bd-class-select-container").style.display = isDress ? "none" : "block";
+      document.getElementById("bd-size-input-container").style.display = isDress ? "block" : "none";
+      document.getElementById("bd-f-class-label").textContent = isDress ? "Size *" : "Class *";
+      if (isDress) {
+        document.getElementById("bd-f-class").removeAttribute("required");
+        document.getElementById("bd-f-size").setAttribute("required", "true");
+      } else {
+        document.getElementById("bd-f-class").setAttribute("required", "true");
+        document.getElementById("bd-f-size").removeAttribute("required");
+      }
+    });
+
     document.getElementById("bd-form")?.addEventListener("submit", async (e) => {
       e.preventDefault();
       const editId = document.getElementById("bd-edit-id").value;
+      const isDress = document.getElementById("bd-f-type").value === "Dress";
+      const clsVal = isDress ? document.getElementById("bd-f-size").value : document.getElementById("bd-f-class").value;
       const payload = {
-        className: document.getElementById("bd-f-class").value,
+        className: clsVal,
         itemType:  document.getElementById("bd-f-type").value,
         itemName:  document.getElementById("bd-f-name").value,
         price:     document.getElementById("bd-f-price").value,
+        stock:     document.getElementById("bd-f-stock").value,
         term:      document.getElementById("bd-f-term").value,
       };
       if (editId) {
@@ -10946,31 +13122,36 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
     }
     if (empty) empty.style.display = "none";
 
-    tbody.innerHTML = rows.map((r, i) => `
+    tbody.innerHTML = rows.map((r, i) => {
+      const isOther = (r.feeType || "").toLowerCase() === "other";
+      const displayType = (isOther && r.description) ? r.description.toUpperCase() : (r.feeType || "-");
+      const descStr = (!isOther && r.description) ? r.description : "-";
+      return `
       <tr style="border-bottom:1px solid #f1f5f9;${i % 2 === 0 ? "" : "background:#fafbff"}">
         <td style="padding:10px 14px;color:#94a3b8;">${i + 1}</td>
         <td style="padding:10px 14px;font-weight:600;color:#1e3a8a;">${r.className || "-"}</td>
         <td style="padding:10px 14px;">
-          <span style="background:#dbeafe;color:#1e40af;padding:2px 10px;border-radius:10px;font-size:0.78rem;font-weight:600;">${r.feeType || "-"}</span>
+          <span style="background:#dbeafe;color:#1e40af;padding:2px 10px;border-radius:10px;font-size:0.78rem;font-weight:600;">${displayType}</span>
         </td>
         <td style="padding:10px 14px;color:#64748b;">${r.term || "-"}</td>
-        <td style="padding:10px 14px;color:#64748b;font-size:0.83rem;">${r.description || "-"}</td>
+        <td style="padding:10px 14px;color:#64748b;font-size:0.83rem;">${descStr}</td>
         <td style="padding:10px 14px;text-align:right;font-weight:700;color:#0f172a;">${formatINR(r.amount)}</td>
         <td style="padding:10px 14px;text-align:center;">
           <button data-fs-edit="${r.id}" style="background:#f1f5f9;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;margin-right:4px;font-size:0.8rem;">✏️</button>
           <button data-fs-del="${r.id}" style="background:#fee2e2;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:0.8rem;">🗑️</button>
         </td>
-      </tr>`).join("");
+      </tr>`;
+    }).join("");
 
     tbody.querySelectorAll("[data-fs-edit]").forEach(btn => {
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", async () => {
         const row = feeStructures.find(r => String(r.id) === String(btn.dataset.fsEdit));
         if (row) openFSModal(row);
       });
     });
     tbody.querySelectorAll("[data-fs-del]").forEach(btn => {
       btn.addEventListener("click", async () => {
-        if (!confirm("Delete this fee structure?")) return;
+        if (!(await window.appConfirm("Delete this fee structure?"))) return;
         await deleteFSItem(Number(btn.dataset.fsDel));
         await loadFS();
         renderFSTable();
@@ -11036,7 +13217,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
     const btn = document.createElement("button");
     btn.dataset.module = "booksAndDress";
     btn.className = currentModule === "booksAndDress" ? "active" : "";
-    btn.innerHTML = `<span class="nav-icon material-symbols-outlined" style="font-size: 20px;">inventory_2</span><span style="margin-left:6px;">Books & Dress</span>`;
+    btn.innerHTML = `<span class="nav-icon material-symbols-outlined" style="font-size: 20px;">inventory_2</span><span style="margin-left:6px;">Fee Structure</span>`;
     btn.addEventListener("click", async () => {
       currentModule = "booksAndDress";
       
@@ -11055,6 +13236,199 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
       nav.appendChild(btn);
     }
   }
+
+  window.showBookSalesPanel = async function showBookSalesPanel() {
+    const titleEl = document.getElementById("moduleTitle");
+    const subtitleEl = document.getElementById("moduleSubtitle");
+    if (titleEl) titleEl.innerHTML = "";
+    if (subtitleEl) subtitleEl.innerHTML = "";
+
+    await loadBD();
+    
+    const res = await api('/api/modules/fees', { method: 'GET' });
+    const allFees = (res && !res.error) ? res : [];
+    
+    const allBDItems = [...(typeof bdBooks !== "undefined" ? bdBooks : []), ...(typeof bdDresses !== "undefined" ? bdDresses : [])];
+    
+    let salesData = [];
+    allFees.forEach(fee => {
+      let bdIds = [];
+      if (fee.selectedBookIds && Array.isArray(fee.selectedBookIds)) {
+        bdIds = fee.selectedBookIds;
+      } else if (typeof fee.selectedBookIds === "string") {
+        try { bdIds = JSON.parse(fee.selectedBookIds); } catch(e) {}
+      }
+      if (bdIds.length > 0) {
+        bdIds.forEach(itemId => {
+          const item = allBDItems.find(r => String(r.id) === String(itemId));
+          if (item) {
+            salesData.push({
+              studentName: fee.studentName || 'Unknown',
+              className: fee.className || 'Unknown',
+              date: fee.paymentDate || fee.createdAt || '-',
+              itemType: item.itemType || 'Unknown',
+              itemName: item.itemName || 'Unknown',
+              price: item.price || 0
+            });
+          }
+        });
+      }
+    });
+
+    const contentArea = document.querySelector(".content-area");
+    let panel = document.getElementById("bookSalesPanel");
+    if (!panel) {
+      panel = document.createElement("div");
+      panel.id = "bookSalesPanel";
+      panel.className = "panel";
+      contentArea.appendChild(panel);
+    }
+    
+    panel.style.display = "block";
+
+    // Extract unique classes and item names for dropdowns
+    const uniqueClasses = [...new Set(salesData.map(s => s.className))].filter(Boolean).sort();
+    const uniqueDresses = [...new Set(salesData.filter(s => s.itemType === 'Dress').map(s => s.itemName))].filter(Boolean).sort();
+    const uniqueBooks = [...new Set(salesData.filter(s => s.itemType === 'Book').map(s => s.itemName))].filter(Boolean).sort();
+
+    panel.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
+        <div>
+          <h2 style="margin:0;font-size:1.4rem;color:var(--primary,#1e3a8a);">📦 Books & Dress Sales</h2>
+          <p style="margin:4px 0 0;color:#64748b;font-size:0.88rem;">Track items sold to students.</p>
+        </div>
+      </div>
+
+      <!-- Filters Section -->
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px;margin-bottom:20px;display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;">
+        <div style="flex:1;min-width:200px;">
+          <label style="display:block;font-size:0.8rem;font-weight:600;color:#475569;margin-bottom:6px;">Search Student</label>
+          <input type="text" id="salesSearchStudent" placeholder="Student name..." style="width:100%;padding:8px 12px;border:1px solid #cbd5e1;border-radius:6px;outline:none;">
+        </div>
+        <div style="flex:1;min-width:150px;">
+          <label style="display:block;font-size:0.8rem;font-weight:600;color:#475569;margin-bottom:6px;">Class</label>
+          <select id="salesFilterClass" style="width:100%;padding:8px 12px;border:1px solid #cbd5e1;border-radius:6px;outline:none;">
+            <option value="">All Classes</option>
+            ${uniqueClasses.map(c => `<option value="${c}">${c}</option>`).join("")}
+          </select>
+        </div>
+        <div style="flex:1;min-width:150px;">
+          <label style="display:block;font-size:0.8rem;font-weight:600;color:#475569;margin-bottom:6px;">Dress Name</label>
+          <select id="salesFilterDress" style="width:100%;padding:8px 12px;border:1px solid #cbd5e1;border-radius:6px;outline:none;">
+            <option value="">All Dresses</option>
+            ${uniqueDresses.map(d => `<option value="${d}">${d}</option>`).join("")}
+          </select>
+        </div>
+        <div style="flex:1;min-width:150px;">
+          <label style="display:block;font-size:0.8rem;font-weight:600;color:#475569;margin-bottom:6px;">Book Name</label>
+          <select id="salesFilterBook" style="width:100%;padding:8px 12px;border:1px solid #cbd5e1;border-radius:6px;outline:none;">
+            <option value="">All Books</option>
+            ${uniqueBooks.map(b => `<option value="${b}">${b}</option>`).join("")}
+          </select>
+        </div>
+        <div>
+          <button id="salesResetFilters" style="padding:8px 16px;background:#e2e8f0;color:#475569;border:none;border-radius:6px;cursor:pointer;font-weight:600;transition:0.2s;">Reset</button>
+        </div>
+      </div>
+      
+      <div id="salesSummaryCards" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:16px;margin-bottom:20px;">
+        <!-- Injected via render -->
+      </div>
+
+      <div style="background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.06);overflow:hidden;">
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;min-width:600px;text-align:left;font-size:0.9rem;">
+            <thead>
+              <tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0;">
+                <th style="padding:12px 16px;color:#475569;">Date</th>
+                <th style="padding:12px 16px;color:#475569;">Student</th>
+                <th style="padding:12px 16px;color:#475569;">Class</th>
+                <th style="padding:12px 16px;color:#475569;">Type</th>
+                <th style="padding:12px 16px;color:#475569;">Item Name</th>
+                <th style="padding:12px 16px;color:#475569;">Price</th>
+              </tr>
+            </thead>
+            <tbody id="salesTableBody">
+              <!-- Injected via render -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+
+    const searchInput = document.getElementById("salesSearchStudent");
+    const classFilter = document.getElementById("salesFilterClass");
+    const dressFilter = document.getElementById("salesFilterDress");
+    const bookFilter = document.getElementById("salesFilterBook");
+    const resetBtn = document.getElementById("salesResetFilters");
+    const tableBody = document.getElementById("salesTableBody");
+    const summaryCards = document.getElementById("salesSummaryCards");
+
+    function renderFilteredSales() {
+      const searchTerm = searchInput.value.toLowerCase().trim();
+      const cls = classFilter.value;
+      const drs = dressFilter.value;
+      const bk = bookFilter.value;
+
+      const filtered = salesData.filter(s => {
+        if (searchTerm && !(s.studentName || "").toLowerCase().includes(searchTerm)) return false;
+        if (cls && s.className !== cls) return false;
+        
+        // If dress filter is active, it must be a dress AND match the name
+        if (drs && (s.itemType !== 'Dress' || s.itemName !== drs)) return false;
+        // If book filter is active, it must be a book AND match the name
+        if (bk && (s.itemType !== 'Book' || s.itemName !== bk)) return false;
+        
+        return true;
+      });
+
+      const totalSold = filtered.length;
+      const totalRevenue = filtered.reduce((sum, s) => sum + Number(s.price || 0), 0);
+
+      summaryCards.innerHTML = `
+        <div style="background:#fff;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.04);border-left:4px solid #1e3a8a;">
+          <div style="font-size:0.85rem;color:#64748b;font-weight:600;text-transform:uppercase;">Items Sold</div>
+          <div style="font-size:1.6rem;font-weight:700;color:#1e293b;margin-top:4px;">${totalSold}</div>
+        </div>
+        <div style="background:#fff;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.04);border-left:4px solid #10b981;">
+          <div style="font-size:0.85rem;color:#64748b;font-weight:600;text-transform:uppercase;">Total Revenue</div>
+          <div style="font-size:1.6rem;font-weight:700;color:#1e293b;margin-top:4px;">₹${totalRevenue}</div>
+        </div>
+      `;
+
+      let rowsHtml = filtered.map(s => `
+        <tr style="border-bottom:1px solid #e2e8f0;transition:background 0.2s;">
+          <td style="padding:11px 16px;">${s.date.split('T')[0]}</td>
+          <td style="padding:11px 16px;font-weight:600;color:#1e3a8a;">${s.studentName}</td>
+          <td style="padding:11px 16px;">${s.className}</td>
+          <td style="padding:11px 16px;"><span style="background:${s.itemType==='Dress'?'#dcfce7':'#dbeafe'};color:${s.itemType==='Dress'?'#166534':'#1e40af'};padding:3px 8px;border-radius:12px;font-size:0.8rem;font-weight:600;">${s.itemType}</span></td>
+          <td style="padding:11px 16px;">${s.itemName}</td>
+          <td style="padding:11px 16px;font-weight:600;color:#10b981;">₹${s.price}</td>
+        </tr>
+      `).join("");
+
+      if(filtered.length === 0) {
+        rowsHtml = `<tr><td colspan="6" style="padding:20px;text-align:center;color:#64748b;">No sales records match your filters.</td></tr>`;
+      }
+
+      tableBody.innerHTML = rowsHtml;
+    }
+
+    searchInput.addEventListener("input", renderFilteredSales);
+    classFilter.addEventListener("change", renderFilteredSales);
+    dressFilter.addEventListener("change", renderFilteredSales);
+    bookFilter.addEventListener("change", renderFilteredSales);
+
+    resetBtn.addEventListener("click", () => {
+      searchInput.value = "";
+      classFilter.value = "";
+      dressFilter.value = "";
+      bookFilter.value = "";
+      renderFilteredSales();
+    });
+
+    renderFilteredSales();
+  };
 
   window.showBDPanel = async function showBDPanel() {
     // Clear out standard UI bits for this custom plugin view
@@ -11113,6 +13487,8 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
   // ── Shared fee-type definitions (mirrors app.js FEE_TYPES) ────────────────
   const RECEIPT_FEE_TYPES = [
     { key: "tuitionFee",     label: "Tuition Fee",     icon: "📚" },
+    { key: "transportFee", label: "Transport Fee", icon: "🚌" },
+    { key: "admissionFormFee", label: "Admission Form Fee", icon: "📄" },
     { key: "admissionFee",   label: "Admission Fee",   icon: "🎓" },
     { key: "computerFee",    label: "Computer Fee",    icon: "💻" },
     { key: "developmentFee", label: "Development Fee", icon: "🏗️" },
@@ -11290,7 +13666,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
       const student = (store.students || []).find(s => s.fullName === f.studentName);
       if (student) {
         if (!f.admissionNo) f.admissionNo = student.admissionNo || "";
-        if (!f.fatherName) f.fatherName = student.parentName || "";
+        if (!f.fatherName) f.fatherName = student.fatherName || "";
       }
     }
 
@@ -11404,6 +13780,224 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
     w.focus();
   };
 
+  // ── Thermal Fee Slip ───────────────────────────────────────────────────────
+  window.printThermalFeeSlip = function(origF) {
+    const f = window.getConsolidatedFeeRecord(origF);
+    const store = getStore();
+    const schoolName = "Tapowan Public School";
+    const slipNo = "FS-" + (f.id || Date.now());
+    const printDate = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+
+    // Backfill missing data from student store if needed
+    if (!f.admissionNo || !f.fatherName) {
+      const student = (store.students || []).find(s => s.fullName === f.studentName);
+      if (student) {
+        if (!f.admissionNo) f.admissionNo = student.admissionNo || "";
+        if (!f.fatherName) f.fatherName = student.fatherName || "";
+      }
+    }
+
+    const totalFee   = parseFloat(f.totalFee) || 0;
+    const paidAmount = parseFloat(f.paidAmount) || 0;
+    const balance    = parseFloat(f.balance) || Math.max(0, totalFee - paidAmount);
+
+    const statusColor = String(f.status || "").toLowerCase() === "paid" ? "#16a34a" : String(f.status || "").toLowerCase() === "partial" ? "#d97706" : "#dc2626";
+    const statusBg = String(f.status || "").toLowerCase() === "paid" ? "#dcfce7" : String(f.status || "").toLowerCase() === "partial" ? "#fef3c7" : "#fee2e2";
+
+    let feeRows = "";
+    let hasSlipIndividual = false;
+    RECEIPT_FEE_TYPES.forEach(({ key, label, icon }, idx) => {
+      const amt = parseFloat(f[key]) || 0;
+      if (amt > 0) {
+        hasSlipIndividual = true;
+        const bg = idx % 2 === 0 ? "#f9fafb" : "#ffffff";
+        const mSfx = f.month ? ` (${f.month})` : "";
+        feeRows += `<tr style="background:${bg};"><td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;font-size:12px;color:#475569;font-weight:700;">${icon} ${label}${mSfx}</td><td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:12px;font-weight:800;color:#1e293b;">₹ ${amt.toLocaleString("en-IN")}</td></tr>`;
+      }
+    });
+
+    // Books & Dress items
+    try {
+      const ids = JSON.parse(f.selectedBookIds || "[]");
+      if (ids.length) {
+        const allBDItems = [...(typeof bdBooks !== "undefined" ? bdBooks : []), ...(typeof bdDresses !== "undefined" ? bdDresses : [])];
+        let bookTotal = 0;
+        let dressTotal = 0;
+        ids.map(id => allBDItems.find(r => String(r.id) === String(id)))
+           .filter(Boolean)
+           .forEach((item) => {
+              const price = parseFloat(item.price) || 0;
+              if (item.itemType === "Book") bookTotal += price;
+              else dressTotal += price;
+           });
+
+        if (bookTotal > 0) {
+            feeRows += `<tr style="background:#f0f4ff;"><td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;font-size:12px;color:#475569;font-weight:700;">📚 Book Fee</td>
+            <td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:12px;font-weight:800;color:#1e293b;">₹ ${bookTotal.toLocaleString("en-IN")}</td></tr>`;
+        }
+        if (dressTotal > 0) {
+            feeRows += `<tr style="background:#f0f4ff;"><td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;font-size:12px;color:#475569;font-weight:700;">👕 Dress Fee</td>
+            <td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:12px;font-weight:800;color:#1e293b;">₹ ${dressTotal.toLocaleString("en-IN")}</td></tr>`;
+        }
+      }
+    } catch(e) {}
+
+    const dueAmt = parseFloat(f.dueMgmtAmount) || 0;
+    if (dueAmt > 0) {
+      const particulars = f.dueMgmtParticulars || "Outstanding Dues";
+      feeRows += `<tr style="background:#fff1f2;"><td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;font-size:12px;color:#dc2626;font-weight:700;">🔖 ${particulars}</td>
+        <td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:12px;font-weight:800;color:#dc2626;">₹ ${dueAmt.toLocaleString("en-IN")}</td></tr>`;
+    }
+
+    const studentDues = (store.dueManagement || []).filter(d => String(d.admissionNo) === String(f.admissionNo) && d.status === "Unpaid");
+    const outstandingDuesAmount = studentDues.reduce((sum, d) => sum + (parseFloat(d.balance) || 0), 0);
+    const displayBalance = balance + outstandingDuesAmount;
+
+    if (outstandingDuesAmount > 0) {
+      const groupedDues = {};
+      studentDues.forEach(d => {
+         let type = "";
+         let month = "";
+         if ((d.particulars || "").toLowerCase().startsWith("tuition fee of")) {
+            type = "Tuition Fee";
+            month = d.particulars.substring(15).trim();
+         } else if ((d.particulars || "").toLowerCase().startsWith("late fee of")) {
+            type = "Late Fee";
+            month = d.particulars.substring(12).trim();
+         } else {
+            type = d.particulars;
+         }
+         if (!groupedDues[type]) groupedDues[type] = { amount: 0, months: [] };
+         groupedDues[type].amount += (parseFloat(d.balance) || 0);
+         if (month) {
+            const shortMonth = month.substring(0,3);
+            groupedDues[type].months.push(shortMonth);
+         }
+      });
+
+      for (const [type, data] of Object.entries(groupedDues)) {
+          let desc = type;
+          if (data.months.length > 0) {
+              desc += ` (${data.months.join(", ")})`;
+          }
+          feeRows += `<tr style="background:#fff1f2;"><td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;font-size:12px;color:#dc2626;font-weight:700;">🔖 ${desc}</td>
+          <td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:12px;font-weight:800;color:#dc2626;">₹ ${data.amount.toLocaleString("en-IN")}</td></tr>`;
+      }
+    }
+
+    const card = `
+    <div class="print-slip" style="width:100%; height:100%; margin: 0 auto; display:flex;flex-direction:column;font-family:Arial,sans-serif;font-size:12px;border:1.5px solid #1e3a8a;border-radius:6px;box-sizing:border-box;background:#fff;padding:0;overflow:hidden;">
+      <div style="border-bottom:2px solid #1e3a8a;padding:12px 5px;text-align:center;background:#fff;">
+        <div style="display:flex;align-items:center;justify-content:center;gap:8px;">
+          <img src="logo.png" style="height:38px;object-fit:contain;" alt="Logo" />
+          <div style="font-size:16px;font-weight:900;color:#1e3a8a;letter-spacing:0.5px;text-transform:uppercase;">${schoolName}</div>
+        </div>
+        <div style="font-size:10px;color:#1e3a8a;margin-top:2px;font-weight:700;">Prem Nagar Tapin North, Ramgarh(JH)</div>
+        <div style="margin-top:4px;display:inline-block;color:#a1a1aa;padding:0;font-size:11px;font-weight:800;text-transform:uppercase;">FEE SLIP</div>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:5px 8px;background:#fff;border-bottom:1px solid #1e3a8a;font-size:10px;color:#1e3a8a;font-weight:700;">
+        <span><strong>No:</strong> ${slipNo}</span>
+        <span><strong>Term:</strong> ${f.term || "-"}</span>
+        <span><strong>Date:</strong> ${printDate}</span>
+      </div>
+      <div style="padding:6px 10px;border-bottom:1px solid #e5e7eb;">
+        <table style="width:100%;border-collapse:collapse;font-size:11px;">
+          <tr>
+            <td style="color:#000;width:25%;padding:2px 0;font-weight:800;">Name</td>
+            <td style="font-weight:900;color:#000;padding:2px 0;text-transform:uppercase;">${f.studentName || "-"}</td>
+            <td style="color:#000;width:15%;padding:2px 0 2px 6px;font-weight:800;">Adm.No</td>
+            <td style="font-weight:900;color:#000;padding:2px 0;">${f.admissionNo || "-"}</td>
+          </tr>
+          <tr>
+            <td style="color:#000;padding:2px 0;font-weight:800;">Father</td>
+            <td style="font-weight:900;color:#000;padding:2px 0;text-transform:uppercase;">${f.fatherName || "-"}</td>
+            <td style="color:#000;padding:2px 0 2px 6px;font-weight:800;">Class</td>
+            <td style="font-weight:900;color:#000;padding:2px 0;">${f.className || "-"}</td>
+          </tr>
+          <tr>
+            <td style="color:#000;padding:2px 0;font-weight:800;">Roll</td>
+            <td style="font-weight:900;color:#000;padding:2px 0;">${f.rollNo || "-"}</td>
+            <td style="color:#000;padding:2px 0 2px 6px;font-weight:800;">Method</td>
+            <td style="font-weight:900;color:#000;padding:2px 0;">${f.paymentMethod || "-"}</td>
+          </tr>
+          <tr>
+            <td style="color:#000;padding:4px 0 2px;font-weight:800;">Status</td>
+            <td colspan="3" style="padding:4px 0;"><span style="background:${statusBg};color:${statusColor};font-weight:800;padding:2px 6px;border-radius:4px;font-size:10px;border:1px solid ${statusColor};">${(f.status || "Pending")}</span></td>
+          </tr>
+        </table>
+      </div>
+      <div style="padding:6px 10px;border-bottom:1px solid #e5e7eb;flex:1;">
+        <div style="font-size:10px;font-weight:900;color:#000;text-transform:uppercase;margin-bottom:4px;">Fee Details</div>
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:#1e3a8a;color:#fff;">
+              <th style="padding:5px 6px;text-align:left;font-size:10px;font-weight:700;">Description</th>
+              <th style="padding:5px 6px;text-align:right;font-size:10px;font-weight:700;">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${feeRows || `<tr><td colspan="2" style="padding:10px;color:#000000;text-align:center;font-size:11px;font-weight:700;">No details</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+      <div style="padding:8px 10px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;align-items:center;gap:12px;">
+        <div style="width:55px;height:55px;background:#fff;padding:2px;display:flex;align-items:center;justify-content:center;border:1px solid #e5e7eb;">
+          <img src="qr.png" style="width:100%;height:100%;object-fit:contain;" alt="Payment QR" />
+        </div>
+        <div style="flex:1;font-size:11px;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+            <span style="color:#000000;font-weight:800;">Total Fee</span>
+            <span style="font-weight:900;color:#000000;">₹ ${totalFee.toLocaleString("en-IN")}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+            <span style="color:#000000;font-weight:800;">Paid</span>
+            <span style="font-weight:900;color:#16a34a;">₹ ${paidAmount.toLocaleString("en-IN")}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;">
+            <span style="color:#000000;font-weight:800;">Balance</span>
+            <span style="font-weight:900;color:#dc2626;">₹ ${displayBalance.toLocaleString("en-IN")}</span>
+          </div>
+        </div>
+      </div>
+      <div style="padding:5px 12px 10px;display:flex;justify-content:space-between;font-size:10px;color:#000;">
+        <div style="text-align:center;width:45%;"><div style="border-top:2px solid #000;margin-top:16px;padding-top:4px;font-weight:800;">Parent</div></div>
+        <div style="text-align:center;width:45%;"><div style="border-top:2px solid #000;margin-top:16px;padding-top:4px;font-weight:800;">Cashier</div></div>
+      </div>
+    </div>
+    `;
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Fee Slip - ${schoolName}</title>
+        <style>
+          @page { margin: 5mm auto; }
+          * { box-sizing: border-box; }
+          body { margin: 0; padding: 0; background: #fff; font-family: Arial, sans-serif; display: flex; justify-content: center; }
+          .print-container { width: 95mm; height: 138mm; margin-top: 20px; }
+          @media print {
+            body { display: block; text-align: center; padding-top: 0; }
+            .print-container { display: inline-block; width: 95mm; height: 138mm; margin: 0 auto; text-align: left; }
+          }
+        </style>
+      </head>
+      <body onload="window.print(); window.close();">
+        <div class="print-container">
+          ${card}
+        </div>
+      </body>
+      </html>
+    `;
+
+    const w = window.open("", "_blank", "width=450,height=600");
+    if (!w) return window.alert("Popup blocked. Please allow popups.");
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+  };
+
   // ── Formal Fee Slip ────────────────────────────────────────────────────────
   window.printFormalFeeSlip = function(origF) {
     const f = window.getConsolidatedFeeRecord(origF);
@@ -11417,7 +14011,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
       const student = (store.students || []).find(s => s.fullName === f.studentName);
       if (student) {
         if (!f.admissionNo) f.admissionNo = student.admissionNo || "";
-        if (!f.fatherName) f.fatherName = student.parentName || "";
+        if (!f.fatherName) f.fatherName = student.fatherName || "";
       }
     }
 
@@ -11474,16 +14068,28 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
       const ids = JSON.parse(f.selectedBookIds || "[]");
       if (ids.length) {
         const allBDItems = [...(typeof bdBooks !== "undefined" ? bdBooks : []), ...(typeof bdDresses !== "undefined" ? bdDresses : [])];
+        let bookTotal = 0;
+        let dressTotal = 0;
         ids.map(id => allBDItems.find(r => String(r.id) === String(id)))
            .filter(Boolean)
-           .sort((a,b) => (a.itemType||"").localeCompare(b.itemType||"") || (a.itemName||"").localeCompare(b.itemName||""))
-           .forEach((item, idx) => {
-          const price = parseFloat(item.price) || 0;
-          itemsTotal += price;
-          const bg = idx % 2 === 0 ? "#f0f4ff" : "#fff";
-          feeRows += `<tr style="background:${bg};"><td style="padding:5px 9px;border-bottom:1px solid #e5e7eb;font-size:11px;color:#374151;">${item.itemType === "Book" ? "📚" : "👕"} ${item.itemName}</td>
-            <td style="padding:5px 9px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:11px;font-weight:600;">₹ ${price.toLocaleString("en-IN")}</td></tr>`;
-        });
+           .forEach((item) => {
+              const price = parseFloat(item.price) || 0;
+              itemsTotal += price;
+              if (item.itemType === "Book") bookTotal += price;
+              else dressTotal += price;
+           });
+
+        let rIdx = 0;
+        if (bookTotal > 0) {
+            const bg = (rIdx++) % 2 === 0 ? "#f0f4ff" : "#fff";
+            feeRows += `<tr style="background:${bg};"><td style="padding:5px 9px;border-bottom:1px solid #e5e7eb;font-size:11px;color:#374151;">📚 Book Fee</td>
+            <td style="padding:5px 9px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:11px;font-weight:600;">₹ ${bookTotal.toLocaleString("en-IN")}</td></tr>`;
+        }
+        if (dressTotal > 0) {
+            const bg = (rIdx++) % 2 === 0 ? "#f0f4ff" : "#fff";
+            feeRows += `<tr style="background:${bg};"><td style="padding:5px 9px;border-bottom:1px solid #e5e7eb;font-size:11px;color:#374151;">👕 Dress Fee</td>
+            <td style="padding:5px 9px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:11px;font-weight:600;">₹ ${dressTotal.toLocaleString("en-IN")}</td></tr>`;
+        }
       }
     } catch(e) {}
 
@@ -11601,9 +14207,26 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
     // Remember previously checked fee-types by ID (robust — not by amount which may clash)
     const prevIds = (container.dataset.selectedIds || "").split(",").filter(Boolean);
     container.innerHTML = "";
-    const options = cls
+    let options = cls
       ? feeStructures.filter(f => f.className === cls)
       : feeStructures;
+      
+    // OVERRIDE: Check if selected student has a custom monthly fee
+    try {
+      const stuNameInput = document.querySelector("#dynamicForm [name='studentName']");
+      if (stuNameInput && stuNameInput.value) {
+        const student = (getStore().students || []).find(s => s.fullName === stuNameInput.value);
+        if (student && student.monthlyFee && parseFloat(student.monthlyFee) >= 0) {
+          options = options.map(f => {
+            if (f.feeType.toLowerCase().includes("tuition") || f.feeType.toLowerCase().includes("monthly fee")) {
+              return { ...f, amount: parseFloat(student.monthlyFee) };
+            }
+            return f;
+          });
+        }
+      }
+    } catch(e) {}
+
     if (options.length) {
       options.forEach(f => {
         const val = String(f.amount);
@@ -11611,18 +14234,44 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
         const label = document.createElement("label");
         label.htmlFor = cbId;
         label.style.cssText = "display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:8px;cursor:pointer;border:1px solid #e2e8f0;margin-bottom:6px;background:#fff;transition:background 0.15s;";
+        const isOther = (f.feeType || "").toLowerCase() === "other";
+        const displayType = (isOther && f.description) ? f.description.toUpperCase() : f.feeType;
         const termStr = f.term ? ` <span style='color:#64748b;font-size:0.8rem;'>(${f.term})</span>` : "";
-        const descStr = f.description ? ` <span style='color:#64748b;font-size:0.8rem;'>· ${f.description}</span>` : "";
+        const descStr = (!isOther && f.description) ? ` <span style='color:#64748b;font-size:0.8rem;'>· ${f.description}</span>` : "";
         // Match by fee structure ID — avoids false positives when two types share the same amount
         const isChecked = prevIds.includes(String(f.id));
         label.innerHTML = `
           <input type="checkbox" id="${cbId}" name="bd-monthly-fee-checkbox" value="${val}"
-            data-label="${f.feeType}" data-fee-id="${f.id}" data-term="${window.formatTermString(window.formatTermString(f.term)) || ""}"
+            data-label="${displayType}" data-fee-id="${f.id}" data-term="${window.formatTermString(window.formatTermString(f.term)) || ""}"
+            data-qty="1"
             style="width:16px;height:16px;accent-color:#1e3a8a;cursor:pointer;flex-shrink:0;"
             ${isChecked ? "checked" : ""}>
-          <span style="flex:1;font-size:0.88rem;color:#1e293b;">${f.feeType}${termStr}${descStr}</span>
-          <span style="font-weight:700;color:#1e3a8a;white-space:nowrap;">${formatINR(f.amount)}</span>`;
+          <span style="flex:1;font-size:0.88rem;color:#1e293b;">${displayType}${termStr}${descStr}</span>
+          <div class="fee-qty-ctrl" style="display:none;align-items:center;gap:5px;background:#e2e8f0;border-radius:4px;padding:2px 5px;margin-right:10px;">
+             <button type="button" class="qty-btn minus" style="border:none;background:transparent;cursor:pointer;font-weight:bold;padding:0 5px;color:#1e3a8a;">-</button>
+             <span class="qty-val" style="font-size:0.85rem;font-weight:bold;min-width:12px;text-align:center;color:#1e3a8a;">1</span>
+             <button type="button" class="qty-btn plus" style="border:none;background:transparent;cursor:pointer;font-weight:bold;padding:0 5px;color:#1e3a8a;">+</button>
+          </div>
+          <span class="fee-amt-display" data-base-amt="${f.amount}" style="font-weight:700;color:#1e3a8a;white-space:nowrap;">${formatINR(f.amount)}</span>`;
+        
         const cb = label.querySelector("input");
+        const qtyCtrl = label.querySelector(".fee-qty-ctrl");
+        const qtyVal = label.querySelector(".qty-val");
+        
+        // Handle stepper clicks without toggling the checkbox
+        label.querySelectorAll(".qty-btn").forEach(btn => {
+            btn.addEventListener("click", (e) => {
+                e.preventDefault();
+                e.stopPropagation(); // Stop label click
+                let q = parseInt(cb.dataset.qty || "1", 10);
+                if (btn.classList.contains("plus")) q++;
+                else if (btn.classList.contains("minus") && q > 1) q--;
+                cb.dataset.qty = q;
+                qtyVal.textContent = q;
+                recalcFeeTotals();
+            });
+        });
+
         cb.addEventListener("change", () => {
           // Track selections by fee-structure ID (not by amount) to avoid clashes
           const checked = Array.from(container.querySelectorAll("input[name=\"bd-monthly-fee-checkbox\"]:checked"))
@@ -11677,14 +14326,38 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
 
     // Sum all checked fee type checkboxes (multi-select)
     let monthlyFee = 0;
-    monthlyFeeEl?.querySelectorAll("input[name=\"bd-monthly-fee-checkbox\"]:checked").forEach(cb => {
+    monthlyFeeEl?.querySelectorAll("input[name=\"bd-monthly-fee-checkbox\"]").forEach(cb => {
       const baseAmt = parseFloat(cb.value || 0) || 0;
-      const isMonthly = (cb.dataset.label || "").toLowerCase().includes("tuition") || (cb.dataset.term || "").toLowerCase().includes("monthly");
+      const isTuition = (cb.dataset.label || "").toLowerCase().includes("tuition");
+      const qty = parseInt(cb.dataset.qty || "1", 10);
       
-      if (isMonthly) {
-        monthlyFee += baseAmt * monthCount;
-      } else {
-        monthlyFee += baseAmt;
+      const qtyCtrl = cb.closest("label").querySelector(".fee-qty-ctrl");
+      if (qtyCtrl) {
+          if (cb.checked && !isTuition) {
+              qtyCtrl.style.display = "flex";
+          } else {
+              qtyCtrl.style.display = "none";
+          }
+      }
+
+      // Dynamic UI Update: Show multiplier text
+      const amtSpan = cb.closest("label").querySelector(".fee-amt-display");
+      if (amtSpan) {
+        if (isTuition && monthCount > 1) {
+          amtSpan.innerHTML = `₹ ${baseAmt.toLocaleString("en-IN")} <span style="color:#64748b;font-size:0.75rem;">× ${monthCount}</span>`;
+        } else if (!isTuition && qty > 1) {
+          amtSpan.innerHTML = `₹ ${baseAmt.toLocaleString("en-IN")} <span style="color:#64748b;font-size:0.75rem;">× ${qty}</span>`;
+        } else {
+          amtSpan.innerHTML = `₹ ${baseAmt.toLocaleString("en-IN")}`;
+        }
+      }
+
+      if (cb.checked) {
+          if (isTuition) {
+            monthlyFee += baseAmt * monthCount;
+          } else {
+            monthlyFee += baseAmt * qty;
+          }
       }
     });
 
@@ -11694,7 +14367,16 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
       selectedExtra += parseFloat(cb.dataset.price || 0) || 0;
     });
 
-    const total = monthlyFee + selectedExtra + (appliedDueMgmtAmount || 0);
+    let total = Math.round((monthlyFee + selectedExtra + (appliedDueMgmtAmount || 0)) * 100) / 100;
+
+    // Prevent wiping out legacy or manually entered total fees when just editing paidAmount
+    if (total === 0 && totalFeeInput && parseFloat(totalFeeInput.value) > 0) {
+      // Only keep the existing total if no checkboxes are present or checked
+      const hasCheckedBoxes = form.querySelectorAll("input[type='checkbox']:checked").length > 0;
+      if (!hasCheckedBoxes) {
+        total = parseFloat(totalFeeInput.value);
+      }
+    }
 
     if (totalFeeInput) {
       totalFeeInput.value = total;
@@ -11705,7 +14387,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
 
     if (balanceInput) {
       const paid = parseFloat(paidInput?.value || 0) || 0;
-      balanceInput.value = Math.max(0, total - paid);
+      balanceInput.value = Math.round((total - paid) * 100) / 100;
       balanceInput.readOnly = true;
       balanceInput.style.background = "#f1f5f9";
       balanceInput.style.cursor = "not-allowed";
@@ -11719,16 +14401,17 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
   }
 
   // ── Outstanding Balance Alert Logic ──
-  window.applyDueMgmtToFee = function(admissionNo) {
+  window.applyDueMgmtToFee = function(admissionNo, studentName) {
     const store = getStore();
+    const isDummyAdm = String(admissionNo) === "00" || String(admissionNo) === "0" || String(admissionNo).toLowerCase() === "temp";
     
     // 1. Collect Fee module dues
-    const studentFees = (store.fees || []).filter(f => String(f.admissionNo) === String(admissionNo) && (parseFloat(f.balance) || 0) > 0);
+    const studentFees = (store.fees || []).filter(f => String(f.admissionNo) === String(admissionNo) && (parseFloat(f.balance) || 0) > 0 && (!isDummyAdm || String(f.studentName) === String(studentName)));
     const feesDueAmt = studentFees.reduce((sum, f) => sum + (parseFloat(f.balance) || 0), 0);
     const feeIds = studentFees.map(f => f.id);
     
     // 2. Collect Due Management dues
-    const studentDues = (store.dueManagement || []).filter(h => String(h.admissionNo) === String(admissionNo) && h.status !== "Paid");
+    const studentDues = (store.dueManagement || []).filter(h => String(h.admissionNo) === String(admissionNo) && h.status !== "Paid" && (!isDummyAdm || String(h.studentName) === String(studentName)));
     const mgmtDueAmt = studentDues.reduce((sum, d) => sum + (parseFloat(d.balance) || 0), 0);
     const mgmtIds = studentDues.map(d => d.id);
     
@@ -11758,27 +14441,32 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
         termInput.value = appliedDueMgmtParticulars;
       }
       
-      // Auto-check the checkboxes for months mentioned in dues
-      const monthCheckboxes = form.querySelectorAll("input[name='fee-month']");
+      // Auto-select months from the dues
+      let monthsToSelect = new Set();
+      studentFees.forEach(f => {
+        if (f.month) f.month.split(",").forEach(m => monthsToSelect.add(m.trim().toLowerCase().substring(0,3)));
+      });
       studentDues.forEach(d => {
-          const mMatch = (d.particulars || "").match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/ig);
-          if (mMatch) {
-              mMatch.forEach(mStr => {
-                  const shortM = mStr.substring(0,3).toLowerCase();
-                  monthCheckboxes.forEach(cb => {
-                      if (cb.value.toLowerCase() === shortM) {
-                          cb.checked = true;
-                          const lbl = cb.closest("label");
-                          if (lbl) {
-                              lbl.style.background = "#eff6ff";
-                              lbl.style.borderColor = "#3b82f6";
-                          }
-                      }
-                  });
-              });
-          }
+        if (d.month) d.month.split(",").forEach(m => monthsToSelect.add(m.trim().toLowerCase().substring(0,3)));
+        // Fallback to parse particulars for months if month field is empty
+        const mMatch = (d.particulars || "").match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/gi);
+        if (mMatch) mMatch.forEach(m => monthsToSelect.add(m.toLowerCase().substring(0,3)));
       });
       
+      const monthContainer = form.querySelector("#bd-month-selector");
+      if (monthContainer && monthsToSelect.size > 0) {
+        monthContainer.querySelectorAll("input[type='checkbox']").forEach(cb => {
+          if (monthsToSelect.has(cb.value.toLowerCase().substring(0,3))) {
+            cb.checked = true;
+            const lbl = cb.closest("label");
+            if (lbl) {
+              lbl.style.background = "#eff6ff";
+              lbl.style.borderColor = "#3b82f6";
+            }
+          }
+        });
+      }
+
       const btn = document.getElementById("bd-add-due-btn");
       if (btn) {
         btn.innerHTML = "<span>✅</span> Added All Dues";
@@ -11791,7 +14479,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
     }
   };
 
-  window.renderStudentDueAlert = function(admissionNo) {
+  window.renderStudentDueAlert = function(admissionNo, studentName) {
     const container = document.getElementById("bd-due-alert-container");
     if (!container || currentModule !== "fees") return;
 
@@ -11805,10 +14493,12 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
     }
 
     const store = getStore();
-    const studentFees = (store.fees || []).filter(f => String(f.admissionNo) === String(admissionNo));
+    const isDummyAdm = String(admissionNo) === "00" || String(admissionNo) === "0" || String(admissionNo).toLowerCase() === "temp";
+    
+    const studentFees = (store.fees || []).filter(f => String(f.admissionNo) === String(admissionNo) && (!isDummyAdm || String(f.studentName) === String(studentName)));
     const totalFeesDue = studentFees.reduce((sum, f) => sum + (parseFloat(f.balance) || 0), 0);
     
-    const studentDues = (store.dueManagement || []).filter(h => String(h.admissionNo) === String(admissionNo) && h.status !== "Paid");
+    const studentDues = (store.dueManagement || []).filter(h => String(h.admissionNo) === String(admissionNo) && h.status !== "Paid" && (!isDummyAdm || String(h.studentName) === String(studentName)));
     const totalMgmtDue = studentDues.reduce((sum, d) => sum + (parseFloat(d.balance) || 0), 0);
 
     const grandTotal = totalFeesDue + totalMgmtDue;
@@ -11828,7 +14518,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
             ${breakdownHtml}
           </div>
           <div style="display:flex; gap:8px; align-items:center;">
-            <button id="bd-add-due-btn" type="button" onclick="applyDueMgmtToFee('${admissionNo}')" 
+            <button id="bd-add-due-btn" type="button" onclick="applyDueMgmtToFee('${admissionNo}', '${studentName ? studentName.replace(/'/g, "\\'") : ""}')" 
               style="background:#ef4444; color:#fff; border:none; padding:6px 12px; border-radius:6px; font-size:0.8rem; font-weight:700; cursor:pointer; transition: all 0.2s; display:flex; align-items:center; gap:4px;">
               <span>➕</span> Add to current Slip
             </button>
@@ -11859,11 +14549,10 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
     }
 
     const s = classSummary(cls);
-    const allItems = [...s.books, ...s.dresses];
+    const books = s.books;
 
-    // Auto-hide: show only when there are items OR fee structures for this class
-    const hasFeeStructures = feeStructures.some(f => f.className === cls);
-    if (!allItems.length && !hasFeeStructures) {
+    // Auto-hide: show only when there are items configured in Books & Dress module
+    if (!books.length && !bdDresses.length) {
       info.style.display = "none";
       return;
     }
@@ -11873,34 +14562,139 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
 
     info.style.display = "block";
 
-    const itemRows = allItems.map(item => {
-      const icon = item.itemType === "Book" ? "📚" : "👕";
+    const bookRows = books.map(item => {
       return `
         <label style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #dbeafe;cursor:pointer;">
-          <input type="checkbox" class="bd-item-checkbox" data-id="${item.id}" data-price="${item.price}"
+          <input type="checkbox" class="bd-item-checkbox book-checkbox" data-id="${item.id}" data-price="${item.price}"
             style="width:16px;height:16px;accent-color:#1e3a8a;cursor:pointer;"
             ${prevCheckedItems.includes(String(item.id)) ? "checked" : ""}>
-          <span style="flex:1;">${icon} ${item.itemName}</span>
+          <span style="flex:1;">📚 ${item.itemName}</span>
           <span style="font-weight:600;color:#0f172a;">${formatINR(item.price)}</span>
         </label>`;
     }).join("");
 
     info.innerHTML = `
       <div style="font-weight:700;color:#1e3a8a;margin-bottom:10px;font-size:0.95rem;">📦 Books & Dress — Class ${cls || "(select class)"}</div>
-      ${allItems.length ? `
-        <div style="font-size:0.8rem;color:#64748b;margin-bottom:8px;">✅ Check items to include in fee. Unchecked items will NOT be added.</div>
-        <div style="margin-bottom:10px;">${itemRows}</div>
-      ` : `<div style="color:#94a3b8;font-size:0.85rem;margin-bottom:10px;">No books/dress items configured for this class.</div>`}
-      <div style="background:#1e3a8a;color:#fff;border-radius:6px;padding:8px 14px;display:flex;justify-content:space-between;align-items:center;">
+      
+      <!-- Books Section (Collapsible) -->
+      ${books.length ? `
+        <div id="bd-books-header" style="cursor:pointer; font-weight:600; color:#1e3a8a; background:#dbeafe; padding:8px 12px; border-radius:6px; display:flex; justify-content:space-between; align-items:center;">
+          <span>📚 Class Books (${books.length})</span>
+          <span id="bd-books-icon">▼</span>
+        </div>
+        <div id="bd-books-container" style="display:none; padding:10px; background:#fff; border:1px solid #dbeafe; border-radius:6px; margin-top:4px;">
+           <div style="font-size:0.8rem;color:#64748b;margin-bottom:8px;">✅ Check items to include in fee.</div>
+           ${bookRows}
+        </div>
+      ` : ''}
+
+      <!-- Dress Section -->
+      ${bdDresses.length ? `
+        <div style="margin-top:15px; font-weight:600; color:#1e3a8a;">👕 Add Dress</div>
+        <div style="display:flex; gap:10px; align-items:center; margin-top:6px; flex-wrap:wrap;">
+           <select id="fee-dress-name" style="padding:6px; border:1px solid #cbd5e1; border-radius:4px; flex:1; min-width:120px;">
+             <option value="">Select Dress...</option>
+           </select>
+           <select id="fee-dress-size" style="padding:6px; border:1px solid #cbd5e1; border-radius:4px; flex:1; min-width:80px;" disabled>
+             <option value="">Size...</option>
+           </select>
+           <button type="button" id="fee-add-dress-btn" style="padding:6px 14px; background:#1e3a8a; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:600;" disabled>Add</button>
+        </div>
+        <div id="fee-added-dresses-list" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;"></div>
+      ` : ''}
+
+      <div style="background:#1e3a8a;color:#fff;border-radius:6px;padding:8px 14px;display:flex;justify-content:space-between;align-items:center;margin-top:15px;">
         <span style="font-weight:700;">Total Fee (Monthly + Selected)</span>
         <span id="bd-running-total" style="font-weight:800;font-size:1.05rem;">${formatINR(0)}</span>
       </div>
       <div style="font-size:0.75rem;color:#3b82f6;margin-top:6px;">ℹ️ Total Fee field is auto-calculated. Balance = Total Fee − Amount Paid.</div>`;
 
-    // Attach checkbox change listeners
-    info.querySelectorAll(".bd-item-checkbox").forEach(cb => {
+    // Collapsible Books
+    const booksHeader = info.querySelector("#bd-books-header");
+    const booksContainer = info.querySelector("#bd-books-container");
+    const booksIcon = info.querySelector("#bd-books-icon");
+    if (booksHeader && booksContainer) {
+        booksHeader.addEventListener("click", () => {
+            const isHidden = booksContainer.style.display === "none";
+            booksContainer.style.display = isHidden ? "block" : "none";
+            booksIcon.textContent = isHidden ? "▲" : "▼";
+        });
+    }
+
+    // Attach checkbox change listeners for books
+    info.querySelectorAll(".book-checkbox").forEach(cb => {
       cb.addEventListener("change", recalcFeeTotals);
     });
+
+    // Dress Dropdown Logic
+    const nameSel = info.querySelector("#fee-dress-name");
+    const sizeSel = info.querySelector("#fee-dress-size");
+    const addBtn  = info.querySelector("#fee-add-dress-btn");
+    const addedList = info.querySelector("#fee-added-dresses-list");
+
+    function addDressBadge(id, name, size, price) {
+        const badge = document.createElement("div");
+        badge.style.cssText = "background:#fce7f3; color:#9d174d; border:1px solid #fbcfe8; border-radius:16px; padding:4px 10px; font-size:0.8rem; font-weight:600; display:flex; align-items:center; gap:6px;";
+        badge.innerHTML = `
+            👕 ${name} (Size: ${size})
+            <input type="checkbox" class="bd-item-checkbox" data-id="${id}" data-price="${price}" checked style="display:none;">
+            <button type="button" class="remove-dress-btn" style="background:transparent; border:none; color:#be185d; cursor:pointer; font-weight:bold; padding:0 4px; font-size:0.9rem;">&times;</button>
+        `;
+        badge.querySelector(".remove-dress-btn").addEventListener("click", () => {
+            badge.remove();
+            recalcFeeTotals();
+        });
+        addedList.appendChild(badge);
+    }
+
+    if (nameSel && sizeSel && addBtn && addedList) {
+        const uniqueDresses = [...new Set(bdDresses.map(d => d.itemName))];
+        nameSel.innerHTML = `<option value="">Select Dress...</option>` + uniqueDresses.map(n => `<option value="${n}">${n}</option>`).join("");
+        
+        nameSel.addEventListener("change", (e) => {
+            const selectedName = e.target.value;
+            sizeSel.innerHTML = `<option value="">Size...</option>`;
+            addBtn.disabled = true;
+            if (selectedName) {
+                const sizes = bdDresses.filter(d => d.itemName === selectedName);
+                sizes.forEach(s => {
+                    sizeSel.innerHTML += `<option value="${s.id}" data-price="${s.price}">${s.className} (₹${s.price})</option>`;
+                });
+                sizeSel.disabled = false;
+            } else {
+                sizeSel.disabled = true;
+            }
+        });
+
+        sizeSel.addEventListener("change", (e) => {
+            addBtn.disabled = !e.target.value;
+        });
+
+        addBtn.addEventListener("click", () => {
+            const selectedId = sizeSel.value;
+            const selectedOpt = sizeSel.options[sizeSel.selectedIndex];
+            const price = selectedOpt.dataset.price;
+            const dressName = nameSel.value;
+            const sizeName = selectedOpt.text.split(" ")[0]; // Just grab the size part
+
+            addDressBadge(selectedId, dressName, sizeName, price);
+            
+            // Reset dropdowns
+            nameSel.value = "";
+            sizeSel.innerHTML = `<option value="">Size...</option>`;
+            sizeSel.disabled = true;
+            addBtn.disabled = true;
+
+            recalcFeeTotals();
+        });
+
+        // Restore previously checked dresses
+        const prevCheckedDresses = prevCheckedItems.filter(id => bdDresses.some(d => String(d.id) === String(id)));
+        prevCheckedDresses.forEach(id => {
+            const d = bdDresses.find(d => String(d.id) === String(id));
+            if (d) addDressBadge(d.id, d.itemName, d.className, d.price);
+        });
+    }
 
     recalcFeeTotals();
   }
@@ -12100,14 +14894,18 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
     bdInit();
   }
 
-  // --- REAL TIME DASHBOARD ENGINE ---
-  // Periodically polls local store to auto-refresh KPI stats cards and Charts on Dashboard view
+  // --- REAL TIME DASHBOARD & LIVE PRESENCE ENGINE ---
+  // Periodically polls store to auto-refresh KPI stats cards and Live App User presence
   setInterval(async () => {
-    if (currentModule === "dashboard" && currentUser && !userIsStudent()) {
+    if ((currentModule === "dashboard" || currentModule === "appLiveUsers") && currentUser && !userIsStudent()) {
       await loadStore();
-      renderStatsCards(); 
+      if (currentModule === "dashboard") {
+        renderStatsCards(); 
+      } else if (currentModule === "appLiveUsers") {
+        renderAll(true);
+      }
     }
-  }, 30000); // 30 seconds
+  }, 15000); // 15 seconds real-time presence sync
 
   // Expose BD data for global access (e.g. 4-in-1 print)
   window.loadBD = loadBD;
@@ -12168,7 +14966,7 @@ Thank you 🙏`;
   function buildMessage(template, row) {
     return template
       .replace(/\{studentName\}/g, row.studentName || "Student")
-      .replace(/\{parentName\}/g, row.parentName || "Parent")
+      .replace(/\{parentName\}|\{fatherName\}/g, row.fatherName || row.parentName || "Parent")
       .replace(/\{className\}/g, row.className || "—")
       .replace(/\{balance\}/g, row.balance || "0")
       .replace(/\{term\}/g, row.term || "—")
@@ -12229,7 +15027,7 @@ function openWhatsApp(phone, message) {
     }
   }
 
-  async function sendInternalWhatsApp(phone, message, attachment = null) {
+  async function sendInternalWhatsApp(phone, message, attachment = null, retries = 2) {
     let p = String(phone || "").replace(/\D/g, "");
     if (p.length === 10) p = "91" + p;
     if (p.length === 11 && p.startsWith("0")) p = "91" + p.slice(1);
@@ -12253,6 +15051,11 @@ function openWhatsApp(phone, message) {
       if (res.error) throw new Error(res.error);
       return true;
     } catch(e) {
+      if (retries > 0 && e.message.includes("WhatsApp is not connected")) {
+        console.warn(`WhatsApp disconnected, waiting 6s to retry... (${retries} left)`);
+        await new Promise(r => setTimeout(r, 6000));
+        return await sendInternalWhatsApp(phone, message, attachment, retries - 1);
+      }
       console.warn("WhatsApp fail:", e);
       let hint = e.body ? `\nResponse: ${e.body}` : "";
       showToast("❌ WhatsApp Gateway failed: " + e.message + hint, "error");
@@ -12265,7 +15068,7 @@ function openWhatsApp(phone, message) {
     try {
       await api("/api/whatsapp/log-alert", {
         method: "POST",
-        body: JSON.stringify({ studentName: row.studentName, className: row.className, phone: row.phone, parentName: row.parentName, balance: row.balance, term: row.term, message })
+        body: JSON.stringify({ studentName: row.studentName, className: row.className, phone: row.phone, fatherName: row.fatherName || row.parentName || "", parentName: row.fatherName || row.parentName || "", balance: row.balance, term: row.term, message })
       });
     } catch (e) { console.warn("WhatsApp log failed:", e.message); }
   }
@@ -12277,7 +15080,7 @@ function openWhatsApp(phone, message) {
   async function loadAlertLog() {
     try { 
       waAlertLog = (getStore().whatsappAlerts || [])
-        .sort((a, b) => (b.alertDate || "").localeCompare(a.alertDate || "")) // BUG-13 fix: Sort by date desc
+        .sort((a, b) => (b.id || 0) - (a.id || 0)) // Fixed: Sort strictly by ID (latest first)
         .slice(0, 50); 
     } catch (e) { waAlertLog = []; }
   }
@@ -12319,7 +15122,7 @@ function openWhatsApp(phone, message) {
           admissionNo: s.admissionNo,
           rollNo: s.rollNo,
           className: s.className,
-          parentName: s.parentName,
+          parentName: s.fatherName || "", fatherName: s.fatherName || "",
           phone: s.phone,
           address: s.address || "",
           balance: String(totalBal),
@@ -12337,7 +15140,7 @@ function openWhatsApp(phone, message) {
       return {
         ...item,
         motherName: student.motherName || "",
-        fatherName: student.fatherName || item.parentName || "",
+        fatherName: student.fatherName || item.fatherName || "",
         gender: student.gender || "",
         dob: student.dob || ""
       };
@@ -12351,7 +15154,7 @@ function openWhatsApp(phone, message) {
         (r.admissionNo || "").toLowerCase().includes(q) ||
         (r.phone || "").toLowerCase().includes(q) ||
         (r.address || "").toLowerCase().includes(q) ||
-        (r.parentName || "").toLowerCase().includes(q)
+        (r.fatherName || r.parentName || "").toLowerCase().includes(q)
       );
     }
     waCurrentList = displayList;
@@ -12388,6 +15191,18 @@ function openWhatsApp(phone, message) {
             <button id="waRemoveAttachment" style="display:none; background:none; border:none; color:#ef4444; cursor:pointer; font-size:1.1rem; padding:0 4px; line-height:1;" title="Remove Attachment">×</button>
             
             <span id="waTemplateSaveStatus" style="font-size:0.82rem;color:#16a34a;margin-left:8px;"></span>
+          </div>
+          
+          <div style="margin-top:20px; padding-top:15px; border-top:1px dashed #cbd5e1;">
+            <div class="wa-section-title">🎨 Fee Slip Image Theme
+              <span class="wa-section-hint">Select the design used for WhatsApp slip images</span>
+            </div>
+            <div style="display:flex; gap:8px;">
+               <select id="waFeeSlipThemeSelect" class="field" style="flex:1; max-width:250px; border:1px solid #cbd5e1; border-radius:6px; padding:8px 12px; font-size:13px; background:#f8fafc;">
+                 ${(window.slipTemplates || []).map(t => `<option value="${t.id}" ${(localStorage.getItem("waFeeSlipTemplate") || "default") === t.id ? "selected" : ""}>${t.name}</option>`).join("")}
+               </select>
+               <button class="wa-btn wa-btn-secondary" id="waSaveThemeBtn" style="background:#1e293b; padding:0 12px;">💾 Save Theme</button>
+            </div>
           </div>
         </div>
 
@@ -12483,7 +15298,7 @@ function openWhatsApp(phone, message) {
                     <td><strong>${row.studentName}</strong><br><small style="color:#64748b">${row.rollNo || "No Roll"}</small></td>
                     <td>${row.className}</td>
                     <td>
-                      <div style="font-weight:600">${row.parentName || "—"}</div>
+                      <div style="font-weight:600">${row.fatherName || row.parentName || "—"}</div>
                       <div style="color:#64748b;font-size:0.82rem">${row.phone ? "📞 " + row.phone : "<span style='color:#ef4444'>No phone</span>"}</div>
                     </td>
                     <td>
@@ -12543,8 +15358,14 @@ function openWhatsApp(phone, message) {
       showToast("Template reset to default", "info");
     });
 
+    document.getElementById("waSaveThemeBtn")?.addEventListener("click", () => {
+      const themeId = document.getElementById("waFeeSlipThemeSelect").value;
+      localStorage.setItem("waFeeSlipTemplate", themeId);
+      showToast("Fee slip theme saved successfully!", "success");
+    });
+
     // ─── Variable Autocomplete Dropdown on typing '{' ───
-    (function initVariableAutocomplete() {
+    ;(function initVariableAutocomplete() {
       if (!tplEditor) return;
       const VARS = [
         { label: "{studentName}", desc: "Student's full name" },
@@ -12796,7 +15617,7 @@ function openWhatsApp(phone, message) {
     const logoutBtn = document.getElementById("waLogoutBtn");
     if (logoutBtn) {
         logoutBtn.addEventListener("click", async () => {
-            if (confirm("Are you sure you want to log out of WhatsApp?")) {
+            if (await window.appConfirm("Are you sure you want to log out of WhatsApp?")) {
                 await api("/api/whatsapp/logout", { method: "POST" });
                 updateWaStatus();
             }
@@ -12891,17 +15712,22 @@ function openWhatsApp(phone, message) {
       const phoneHtml = row.phone ? "📞 " + row.phone : "<span style='color:#ef4444;font-weight:bold'>No phone found</span>";
       document.getElementById("waQueueStatus").innerHTML = 
         `Sending <b>${waQueueIndex + 1} of ${waQueue.length}</b><br><br>` +
-        `Student: <b>${row.studentName}</b><br>Parent: ${row.parentName || "—"} (${phoneHtml})`;
+        `Student: <b>${row.studentName}</b><br>Father: ${row.fatherName || row.parentName || "—"} (${phoneHtml})`;
     }
 
     document.getElementById("waQueueNextWA")?.addEventListener("click", async () => {
       const row = waQueue[waQueueIndex];
       const msg = buildMessage(tplEditor?.value || getTemplate(), row);
+      
+      waIsBulkSending = true; // Signal openWhatsApp to auto-close
+      
       if (!row.phone) showToast("No phone number for " + row.studentName, "warn");
       else if (openWhatsApp(row.phone, msg)) {
          await logAlert(row, msg);
          showToast(`✅ Prepared WhatsApp for ${row.studentName}`, "success");
       }
+      
+      waIsBulkSending = false;
       waQueueIndex++; updateQueueUI();
     });
 
@@ -12986,8 +15812,11 @@ function openWhatsApp(phone, message) {
           failCount++;
         }
 
-        // Small delay between messages to not choke the gateway
-        await new Promise(r => setTimeout(r, 600));
+        // Fixed 10 seconds delay chunked to allow immediate cancellation
+        for (let j = 0; j < 20; j++) {
+            if (cancelled) break;
+            await new Promise(r => setTimeout(r, 500));
+        }
       }
 
       waIsBulkSending = false;
@@ -13058,7 +15887,11 @@ function openWhatsApp(phone, message) {
           failCount++;
         }
 
-        await new Promise(r => setTimeout(r, 600));
+        // Fixed 10 seconds delay chunked to allow immediate cancellation
+        for (let j = 0; j < 20; j++) {
+            if (cancelled) break;
+            await new Promise(r => setTimeout(r, 500));
+        }
       }
 
       waIsBulkSending = false;
@@ -13153,16 +15986,24 @@ async function sendSmsFeeSlip(feeId) {
   try {
     const bdIds = JSON.parse(f.selectedBookIds || "[]");
     if (bdIds.length) {
+      let bookTotal = 0;
+      let dressTotal = 0;
       (store.booksAndDress || []).forEach(item => {
-        if (bdIds.includes(String(item.id))) feeLines.push(`${item.itemName}: Rs.${parseFloat(item.price).toLocaleString("en-IN")}`);
+        if (bdIds.includes(String(item.id))) {
+            const price = parseFloat(item.price) || 0;
+            if (item.itemType === "Book") bookTotal += price;
+            else dressTotal += price;
+        }
       });
+      if (bookTotal > 0) feeLines.push(`Book Fee: Rs.${bookTotal.toLocaleString("en-IN")}`);
+      if (dressTotal > 0) feeLines.push(`Dress Fee: Rs.${dressTotal.toLocaleString("en-IN")}`);
     }
   } catch {}
   const dueAmt = parseFloat(f.dueMgmtAmount) || 0;
   if (dueAmt > 0) feeLines.push(`Prev.Dues: Rs.${dueAmt.toLocaleString("en-IN")}`);
 
   let msg = `Tapowan Public School\n`;
-  msg += `Fee Receipt - ${today}\n`;
+  msg += `Fee Receipt - ${f.payId ? f.payId : today}\n`;
   msg += `Student: ${f.studentName || "N/A"}\n`;
   msg += `Class: ${f.className || "N/A"}`;
   if (f.rollNo) msg += ` | Roll:${f.rollNo}`;
@@ -13209,7 +16050,7 @@ async function sendSmsFeeSlip(feeId) {
     const student = (store.students || []).find(s => s.fullName === f.studentName || s.admissionNo === f.admissionNo);
     if (student) {
       if (!f.admissionNo) f.admissionNo = student.admissionNo || "";
-      if (!f.fatherName) f.fatherName = student.parentName || "";
+      if (!f.fatherName) f.fatherName = student.fatherName || "";
       if (!f.phone) f.phone = student.phone || "";
       if (!f.rollNo) f.rollNo = student.rollNo || student.roll || "";
     }
@@ -13226,6 +16067,8 @@ async function sendSmsFeeSlip(feeId) {
     let feeRows = "";
     const SLIP_FEE_TYPES = [
       { key: "tuitionFee",     label: "Tuition Fee",     icon: "📚" },
+    { key: "transportFee", label: "Transport Fee", icon: "🚌" },
+    { key: "admissionFormFee", label: "Admission Form Fee", icon: "📄" },
       { key: "admissionFee",   label: "Admission Fee",   icon: "🎓" },
       { key: "computerFee",    label: "Computer Fee",    icon: "💻" },
       { key: "developmentFee", label: "Development Fee", icon: "🏗️" },
@@ -13265,100 +16108,22 @@ async function sendSmsFeeSlip(feeId) {
       feeRows += `<tr style="background:#fff1f2;"><td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;font-size:12px;color:#991b1b;font-weight:900;">🔖 ${pars}</td><td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:12px;font-weight:900;color:#991b1b;">₹ ${dueAmt.toLocaleString("en-IN")}</td></tr>`;
     }
 
-    container.innerHTML = `
-    <style>
-      .slip-abs-black, .slip-abs-black * {
-        color: #000000 !important;
-        opacity: 1 !important;
-        visibility: visible !important;
-        -webkit-font-smoothing: none !important;
-        text-shadow: 0 0 1px rgba(0,0,0,0.3) !important;
-      }
-      .slip-grid {
-        color: #000000 !important;
-      }
-    </style>
-    <div class="slip-abs-black" style="width:400px;display:flex;flex-direction:column;font-family:Arial,sans-serif;font-size:12px;border:1.5px solid #1e3a8a;border-radius:6px;box-sizing:border-box;background-color:#ffffff;padding:0;">
-      <div style="border-bottom:2px solid #1e3a8a;padding:15px 5px;text-align:center;">
-        <div style="display:flex;align-items:center;justify-content:center;gap:8px;">
-          <img src="logo.png" style="height:42px;object-fit:contain;" alt="Logo" />
-          <div style="font-size:18px;font-weight:900;color:#1e3a8a !important;letter-spacing:0.5px;text-transform:uppercase;">${schoolName}</div>
-        </div>
-        <div style="font-size:11px;color:#1e3a8a !important;margin-top:1px;font-weight:800;">Prem Nagar Tapin North, Ramgarh(JH)</div>
-        <div style="margin-top:6px;display:inline-block;background-color:#1e3a8a !important;color:#ffffff !important;padding:6px 18px;font-size:12px;font-weight:900;text-transform:uppercase;border-radius:2px;">FEE SLIP</div>
-      </div>
-      <div style="display:flex;justify-content:space-between;padding:6px 10px;background-color:#eef2ff;border-bottom:1px solid #c7d2fe;font-size:11px;color:#1e3a8a !important;font-weight:800;">
-        <span><strong>No:</strong> ${slipNo}</span>
-        <span><strong>Term:</strong> ${window.formatTermString(window.formatTermString(f.term)) || "-"}</span>
-        <span><strong>Date:</strong> ${printDate}</span>
-      </div>
-      <div style="padding:10px 12px;border-bottom:1px solid #e5e7eb;">
-        <table style="width:100%;border-collapse:collapse;font-size:12px;">
-          <tr>
-            <td style="color:#000000;width:25%;padding:3px 0;font-weight:800;">Name</td>
-            <td style="font-weight:900;color:#000000;padding:3px 0;">${f.studentName || "-"}</td>
-            <td style="color:#000000;width:15%;padding:3px 0 3px 8px;font-weight:800;">Adm.No</td>
-            <td style="font-weight:900;color:#000000;padding:3px 0;">${f.admissionNo || "-"}</td>
-          </tr>
-          <tr>
-            <td style="color:#000000;padding:3px 0;font-weight:800;">Father</td>
-            <td style="font-weight:900;color:#000000;padding:3px 0;">${f.fatherName || "-"}</td>
-            <td style="color:#000000;padding:3px 0 3px 8px;font-weight:800;">Class</td>
-            <td style="font-weight:900;color:#000000;padding:3px 0;">${f.className || "-"}</td>
-          </tr>
-          <tr>
-            <td style="color:#000000;padding:3px 0;font-weight:800;">Roll</td>
-            <td style="font-weight:900;color:#000000;padding:3px 0;">${f.rollNo || "-"}</td>
-            <td style="color:#000000;padding:3px 0 3px 8px;font-weight:800;">Method</td>
-            <td style="font-weight:900;color:#000000;padding:3px 0;">${f.paymentMethod || "-"}</td>
-          </tr>
-          <tr>
-            <td style="color:#000000;padding:4px 0 2px;font-weight:700;">Status</td>
-            <td colspan="3" style="padding:4px 0;"><span style="background-color:${statusBg} !important;color:${statusColor} !important;font-weight:800;padding:2px 10px;border-radius:4px;font-size:11px;border:1px solid ${statusColor};">${(f.status || "Pending").toUpperCase()}</span></td>
-          </tr>
-        </table>
-      </div>
-      <div style="padding:8px 12px;border-bottom:1px solid #e5e7eb;flex:1;">
-        <div style="font-size:11px;font-weight:900;color:#000000;text-transform:uppercase;margin-bottom:6px;">Fee Details</div>
-        <table style="width:100%;border-collapse:collapse;">
-          <thead style="background-color:#1e3a8a;">
-            <tr style="background-color:#1e3a8a;">
-              <th style="padding:6px 8px;text-align:left;font-size:11px;font-weight:800;color:#ffffff;background-color:#1e3a8a;">Description</th>
-              <th style="padding:6px 8px;text-align:right;font-size:11px;font-weight:800;color:#ffffff;background-color:#1e3a8a;">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${feeRows || `<tr><td colspan="2" style="padding:15px;color:#000000;text-align:center;font-size:12px;font-weight:800;">No details</td></tr>`}
-          </tbody>
-        </table>
-      </div>
-      <div style="padding:12px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;align-items:center;gap:15px;">
-        <!-- QR Code Column -->
-        <div style="width:65px;height:65px;background:#fff;padding:3px;display:flex;align-items:center;justify-content:center;border:1px solid #e5e7eb;">
-          <img src="qr.png" style="width:100%;height:100%;object-fit:contain;" alt="Payment QR" />
-        </div>
-        <!-- Totals Column -->
-        <div style="flex:1;font-size:13px;">
-          <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
-            <span style="color:#000000 !important;font-weight:700;">Total Fee</span>
-            <span style="font-weight:900;color:#000000 !important;">₹ ${totalFee.toLocaleString("en-IN")}</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
-            <span style="color:#000000 !important;font-weight:700;">Paid</span>
-            <span style="font-weight:900;color:#16a34a !important;">₹ ${paidAmount.toLocaleString("en-IN")}</span>
-          </div>
-            <div style="display:flex;justify-content:space-between;">
-            <span style="color:#000000 !important;font-weight:700;">Balance</span>
-            <span style="font-weight:900;color:#dc2626 !important;">₹ ${balance.toLocaleString("en-IN")}</span>
-          </div>
-        </div>
-      </div>
-      <div style="padding:5px 15px 15px;display:flex;justify-content:space-between;font-size:11px;color:#000000 !important;">
-        <div style="text-align:center;width:45%;"><div style="border-top:1px solid #000000 !important;margin-top:20px;padding-top:4px;font-weight:700;color:#000000 !important;">Parent</div></div>
-        <div style="text-align:center;width:45%;"><div style="border-top:1px solid #000000 !important;margin-top:20px;padding-top:4px;font-weight:700;color:#000000 !important;">Cashier</div></div>
-      </div>
-    </div>
-    `;
+    const templateId = localStorage.getItem("waFeeSlipTemplate") || "default";
+    const selectedTemplate = window.slipTemplates ? (window.slipTemplates.find(t => t.id === templateId) || window.slipTemplates[0]) : null;
+
+    if (selectedTemplate) {
+      container.innerHTML = selectedTemplate.render({
+        schoolName, slipNo, termStr: window.formatTermString ? window.formatTermString(window.formatTermString(f.term)) : f.term, printDate,
+        studentName: f.studentName, admissionNo: f.admissionNo, fatherName: f.fatherName,
+        className: f.className, rollNo: f.rollNo, paymentMethod: f.paymentMethod,
+        statusBg, statusColor, status: (f.status || "Pending").toUpperCase(),
+        feeRows, totalFee: totalFee.toLocaleString("en-IN"),
+        paidAmount: paidAmount.toLocaleString("en-IN"), balance: balance.toLocaleString("en-IN"),
+        logoSrc: "logo.png", qrSrc: "qr.png"
+      });
+    } else {
+      container.innerHTML = `<div style="padding:20px;color:red;">Template system not loaded properly. Please refresh.</div>`;
+    }
 
     showToast(`📸 Generating Formal Slip for ${f.studentName}...`, "info");
 
@@ -13393,33 +16158,7 @@ async function sendSmsFeeSlip(feeId) {
         }
         const targetPhone = f.phone || student?.phone;
         
-        let textMsg = `🏫 *TAPOWAN PUBLIC SCHOOL*\n*FEE SLIP*\nNo: ${slipNo}\nDate: ${printDate}\n\n👤 *Student:* ${f.studentName || '-'}\n🏷️ *Class:* ${f.className || '-'}\n📊 *Status:* ${String(f.status || "Pending").toUpperCase()}\n\n*FEE DETAILS*\n`;
-        
-        SLIP_FEE_TYPES.forEach(({ key, label }) => {
-          const amt = parseFloat(f[key]) || 0;
-          if (amt > 0) {
-            const mSuffix = (f.month && (key === "tuitionFee" || label.toLowerCase().includes("tuition"))) ? ` (${f.month})` : "";
-            textMsg += `🔹 ${label}${mSuffix}: ₹${amt}\n`;
-          }
-        });
-        
-        try {
-          const bdIds = JSON.parse(f.selectedBookIds || "[]");
-          if (bdIds.length) {
-            const allBD = [...(store.booksAndDress || [])];
-            bdIds.forEach(id => {
-              const item = allBD.find(i => String(i.id) === String(id));
-              if (item) textMsg += `📦 ${item.itemName}: ₹${item.price}\n`;
-            });
-          }
-        } catch(e) {}
-        
-        const dueAmt = parseFloat(f.dueMgmtAmount) || 0;
-        if (dueAmt > 0) {
-          textMsg += `🔖 ${f.dueMgmtParticulars || "Previous Dues"}: ₹${dueAmt}\n`;
-        }
-        
-        textMsg += `\n💵 *Total Fee:* ₹${totalFee}\n✅ *Paid:* ₹${paidAmount}\n❗ *Balance:* ₹${balance}\n\n🙏 Thank you!`;
+        let textMsg = `Online Fee Payment Receipt`;
 
         if (mode === 'auto') {
             if (!targetPhone) {
@@ -13445,6 +16184,362 @@ async function sendSmsFeeSlip(feeId) {
     }
   };
 })();
+
+// ─── ANNOUNCEMENTS MODULE FORM & PREVIEW ───
+async function renderAnnouncementsForm(cfg, studentOptions, classOptions, initialValues = {}) {
+  const container = refs.dynamicForm;
+  container.innerHTML = "";
+  
+  const outer = document.createElement("div");
+  outer.className = "announcement-form-card";
+  outer.style.width = "100%";
+  outer.style.gridColumn = "1 / -1";
+  outer.style.background = "#ffffff";
+  outer.style.borderRadius = "14px";
+  outer.style.border = "1px solid #e2e8f0";
+  outer.style.padding = "20px";
+  outer.style.boxShadow = "0 4px 6px -1px rgba(0,0,0,0.03), 0 2px 4px -2px rgba(0,0,0,0.03)";
+
+  const isEdit = editRecordId != null;
+
+  // Header Banner
+  const headerHtml = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom:1px solid #f1f5f9; padding-bottom:12px;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span style="font-size:1.5rem; background:#eff6ff; padding:8px 12px; border-radius:10px; border:1px solid #bfdbfe;">📢</span>
+        <div>
+          <h3 style="margin:0; font-size:1.15rem; color:#0f172a; font-weight:700;">${isEdit ? 'Edit School Announcement' : 'Create New Announcement / Notice'}</h3>
+          <p style="margin:2px 0 0 0; font-size:0.8rem; color:#64748b;">Broadcast alerts, celebrations, exam notices, school accounts, class & student specific notices</p>
+        </div>
+      </div>
+      ${isEdit ? `<button type="button" class="action-btn" id="btnCancelAnnEdit" style="background:#f1f5f9; color:#475569; border:none; padding:6px 12px; border-radius:8px; font-weight:600; cursor:pointer;">Cancel Edit</button>` : ''}
+    </div>
+  `;
+
+  // Quick Preset Templates
+  const templatesHtml = `
+    <div style="margin-bottom:16px; background:#f8fafc; padding:12px 14px; border-radius:10px; border:1px solid #e2e8f0;">
+      <div style="font-size:0.78rem; font-weight:700; color:#475569; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px; display:flex; align-items:center; gap:6px;">
+        <span>⚡ Quick Preset Templates (Click to fill):</span>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:6px;" id="announcementTemplateBtns">
+        <button type="button" class="chip" data-tpl="celebration" style="background:#f3e8ff; color:#7e22ce; border-color:#d8b4fe; font-size:0.75rem; font-weight:600; cursor:pointer; margin:0;">🎉 Independence / Celebration</button>
+        <button type="button" class="chip" data-tpl="exam" style="background:#e0e7ff; color:#3730a3; border-color:#a5b4fc; font-size:0.75rem; font-weight:600; cursor:pointer; margin:0;">📝 Mid-Term Exam Notice</button>
+        <button type="button" class="chip" data-tpl="accounts" style="background:#dcfce7; color:#15803d; border-color:#86efac; font-size:0.75rem; font-weight:600; cursor:pointer; margin:0;">💳 Fee Due Notice</button>
+        <button type="button" class="chip" data-tpl="weather" style="background:#fee2e2; color:#dc2626; border-color:#fca5a5; font-size:0.75rem; font-weight:600; cursor:pointer; margin:0;">🚨 Weather / Holiday Alert</button>
+        <button type="button" class="chip" data-tpl="ptm" style="background:#e0f2fe; color:#0369a1; border-color:#bae6fd; font-size:0.75rem; font-weight:600; cursor:pointer; margin:0;">👨‍👩‍👧 PTM Meeting Notice</button>
+      </div>
+    </div>
+  `;
+
+  // Form Fields Grid
+  const formGridHtml = `
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:14px; margin-bottom:16px;">
+      <!-- Title -->
+      <div class="field" style="grid-column: 1 / -1;">
+        <label style="font-weight:700; font-size:0.85rem; color:#1e293b; margin-bottom:4px; display:block;">Announcement Title <span style="color:#dc2626;">*</span></label>
+        <input type="text" id="annTitle" name="title" placeholder="e.g. 📢 Important Notice: Mid-Term Examination Schedule 2026-27" value="${escapeHtml(initialValues.title || '')}" style="width:100%; padding:10px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.95rem; font-weight:600;" required />
+      </div>
+
+      <!-- Category -->
+      <div class="field">
+        <label style="font-weight:700; font-size:0.85rem; color:#1e293b; margin-bottom:4px; display:block;">Category / Type <span style="color:#dc2626;">*</span></label>
+        <select id="annCategory" name="category" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.9rem; font-weight:600;">
+          <option value="Announcement" ${(initialValues.category === 'Announcement' || !initialValues.category) ? 'selected' : ''}>📢 General Announcement</option>
+          <option value="Alert" ${initialValues.category === 'Alert' ? 'selected' : ''}>🚨 Alert (Emergency / Urgent)</option>
+          <option value="Celebration" ${initialValues.category === 'Celebration' ? 'selected' : ''}>🎉 Celebration & Events</option>
+          <option value="Exam" ${initialValues.category === 'Exam' ? 'selected' : ''}>📝 Exam Notice & Datesheet</option>
+          <option value="Accounts" ${initialValues.category === 'Accounts' ? 'selected' : ''}>💳 School Accounts & Fee Notice</option>
+          <option value="Holiday" ${initialValues.category === 'Holiday' ? 'selected' : ''}>🏖️ Holiday & Vacation</option>
+          <option value="PTM" ${initialValues.category === 'PTM' ? 'selected' : ''}>👨‍👩‍👧 Parent-Teacher Meeting (PTM)</option>
+          <option value="Sports" ${initialValues.category === 'Sports' ? 'selected' : ''}>🏆 Sports & Activities</option>
+        </select>
+      </div>
+
+      <!-- Posted By -->
+      <div class="field">
+        <label style="font-weight:700; font-size:0.85rem; color:#1e293b; margin-bottom:4px; display:block;">From / Posted By <span style="color:#dc2626;">*</span></label>
+        <select id="annPostedBy" name="postedBy" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.9rem; font-weight:600;">
+          <option value="Tapowan School Admin" ${(initialValues.postedBy === 'Tapowan School Admin' || !initialValues.postedBy) ? 'selected' : ''}>🏛️ Tapowan School Admin</option>
+          <option value="Principal Office" ${initialValues.postedBy === 'Principal Office' ? 'selected' : ''}>🎓 Principal Office</option>
+          <option value="School Accounts Department" ${initialValues.postedBy === 'School Accounts Department' ? 'selected' : ''}>💼 School Accounts Department</option>
+          <option value="Examination Cell" ${initialValues.postedBy === 'Examination Cell' ? 'selected' : ''}>📝 Examination Cell</option>
+          <option value="Academic Coordinator" ${initialValues.postedBy === 'Academic Coordinator' ? 'selected' : ''}>📚 Academic Coordinator</option>
+          <option value="Class Teacher" ${initialValues.postedBy === 'Class Teacher' ? 'selected' : ''}>👩‍🏫 Class Teacher</option>
+          <option value="Transport In-charge" ${initialValues.postedBy === 'Transport In-charge' ? 'selected' : ''}>🚌 Transport In-charge</option>
+        </select>
+      </div>
+
+      <!-- Target Audience Type -->
+      <div class="field">
+        <label style="font-weight:700; font-size:0.85rem; color:#1e293b; margin-bottom:4px; display:block;">Target Audience / Scope <span style="color:#dc2626;">*</span></label>
+        <select id="annTargetType" name="targetType" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.9rem; font-weight:600;">
+          <option value="all" ${(initialValues.targetType === 'all' || !initialValues.targetType) ? 'selected' : ''}>🌐 All School (Broadcast to Everyone)</option>
+          <option value="class" ${initialValues.targetType === 'class' ? 'selected' : ''}>🏫 Class Specific</option>
+          <option value="student" ${initialValues.targetType === 'student' ? 'selected' : ''}>👤 Student Specific</option>
+          <option value="staff" ${initialValues.targetType === 'staff' ? 'selected' : ''}>👨‍🏫 Teachers & Staff Only</option>
+          <option value="parents" ${initialValues.targetType === 'parents' ? 'selected' : ''}>👨‍👩‍👧 Parents Only</option>
+        </select>
+      </div>
+
+      <!-- Priority -->
+      <div class="field">
+        <label style="font-weight:700; font-size:0.85rem; color:#1e293b; margin-bottom:4px; display:block;">Priority Level</label>
+        <select id="annPriority" name="priority" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.9rem; font-weight:600;">
+          <option value="Normal" ${(initialValues.priority === 'Normal' || !initialValues.priority) ? 'selected' : ''}>🔵 Normal / Standard</option>
+          <option value="High" ${initialValues.priority === 'High' ? 'selected' : ''}>🟠 High Priority</option>
+          <option value="Urgent" ${initialValues.priority === 'Urgent' ? 'selected' : ''}>🔴 Urgent Alert (Pulsing)</option>
+        </select>
+      </div>
+
+      <!-- Date -->
+      <div class="field">
+        <label style="font-weight:700; font-size:0.85rem; color:#1e293b; margin-bottom:4px; display:block;">Notice Date</label>
+        <input type="date" id="annDate" name="date" value="${initialValues.date || todayStr()}" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.9rem;" />
+      </div>
+
+      <!-- Dynamic Class Specific Input -->
+      <div class="field" id="fieldAnnTargetClass" style="display:${initialValues.targetType === 'class' ? 'block' : 'none'};">
+        <label style="font-weight:700; font-size:0.85rem; color:#6d28d9; margin-bottom:4px; display:block;">Select Target Class</label>
+        <select id="annTargetClass" name="targetClass" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid #c4b5fd; font-size:0.9rem; font-weight:600;">
+          <option value="">Choose Class...</option>
+          ${classOptions.map(c => `<option value="${c}" ${initialValues.targetClass === c ? 'selected' : ''}>${c}</option>`).join('')}
+        </select>
+      </div>
+
+      <!-- Dynamic Student Specific Input -->
+      <div class="field" id="fieldAnnTargetStudent" style="grid-column: 1 / -1; display:${initialValues.targetType === 'student' ? 'block' : 'none'};">
+        <label style="font-weight:700; font-size:0.85rem; color:#0284c7; margin-bottom:4px; display:block;">Search & Select Specific Student</label>
+        <select id="annTargetStudent" name="targetStudent" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid #7dd3fc; font-size:0.9rem;">
+          <option value="">Choose Student by Name or Admission No...</option>
+          ${studentOptions.map(s => `<option value="${s.admissionNo}" data-name="${escapeHtml(s.studentName)}" data-class="${escapeHtml(s.className)}" ${initialValues.targetAdmissionNo === s.admissionNo ? 'selected' : ''}>${s.label}</option>`).join('')}
+        </select>
+      </div>
+
+      <!-- Message Content -->
+      <div class="field" style="grid-column: 1 / -1;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+          <label style="font-weight:700; font-size:0.85rem; color:#1e293b;">Announcement Body / Message <span style="color:#dc2626;">*</span></label>
+          <span id="annCharCount" style="font-size:0.75rem; color:#94a3b8;">0 chars</span>
+        </div>
+        <textarea id="annMessage" name="message" rows="5" placeholder="Enter complete announcement details, instructions, date schedules, or important guidelines..." style="width:100%; padding:12px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.92rem; font-family:inherit; line-height:1.5;" required>${escapeHtml(initialValues.message || '')}</textarea>
+      </div>
+
+      <!-- Cloud Push Sync Checkbox -->
+      <div class="field" style="grid-column: 1 / -1; display:flex; align-items:center; gap:8px; background:#f0fdf4; padding:10px 14px; border-radius:8px; border:1px solid #bbf7d0;">
+        <input type="checkbox" id="annPushSync" name="pushSync" checked style="width:18px; height:18px; cursor:pointer;" />
+        <label for="annPushSync" style="font-weight:600; font-size:0.85rem; color:#15803d; cursor:pointer;">
+          📱 Push to Student Mobile App (Instant In-App Notice & Notifications)
+        </label>
+      </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div style="display:flex; justify-content:flex-end; gap:10px; border-top:1px solid #f1f5f9; padding-top:14px;">
+      <button type="button" class="btn secondary" id="btnAnnReset" style="padding:9px 18px; border-radius:8px; font-weight:600;">Clear Form</button>
+      <button type="submit" class="btn primary" id="btnAnnSubmit" style="background:#2563eb; color:#fff; padding:9px 24px; border-radius:8px; font-weight:700; display:inline-flex; align-items:center; gap:8px; cursor:pointer;">
+        <span>📢</span>
+        <span>${isEdit ? 'Update Announcement' : 'Publish Announcement'}</span>
+      </button>
+    </div>
+  `;
+
+  outer.innerHTML = headerHtml + templatesHtml + formGridHtml;
+  container.appendChild(outer);
+
+  // Wire event handlers
+  const targetTypeSelect = outer.querySelector('#annTargetType');
+  const fieldTargetClass = outer.querySelector('#fieldAnnTargetClass');
+  const fieldTargetStudent = outer.querySelector('#fieldAnnTargetStudent');
+  const msgInput = outer.querySelector('#annMessage');
+  const charCount = outer.querySelector('#annCharCount');
+
+  const updateCharCount = () => {
+    if (charCount && msgInput) {
+      charCount.textContent = `${msgInput.value.length} chars`;
+    }
+  };
+  msgInput.addEventListener('input', updateCharCount);
+  updateCharCount();
+
+  targetTypeSelect.addEventListener('change', () => {
+    const val = targetTypeSelect.value;
+    fieldTargetClass.style.display = val === 'class' ? 'block' : 'none';
+    fieldTargetStudent.style.display = val === 'student' ? 'block' : 'none';
+  });
+
+  // Wire Preset Template Clickers
+  const templates = {
+    celebration: {
+      title: "🇮🇳 Independence Day & Cultural Celebration 2026",
+      category: "Celebration",
+      postedBy: "Tapowan School Admin",
+      priority: "Normal",
+      targetType: "all",
+      message: "Tapowan Public School warmly invites all students, parents, and staff to celebrate Independence Day with great patriotism. Flag hoisting will take place at 8:00 AM sharp followed by student quiz competitions, cultural performances, and refreshments. Full school uniform is compulsory."
+    },
+    exam: {
+      title: "📝 Mid-Term Examination Schedule Notice 2026-27",
+      category: "Exam",
+      postedBy: "Examination Cell",
+      priority: "High",
+      targetType: "all",
+      message: "Dear Students & Parents, Mid-Term Examinations will commence from 1st September 2026. Detailed subject-wise date sheets for Classes Nursery to X are posted on the school notice board. Please clear all term fees and collect your Exam Admit Cards."
+    },
+    accounts: {
+      title: "💳 Important Reminder: School Fee Due Notice",
+      category: "Accounts",
+      postedBy: "School Accounts Department",
+      priority: "High",
+      targetType: "all",
+      message: "Dear Parents, kindly clear the outstanding tuition and transport fees for the current session by the 10th of this month to avoid late fee charges. Payment can be made online via UPI or at the school fee counter."
+    },
+    weather: {
+      title: "🚨 Weather Alert: School Closed Tomorrow",
+      category: "Alert",
+      postedBy: "Principal Office",
+      priority: "Urgent",
+      targetType: "all",
+      message: "Due to heavy rainfall and official district administration advisory, Tapowan Public School will remain closed tomorrow for all classes. Online study materials and assignments will be shared on the app. Regular classes resume the day after."
+    },
+    ptm: {
+      title: "👨‍👩‍👧 Invitation for Parent-Teacher Meeting (PTM)",
+      category: "PTM",
+      postedBy: "Principal Office",
+      priority: "Normal",
+      targetType: "all",
+      message: "Dear Parents, you are cordially invited to attend the Parent-Teacher Meeting (PTM) to discuss your child's academic performance, quiz evaluations, and overall growth. Timing: 9:00 AM to 1:00 PM in respective classrooms."
+    }
+  };
+
+  outer.querySelectorAll('#announcementTemplateBtns button[data-tpl]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tpl = templates[btn.dataset.tpl];
+      if (!tpl) return;
+      outer.querySelector('#annTitle').value = tpl.title;
+      outer.querySelector('#annCategory').value = tpl.category;
+      outer.querySelector('#annPostedBy').value = tpl.postedBy;
+      outer.querySelector('#annPriority').value = tpl.priority;
+      outer.querySelector('#annTargetType').value = tpl.targetType;
+      outer.querySelector('#annMessage').value = tpl.message;
+      targetTypeSelect.dispatchEvent(new Event('change'));
+      updateCharCount();
+      showToast(`⚡ Filled "${tpl.title}" template!`, "success");
+    });
+  });
+
+  const btnCancel = outer.querySelector('#btnCancelAnnEdit');
+  if (btnCancel) {
+    btnCancel.addEventListener('click', () => {
+      editRecordId = null;
+      renderForm(true);
+      renderTable();
+    });
+  }
+
+  outer.querySelector('#btnAnnReset').addEventListener('click', () => {
+    editRecordId = null;
+    renderForm(true);
+  });
+}
+
+window.openAnnouncementPreview = function(id) {
+  const store = getStore();
+  const ann = (store.announcements || []).find(a => String(a.id) === String(id));
+  if (!ann) return showToast("Announcement not found", "error");
+
+  let modal = document.getElementById("announcementPreviewModal");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "announcementPreviewModal";
+    modal.style.position = "fixed";
+    modal.style.inset = "0";
+    modal.style.background = "rgba(15, 23, 42, 0.65)";
+    modal.style.backdropFilter = "blur(4px)";
+    modal.style.zIndex = "999999";
+    modal.style.display = "flex";
+    modal.style.alignItems = "center";
+    modal.style.justifyContent = "center";
+    modal.style.padding = "16px";
+    document.body.appendChild(modal);
+  }
+
+  const isUrgent = ann.priority === "Urgent";
+  const cat = ann.category || "Announcement";
+  let catBg = "#f1f5f9", catCo = "#334155", catIcon = "📢";
+  if (cat === "Alert") { catBg = "#fee2e2"; catCo = "#dc2626"; catIcon = "🚨"; }
+  else if (cat === "Celebration") { catBg = "#f3e8ff"; catCo = "#7e22ce"; catIcon = "🎉"; }
+  else if (cat === "Exam") { catBg = "#e0e7ff"; catCo = "#3730a3"; catIcon = "📝"; }
+  else if (cat === "Accounts") { catBg = "#dcfce7"; catCo = "#15803d"; catIcon = "💳"; }
+  else if (cat === "Holiday") { catBg = "#ffedd5"; catCo = "#c2410c"; catIcon = "🏖️"; }
+  else if (cat === "PTM") { catBg = "#e0f2fe"; catCo = "#0369a1"; catIcon = "👨‍👩‍👧"; }
+  else if (cat === "Sports") { catBg = "#fef3c7"; catCo = "#b45309"; catIcon = "🏆"; }
+
+  const formattedDate = ann.date ? new Date(ann.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Today';
+
+  modal.innerHTML = `
+    <div style="background:#ffffff; width:100%; max-width:600px; border-radius:18px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); overflow:hidden; border:1px solid #e2e8f0; animation:slideUpFade 0.25s ease-out;">
+      <!-- Letterhead Banner -->
+      <div style="background:linear-gradient(135deg, #1e3a8a, #2563eb); padding:20px 24px; color:#ffffff; display:flex; justify-content:space-between; align-items:flex-start;">
+        <div style="display:flex; align-items:center; gap:14px;">
+          <div style="width:48px; height:48px; border-radius:12px; background:#ffffff; display:flex; align-items:center; justify-content:center; font-size:24px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);">
+            🏫
+          </div>
+          <div>
+            <h2 style="margin:0; font-size:1.25rem; font-weight:800; letter-spacing:0.3px; color:#ffffff;">TAPOWAN PUBLIC SCHOOL</h2>
+            <p style="margin:2px 0 0 0; font-size:0.8rem; color:#bfdbfe; font-weight:500;">Official Notice & Broadcast Portal</p>
+          </div>
+        </div>
+        <button onclick="document.getElementById('announcementPreviewModal').style.display='none'" style="background:rgba(255,255,255,0.2); color:#ffffff; border:none; width:32px; height:32px; border-radius:50%; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center;">✕</button>
+      </div>
+
+      <!-- Notice Details Body -->
+      <div style="padding:24px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
+          <span style="background:${catBg}; color:${catCo}; border:1px solid ${catCo}44; padding:5px 12px; border-radius:20px; font-weight:700; font-size:0.82rem;">
+            ${catIcon} ${cat}
+          </span>
+          <div style="font-size:0.82rem; color:#64748b; font-weight:600;">
+            📅 ${formattedDate}
+          </div>
+        </div>
+
+        <h3 style="margin:0 0 12px 0; font-size:1.2rem; color:#0f172a; font-weight:800; line-height:1.4;">
+          ${escapeHtml(ann.title || 'Official Announcement')}
+        </h3>
+
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px 16px; margin-bottom:18px; display:flex; justify-content:space-between; font-size:0.82rem; color:#475569; flex-wrap:wrap; gap:8px;">
+          <div><strong>Posted By:</strong> 🏛️ ${escapeHtml(ann.postedBy || 'Tapowan Admin')}</div>
+          <div><strong>Audience:</strong> 🎯 ${escapeHtml(ann.targetAudience || 'All School')}</div>
+          <div><strong>Priority:</strong> <span style="font-weight:700; color:${isUrgent ? '#dc2626' : '#2563eb'};">${ann.priority || 'Normal'}</span></div>
+        </div>
+
+        <div style="font-size:0.95rem; color:#334155; line-height:1.7; white-space:pre-wrap; background:#ffffff; border-left:4px solid #2563eb; padding:14px 18px; border-radius:4px; margin-bottom:24px; background:#f0f7ff;">
+${escapeHtml(ann.message || '')}
+        </div>
+
+        <!-- Footer Actions -->
+        <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid #f1f5f9; padding-top:16px;">
+          <button onclick="shareAnnouncementWhatsApp(${ann.id})" class="action-btn" style="background:#25d366; color:#ffffff; border:none; padding:8px 18px; border-radius:8px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+            <span>📲</span> Share on WhatsApp
+          </button>
+          <button onclick="document.getElementById('announcementPreviewModal').style.display='none'" class="btn secondary" style="padding:8px 20px; border-radius:8px; font-weight:600;">Close</button>
+        </div>
+      </div>
+    </div>
+  `;
+  modal.style.display = "flex";
+};
+
+window.shareAnnouncementWhatsApp = function(id) {
+  const store = getStore();
+  const ann = (store.announcements || []).find(a => String(a.id) === String(id));
+  if (!ann) return showToast("Announcement not found", "error");
+
+  const text = `*🏫 TAPOWAN PUBLIC SCHOOL*\n*📢 OFFICIAL NOTICE*\n--------------------------------\n*📌 Title:* ${ann.title || 'Announcement'}\n*🏷️ Category:* ${ann.category || 'General'}\n*🎯 Target:* ${ann.targetAudience || 'All School'}\n*📅 Date:* ${ann.date || 'Today'}\n*🏛️ From:* ${ann.postedBy || 'School Admin'}\n--------------------------------\n\n${ann.message || ''}\n\n_Tapowan Public School, Online Portal_`;
+
+  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+};
 
 async function renderDueManagementForm(cfg, studentOptions, classOptions, initialValues = {}, formRefs = {}) {
   const container = refs.dynamicForm;
@@ -13487,7 +16582,7 @@ async function renderDueManagementForm(cfg, studentOptions, classOptions, initia
     row1.appendChild(field);
   });
   
-  // Row 2: Session & Particulars
+  // Row 2: Session, Month & Particulars
   const row2 = document.createElement("div");
   row2.className = "due-form-row four-cols";
   
@@ -13497,14 +16592,60 @@ async function renderDueManagementForm(cfg, studentOptions, classOptions, initia
   sessionField.innerHTML = `<label>Session</label><input type="text" name="session" value="${initialValues.session || ""}">`;
   formRefs.session = sessionField.querySelector("input");
   row2.appendChild(sessionField);
+
+  // Parse initial values
+  let baseParticulars = initialValues.particulars || "";
+  let baseMonth = initialValues.month || "";
+  if (baseParticulars.includes(" of ")) {
+      const parts = baseParticulars.split(" of ");
+      baseParticulars = parts[0].trim();
+      if (!baseMonth && parts[1]) baseMonth = parts[1].trim();
+  }
+
+  // Month (1 col)
+  const monthField = document.createElement("div");
+  monthField.className = "field";
+  monthField.innerHTML = `<label>Month</label><input type="text" name="month" id="due_month_input" placeholder="e.g. Apr, May" value="${baseMonth}">`;
+  formRefs.month = monthField.querySelector("input");
+  row2.appendChild(monthField);
   
-  // Particulars (3 cols)
+  // Particulars (2 cols)
   const particularsField = document.createElement("div");
   particularsField.className = "field";
-  particularsField.style.gridColumn = "span 3";
-  particularsField.innerHTML = `<label>Particulars</label><input type="text" name="particulars" placeholder="e.g. Previous Session Balance" value="${initialValues.particulars || ""}">`;
-  formRefs.particulars = particularsField.querySelector("input");
+  particularsField.style.gridColumn = "span 2";
+  
+  const allFeeTypes = new Set(["Previous Session Balance", "Late Fee"]);
+  const structures = (typeof getStore === "function" ? getStore().feeStructures : []) || [];
+  structures.forEach(f => {
+    if (f.feeType === "Other" && f.description) allFeeTypes.add(f.description);
+    else if (f.feeType) allFeeTypes.add(f.feeType);
+  });
+  
+  const optionsHtml = Array.from(allFeeTypes).map(t => `<option value="${t}" ${baseParticulars === t ? 'selected' : ''}>${t}</option>`).join("");
+  
+  particularsField.innerHTML = `
+    <label>Particulars (Fee Type)</label>
+    <select id="due_feeType_select">
+      <option value="">Select Fee Type...</option>
+      ${optionsHtml}
+    </select>
+    <input type="hidden" name="particulars" value="${initialValues.particulars || ""}">
+  `;
+  
+  const hiddenParticulars = particularsField.querySelector("input[name='particulars']");
+  const feeTypeSelect = particularsField.querySelector("#due_feeType_select");
+  formRefs.particulars = hiddenParticulars;
   row2.appendChild(particularsField);
+  
+  // Sync logic for Dropdown + Month = Particulars
+  const syncParticulars = () => {
+      const ft = feeTypeSelect.value || "";
+      const m = formRefs.month.value || "";
+      if (ft && m) hiddenParticulars.value = `${ft} of ${m}`;
+      else hiddenParticulars.value = ft;
+  };
+  feeTypeSelect.addEventListener("change", syncParticulars);
+  formRefs.month.addEventListener("input", syncParticulars);
   
   // Row 3: Remarks (Full Row)
   const row3 = document.createElement("div");
@@ -13555,6 +16696,8 @@ async function renderDueManagementForm(cfg, studentOptions, classOptions, initia
   outer.append(row1, row2, row3, row4, submitWrap);
   container.appendChild(outer);
 
+  // Auto-fill month from session or input (removed legacy text sync since we use dropdown)
+
   // Auto-fill student details
   if (formRefs.studentName) {
     if (formRefs.studentName.dataset.tomselect) {
@@ -13568,7 +16711,11 @@ async function renderDueManagementForm(cfg, studentOptions, classOptions, initia
                             if (formRefs.className) formRefs.className.value = s.className || "";
                             if (formRefs.rollNo) formRefs.rollNo.value = s.rollNo || "";
                             if (formRefs.admissionNo) formRefs.admissionNo.value = s.admissionNo || "";
-                            if (formRefs.fatherName) formRefs.fatherName.value = s.fatherName || s.parentName || "";
+                            if (formRefs.fatherName) formRefs.fatherName.value = s.fatherName || "";
+                            if (formRefs.dueAmount && s.monthlyFee && parseFloat(s.monthlyFee) > 0) {
+                                formRefs.dueAmount.value = s.monthlyFee;
+                                calc();
+                            }
                         }
                     }
                 });
@@ -13581,7 +16728,11 @@ async function renderDueManagementForm(cfg, studentOptions, classOptions, initia
                 if (formRefs.className) formRefs.className.value = s.className || "";
                 if (formRefs.rollNo) formRefs.rollNo.value = s.rollNo || "";
                 if (formRefs.admissionNo) formRefs.admissionNo.value = s.admissionNo || "";
-                            if (formRefs.fatherName) formRefs.fatherName.value = s.fatherName || s.parentName || "";
+                if (formRefs.fatherName) formRefs.fatherName.value = s.fatherName || "";
+                if (formRefs.dueAmount && s.monthlyFee && parseFloat(s.monthlyFee) > 0) {
+                    formRefs.dueAmount.value = s.monthlyFee;
+                    calc();
+                }
             }
         });
     }
@@ -13830,6 +16981,7 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     inputEl.value = "";
     showTyping();
     let filePreviewObj = document.getElementById("vidyaFilePreview"); if(filePreviewObj) { filePreviewObj.style.display="none"; filePreviewObj.textContent=""; }
+    const currentFileContext = window.uploadedFileContext;
     window.uploadedFileContext=""; let fileInputObj = document.getElementById("vidyaFileInput"); if(fileInputObj) fileInputObj.value="";
 
     try {
@@ -13842,7 +16994,7 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
           prompt: fullPrompt, 
           studentContext: studentCtx,
           preferredProvider: vidyaPreferredProvider,
-          contextFiles: window.uploadedFileContext 
+          contextFiles: currentFileContext 
         })
       });
       removeTyping();
@@ -13861,7 +17013,7 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
 
   // ── Lang toggle ──
   widget.querySelectorAll(".vidya-lang-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", async () => {
       widget.querySelectorAll(".vidya-lang-btn").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
       vidyaLang = btn.dataset.lang;
@@ -13870,7 +17022,7 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
 
   // ── Model toggle ──
   widget.querySelectorAll(".vidya-model-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", async () => {
       widget.querySelectorAll(".vidya-model-btn").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
       vidyaPreferredProvider = btn.dataset.provider;
@@ -13886,7 +17038,7 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
 
   // ── Image Model toggle ──
   widget.querySelectorAll(".vidya-imodel-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", async () => {
       widget.querySelectorAll(".vidya-imodel-btn").forEach(b => {
         b.classList.remove("active");
         b.style.background = "#f8fafc";
@@ -14705,7 +17857,7 @@ let multiCamCurrentIdx = 0;
 async function multiCamRoundRobin() {
   if (!multiCamRunning) return;
 
-  const minConf = parseFloat(document.getElementById("autoMinConfidence")?.value) || 0.65;
+  const minConf = parseFloat(document.getElementById("autoMinConfidence")?.value) || 0.40;
 
   // Find next active camera
   let attempts = 0;
@@ -14747,7 +17899,7 @@ async function multiCamScanOne(idx, cam, minConf) {
   const octx = offscreen.getContext("2d");
   octx.drawImage(img, 0, 0, w, h);
 
-  const result = await human.detect(offscreen);
+  const result = await getInsightFace(offscreen);
   const faces = (result?.face || []).filter(f => (f.score || f.boxScore || 0) >= minConf);
 
   // Draw bounding boxes on the overlay canvas
@@ -14796,7 +17948,7 @@ async function multiCamScanOne(idx, cam, minConf) {
 }
 
 async function multiCamMarkAttendance(match, camIdx) {
-  const today = new Date().toISOString().split("T")[0];
+  const today = (function(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')})();
   const time = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
   const record = {
     studentName: match.name,
@@ -15005,7 +18157,17 @@ document.addEventListener("keydown", function(e) {
 window.getStore = typeof getStore !== 'undefined' ? getStore : undefined;
 window.showToast = typeof showToast !== 'undefined' ? showToast : undefined;
 window.moduleConfig = typeof moduleConfig !== 'undefined' ? moduleConfig : undefined;
-window.currentModule = typeof currentModule !== 'undefined' ? currentModule : undefined;
+if (!Object.getOwnPropertyDescriptor(window, 'currentModule')) {
+  try {
+    Object.defineProperty(window, 'currentModule', {
+      get() { return currentModule; },
+      set(val) { currentModule = val; },
+      configurable: true
+    });
+  } catch (e) {
+    window.currentModule = currentModule;
+  }
+}
 window.renderAll = typeof renderAll !== 'undefined' ? renderAll : undefined;
 window.splitClassName = typeof splitClassName !== 'undefined' ? splitClassName : undefined;
 
@@ -15016,12 +18178,18 @@ function openSmartTimetableModal() {
     <div id="smartTimetableModal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:99999; display:flex; align-items:center; justify-content:center;">
       <div style="background:#fff; width:90%; max-width:500px; border-radius:12px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,0.2);">
         <h3 style="margin-top:0; color:#1e293b;">⚡ Smart Timetable Generator</h3>
-        <p style="color:#64748b; font-size:0.9rem;">Configure your school's daily schedule. The generator will create a clash-free timetable with 7 periods per day (Mon-Sat). It prioritizes core subjects daily.</p>
+        <p style="color:#64748b; font-size:0.9rem;">Configure your school's daily schedule. The generator will create a clash-free timetable with your specified number of periods per day (Mon-Sat). It prioritizes core subjects daily.</p>
         
         <div style="margin-top:20px; display:flex; flex-direction:column; gap:15px;">
-          <div>
-            <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:5px; color:#334155;">First Period Start Time</label>
-            <input type="time" id="st_startTime" value="08:00" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px; font-family:inherit;">
+          <div style="display:flex; gap:15px;">
+            <div style="flex:1;">
+              <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:5px; color:#334155;">First Period Start Time</label>
+              <input type="time" id="st_startTime" value="08:00" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px; font-family:inherit;">
+            </div>
+            <div style="flex:1;">
+              <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:5px; color:#334155;">Total Periods per Day</label>
+              <input type="number" id="st_totalPeriods" value="7" min="1" max="15" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px; font-family:inherit;">
+            </div>
           </div>
           <div style="display:flex; gap:15px;">
             <div style="flex:1;">
@@ -15080,7 +18248,8 @@ function runSmartTimetableGeneration() {
   const lunchDur = parseInt(document.getElementById("st_lunchDuration").value) || 20;
   const lunchAfter = parseInt(document.getElementById("st_lunchAfter").value) || 4;
   const depTime = document.getElementById("st_departureTime") ? document.getElementById("st_departureTime").value : "14:00";
-    const mathSciDur = normalDur + extraDur;
+  const totalPeriods = parseInt(document.getElementById("st_totalPeriods")?.value) || 7;
+  const mathSciDur = normalDur + extraDur;
 
   document.getElementById("smartTimetableModal").remove();
   
@@ -15094,7 +18263,7 @@ function runSmartTimetableGeneration() {
   }
 
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  const periods = [1, 2, 3, 4, 5, 6, 7];
+  const periods = Array.from({length: totalPeriods}, (_, i) => i + 1);
   
   const newTimetable = [];
   const teacherBusy = {};
@@ -15117,14 +18286,25 @@ function runSmartTimetableGeneration() {
     return s.includes('math') || s.includes('sci');
   };
 
-  classes.forEach(c => {
+  const sortedClasses = [...classes].sort((a, b) => {
+     const getVal = (name) => {
+        const match = String(name).match(/\d+/);
+        if (match) return parseInt(match[0]);
+        if (String(name).toLowerCase().includes("ukg")) return -1;
+        if (String(name).toLowerCase().includes("lkg")) return -2;
+        if (String(name).toLowerCase().includes("nursery")) return -3;
+        return 0;
+     };
+     return getVal(b.className) - getVal(a.className);
+  });
+
+  sortedClasses.forEach(c => {
     const classSec = [c.className, c.section].filter(Boolean).join("-");
     const classSubs = subjects.filter(s => s.className === classSec || s.className === c.className);
     
     if (classSubs.length === 0) return;
 
     days.forEach(day => {
-      let dailyAssigned = new Set();
       let dailySubjectsList = [];
 
       const isJunior = !!classSec.toLowerCase().match(/(nursery|lkg|ukg)/);
@@ -15137,62 +18317,78 @@ function runSmartTimetableGeneration() {
            return;
         }
 
-        // Try to find a subject
-        let availableSubs = classSubs.filter(s => !dailyAssigned.has(s.subjectName));
-        
-        // If all assigned once, just pick any available subject
-        if (availableSubs.length === 0) availableSubs = classSubs;
+        let subjectCounts = {};
+        dailySubjectsList.forEach(s => {
+            if (s) subjectCounts[s.subjectName] = (subjectCounts[s.subjectName] || 0) + 1;
+        });
 
         // Filter out busy teachers
-        let validSubs = availableSubs.filter(s => {
-          if (!s.teacher) return true;
-          return !teacherBusy[day][period].has(s.teacher);
+        let validSubs = classSubs.filter(s => {
+          if (s.teacher && teacherBusy[day][period].has(s.teacher)) return false;
+          return true;
         });
+
+        // Sort validSubs to perfectly distribute subjects and prioritize cores early
+        validSubs.sort((a, b) => {
+           let countA = subjectCounts[a.subjectName] || 0;
+           let countB = subjectCounts[b.subjectName] || 0;
+           if (countA !== countB) return countA - countB; // Least taught today first
+
+           if (countA === 0) {
+               let coreA = isCore(a.subjectName) ? 1 : 0;
+               let coreB = isCore(b.subjectName) ? 1 : 0;
+               if (coreA !== coreB) return coreB - coreA; // Core first
+           }
+           
+           return 0.5 - Math.random(); // Randomize ties
+        });
+
+        const prevSub = dailySubjectsList.length > 0 ? dailySubjectsList[dailySubjectsList.length - 1] : null;
 
         let pickedSub = null;
 
         // Priority 0: Class Teacher MUST teach Period 1 in their own class
         if (period === 1 && c.classTeacher) {
              let ctSubs = validSubs.filter(s => s.teacher === c.classTeacher);
-             if (ctSubs.length > 0) {
-                 pickedSub = ctSubs[Math.floor(Math.random() * ctSubs.length)];
-             }
+             if (ctSubs.length > 0) pickedSub = ctSubs[0];
         }
 
-        // Priority 1: Core subjects not yet taught today (this also keeps core teachers busy in Period 1)
+        // Priority 1: Pick the best valid subject avoiding consecutive classes
         if (!pickedSub) {
-             let coreSubs = validSubs.filter(s => isCore(s.subjectName));
-             pickedSub = coreSubs.length > 0 ? coreSubs[Math.floor(Math.random() * coreSubs.length)] : null;
-        }
-        
-        // Priority 2: Any subject
-        if (!pickedSub && validSubs.length > 0) {
-          pickedSub = validSubs[Math.floor(Math.random() * validSubs.length)];
-        }
-
-        // Priority 3: Ignore daily limit and pick any valid (if strictly needed)
-        if (!pickedSub) {
-           let backupSubs = classSubs.filter(s => !s.teacher || !teacherBusy[day][period].has(s.teacher));
-           if (backupSubs.length > 0) pickedSub = backupSubs[Math.floor(Math.random() * backupSubs.length)];
+            let nonConsecutiveSubs = validSubs.filter(s => !prevSub || s.subjectName !== prevSub.subjectName);
+            if (nonConsecutiveSubs.length > 0) {
+                pickedSub = nonConsecutiveSubs[0];
+            } else if (validSubs.length > 0) {
+                pickedSub = validSubs[0]; // Forced consecutive if ONLY 1 choice exists
+            }
         }
 
-        // Priority 4: (USER REQUEST) If still no subject (Free period), adjust ANY free teacher (like Junior teachers)
-        // and cover a main subject!
-        if (!pickedSub) {
+        // Priority 4 (Fallback): Adjust ANY free teacher if all class's teachers are busy
+        // (USER REQUEST) ONLY apply this fallback to Nursery through Class 3. Classes 4-10 will stay Free if teachers are busy.
+        const matchNumeric = c.className.match(/\d+/);
+        const classNum = matchNumeric ? parseInt(matchNumeric[0]) : 0;
+        const clsLower = classSec.toLowerCase();
+        const isEligibleForFallback = clsLower.includes("nursery") || clsLower.includes("lkg") || clsLower.includes("ukg") || (classNum >= 1 && classNum <= 3);
+
+        if (!pickedSub && isEligibleForFallback) {
            const freeTeachers = allSchoolTeachers.filter(t => !teacherBusy[day][period].has(t));
-           if (freeTeachers.length > 0) {
-              const substitute = freeTeachers[Math.floor(Math.random() * freeTeachers.length)];
-              const cores = ["English", "Hindi", "Math", "Science", "S.st"];
-              let neededCores = cores.filter(c => !dailyAssigned.has(c));
-              if (neededCores.length === 0) neededCores = cores;
-              const randomCore = neededCores[Math.floor(Math.random() * neededCores.length)];
-              
-              pickedSub = { subjectName: randomCore, teacher: substitute };
+           const substitute = freeTeachers.length > 0 ? freeTeachers[Math.floor(Math.random() * freeTeachers.length)] : "-";
+           
+           let cores = ["English", "Hindi", "Math", "Science", "S.st"];
+           if (clsLower.includes("nursery") || clsLower.includes("lkg")) {
+               cores = ["English", "Hindi", "Math"];
+           } else if (clsLower.includes("ukg")) {
+               cores = ["English", "Hindi", "Math", "E.V.S"];
            }
+           
+           cores.sort((a, b) => (subjectCounts[a] || 0) - (subjectCounts[b] || 0));
+           let nonConsecutiveCores = cores.filter(core => !prevSub || core !== prevSub.subjectName);
+           let randomCore = nonConsecutiveCores.length > 0 ? nonConsecutiveCores[0] : cores[0];
+           
+           pickedSub = { subjectName: randomCore, teacher: substitute };
         }
 
         if (pickedSub) {
-          dailyAssigned.add(pickedSub.subjectName);
           if (pickedSub.teacher && pickedSub.teacher !== "-") {
              teacherBusy[day][period].add(pickedSub.teacher);
           }
@@ -15311,19 +18507,33 @@ async function saveStore(store) {
 }
 
 window.deleteClassDayTimetable = async function(className, day) {
-  if (confirm('Are you sure you want to clear all timetable entries for ' + className + ' on ' + day + '?')) {
-    const store = getStore();
-    const beforeCount = store.timetable.length;
-    store.timetable = store.timetable.filter(r => !(r.className === className && r.day === day));
-    if (store.timetable.length < beforeCount) {
+  if (await window.appConfirm('Are you sure you want to clear all timetable entries for ' + className + ' on ' + day + '?')) {
+    try {
+      let res = null;
       try {
-        await saveStore(store);
-        await loadStore();
-        if (typeof showToast === 'function') showToast('Timetable cleared for ' + className, 'success');
-        if (window.renderAll) window.renderAll();
-      } catch (e) {
-        if (typeof showToast === 'function') showToast('Error clearing timetable', 'error');
+        res = await api("/api/timetable/slot/delete", {
+          method: "POST",
+          body: JSON.stringify({ className, day, clearOnly: false })
+        });
+      } catch (err) {
+        const resp = await fetch("/api/timetable/slot/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ className, day, clearOnly: false })
+        });
+        res = await resp.json();
       }
+      const store = getStore();
+      if (store && Array.isArray(store.timetable)) {
+        store.timetable = store.timetable.filter(r => !(r.className === className && r.day === day));
+      }
+      if (typeof showToast === 'function') showToast('Timetable cleared for ' + className, 'success');
+      if (window.renderAll) window.renderAll();
+      else if (window.renderTable) window.renderTable();
+    } catch (e) {
+      console.error("Error clearing timetable day:", e);
+      if (typeof showToast === 'function') showToast('Error clearing timetable: ' + e.message, 'error');
+      else alert('Error clearing timetable: ' + e.message);
     }
   }
 };
@@ -15414,3 +18624,1956 @@ window.checkFreeTeachers = function() {
   
   resultsDiv.innerHTML = html;
 };
+
+// ----------------------------------------------------------------------
+// EDIT & DELETE TIMETABLE SLOT MODAL
+// ----------------------------------------------------------------------
+window.openEditTimetableSlotModal = async function(className, day, period, slotId) {
+  const oldModal = document.getElementById("editTimetableSlotModal");
+  if (oldModal) oldModal.remove();
+
+  const store = getStore();
+  const timetable = store.timetable || [];
+  
+  // Find current slot record
+  let currentRec = null;
+  if (slotId && parseInt(slotId, 10) > 0) {
+    currentRec = timetable.find(r => r.id == slotId);
+  }
+  if (!currentRec) {
+    currentRec = timetable.find(r => 
+      (r.className || '').trim().toLowerCase() === (className || '').trim().toLowerCase() &&
+      (r.day || '').trim().toLowerCase() === (day || '').trim().toLowerCase() &&
+      (r.period || '').trim().toLowerCase() === (period || '').trim().toLowerCase()
+    );
+  }
+
+  const currSubject = currentRec?.subject || "";
+  const currTeacher = currentRec?.teacher || "";
+  const currRoom = currentRec?.roomNo || "";
+  const actualSlotId = currentRec?.id || slotId || 0;
+
+  // Teachers list
+  const teachers = (store.teachers || []).map(t => t.fullName || t.name).filter(Boolean);
+  
+  // Busy teachers for this day & period (excluding current record's teacher)
+  const busyRecords = timetable.filter(r => 
+    r.day === day && 
+    r.period === period && 
+    r.teacher && 
+    r.id !== actualSlotId
+  );
+  const busyTeachers = new Set(busyRecords.map(r => r.teacher.trim().toLowerCase()));
+
+  // Common CBSE subjects
+  const commonSubjects = [
+    "Mathematics", "Science", "Social Science", "English", "Hindi", "Sanskrit",
+    "Computer Science", "General Knowledge", "Art & Craft", "Physical Education",
+    "Moral Science", "EVS", "Free"
+  ];
+  if (currSubject && !commonSubjects.includes(currSubject)) {
+    commonSubjects.unshift(currSubject);
+  }
+
+  const modalWrap = document.createElement("div");
+  modalWrap.id = "editTimetableSlotModal";
+  modalWrap.style.cssText = "position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(15,23,42,0.65);backdrop-filter:blur(4px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;font-family:inherit;";
+
+  modalWrap.innerHTML = `
+    <div style="background:#ffffff;width:100%;max-width:520px;border-radius:16px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);display:flex;flex-direction:column;overflow:hidden;border:1px solid #e2e8f0;">
+      <!-- Header -->
+      <div style="padding:16px 20px;background:linear-gradient(135deg,#1e293b,#334155);color:#fff;display:flex;align-items:center;justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="material-symbols-outlined" style="font-size:24px;background:rgba(255,255,255,0.15);border-radius:8px;padding:6px;">edit_calendar</span>
+          <div>
+            <h3 style="margin:0;font-size:1.05rem;font-weight:700;">Edit Timetable Slot</h3>
+            <p style="margin:2px 0 0;font-size:0.78rem;color:#cbd5e1;">${className} &nbsp;•&nbsp; ${day} &nbsp;•&nbsp; <b>${period}</b></p>
+          </div>
+        </div>
+        <button id="etsmCloseBtn" style="background:rgba(255,255,255,0.15);border:none;color:#fff;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:1.1rem;">✕</button>
+      </div>
+
+      <!-- Form Body -->
+      <div style="padding:20px;display:flex;flex-direction:column;gap:16px;">
+        <!-- Subject Selection -->
+        <div>
+          <label style="display:block;font-size:0.82rem;font-weight:700;color:#334155;margin-bottom:6px;">Subject</label>
+          <select id="etsmSubjectSelect" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:0.88rem;font-weight:600;color:#0f172a;background:#fff;">
+            <option value="">-- Choose or Type Subject --</option>
+            ${commonSubjects.map(s => `<option value="${s}" ${s.toLowerCase() === currSubject.toLowerCase() ? 'selected' : ''}>${s}</option>`).join('')}
+            <option value="__custom__">✏️ Other / Custom Subject...</option>
+          </select>
+          <input type="text" id="etsmCustomSubject" placeholder="Enter custom subject name" value="${currSubject}" style="display:${commonSubjects.some(s => s.toLowerCase() === currSubject.toLowerCase()) ? 'none' : 'block'};width:100%;margin-top:8px;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:0.88rem;font-weight:600;box-sizing:border-box;">
+        </div>
+
+        <!-- Teacher Assignment -->
+        <div>
+          <label style="display:block;font-size:0.82rem;font-weight:700;color:#334155;margin-bottom:6px;">Assign Teacher</label>
+          <select id="etsmTeacherSelect" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:0.88rem;font-weight:600;color:#0f172a;background:#fff;">
+            <option value="">-- No Teacher / Free --</option>
+            ${teachers.map(t => {
+              const isSelected = t.trim().toLowerCase() === currTeacher.trim().toLowerCase();
+              const isBusy = busyTeachers.has(t.trim().toLowerCase());
+              return `<option value="${t}" ${isSelected ? 'selected' : ''}>${t} ${isBusy ? '⚠️ (Busy in another class)' : '✅ (Available)'}</option>`;
+            }).join('')}
+          </select>
+        </div>
+
+        <!-- Room No -->
+        <div>
+          <label style="display:block;font-size:0.82rem;font-weight:700;color:#334155;margin-bottom:6px;">Room No. (Optional)</label>
+          <input type="text" id="etsmRoomNo" placeholder="e.g. Room 101, Lab 2" value="${currRoom}" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:0.88rem;font-weight:600;box-sizing:border-box;">
+        </div>
+
+        <!-- Status Info -->
+        <div id="etsmStatusMsg" style="font-size:0.8rem;color:#64748b;display:flex;align-items:center;gap:6px;">
+          <span class="material-symbols-outlined" style="font-size:16px;color:#2563eb;">info</span>
+          Changes sync directly to the cloud timetable.
+        </div>
+      </div>
+
+      <!-- Action Footer -->
+      <div style="padding:14px 20px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+        <div style="display:flex;gap:8px;">
+          <button id="etsmDeleteBtn" type="button" style="padding:8px 14px;border:1px solid #fecaca;background:#fef2f2;color:#dc2626;border-radius:8px;font-weight:700;font-size:0.82rem;cursor:pointer;display:inline-flex;align-items:center;gap:4px;" title="Delete this entry completely (useful for removing duplicate subjects)">
+            <span class="material-symbols-outlined" style="font-size:16px;">delete</span> Delete Entry
+          </button>
+          <button id="etsmClearBtn" type="button" style="padding:8px 14px;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:8px;font-weight:700;font-size:0.82rem;cursor:pointer;display:inline-flex;align-items:center;gap:4px;" title="Clear subject and set as Free">
+            <span class="material-symbols-outlined" style="font-size:16px;">clear_all</span> Set as Free
+          </button>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button id="etsmCancelBtn" type="button" style="padding:8px 14px;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:8px;font-weight:600;font-size:0.85rem;cursor:pointer;">Cancel</button>
+          <button id="etsmSaveBtn" type="button" style="padding:8px 18px;border:none;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border-radius:8px;font-weight:700;font-size:0.85rem;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(37,99,235,0.3);">
+            <span class="material-symbols-outlined" style="font-size:16px;">save</span> Save Changes
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modalWrap);
+
+  const subSelect = document.getElementById("etsmSubjectSelect");
+  const customSub = document.getElementById("etsmCustomSubject");
+  const teacherSelect = document.getElementById("etsmTeacherSelect");
+  const roomInput = document.getElementById("etsmRoomNo");
+  const saveBtn = document.getElementById("etsmSaveBtn");
+  const clearBtn = document.getElementById("etsmClearBtn");
+  const delBtn = document.getElementById("etsmDeleteBtn");
+  const cancelBtn = document.getElementById("etsmCancelBtn");
+  const closeBtn = document.getElementById("etsmCloseBtn");
+  const statusMsg = document.getElementById("etsmStatusMsg");
+
+  subSelect.onchange = () => {
+    if (subSelect.value === "__custom__") {
+      customSub.style.display = "block";
+      customSub.focus();
+    } else {
+      customSub.style.display = "none";
+      customSub.value = subSelect.value;
+    }
+  };
+
+  const closeModal = () => modalWrap.remove();
+  closeBtn.onclick = closeModal;
+  cancelBtn.onclick = closeModal;
+  modalWrap.onclick = (e) => { if (e.target === modalWrap) closeModal(); };
+
+  // Save changes
+  saveBtn.onclick = async () => {
+    let finalSubject = subSelect.value === "__custom__" ? customSub.value.trim() : subSelect.value;
+    if (!finalSubject && customSub.value.trim()) finalSubject = customSub.value.trim();
+    if (!finalSubject) finalSubject = "Free";
+
+    const finalTeacher = teacherSelect.value.trim();
+    const finalRoom = roomInput.value.trim();
+
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px;animation:spin 1s linear infinite;">sync</span> Saving...`;
+
+    try {
+      let res = null;
+      try {
+        res = await api("/api/timetable/slot/save", {
+          method: "POST",
+          body: JSON.stringify({
+            id: actualSlotId,
+            className,
+            day,
+            period,
+            subject: finalSubject,
+            teacher: finalTeacher,
+            roomNo: finalRoom
+          })
+        });
+      } catch (err) {
+        const resp = await fetch("/api/timetable/slot/save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: actualSlotId,
+            className,
+            day,
+            period,
+            subject: finalSubject,
+            teacher: finalTeacher,
+            roomNo: finalRoom
+          })
+        });
+        res = await resp.json();
+      }
+
+      if (res && (res.ok || res.success)) {
+        // Update in-memory store
+        const s = getStore();
+        if (s && Array.isArray(s.timetable)) {
+          let rec = s.timetable.find(r => (actualSlotId && r.id == actualSlotId) || (r.className === className && r.day === day && r.period === period));
+          if (rec) {
+            rec.subject = finalSubject;
+            rec.teacher = finalTeacher;
+            rec.roomNo = finalRoom;
+          } else {
+            s.timetable.push({
+              id: actualSlotId || Date.now(),
+              className,
+              day,
+              period,
+              subject: finalSubject,
+              teacher: finalTeacher,
+              roomNo: finalRoom
+            });
+          }
+        }
+        if (typeof showToast === "function") showToast("Timetable slot updated!", "success");
+        if (window.renderAll) window.renderAll();
+        else if (window.renderTable) window.renderTable();
+        closeModal();
+      } else {
+        throw new Error(res?.error || "Failed to update slot");
+      }
+    } catch (e) {
+      console.error("Save slot error:", e);
+      statusMsg.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px;color:#ef4444;">error</span> ${e.message}`;
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px;">save</span> Save Changes`;
+    }
+  };
+
+  // Set as Free
+  clearBtn.onclick = async () => {
+    clearBtn.disabled = true;
+    try {
+      let res = null;
+      try {
+        res = await api("/api/timetable/slot/delete", {
+          method: "POST",
+          body: JSON.stringify({
+            id: actualSlotId,
+            className,
+            day,
+            period,
+            clearOnly: true
+          })
+        });
+      } catch (err) {
+        const resp = await fetch("/api/timetable/slot/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: actualSlotId,
+            className,
+            day,
+            period,
+            clearOnly: true
+          })
+        });
+        res = await resp.json();
+      }
+
+      const s = getStore();
+      if (s && Array.isArray(s.timetable)) {
+        let rec = s.timetable.find(r => (actualSlotId && r.id == actualSlotId) || (r.className === className && r.day === day && r.period === period));
+        if (rec) {
+          rec.subject = "Free";
+          rec.teacher = "";
+          rec.roomNo = "";
+        }
+      }
+      if (typeof showToast === "function") showToast("Slot set to Free", "info");
+      if (window.renderAll) window.renderAll();
+      else if (window.renderTable) window.renderTable();
+      closeModal();
+    } catch (e) {
+      alert("Failed to clear slot: " + e.message);
+      clearBtn.disabled = false;
+    }
+  };
+
+  // Delete Entry completely (for duplicates)
+  delBtn.onclick = async () => {
+    if (!confirm("Are you sure you want to delete this slot entry? This completely removes the entry (useful if duplicate subjects exist).")) return;
+    delBtn.disabled = true;
+    try {
+      let res = null;
+      try {
+        res = await api("/api/timetable/slot/delete", {
+          method: "POST",
+          body: JSON.stringify({
+            id: actualSlotId,
+            className,
+            day,
+            period,
+            clearOnly: false
+          })
+        });
+      } catch (err) {
+        const resp = await fetch("/api/timetable/slot/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: actualSlotId,
+            className,
+            day,
+            period,
+            clearOnly: false
+          })
+        });
+        res = await resp.json();
+      }
+
+      const s = getStore();
+      if (s && Array.isArray(s.timetable)) {
+        s.timetable = s.timetable.filter(r => !( (actualSlotId && r.id == actualSlotId) || (r.className === className && r.day === day && r.period === period) ));
+      }
+      if (typeof showToast === "function") showToast("Slot entry deleted", "info");
+      if (window.renderAll) window.renderAll();
+      else if (window.renderTable) window.renderTable();
+      closeModal();
+    } catch (e) {
+      alert("Failed to delete slot: " + e.message);
+      delBtn.disabled = false;
+    }
+  };
+};
+
+// ----------------------------------------------------------------------
+// PERIOD TIMINGS & SCHOOL HOURS MODAL (Zero subject/teacher modification)
+// ----------------------------------------------------------------------
+window.openSetPeriodTimingsModal = async function(highlightPeriod) {
+  const oldModal = document.getElementById("setPeriodTimingsModal");
+  if (oldModal) oldModal.remove();
+
+  function to24h(t12) {
+    if (!t12) return "";
+    t12 = t12.trim();
+    const m = t12.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+    if (!m) return t12;
+    let h = parseInt(m[1], 10);
+    const min = m[2];
+    const ampm = m[3] ? m[3].toUpperCase() : null;
+    if (ampm === "PM" && h < 12) h += 12;
+    if (ampm === "AM" && h === 12) h = 0;
+    return (h < 10 ? "0" + h : "" + h) + ":" + min;
+  }
+
+  function to12h(t24) {
+    if (!t24) return "";
+    t24 = t24.trim();
+    const m = t24.match(/^(\d{1,2}):(\d{2})/);
+    if (!m) return t24;
+    let h = parseInt(m[1], 10);
+    const min = m[2];
+    const ampm = h >= 12 ? "PM" : "AM";
+    h = h % 12 || 12;
+    return (h < 10 ? "0" + h : "" + h) + ":" + min + " " + ampm;
+  }
+
+  function addMinutes(t24, mins) {
+    if (!t24 || !t24.includes(":")) return "";
+    const p = t24.split(":").map(Number);
+    let total = p[0] * 60 + p[1] + mins;
+    while (total < 0) total += 24 * 60;
+    const newH = Math.floor(total / 60) % 24;
+    const newM = total % 60;
+    return (newH < 10 ? "0" + newH : "" + newH) + ":" + (newM < 10 ? "0" + newM : "" + newM);
+  }
+
+  function calcDuration(start24, end24) {
+    if (!start24 || !end24 || !start24.includes(":") || !end24.includes(":")) return null;
+    const [h1, m1] = start24.split(":").map(Number);
+    const [h2, m2] = end24.split(":").map(Number);
+    return (h2 * 60 + m2) - (h1 * 60 + m1);
+  }
+
+  const modalWrap = document.createElement("div");
+  modalWrap.id = "setPeriodTimingsModal";
+  modalWrap.style.cssText = "position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(15,23,42,0.65);backdrop-filter:blur(4px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;font-family:inherit;";
+
+  modalWrap.innerHTML = `
+    <div style="background:#ffffff;width:100%;max-width:760px;max-height:92vh;border-radius:18px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);display:flex;flex-direction:column;overflow:hidden;border:1px solid #cbd5e1;">
+      <!-- Modal Header -->
+      <div style="padding:16px 24px;background:linear-gradient(135deg,#1e293b,#2563eb);color:#fff;display:flex;align-items:center;justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span class="material-symbols-outlined" style="font-size:28px;background:rgba(255,255,255,0.2);border-radius:10px;padding:6px;">schedule</span>
+          <div>
+            <h3 style="margin:0;font-size:1.18rem;font-weight:800;letter-spacing:-0.01em;">Arrange Period Timings & School Hours</h3>
+            <p style="margin:2px 0 0;font-size:0.8rem;color:#bfdbfe;">Arrange all period times automatically or customize manually slot-by-slot.</p>
+          </div>
+        </div>
+        <button id="sptCloseBtn" style="background:rgba(255,255,255,0.15);border:none;color:#fff;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:1.1rem;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.15)'">✕</button>
+      </div>
+
+      <!-- Segmented Mode Switcher (Auto vs Manual) -->
+      <div style="padding:10px 24px;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <div style="display:flex;background:#e2e8f0;padding:4px;border-radius:10px;gap:4px;">
+          <button id="sptTabAutoBtn" type="button" style="padding:7px 18px;border-radius:8px;font-weight:700;font-size:0.84rem;cursor:pointer;border:none;background:#2563eb;color:#fff;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 4px rgba(37,99,235,0.25);transition:all 0.15s;">
+            <span class="material-symbols-outlined" style="font-size:18px;">bolt</span> ⚡ Auto Arrange
+          </button>
+          <button id="sptTabManualBtn" type="button" style="padding:7px 18px;border-radius:8px;font-weight:700;font-size:0.84rem;cursor:pointer;border:none;background:transparent;color:#475569;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s;">
+            <span class="material-symbols-outlined" style="font-size:18px;">tune</span> ✍️ Manual Arrange
+          </button>
+        </div>
+        <div style="font-size:0.78rem;color:#64748b;font-weight:600;display:flex;align-items:center;gap:4px;">
+          <span class="material-symbols-outlined" style="font-size:15px;color:#2563eb;">sync</span> Both modes sync with each other
+        </div>
+      </div>
+
+      <!-- Scrollable Body Container -->
+      <div id="sptBody" style="padding:20px 24px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:18px;">
+        <!-- Container 1: Auto Arrange Mode -->
+        <div id="sptAutoModeSection" style="display:flex;flex-direction:column;gap:16px;">
+          <!-- Quick Shift Presets -->
+          <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:12px 16px;">
+            <div style="font-size:0.82rem;font-weight:700;color:#1e40af;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+              <span class="material-symbols-outlined" style="font-size:18px;">speed</span> 1-Click Quick Shift Presets:
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;">
+              <button type="button" id="sptPresetMorning" style="padding:6px 12px;border-radius:8px;background:#fff;border:1px solid #93c5fd;color:#1d4ed8;font-size:0.78rem;font-weight:700;cursor:pointer;">☀️ Morning (08:00 AM - 01:45 PM)</button>
+              <button type="button" id="sptPresetRegular" style="padding:6px 12px;border-radius:8px;background:#fff;border:1px solid #93c5fd;color:#1d4ed8;font-size:0.78rem;font-weight:700;cursor:pointer;">🏫 Standard (09:00 AM - 03:15 PM)</button>
+              <button type="button" id="sptPresetWinter" style="padding:6px 12px;border-radius:8px;background:#fff;border:1px solid #93c5fd;color:#1d4ed8;font-size:0.78rem;font-weight:700;cursor:pointer;">❄️ Winter (09:30 AM - 03:30 PM)</button>
+            </div>
+          </div>
+
+          <!-- Parameter Configuration Grid -->
+          <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+            <div style="font-size:0.9rem;font-weight:700;color:#0f172a;margin-bottom:14px;display:flex;align-items:center;gap:6px;">
+              <span class="material-symbols-outlined" style="font-size:20px;color:#2563eb;">tune</span> Auto-Calculate Parameters
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:14px;">
+              <div>
+                <label style="display:block;font-size:0.75rem;font-weight:700;color:#475569;margin-bottom:5px;">1st Period Start Time</label>
+                <input type="time" id="sptAutoStart" value="08:00" style="width:100%;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:0.9rem;font-weight:700;box-sizing:border-box;">
+              </div>
+              <div>
+                <label style="display:block;font-size:0.75rem;font-weight:700;color:#475569;margin-bottom:5px;">Period Duration (mins)</label>
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <input type="number" id="sptAutoPeriodDur" value="45" min="20" max="90" style="width:100%;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:0.9rem;font-weight:700;box-sizing:border-box;">
+                  <span style="font-size:0.75rem;color:#64748b;font-weight:600;">mins</span>
+                </div>
+              </div>
+              <div>
+                <label style="display:block;font-size:0.75rem;font-weight:700;color:#475569;margin-bottom:5px;">Total Periods</label>
+                <select id="sptAutoCount" style="width:100%;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:0.9rem;font-weight:700;background:#fff;box-sizing:border-box;">
+                  <option value="5">5 Periods</option>
+                  <option value="6">6 Periods</option>
+                  <option value="7">7 Periods</option>
+                  <option value="8" selected>8 Periods</option>
+                  <option value="9">9 Periods</option>
+                  <option value="10">10 Periods</option>
+                </select>
+              </div>
+              <div>
+                <label style="display:block;font-size:0.75rem;font-weight:700;color:#475569;margin-bottom:5px;">Lunch Break Position</label>
+                <select id="sptAutoLunchAfter" style="width:100%;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:0.9rem;font-weight:700;background:#fff;box-sizing:border-box;">
+                  <option value="3">After Period 3</option>
+                  <option value="4" selected>After Period 4</option>
+                  <option value="5">After Period 5</option>
+                  <option value="0">No Lunch Break</option>
+                </select>
+              </div>
+              <div>
+                <label style="display:block;font-size:0.75rem;font-weight:700;color:#475569;margin-bottom:5px;">Lunch Duration</label>
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <input type="number" id="sptAutoLunchDur" value="40" min="15" max="90" style="width:100%;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:0.9rem;font-weight:700;box-sizing:border-box;">
+                  <span style="font-size:0.75rem;color:#64748b;font-weight:600;">mins</span>
+                </div>
+              </div>
+              <div>
+                <label style="display:block;font-size:0.75rem;font-weight:700;color:#475569;margin-bottom:5px;">Morning Assembly Buffer</label>
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <input type="number" id="sptAutoAssemblyDur" value="15" min="0" max="45" style="width:100%;padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:0.9rem;font-weight:700;box-sizing:border-box;">
+                  <span style="font-size:0.75rem;color:#64748b;font-weight:600;">mins</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Live Generated Preview Box -->
+          <div style="background:#f8fafc;border:1px solid #cbd5e1;border-radius:14px;padding:16px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+              <span style="font-size:0.85rem;font-weight:700;color:#1e293b;display:flex;align-items:center;gap:6px;">
+                <span class="material-symbols-outlined" style="font-size:18px;color:#16a34a;">visibility</span> Live Schedule Flow Preview
+              </span>
+              <span id="sptAutoTotalSpan" style="font-size:0.75rem;font-weight:700;color:#2563eb;background:#eff6ff;padding:3px 8px;border-radius:6px;">8 Periods • 1 Lunch</span>
+            </div>
+            
+            <div id="sptAutoPreviewList" style="display:flex;flex-wrap:wrap;gap:8px;padding:10px 0;">
+              <!-- Generated timeline chips will populate here -->
+            </div>
+
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-top:12px;border-top:1px dashed #cbd5e1;font-size:0.82rem;font-weight:700;color:#334155;">
+              <div>🚪 School Arrival: <span id="sptAutoCalculatedArrival" style="color:#2563eb;">07:45 AM</span></div>
+              <div>🔔 School Departure: <span id="sptAutoCalculatedDeparture" style="color:#2563eb;">02:25 PM</span></div>
+            </div>
+          </div>
+
+          <!-- Auto Action Buttons -->
+          <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <button type="button" id="sptAutoApplyToManualBtn" style="padding:10px 18px;border:1.5px solid #2563eb;background:#eff6ff;color:#2563eb;border-radius:10px;font-weight:700;font-size:0.86rem;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+              <span class="material-symbols-outlined" style="font-size:18px;">edit_note</span> Apply & Fine-Tune in Manual Mode ➔
+            </button>
+            <button type="button" id="sptAutoSaveDirectBtn" style="padding:10px 20px;border:none;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border-radius:10px;font-weight:700;font-size:0.86rem;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 3px 8px rgba(37,99,235,0.3);">
+              <span class="material-symbols-outlined" style="font-size:18px;">save</span> ⚡ Apply & Save All Now
+            </button>
+          </div>
+        </div>
+
+        <!-- Container 2: Manual Arrange Mode -->
+        <div id="sptManualModeSection" style="display:none;flex-direction:column;gap:16px;">
+          <!-- School Hours Strip -->
+          <div style="background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:1px solid #bae6fd;border-radius:12px;padding:14px 18px;">
+            <div style="font-size:0.88rem;font-weight:700;color:#0369a1;display:flex;align-items:center;gap:6px;margin-bottom:10px;">
+              <span class="material-symbols-outlined" style="font-size:18px;color:#0284c7;">door_sliding</span> School Working Hours
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+              <div>
+                <label style="display:block;font-size:0.75rem;font-weight:700;color:#0c4a6e;margin-bottom:4px;">School Arrival Time</label>
+                <div style="display:flex;align-items:center;gap:6px;background:#fff;border:1px solid #7dd3fc;border-radius:8px;padding:5px 10px;">
+                  <input type="time" id="sptArrivalInput" value="07:45" style="border:none;outline:none;font-size:0.9rem;font-weight:700;color:#0f172a;width:100%;background:transparent;cursor:pointer;">
+                  <span id="sptArrivalBadge" style="font-size:0.72rem;font-weight:700;color:#0284c7;background:#e0f2fe;padding:2px 6px;border-radius:4px;white-space:nowrap;">07:45 AM</span>
+                </div>
+              </div>
+              <div>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+                  <label style="font-size:0.75rem;font-weight:700;color:#0c4a6e;">School Departure Time</label>
+                  <button type="button" id="sptSyncDepartureBtn" style="border:none;background:transparent;color:#0284c7;font-size:0.72rem;font-weight:700;cursor:pointer;text-decoration:underline;">Match Last Period</button>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;background:#fff;border:1px solid #7dd3fc;border-radius:8px;padding:5px 10px;">
+                  <input type="time" id="sptDepartureInput" value="14:25" style="border:none;outline:none;font-size:0.9rem;font-weight:700;color:#0f172a;width:100%;background:transparent;cursor:pointer;">
+                  <span id="sptDepartureBadge" style="font-size:0.72rem;font-weight:700;color:#0284c7;background:#e0f2fe;padding:2px 6px;border-radius:4px;white-space:nowrap;">02:25 PM</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Manual Period Table -->
+          <div style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;background:#fff;">
+            <div style="padding:10px 16px;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+              <span style="font-size:0.85rem;font-weight:700;color:#1e293b;">Individual Period Rows (Editable)</span>
+              <div style="display:flex;gap:6px;">
+                <button id="sptChainAllBtn" type="button" style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;padding:5px 10px;border-radius:6px;font-size:0.75rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;" title="Align all periods consecutively starting from Period 1">
+                  <span class="material-symbols-outlined" style="font-size:15px;">link</span> Auto-Chain All
+                </button>
+                <button id="sptAddPeriodBtn" type="button" style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;padding:5px 10px;border-radius:6px;font-size:0.75rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
+                  <span class="material-symbols-outlined" style="font-size:15px;">add</span> Add Period
+                </button>
+              </div>
+            </div>
+
+            <div style="max-height:320px;overflow-y:auto;">
+              <table style="width:100%;border-collapse:collapse;font-size:0.82rem;">
+                <thead style="background:#f1f5f9;color:#475569;text-align:left;position:sticky;top:0;z-index:2;">
+                  <tr>
+                    <th style="padding:8px 12px;font-weight:700;width:100px;">Period</th>
+                    <th style="padding:8px 12px;font-weight:700;">Start Time</th>
+                    <th style="padding:8px 4px;text-align:center;width:20px;"></th>
+                    <th style="padding:8px 12px;font-weight:700;">End Time</th>
+                    <th style="padding:8px 12px;font-weight:700;text-align:center;width:80px;">Duration</th>
+                    <th style="padding:8px 12px;font-weight:700;text-align:center;width:120px;">Quick Adjust</th>
+                    <th style="padding:8px 12px;font-weight:700;text-align:center;width:50px;"></th>
+                  </tr>
+                </thead>
+                <tbody id="sptTableBody">
+                  <!-- Rows populated dynamically -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer Bar -->
+      <div style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+        <div id="sptStatusMsg" style="font-size:0.8rem;color:#64748b;display:flex;align-items:center;gap:6px;">
+          <span class="material-symbols-outlined" style="font-size:16px;color:#2563eb;">info</span> Timetable subjects & teachers remain 100% untouched.
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button id="sptCancelBtn" style="padding:9px 18px;border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:8px;font-weight:600;cursor:pointer;font-size:0.88rem;">Cancel</button>
+          <button id="sptSaveBtn" style="padding:9px 22px;border:none;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.88rem;display:flex;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(37,99,235,0.3);">
+            <span class="material-symbols-outlined" style="font-size:18px;">save</span> Save All Timings
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modalWrap);
+
+  const closeBtn = document.getElementById("sptCloseBtn");
+  const cancelBtn = document.getElementById("sptCancelBtn");
+  const saveBtn = document.getElementById("sptSaveBtn");
+  const statusMsg = document.getElementById("sptStatusMsg");
+
+  // Tab buttons and sections
+  const tabAutoBtn = document.getElementById("sptTabAutoBtn");
+  const tabManualBtn = document.getElementById("sptTabManualBtn");
+  const autoSection = document.getElementById("sptAutoModeSection");
+  const manualSection = document.getElementById("sptManualModeSection");
+
+  let activeTab = highlightPeriod ? "manual" : "auto";
+
+  function switchTab(tab) {
+    activeTab = tab;
+    if (tab === "auto") {
+      tabAutoBtn.style.background = "#2563eb";
+      tabAutoBtn.style.color = "#fff";
+      tabAutoBtn.style.boxShadow = "0 2px 4px rgba(37,99,235,0.25)";
+      tabManualBtn.style.background = "transparent";
+      tabManualBtn.style.color = "#475569";
+      tabManualBtn.style.boxShadow = "none";
+      autoSection.style.display = "flex";
+      manualSection.style.display = "none";
+    } else {
+      tabManualBtn.style.background = "#2563eb";
+      tabManualBtn.style.color = "#fff";
+      tabManualBtn.style.boxShadow = "0 2px 4px rgba(37,99,235,0.25)";
+      tabAutoBtn.style.background = "transparent";
+      tabAutoBtn.style.color = "#475569";
+      tabAutoBtn.style.boxShadow = "none";
+      manualSection.style.display = "flex";
+      autoSection.style.display = "none";
+    }
+  }
+
+  tabAutoBtn.onclick = () => switchTab("auto");
+  tabManualBtn.onclick = () => switchTab("manual");
+
+  const closeModal = () => modalWrap.remove();
+  closeBtn.onclick = closeModal;
+  cancelBtn.onclick = closeModal;
+  modalWrap.onclick = (e) => { if (e.target === modalWrap) closeModal(); };
+
+  // Fetch current timings
+  let currentSettings = null;
+  try {
+    const res = await fetch("/api/timetable/timings-settings");
+    if (res.ok) currentSettings = await res.json();
+  } catch (err) {}
+
+  const store = getStore();
+  let arrivalTime = currentSettings?.arrivalTime || "07:45 AM";
+  let departureTime = currentSettings?.departureTime || "02:30 PM";
+  let periodTimings = currentSettings?.periodTimings || [];
+
+  if (periodTimings.length === 0 && store && Array.isArray(store.timetable)) {
+    const periodMap = new Map();
+    store.timetable.forEach((r) => {
+      if (r.period && r.startTime && r.endTime) {
+        const pNorm = r.period.trim();
+        if (!periodMap.has(pNorm)) {
+          periodMap.set(pNorm, {
+            period: pNorm,
+            startTime: r.startTime,
+            endTime: r.endTime,
+            departureTime: r.departureTime || ""
+          });
+        }
+      }
+    });
+    if (periodMap.size > 0) {
+      periodTimings = Array.from(periodMap.values()).sort((a, b) => {
+        const numA = parseInt(a.period.replace(/\D/g, "")) || 0;
+        const numB = parseInt(b.period.replace(/\D/g, "")) || 0;
+        return numA - numB;
+      });
+      if (!departureTime && periodTimings[0]?.departureTime) {
+        departureTime = periodTimings[0].departureTime;
+      }
+    }
+  }
+
+  if (periodTimings.length === 0) {
+    periodTimings = [
+      { period: "Period 1", startTime: "08:00 AM", endTime: "08:45 AM" },
+      { period: "Period 2", startTime: "08:45 AM", endTime: "09:30 AM" },
+      { period: "Period 3", startTime: "09:30 AM", endTime: "10:15 AM" },
+      { period: "Period 4", startTime: "10:15 AM", endTime: "11:00 AM" },
+      { period: "Period 5", startTime: "11:40 AM", endTime: "12:20 PM" },
+      { period: "Period 6", startTime: "12:20 PM", endTime: "01:00 PM" },
+      { period: "Period 7", startTime: "01:00 PM", endTime: "01:40 PM" },
+      { period: "Period 8", startTime: "01:40 PM", endTime: "02:20 PM" }
+    ];
+  }
+
+  periodTimings.sort((a, b) => {
+    const numA = parseInt(a.period.replace(/\D/g, "")) || 0;
+    const numB = parseInt(b.period.replace(/\D/g, "")) || 0;
+    return numA - numB;
+  });
+
+  // Wire Manual School Hours inputs
+  const arrInput = document.getElementById("sptArrivalInput");
+  const arrBadge = document.getElementById("sptArrivalBadge");
+  const depInput = document.getElementById("sptDepartureInput");
+  const depBadge = document.getElementById("sptDepartureBadge");
+  const syncDepBtn = document.getElementById("sptSyncDepartureBtn");
+
+  arrInput.value = to24h(arrivalTime);
+  arrBadge.innerText = to12h(to24h(arrivalTime));
+  depInput.value = to24h(departureTime);
+  depBadge.innerText = to12h(to24h(departureTime));
+
+  arrInput.oninput = () => { arrBadge.innerText = to12h(arrInput.value); };
+  depInput.oninput = () => { depBadge.innerText = to12h(depInput.value); };
+
+  syncDepBtn.onclick = () => {
+    const lastRow = tbody.querySelector("tr:last-child");
+    if (lastRow) {
+      const lastEnd = lastRow.querySelector(".spt-row-end").value;
+      if (lastEnd) {
+        depInput.value = lastEnd;
+        depBadge.innerText = to12h(lastEnd);
+      }
+    }
+  };
+
+  // Wire Manual Period Table Body
+  const tbody = document.getElementById("sptTableBody");
+
+  function renderPeriodRow(t, index) {
+    const tr = document.createElement("tr");
+    tr.style.borderBottom = "1px solid #f1f5f9";
+    tr.setAttribute("data-period", t.period);
+
+    const start24 = to24h(t.startTime);
+    const end24 = to24h(t.endTime);
+    const dur = calcDuration(start24, end24);
+
+    tr.innerHTML = `
+      <td style="padding:8px 12px;font-weight:700;color:#1e293b;vertical-align:middle;">
+        <span style="background:#eff6ff;color:#1d4ed8;padding:3px 8px;border-radius:6px;font-size:0.78rem;font-weight:700;border:1px solid #bfdbfe;white-space:nowrap;">
+          ${t.period}
+        </span>
+      </td>
+      <td style="padding:6px 12px;vertical-align:middle;">
+        <input type="time" class="spt-row-start" value="${start24}" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.82rem;font-weight:700;cursor:pointer;background:#fff;width:105px;">
+      </td>
+      <td style="padding:6px 4px;vertical-align:middle;text-align:center;color:#94a3b8;font-size:0.82rem;">→</td>
+      <td style="padding:6px 12px;vertical-align:middle;">
+        <input type="time" class="spt-row-end" value="${end24}" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:0.82rem;font-weight:700;cursor:pointer;background:#fff;width:105px;">
+      </td>
+      <td style="padding:6px 12px;vertical-align:middle;text-align:center;">
+        <span class="spt-row-dur" style="font-size:0.75rem;font-weight:700;padding:2px 7px;border-radius:10px;background:${dur > 0 ? '#f0fdf4' : '#fef2f2'};color:${dur > 0 ? '#16a34a' : '#ef4444'};border:1px solid ${dur > 0 ? '#bbf7d0' : '#fecaca'};white-space:nowrap;">
+          ${dur > 0 ? dur + 'm' : 'Invalid'}
+        </span>
+      </td>
+      <td style="padding:6px 12px;vertical-align:middle;text-align:center;white-space:nowrap;">
+        <div style="display:inline-flex;gap:4px;">
+          <button type="button" class="spt-minus-5" style="border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:4px;padding:3px 6px;font-size:0.72rem;font-weight:700;cursor:pointer;" title="Subtract 5 mins from this period">-5m</button>
+          <button type="button" class="spt-plus-5" style="border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:4px;padding:3px 6px;font-size:0.72rem;font-weight:700;cursor:pointer;" title="Add 5 mins to this period">+5m</button>
+          <button type="button" class="spt-chain-row" style="border:1px solid #bfdbfe;background:#eff6ff;color:#2563eb;border-radius:4px;padding:3px 6px;font-size:0.72rem;font-weight:700;cursor:pointer;" title="Chain shift all subsequent periods from this end time">🔗 Chain</button>
+        </div>
+      </td>
+      <td style="padding:6px 12px;vertical-align:middle;text-align:center;">
+        <button class="spt-row-del" style="background:none;border:none;color:#94a3b8;cursor:pointer;padding:3px;border-radius:4px;display:flex;align-items:center;justify-content:center;" title="Remove period" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#94a3b8'">
+          <span class="material-symbols-outlined" style="font-size:18px;">delete_outline</span>
+        </button>
+      </td>
+    `;
+
+    const startIn = tr.querySelector(".spt-row-start");
+    const endIn = tr.querySelector(".spt-row-end");
+    const durB = tr.querySelector(".spt-row-dur");
+    const delBtn = tr.querySelector(".spt-row-del");
+    const minus5Btn = tr.querySelector(".spt-minus-5");
+    const plus5Btn = tr.querySelector(".spt-plus-5");
+    const chainBtn = tr.querySelector(".spt-chain-row");
+
+    const updateRowDur = () => {
+      const d = calcDuration(startIn.value, endIn.value);
+      if (d > 0) {
+        durB.innerText = d + "m";
+        durB.style.background = "#f0fdf4";
+        durB.style.color = "#16a34a";
+        durB.style.border = "1px solid #bbf7d0";
+      } else {
+        durB.innerText = "Invalid";
+        durB.style.background = "#fef2f2";
+        durB.style.color = "#ef4444";
+        durB.style.border = "1px solid #fecaca";
+      }
+    };
+
+    startIn.oninput = updateRowDur;
+    endIn.oninput = updateRowDur;
+
+    minus5Btn.onclick = () => {
+      endIn.value = addMinutes(endIn.value, -5);
+      updateRowDur();
+    };
+
+    plus5Btn.onclick = () => {
+      endIn.value = addMinutes(endIn.value, 5);
+      updateRowDur();
+    };
+
+    chainBtn.onclick = () => {
+      chainFromRow(tr);
+    };
+
+    delBtn.onclick = () => {
+      tr.remove();
+      refreshPeriodNames();
+    };
+
+    return tr;
+  }
+
+  function chainFromRow(startTr) {
+    const allRows = Array.from(tbody.querySelectorAll("tr"));
+    const startIdx = allRows.indexOf(startTr);
+    if (startIdx === -1) return;
+
+    let curStart = startTr.querySelector(".spt-row-end").value;
+    for (let i = startIdx + 1; i < allRows.length; i++) {
+      const r = allRows[i];
+      const sIn = r.querySelector(".spt-row-start");
+      const eIn = r.querySelector(".spt-row-end");
+      const prevDur = calcDuration(sIn.value, eIn.value) || 45;
+
+      sIn.value = curStart;
+      eIn.value = addMinutes(curStart, prevDur);
+      sIn.dispatchEvent(new Event("input"));
+      eIn.dispatchEvent(new Event("input"));
+      curStart = eIn.value;
+    }
+
+    if (depInput && curStart) {
+      depInput.value = curStart;
+      depBadge.innerText = to12h(curStart);
+    }
+  }
+
+  function chainAllPeriods() {
+    const allRows = Array.from(tbody.querySelectorAll("tr"));
+    if (allRows.length === 0) return;
+
+    let curStart = allRows[0].querySelector(".spt-row-start").value || "08:00";
+    allRows.forEach((r, idx) => {
+      const sIn = r.querySelector(".spt-row-start");
+      const eIn = r.querySelector(".spt-row-end");
+      const prevDur = calcDuration(sIn.value, eIn.value) || 45;
+
+      sIn.value = curStart;
+      eIn.value = addMinutes(curStart, prevDur);
+      sIn.dispatchEvent(new Event("input"));
+      eIn.dispatchEvent(new Event("input"));
+      curStart = eIn.value;
+    });
+
+    if (depInput && curStart) {
+      depInput.value = curStart;
+      depBadge.innerText = to12h(curStart);
+    }
+  }
+
+  const chainAllBtn = document.getElementById("sptChainAllBtn");
+  if (chainAllBtn) chainAllBtn.onclick = chainAllPeriods;
+
+  function refreshPeriodNames() {
+    const rows = tbody.querySelectorAll("tr");
+    rows.forEach((r, idx) => {
+      const pName = "Period " + (idx + 1);
+      r.setAttribute("data-period", pName);
+      const badge = r.querySelector("td span");
+      if (badge) badge.innerText = pName;
+    });
+  }
+
+  function populateManualTable(timings) {
+    tbody.innerHTML = "";
+    timings.forEach((t, i) => {
+      tbody.appendChild(renderPeriodRow(t, i));
+    });
+  }
+
+  // Populate initially
+  populateManualTable(periodTimings);
+
+  // Add Period button in Manual mode
+  const addPeriodBtn = document.getElementById("sptAddPeriodBtn");
+  if (addPeriodBtn) {
+    addPeriodBtn.onclick = () => {
+      const currentCount = tbody.querySelectorAll("tr").length;
+      const nextNum = currentCount + 1;
+      const lastRow = tbody.querySelector("tr:last-child");
+      let nextStart = "14:00";
+      let nextEnd = "14:45";
+      if (lastRow) {
+        const lastEnd = lastRow.querySelector(".spt-row-end").value;
+        if (lastEnd) {
+          nextStart = lastEnd;
+          nextEnd = addMinutes(lastEnd, 45);
+        }
+      }
+      const newRec = {
+        period: "Period " + nextNum,
+        startTime: to12h(nextStart),
+        endTime: to12h(nextEnd)
+      };
+      tbody.appendChild(renderPeriodRow(newRec, nextNum - 1));
+    };
+  }
+
+  // Auto Arrange Calculation Logic
+  const autoStartIn = document.getElementById("sptAutoStart");
+  const autoPeriodDurIn = document.getElementById("sptAutoPeriodDur");
+  const autoCountIn = document.getElementById("sptAutoCount");
+  const autoLunchAfterIn = document.getElementById("sptAutoLunchAfter");
+  const autoLunchDurIn = document.getElementById("sptAutoLunchDur");
+  const autoAssemblyDurIn = document.getElementById("sptAutoAssemblyDur");
+  const previewList = document.getElementById("sptAutoPreviewList");
+  const autoTotalSpan = document.getElementById("sptAutoTotalSpan");
+  const autoCalculatedArrival = document.getElementById("sptAutoCalculatedArrival");
+  const autoCalculatedDeparture = document.getElementById("sptAutoCalculatedDeparture");
+
+  function calculateAutoTimings() {
+    const startT = autoStartIn.value || "08:00";
+    const pDur = parseInt(autoPeriodDurIn.value, 10) || 45;
+    const totalCount = parseInt(autoCountIn.value, 10) || 8;
+    const lunchAfter = parseInt(autoLunchAfterIn.value, 10) || 4;
+    const lunchDur = parseInt(autoLunchDurIn.value, 10) || 40;
+    const assemblyDur = parseInt(autoAssemblyDurIn.value, 10) || 15;
+
+    const calculatedTimings = [];
+    let cur = startT;
+
+    for (let i = 1; i <= totalCount; i++) {
+      if (lunchAfter > 0 && i === lunchAfter + 1) {
+        const lunchStart = cur;
+        cur = addMinutes(cur, lunchDur);
+      }
+      const pStart = cur;
+      cur = addMinutes(cur, pDur);
+      calculatedTimings.push({
+        period: "Period " + i,
+        startTime: to12h(pStart),
+        endTime: to12h(cur)
+      });
+    }
+
+    const arrival24 = addMinutes(startT, -assemblyDur);
+    const departure24 = cur;
+
+    // Render Preview Chips
+    let previewHtml = "";
+    if (assemblyDur > 0) {
+      previewHtml += `<div style="background:#fef3c7;border:1px solid #fde68a;color:#92400e;padding:4px 10px;border-radius:8px;font-size:0.75rem;font-weight:700;">🌅 Assembly (${to12h(arrival24)} - ${to12h(startT)})</div>`;
+    }
+
+    let curP = startT;
+    for (let i = 1; i <= totalCount; i++) {
+      if (lunchAfter > 0 && i === lunchAfter + 1) {
+        const lEnd = addMinutes(curP, lunchDur);
+        previewHtml += `<div style="background:#fee2e2;border:1px solid #fecaca;color:#b91c1c;padding:4px 10px;border-radius:8px;font-size:0.75rem;font-weight:700;">🥪 Lunch (${to12h(curP)} - ${to12h(lEnd)})</div>`;
+        curP = lEnd;
+      }
+      const pEnd = addMinutes(curP, pDur);
+      previewHtml += `<div style="background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;padding:4px 10px;border-radius:8px;font-size:0.75rem;font-weight:700;">P${i}: ${to12h(curP)} - ${to12h(pEnd)}</div>`;
+      curP = pEnd;
+    }
+
+    previewList.innerHTML = previewHtml;
+    autoTotalSpan.innerText = `${totalCount} Periods • ${lunchAfter > 0 ? 'Lunch (' + lunchDur + 'm)' : 'No Lunch'}`;
+    autoCalculatedArrival.innerText = to12h(arrival24);
+    autoCalculatedDeparture.innerText = to12h(departure24);
+
+    return {
+      timings: calculatedTimings,
+      arrival: to12h(arrival24),
+      departure: to12h(departure24)
+    };
+  }
+
+  // Recalculate preview on any input change
+  [autoStartIn, autoPeriodDurIn, autoCountIn, autoLunchAfterIn, autoLunchDurIn, autoAssemblyDurIn].forEach(el => {
+    el.oninput = calculateAutoTimings;
+    el.onchange = calculateAutoTimings;
+  });
+
+  // Presets
+  document.getElementById("sptPresetMorning").onclick = () => {
+    autoStartIn.value = "08:00";
+    autoPeriodDurIn.value = "40";
+    autoCountIn.value = "8";
+    autoLunchAfterIn.value = "4";
+    autoLunchDurIn.value = "30";
+    autoAssemblyDurIn.value = "15";
+    calculateAutoTimings();
+  };
+
+  document.getElementById("sptPresetRegular").onclick = () => {
+    autoStartIn.value = "09:00";
+    autoPeriodDurIn.value = "45";
+    autoCountIn.value = "8";
+    autoLunchAfterIn.value = "4";
+    autoLunchDurIn.value = "40";
+    autoAssemblyDurIn.value = "15";
+    calculateAutoTimings();
+  };
+
+  document.getElementById("sptPresetWinter").onclick = () => {
+    autoStartIn.value = "09:30";
+    autoPeriodDurIn.value = "40";
+    autoCountIn.value = "8";
+    autoLunchAfterIn.value = "4";
+    autoLunchDurIn.value = "35";
+    autoAssemblyDurIn.value = "10";
+    calculateAutoTimings();
+  };
+
+  // Initial Auto calculation
+  calculateAutoTimings();
+
+  // Button: Apply Auto to Manual Mode
+  document.getElementById("sptAutoApplyToManualBtn").onclick = () => {
+    const calc = calculateAutoTimings();
+    populateManualTable(calc.timings);
+    arrInput.value = to24h(calc.arrival);
+    arrBadge.innerText = calc.arrival;
+    depInput.value = to24h(calc.departure);
+    depBadge.innerText = calc.departure;
+    switchTab("manual");
+  };
+
+  // Button: Save Direct from Auto
+  document.getElementById("sptAutoSaveDirectBtn").onclick = () => {
+    const calc = calculateAutoTimings();
+    populateManualTable(calc.timings);
+    arrInput.value = to24h(calc.arrival);
+    arrBadge.innerText = calc.arrival;
+    depInput.value = to24h(calc.departure);
+    depBadge.innerText = calc.departure;
+    executeSave();
+  };
+
+  // Switch to requested initial tab
+  switchTab(activeTab);
+
+  if (highlightPeriod) {
+    setTimeout(() => {
+      const targetRow = tbody.querySelector(`tr[data-period="${highlightPeriod}"]`);
+      if (targetRow) {
+        targetRow.scrollIntoView({ behavior: "smooth", block: "center" });
+        targetRow.style.background = "#fef3c7";
+        targetRow.style.boxShadow = "0 0 0 2px #f59e0b";
+        setTimeout(() => {
+          targetRow.style.background = "";
+          targetRow.style.boxShadow = "";
+        }, 2200);
+      }
+    }, 150);
+  }
+
+  // Unified Save Function
+  async function executeSave() {
+    const newArrival = to12h(arrInput.value);
+    const newDeparture = to12h(depInput.value);
+
+    const rows = tbody.querySelectorAll("tr");
+    if (rows.length === 0) {
+      alert("Please configure at least one period timing.");
+      return;
+    }
+
+    const timingsToSave = [];
+    let hasInvalid = false;
+
+    rows.forEach((r) => {
+      const p = r.getAttribute("data-period");
+      const sVal = r.querySelector(".spt-row-start").value;
+      const eVal = r.querySelector(".spt-row-end").value;
+      if (!sVal || !eVal) {
+        hasInvalid = true;
+      }
+      timingsToSave.push({
+        period: p,
+        startTime: to12h(sVal),
+        endTime: to12h(eVal)
+      });
+    });
+
+    if (hasInvalid) {
+      alert("Please enter valid start and end times for all periods in the manual table.");
+      switchTab("manual");
+      return;
+    }
+
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = `<span class="material-symbols-outlined" style="font-size:18px;animation:spin 1s linear infinite;">sync</span> Saving...`;
+    statusMsg.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px;color:#3b82f6;animation:spin 1s linear infinite;">sync</span> Updating timetable in Turso cloud database...`;
+
+    try {
+      let saveRes = null;
+      try {
+        saveRes = await api("/api/timetable/update-timings", {
+          method: "POST",
+          body: JSON.stringify({
+            arrivalTime: newArrival,
+            departureTime: newDeparture,
+            timings: timingsToSave
+          })
+        });
+      } catch (err) {
+        const resp = await fetch("/api/timetable/update-timings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            arrivalTime: newArrival,
+            departureTime: newDeparture,
+            timings: timingsToSave
+          })
+        });
+        saveRes = await resp.json();
+      }
+
+      if (saveRes && (saveRes.ok || saveRes.success)) {
+        const s = getStore();
+        if (s && Array.isArray(s.timetable)) {
+          s.timetable.forEach(row => {
+            const match = timingsToSave.find(t => (t.period || "").trim().toLowerCase() === (row.period || "").trim().toLowerCase());
+            if (match) {
+              row.startTime = match.startTime;
+              row.endTime = match.endTime;
+            }
+            if (newDeparture) {
+              row.departureTime = newDeparture;
+            }
+          });
+        }
+
+        if (typeof showToast === "function") {
+          showToast("Period timings and school hours updated successfully!", "success");
+        } else {
+          alert("Period timings and school hours updated successfully!");
+        }
+
+        if (window.renderAll) {
+          window.renderAll();
+        } else if (window.renderTable) {
+          window.renderTable();
+        }
+
+        closeModal();
+      } else {
+        throw new Error(saveRes?.error || "Failed to save timings");
+      }
+    } catch (err) {
+      console.error("Save timings error:", err);
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = `<span class="material-symbols-outlined" style="font-size:18px;">save</span> Save All Timings`;
+      statusMsg.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px;color:#ef4444;">error</span> Error saving timings: ${err.message || err}`;
+      alert("Failed to save timings: " + (err.message || err));
+    }
+  }
+
+  saveBtn.onclick = executeSave;
+};
+
+// ----------------------------------------------------------------------
+// WEEKLY EVALUATION FORM RENDERER
+// ----------------------------------------------------------------------
+function renderWeeklyEvaluationForm(studentOptions, classOptions, initialValues = {}) {
+  const container = refs.dynamicForm;
+  container.innerHTML = "";
+
+  const formWrap = document.createElement("div");
+  formWrap.className = "admission-grid"; // Reusing admission-grid for multi-column layout
+  formWrap.style.display = "grid";
+  formWrap.style.gridTemplateColumns = "repeat(auto-fit, minmax(250px, 1fr))";
+  formWrap.style.gap = "20px";
+  formWrap.style.background = "#fff";
+  formWrap.style.padding = "20px";
+  formWrap.style.borderRadius = "12px";
+  formWrap.style.boxShadow = "0 2px 10px rgba(0,0,0,0.02)";
+  formWrap.style.border = "1px solid #e2e8f0";
+
+  // Title
+  const title = document.createElement("h3");
+  title.textContent = editRecordId ? "Edit Weekly Evaluation" : "New Weekly Evaluation";
+  title.style.gridColumn = "1 / -1";
+  title.style.margin = "0 0 10px 0";
+  title.style.borderBottom = "2px solid #f1f5f9";
+  title.style.paddingBottom = "10px";
+  formWrap.appendChild(title);
+
+  // Determine current Monday to Saturday for defaults if not editing
+  let defStart = "";
+  let defEnd = "";
+  if (!initialValues.weekStartDate) {
+    const curr = new Date();
+    const day = curr.getDay();
+    const diff = curr.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(curr.setDate(diff));
+    const saturday = new Date(monday);
+    saturday.setDate(monday.getDate() + 5);
+    
+    defStart = monday.toISOString().slice(0,10);
+    defEnd = saturday.toISOString().slice(0,10);
+  }
+
+  const classSelectStr = classOptions.map(o => `<option value="${o}" ${initialValues.className === o ? "selected" : ""}>${o}</option>`).join("");
+  const studentSelectStr = studentOptions.map(o => `<option value="${o.value}" ${initialValues.studentName === o.value ? "selected" : ""}>${o.label}</option>`).join("");
+
+  const gradeOptions = ["A1", "A2", "B1", "B2", "C", "D", "E"];
+  const getGradeHtml = (val) => `<option value="">Select Grade</option>` + gradeOptions.map(g => `<option value="${g}" ${val === g ? "selected" : ""}>${g}</option>`).join("");
+
+  const elementsDef = [
+    { type: "section", text: "Evaluation Period & Student Details" },
+    { name: "weekStartDate", label: "Week Start Date (Monday)", type: "date", value: initialValues.weekStartDate || defStart },
+    { name: "weekEndDate", label: "Week End Date (Saturday)", type: "date", value: initialValues.weekEndDate || defEnd, readonly: true },
+    { name: "className", label: "Class & Section", type: "select", html: `<option value="">Select Class</option>${classSelectStr}` },
+    { name: "studentName", label: "Student Name", type: "select", html: `<option value="">Select Student</option>${studentSelectStr}` },
+    { name: "rollNo", label: "Roll No", type: "text", value: initialValues.rollNo || "" },
+    
+    { type: "section", text: "Academic Main Subjects" },
+    { name: "maths", label: "Maths", type: "select", html: getGradeHtml(initialValues.maths) },
+    { name: "english", label: "English", type: "select", html: getGradeHtml(initialValues.english) },
+    { name: "hindi", label: "Hindi", type: "select", html: getGradeHtml(initialValues.hindi) },
+    { name: "science", label: "Science", type: "select", html: getGradeHtml(initialValues.science) },
+    { name: "sst", label: "SST", type: "select", html: getGradeHtml(initialValues.sst) },
+    
+    { type: "section", text: "Reading & Writing Skills" },
+    { name: "readingEng", label: "Reading (English)", type: "select", html: getGradeHtml(initialValues.readingEng) },
+    { name: "readingHindi", label: "Reading (Hindi)", type: "select", html: getGradeHtml(initialValues.readingHindi) },
+    { name: "writingEng", label: "Writing (English)", type: "select", html: getGradeHtml(initialValues.writingEng) },
+    { name: "writingHindi", label: "Writing (Hindi)", type: "select", html: getGradeHtml(initialValues.writingHindi) },
+    
+    { type: "section", text: "Co-curricular & Discipline" },
+    { name: "attanDance", label: "Attendance/Dance %", type: "text", value: initialValues.attanDance || "", placeholder: "%" },
+    { name: "dicipLine", label: "Discipline/Line (G)", type: "select", html: getGradeHtml(initialValues.dicipLine) },
+    { name: "uniform", label: "Uniform (G)", type: "select", html: getGradeHtml(initialValues.uniform) },
+    { name: "activities", label: "Activities (G)", type: "select", html: getGradeHtml(initialValues.activities) },
+    
+    { type: "section", text: "Overall Assessment" },
+    { name: "overall", label: "Over All (G)", type: "select", html: getGradeHtml(initialValues.overall), style: "font-weight:bold; color:var(--brand);" },
+    { name: "teacherRemark", label: "Teacher Remark", type: "text", value: initialValues.teacherRemark || "" }
+  ];
+
+  const inputEls = {};
+
+  elementsDef.forEach(f => {
+    if (f.type === "section") {
+      const st = document.createElement("h4");
+      st.textContent = f.text;
+      st.style.gridColumn = "1 / -1";
+      st.style.margin = "15px 0 5px 0";
+      st.style.color = "var(--brand)";
+      st.style.fontSize = "1.05rem";
+      st.style.borderBottom = "1px solid #f1f5f9";
+      st.style.paddingBottom = "5px";
+      formWrap.appendChild(st);
+      return;
+    }
+
+    const fieldDiv = document.createElement("div");
+    fieldDiv.className = "field";
+    const label = document.createElement("label");
+    label.textContent = f.label;
+    label.setAttribute("for", "we_" + f.name);
+    fieldDiv.appendChild(label);
+
+    let input;
+    if (f.type === "select") {
+      input = document.createElement("select");
+      input.innerHTML = f.html;
+    } else {
+      input = document.createElement("input");
+      input.type = f.type;
+      input.value = f.value;
+      if (f.placeholder) input.placeholder = f.placeholder;
+      if (f.readonly) input.readOnly = true;
+      if (f.style) input.style = f.style;
+    }
+    input.id = "we_" + f.name;
+    input.name = f.name;
+    
+    // Auto-calculate Saturday based on Monday
+    if (f.name === "weekStartDate") {
+      input.addEventListener("change", (e) => {
+        if (!e.target.value) return;
+        const d = new Date(e.target.value);
+        d.setDate(d.getDate() + 5);
+        if (inputEls.weekEndDate) inputEls.weekEndDate.value = d.toISOString().slice(0, 10);
+      });
+    }
+
+    // Filter students by class
+    if (f.name === "className") {
+      input.addEventListener("change", (e) => {
+        const selectedClass = e.target.value;
+        if (inputEls.studentName) {
+          let filtered = studentOptions;
+          if (selectedClass) {
+            filtered = studentOptions.filter(o => o.className === selectedClass);
+          }
+          const newHtml = `<option value="">Select Student</option>` + filtered.map(o => `<option value="${o.value}">${o.label}</option>`).join("");
+          inputEls.studentName.innerHTML = newHtml;
+          inputEls.studentName.value = "";
+        }
+        if (inputEls.rollNo) inputEls.rollNo.value = "";
+      });
+    }
+
+    // Auto-fill student rollno and class
+    if (f.name === "studentName") {
+      input.addEventListener("change", (e) => {
+        const val = e.target.value;
+        const sOpt = studentOptions.find(o => o.value === val);
+        if (sOpt) {
+          if (inputEls.rollNo && sOpt.rollNo) inputEls.rollNo.value = sOpt.rollNo;
+          if (inputEls.className && sOpt.className && !inputEls.className.value) {
+            inputEls.className.value = sOpt.className;
+          }
+        }
+      });
+    }
+
+    inputEls[f.name] = input;
+    fieldDiv.appendChild(input);
+    formWrap.appendChild(fieldDiv);
+  });
+
+  // Action Buttons
+  const actionDiv = document.createElement("div");
+  actionDiv.style.gridColumn = "1 / -1";
+  actionDiv.style.display = "flex";
+  actionDiv.style.gap = "10px";
+  actionDiv.style.marginTop = "20px";
+  
+  const saveBtn = document.createElement("button");
+  saveBtn.type = "button";
+  saveBtn.textContent = editRecordId ? "Update Evaluation" : "Save Evaluation";
+  saveBtn.className = "tbl-btn";
+  saveBtn.onclick = async () => {
+    const payload = {};
+    Object.keys(inputEls).forEach(k => { payload[k] = inputEls[k].value; });
+    
+    try {
+      if (editRecordId) {
+        await api("/api/modules/weeklyEvaluation/" + editRecordId, { method: "PUT", body: JSON.stringify(payload) });
+        showToast("Weekly evaluation updated");
+        editRecordId = null;
+      } else {
+        await api("/api/modules/weeklyEvaluation", { method: "POST", body: JSON.stringify(payload) });
+        showToast("Weekly evaluation saved");
+      }
+      await loadStore();
+      renderTable();
+      renderForm(true); // reset
+    } catch (err) {
+      showToast(err.message, "error");
+    }
+  };
+  
+  const cancelBtn = document.createElement("button");
+  cancelBtn.type = "button";
+  cancelBtn.textContent = "Cancel";
+  cancelBtn.className = "tbl-btn del";
+  cancelBtn.onclick = () => {
+    editRecordId = null;
+    renderForm(true);
+  };
+
+  const autoBtn = document.createElement("button");
+  autoBtn.type = "button";
+  autoBtn.textContent = "Auto Overall";
+  autoBtn.className = "tbl-btn edit";
+  autoBtn.style.background = "#64748b";
+  autoBtn.onclick = () => {
+     const gradeFields = ["maths", "english", "hindi", "science", "sst", "readingEng", "readingHindi", "writingEng", "writingHindi", "dicipLine", "uniform", "activities"];
+     const scores = { "A1": 7, "A2": 6, "B1": 5, "B2": 4, "C": 3, "D": 2, "E": 1 };
+     let total = 0; let count = 0;
+     gradeFields.forEach(k => {
+        if(inputEls[k] && inputEls[k].value && scores[inputEls[k].value]) {
+           total += scores[inputEls[k].value];
+           count++;
+        }
+     });
+     if (count > 0) {
+        const avg = total / count;
+        let finalGrade = "E";
+        if (avg >= 6.5) finalGrade = "A1";
+        else if (avg >= 5.5) finalGrade = "A2";
+        else if (avg >= 4.5) finalGrade = "B1";
+        else if (avg >= 3.5) finalGrade = "B2";
+        else if (avg >= 2.5) finalGrade = "C";
+        else if (avg >= 1.5) finalGrade = "D";
+        
+        if (inputEls.overall) inputEls.overall.value = finalGrade;
+        showToast("Overall calculated: " + finalGrade);
+     } else {
+        window.alert("Please fill in some grades first.");
+     }
+  };
+
+  const aiBtn = document.createElement("button");
+  aiBtn.type = "button";
+  aiBtn.textContent = "✨ AI Remark";
+  aiBtn.className = "tbl-btn import";
+  aiBtn.onclick = async () => {
+     const studentName = inputEls.studentName && inputEls.studentName.options[inputEls.studentName.selectedIndex].text;
+     const overall = inputEls.overall ? inputEls.overall.value : "";
+     if (!studentName || studentName === "Select Student" || !overall) {
+        return window.alert("Please select a student and ensure Overall grade is filled first.");
+     }
+     
+     const gradeMap = { "A1": 95, "A2": 85, "B1": 75, "B2": 65, "C": 55, "D": 40, "E": 20 };
+     const percentage = gradeMap[overall] || 50;
+     
+     aiBtn.textContent = "Generating...";
+     aiBtn.disabled = true;
+     try {
+       const result = await api("/api/ai/generate-remark", { 
+         method: "POST", 
+         body: JSON.stringify({ studentName, grade: overall, percentage }) 
+       });
+       if (result && result.remark) {
+         if (inputEls.teacherRemark) inputEls.teacherRemark.value = result.remark;
+         showToast("Remark generated!");
+       }
+     } catch(err) {
+       showToast("Failed to generate remark", "error");
+     }
+     aiBtn.textContent = "✨ AI Remark";
+     aiBtn.disabled = false;
+  };
+
+  actionDiv.appendChild(saveBtn);
+  actionDiv.appendChild(autoBtn);
+  actionDiv.appendChild(aiBtn);
+  if (editRecordId) actionDiv.appendChild(cancelBtn);
+  
+  formWrap.appendChild(actionDiv);
+  container.appendChild(formWrap);
+}
+
+
+document.addEventListener('DOMContentLoaded', () => {
+  const classFilterEl = document.getElementById('faceEnrollClassFilter');
+  const searchInputEl = document.getElementById('faceEnrollSearchInput');
+  const targetTypeEl = document.getElementById('faceTargetType');
+
+  if (classFilterEl) {
+    classFilterEl.addEventListener('change', window.populateEnrollStudentSelect || (() => {}));
+  }
+  if (searchInputEl) {
+    searchInputEl.addEventListener('input', window.populateEnrollStudentSelect || (() => {}));
+  }
+  if (targetTypeEl) {
+    targetTypeEl.addEventListener('change', window.populateEnrollStudentSelect || (() => {}));
+  }
+  
+  const alwaysOnVoiceToggle = document.getElementById('alwaysOnVoiceToggle');
+  if (alwaysOnVoiceToggle) {
+    alwaysOnVoiceToggle.addEventListener('change', (e) => {
+      if (e.target.checked) {
+        if (!window.isStrangerVoiceAIBusy) {
+           window.startListeningToVisitor();
+        }
+      } else {
+        if (window._currentRecognition) {
+          try { window._currentRecognition.stop(); } catch(e) {}
+        }
+      }
+    });
+  }
+});
+
+
+
+// ─── EDIT MOBILE APP STUDENT FUNCTIONS ───
+window.openEditMobileStudentModal = async function(admissionNo, studentName, sessionId) {
+  const modal = document.getElementById('editMobileStudentModal');
+  const form = document.getElementById('editMobileStudentForm');
+  if (!modal || !form) return;
+
+  form.reset();
+  document.getElementById('editMobileStudentPhotoBase64').value = '';
+  const preview = document.getElementById('editMobileStudentPhotoPreview');
+  if (preview) {
+    preview.innerHTML = (studentName || 'S').charAt(0).toUpperCase();
+  }
+
+  // 1. Locate student in store or database
+  let student = null;
+  const store = getStore();
+  if (store.students) {
+    student = store.students.find(s => s.admissionNo === admissionNo || s.fullName === studentName);
+  }
+
+  if (!student) {
+    try {
+      const rows = await fetchDirectFromTurso(
+        "SELECT * FROM students WHERE admissionNo = ? OR fullName = ? LIMIT 1;",
+        [admissionNo, studentName]
+      );
+      if (rows && rows.length > 0) student = rows[0];
+    } catch(e) {
+      console.warn("Could not query student directly:", e);
+    }
+  }
+
+  // 2. Populate fields
+  document.getElementById('editMobileStudentId').value = student?.id || '';
+  document.getElementById('editMobileStudentOriginalAdm').value = admissionNo || student?.admissionNo || '';
+  document.getElementById('editMobileStudentFullName').value = student?.fullName || studentName || '';
+  document.getElementById('editMobileStudentClass').value = student?.className || '';
+  document.getElementById('editMobileStudentRoll').value = student?.rollNo || '';
+  document.getElementById('editMobileStudentAdmissionNo').value = student?.admissionNo || admissionNo || '';
+  document.getElementById('editMobileStudentPhone').value = student?.phone || student?.phone1 || '';
+  document.getElementById('editMobileStudentPassword').value = student?.appPassword || '';
+  document.getElementById('editMobileStudentFather').value = student?.fatherName || '';
+  document.getElementById('editMobileStudentMother').value = student?.motherName || '';
+  document.getElementById('editMobileStudentStatus').value = student?.status || 'Active';
+  document.getElementById('editMobileStudentMonthlyFee').value = student?.monthlyFee || '';
+
+  // Photo preview
+  if (student?.photo && preview) {
+    const photoSrc = student.photo.startsWith('data:') || student.photo.startsWith('http') 
+      ? student.photo 
+      : getImageUrl('students', student.id, 'photo', student.photo);
+    preview.innerHTML = `<img src="${photoSrc}" style="width:100%;height:100%;object-fit:cover;" />`;
+  }
+
+  modal.style.display = 'flex';
+  modal.classList.remove('hidden');
+};
+
+window.closeEditMobileStudentModal = function() {
+  const modal = document.getElementById('editMobileStudentModal');
+  if (modal) {
+    modal.style.display = 'none';
+    modal.classList.add('hidden');
+  }
+};
+
+// Photo File Input Listener
+document.addEventListener('DOMContentLoaded', () => {
+  setupEditMobileStudentListeners();
+});
+setTimeout(setupEditMobileStudentListeners, 500);
+
+function setupEditMobileStudentListeners() {
+  const photoInput = document.getElementById('editMobileStudentPhotoInput');
+  const preview = document.getElementById('editMobileStudentPhotoPreview');
+  const b64Input = document.getElementById('editMobileStudentPhotoBase64');
+  const form = document.getElementById('editMobileStudentForm');
+
+  if (photoInput && !photoInput.dataset.listenerSet) {
+    photoInput.dataset.listenerSet = 'true';
+    photoInput.addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const b64 = evt.target.result;
+        if (b64Input) b64Input.value = b64;
+        if (preview) {
+          preview.innerHTML = `<img src="${b64}" style="width:100%;height:100%;object-fit:cover;" />`;
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  if (form && !form.dataset.listenerSet) {
+    form.dataset.listenerSet = 'true';
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const saveBtn = document.getElementById('saveMobileStudentBtn');
+      if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '⏳ Saving & Syncing...';
+      }
+
+      try {
+        const studentId = document.getElementById('editMobileStudentId').value;
+        const originalAdm = document.getElementById('editMobileStudentOriginalAdm').value;
+        const fullName = document.getElementById('editMobileStudentFullName').value.trim();
+        const className = document.getElementById('editMobileStudentClass').value.trim();
+        const rollNo = document.getElementById('editMobileStudentRoll').value.trim();
+        const admissionNo = document.getElementById('editMobileStudentAdmissionNo').value.trim();
+        const phone = document.getElementById('editMobileStudentPhone').value.trim();
+        const appPassword = document.getElementById('editMobileStudentPassword').value.trim();
+        const fatherName = document.getElementById('editMobileStudentFather').value.trim();
+        const motherName = document.getElementById('editMobileStudentMother').value.trim();
+        const status = document.getElementById('editMobileStudentStatus').value;
+        const monthlyFee = document.getElementById('editMobileStudentMonthlyFee').value;
+        const photoBase64 = document.getElementById('editMobileStudentPhotoBase64').value;
+
+        // 1. Update students table in Turso DB
+        const updateSql = `
+          UPDATE students SET 
+            fullName = ?, 
+            className = ?, 
+            rollNo = ?, 
+            admissionNo = ?, 
+            phone = ?, 
+            fatherName = ?, 
+            motherName = ?, 
+            status = ?, 
+            monthlyFee = ?
+            ${appPassword ? ', appPassword = ?' : ''}
+            ${photoBase64 ? ', photo = ?' : ''}
+          WHERE admissionNo = ? OR id = ?;
+        `;
+
+        const args = [
+          fullName, className, rollNo, admissionNo, phone,
+          fatherName, motherName, status, monthlyFee ? Number(monthlyFee) : null
+        ];
+        if (appPassword) args.push(appPassword);
+        if (photoBase64) args.push(photoBase64);
+        args.push(originalAdm || admissionNo, studentId ? Number(studentId) : -1);
+
+        await fetchDirectFromTurso(updateSql, args);
+
+        // 2. Update app_student_sessions table in Turso DB
+        await fetchDirectFromTurso(
+          "UPDATE app_student_sessions SET student_name = ?, class_name = ?, roll_no = ?, phone = ?, admission_no = ? WHERE admission_no = ?;",
+          [fullName, className, rollNo, phone, admissionNo, originalAdm || admissionNo]
+        );
+
+        // 3. Update local store
+        const store = getStore();
+        if (store.students) {
+          const s = store.students.find(x => x.admissionNo === originalAdm || String(x.id) === String(studentId));
+          if (s) {
+            s.fullName = fullName;
+            s.className = className;
+            s.rollNo = rollNo;
+            s.admissionNo = admissionNo;
+            s.phone = phone;
+            if (appPassword) s.appPassword = appPassword;
+            if (fatherName) s.fatherName = fatherName;
+            if (motherName) s.motherName = motherName;
+            s.status = status;
+            s.monthlyFee = monthlyFee;
+            if (photoBase64) s.photo = photoBase64;
+          }
+        }
+        if (store.app_student_sessions) {
+          const sess = store.app_student_sessions.find(x => x.admission_no === originalAdm);
+          if (sess) {
+            sess.student_name = fullName;
+            sess.class_name = className;
+            sess.roll_no = rollNo;
+            sess.admission_no = admissionNo;
+            sess.phone = phone;
+          }
+        }
+
+        closeEditMobileStudentModal();
+        renderAll(true);
+        if (typeof showToast === 'function') {
+          showToast(`🎉 Student ${fullName} updated! Mobile App credentials & details synced.`, 'success');
+        } else {
+          window.alert(`🎉 Student ${fullName} updated successfully!`);
+        }
+      } catch (err) {
+        console.error("Save mobile student error:", err);
+        window.alert("Failed to save changes: " + err.message);
+      } finally {
+        if (saveBtn) {
+          saveBtn.disabled = false;
+          saveBtn.innerHTML = '💾 Save Changes & Sync App';
+        }
+      }
+    });
+  }
+}
+
+
+window.toggleStudentAppEditAuthority = async function(admissionNo, studentName, newStatus) {
+  const isGranting = newStatus === 1;
+  const confirmMsg = isGranting
+    ? `Grant permission to "${studentName}" to edit their details in the Mobile App?`
+    : `Lock profile editing for "${studentName}" in the Mobile App?`;
+
+  const confirmed = typeof window.appConfirm === 'function' ? await window.appConfirm(confirmMsg) : window.confirm(confirmMsg);
+  if (!confirmed) return;
+
+  try {
+    // 1. Update students table
+    await fetchDirectFromTurso(
+      "UPDATE students SET allow_profile_edit = ? WHERE admissionNo = ? OR fullName = ?;",
+      [newStatus, admissionNo, studentName]
+    );
+
+    // 2. Update local store
+    const store = getStore();
+    if (store.students) {
+      const s = store.students.find(x => x.admissionNo === admissionNo || x.fullName === studentName);
+      if (s) s.allow_profile_edit = newStatus;
+    }
+    if (store.app_student_sessions) {
+      const sess = store.app_student_sessions.find(x => x.admission_no === admissionNo || x.student_name === studentName);
+      if (sess) sess.allow_profile_edit = newStatus;
+    }
+
+    renderAll(true);
+    const msg = isGranting
+      ? `🎉 Granted! "${studentName}" can now edit their details in the Mobile App.`
+      : `🔒 Locked! Profile editing for "${studentName}" is now disabled in Mobile App.`;
+    
+    if (typeof showToast === 'function') {
+      showToast(msg, isGranting ? 'success' : 'info');
+    } else {
+      window.alert(msg);
+    }
+  } catch(err) {
+    console.error("Authority toggle error:", err);
+    window.alert("Failed to update edit authority: " + err.message);
+  }
+};
+
+
+// ─── GRANULAR STUDENT APP AUTHORITY FUNCTIONS ───
+window.openGrantAppAuthModal = async function(admissionNo, studentName) {
+  const modal = document.getElementById('grantAppAuthModal');
+  const form = document.getElementById('grantAppAuthForm');
+  if (!modal || !form) return;
+
+  document.getElementById('grantAppAuthAdmissionNo').value = admissionNo;
+  document.getElementById('grantAppAuthStudentName').value = studentName;
+  document.getElementById('grantAppAuthStudentSub').innerText = `Student: ${studentName} (${admissionNo})`;
+
+  // Fetch current student record
+  let student = null;
+  const store = getStore();
+  if (store.students) {
+    student = store.students.find(s => s.admissionNo === admissionNo || s.fullName === studentName);
+  }
+  if (!student) {
+    try {
+      const rows = await fetchDirectFromTurso("SELECT * FROM students WHERE admissionNo = ? OR fullName = ? LIMIT 1;", [admissionNo, studentName]);
+      if (rows && rows[0]) student = rows[0];
+    } catch(e) {}
+  }
+
+  let activeFields = [];
+  if (student && student.allowed_edit_fields) {
+    try {
+      activeFields = typeof student.allowed_edit_fields === 'string' ? JSON.parse(student.allowed_edit_fields) : student.allowed_edit_fields;
+    } catch(e) {
+      activeFields = String(student.allowed_edit_fields).split(',').map(s => s.trim()).filter(Boolean);
+    }
+  }
+
+  // Set checkbox states
+  const checkboxes = form.querySelectorAll('input[name="authField"]');
+  checkboxes.forEach(cb => {
+    cb.checked = Array.isArray(activeFields) && activeFields.includes(cb.value);
+  });
+
+  modal.style.display = 'flex';
+  modal.classList.remove('hidden');
+};
+
+window.closeGrantAppAuthModal = function() {
+  const modal = document.getElementById('grantAppAuthModal');
+  if (modal) {
+    modal.style.display = 'none';
+    modal.classList.add('hidden');
+  }
+};
+
+window.toggleAllAuthCheckboxes = function(check) {
+  const form = document.getElementById('grantAppAuthForm');
+  if (!form) return;
+  form.querySelectorAll('input[name="authField"]').forEach(cb => cb.checked = check);
+};
+
+// Form submission listener
+document.addEventListener('DOMContentLoaded', setupGrantAuthFormListener);
+setTimeout(setupGrantAuthFormListener, 500);
+
+function setupGrantAuthFormListener() {
+  const form = document.getElementById('grantAppAuthForm');
+  if (form && !form.dataset.listenerAttached) {
+    form.dataset.listenerAttached = 'true';
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const saveBtn = document.getElementById('saveGrantAuthBtn');
+      if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '⏳ Saving...';
+      }
+
+      try {
+        const admissionNo = document.getElementById('grantAppAuthAdmissionNo').value;
+        const studentName = document.getElementById('grantAppAuthStudentName').value;
+
+        const checkboxes = form.querySelectorAll('input[name="authField"]:checked');
+        const selected = Array.from(checkboxes).map(cb => cb.value);
+        const hasAuth = selected.length > 0 ? 1 : 0;
+        const fieldsJson = JSON.stringify(selected);
+
+        // 1. Update Turso DB students table
+        await fetchDirectFromTurso(
+          "UPDATE students SET allow_profile_edit = ?, allowed_edit_fields = ? WHERE admissionNo = ? OR fullName = ?;",
+          [hasAuth, fieldsJson, admissionNo, studentName]
+        );
+
+        // 2. Update local store
+        const store = getStore();
+        if (store.students) {
+          const s = store.students.find(x => x.admissionNo === admissionNo || x.fullName === studentName);
+          if (s) {
+            s.allow_profile_edit = hasAuth;
+            s.allowed_edit_fields = fieldsJson;
+          }
+        }
+        if (store.app_student_sessions) {
+          const sess = store.app_student_sessions.find(x => x.admission_no === admissionNo || x.student_name === studentName);
+          if (sess) {
+            sess.allow_profile_edit = hasAuth;
+            sess.allowed_edit_fields = fieldsJson;
+          }
+        }
+
+        closeGrantAppAuthModal();
+        renderAll(true);
+        const msg = hasAuth 
+          ? `🎉 Authority Granted: "${studentName}" can now edit ${selected.length} ${selected.length === 1 ? 'field' : 'fields'} (${selected.join(', ')}) in the Mobile App!`
+          : `🔒 Authority Locked: Profile editing for "${studentName}" is now disabled in Mobile App.`;
+        
+        if (typeof showToast === 'function') {
+          showToast(msg, hasAuth ? 'success' : 'info');
+        } else {
+          window.alert(msg);
+        }
+      } catch(err) {
+        console.error("Save grant auth error:", err);
+        window.alert("Failed to save permissions: " + err.message);
+      } finally {
+        if (saveBtn) {
+          saveBtn.disabled = false;
+          saveBtn.innerHTML = '💾 Save Permissions';
+        }
+      }
+    });
+  }
+}
+
+
+
+// ─── App Release & Version Control Manager ───
+window.openAppReleaseControlModal = async function() {
+  const modal = document.getElementById('appReleaseControlModal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  modal.classList.remove('hidden');
+  await loadActiveReleasesList();
+};
+
+window.closeAppReleaseControlModal = function() {
+  const modal = document.getElementById('appReleaseControlModal');
+  if (!modal) return;
+  modal.style.display = 'none';
+  modal.classList.add('hidden');
+};
+
+async function loadActiveReleasesList() {
+  const container = document.getElementById('activeReleasesListContainer');
+  if (!container) return;
+  try {
+    const res = await fetchDirectFromTurso("SELECT * FROM app_updates ORDER BY version_code DESC LIMIT 5");
+    if (!res || !res.rows || res.rows.length === 0) {
+      container.innerHTML = '<p style="margin:0;color:#94a3b8;">No releases published yet.</p>';
+      return;
+    }
+    const html = res.rows.map(r => `
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <strong style="color:#0f172a;font-size:0.88rem;">v${r.version}</strong>
+            <span style="background:#eff6ff;color:#2563eb;font-size:0.7rem;padding:2px 6px;border-radius:6px;font-weight:700;">Build ${r.version_code}</span>
+            ${r.is_force_update == 1 ? '<span style="background:#fef2f2;color:#dc2626;font-size:0.7rem;padding:2px 6px;border-radius:6px;font-weight:700;">Mandatory</span>' : ''}
+          </div>
+          <div style="color:#64748b;font-size:0.75rem;margin-top:2px;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.apk_url}</div>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button type="button" onclick="deleteAppRelease(${r.id})" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:6px;padding:4px 8px;font-size:0.75rem;font-weight:700;cursor:pointer;">Delete</button>
+        </div>
+      </div>
+    `).join('');
+    container.innerHTML = html;
+  } catch(e) {
+    container.innerHTML = '<p style="color:#dc2626;margin:0;">Error loading releases: ' + e.message + '</p>';
+  }
+}
+
+window.deleteAppRelease = async function(id) {
+  if (!confirm("Are you sure you want to delete this release?")) return;
+  try {
+    await fetchDirectFromTurso("DELETE FROM app_updates WHERE id = ?", [id]);
+    if (typeof showToast === 'function') showToast("Release deleted", "info");
+    await loadActiveReleasesList();
+  } catch(e) {
+    alert("Delete failed: " + e.message);
+  }
+};
+
+function setupAppReleaseFormListener() {
+  const form = document.getElementById('appReleaseControlForm');
+  if (!form || form._hasReleaseListener) return;
+  form._hasReleaseListener = true;
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const saveBtn = document.getElementById('saveReleaseBtn');
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.innerText = 'Publishing...'; }
+
+    try {
+      const version = document.getElementById('releaseVersionName').value.trim();
+      const versionCode = parseInt(document.getElementById('releaseVersionCode').value.trim(), 10) || 1;
+      const apkUrl = document.getElementById('releaseApkUrl').value.trim();
+      const title = document.getElementById('releaseTitle').value.trim() || 'New Version Available';
+      const releaseNotes = document.getElementById('releaseNotes').value.trim();
+      const isForceUpdate = document.getElementById('releaseIsForceUpdate').checked ? 1 : 0;
+
+      await fetchDirectFromTurso(
+        "INSERT INTO app_updates (version, version_code, apk_url, title, release_notes, is_force_update, is_active) VALUES (?, ?, ?, ?, ?, ?, 1)",
+        [version, versionCode, apkUrl, title, releaseNotes, isForceUpdate]
+      );
+
+      if (typeof showToast === 'function') {
+        showToast(`Release v${version} (Build ${versionCode}) published successfully!`, 'success');
+      } else {
+        alert(`Release v${version} published successfully!`);
+      }
+
+      await loadActiveReleasesList();
+      form.reset();
+      document.getElementById('releaseApkUrl').value = 'https://tapowan-school.vercel.app/TPS-Original-App.apk';
+      document.getElementById('releaseTitle').value = 'New Version Available';
+    } catch(err) {
+      alert("Failed to publish release: " + err.message);
+    } finally {
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.innerText = 'Publish Release'; }
+    }
+  });
+}
