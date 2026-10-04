@@ -57,8 +57,100 @@ window.alert = function(msg) { window.appAlert(msg); };
 const FACE_KEY = "school_face_embeddings_v2";
 const CLASS_STANDARD_OPTIONS = ["Nursery", "LKG", "UKG", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
 
+/**
+ * Unified Student Photo URL Resolver (matches mobile app getStudentPhotoUri)
+ * Resolves photos from Turso streaming API, Cloudflare/Vercel edge, or Base64 data URIs.
+ */
+function getStudentPhotoUri(studentOrPhoto, fallbackId = null) {
+  if (!studentOrPhoto) {
+    if (fallbackId) {
+      return `/api/photo/students/${encodeURIComponent(String(fallbackId).trim())}?_v=${Math.floor(Date.now() / 60000)}`;
+    }
+    return '';
+  }
+
+  let photoVal = null;
+  let cacheKey = null;
+
+  if (typeof studentOrPhoto === 'object') {
+    // If base64 photo data URI is present in student object, prefer it immediately for 0ms latency!
+    if (studentOrPhoto.photo && String(studentOrPhoto.photo).startsWith('data:image')) {
+      return studentOrPhoto.photo;
+    }
+    photoVal = studentOrPhoto.photoUrl || studentOrPhoto.photo || studentOrPhoto.avatar || studentOrPhoto.image || studentOrPhoto.student_photo || studentOrPhoto.studentPhoto;
+    cacheKey = studentOrPhoto.photoLen || studentOrPhoto.updated_at || null;
+
+    // If student object has no photo field set
+    if (!photoVal) {
+      const idToUse = studentOrPhoto.id || studentOrPhoto.admissionNo || fallbackId;
+      if (idToUse) {
+        return `/api/photo/students/${encodeURIComponent(String(idToUse).trim())}?_v=${Math.floor(Date.now() / 60000)}`;
+      }
+      return '';
+    }
+  } else if (typeof studentOrPhoto === 'string') {
+    photoVal = studentOrPhoto;
+  }
+
+  if (photoVal) {
+    const trimmed = String(photoVal).trim();
+    if (!trimmed || trimmed === 'null' || trimmed === 'undefined' || trimmed === '---' || trimmed === 'none' || trimmed === 'false' || trimmed === 'has_data') {
+      const idToUse = (typeof studentOrPhoto === 'object' ? (studentOrPhoto.id || studentOrPhoto.admissionNo) : null) || fallbackId;
+      if (idToUse) {
+        return `/api/photo/students/${encodeURIComponent(String(idToUse).trim())}?_v=${Math.floor(Date.now() / 60000)}`;
+      }
+      return '';
+    }
+    if (trimmed.startsWith('data:image')) {
+      return trimmed;
+    }
+    
+    // Clean all whitespace/newlines before testing base64 signatures
+    const cleanB64 = trimmed.replace(/\s+/g, '');
+    if (cleanB64.length > 100) {
+      if (cleanB64.startsWith('/9j/')) return `data:image/jpeg;base64,${cleanB64}`;
+      if (cleanB64.startsWith('iVBOR')) return `data:image/png;base64,${cleanB64}`;
+      if (cleanB64.startsWith('UklGR')) return `data:image/webp;base64,${cleanB64}`;
+      if (cleanB64.startsWith('R0lGOD')) return `data:image/gif;base64,${cleanB64}`;
+      if (cleanB64.startsWith('Qk')) return `data:image/bmp;base64,${cleanB64}`;
+    }
+    
+    let url = trimmed;
+    // Upgrade cleartext http to https if pointing to our school domain
+    if (url.startsWith('http://tapowan-school.vercel.app')) {
+      url = url.replace('http://', 'https://');
+    }
+
+    if (url.startsWith('/api/photo/') || url.startsWith('/api/image/')) {
+      const sep = url.includes('?') ? '&' : '?';
+      if (cacheKey) {
+        url = `${url}${sep}v=${cacheKey}`;
+      } else if (!url.includes('_v=') && !url.includes('_t=') && !url.includes('v=')) {
+        url = `${url}${sep}_v=${Math.floor(Date.now() / 60000)}`;
+      }
+    }
+    return url;
+  }
+
+  if (fallbackId) {
+    return `/api/photo/students/${encodeURIComponent(String(fallbackId).trim())}?_v=${Math.floor(Date.now() / 60000)}`;
+  }
+
+  return '';
+}
+window.getStudentPhotoUri = getStudentPhotoUri;
+
 function getImageUrl(moduleName, id, fieldName, val) {
-  if (!val) return '';
+  if (moduleName === 'students' && (fieldName === 'photo' || fieldName === 'studentPhoto')) {
+    const photo = getStudentPhotoUri(val, id);
+    if (photo) return photo;
+  }
+  if (!val) {
+    if (id && (fieldName === 'photo' || fieldName === 'studentPhoto')) {
+      return `/api/photo/${moduleName}/${encodeURIComponent(id)}?col=${fieldName}&_v=${Math.floor(Date.now() / 30000)}`;
+    }
+    return '';
+  }
   if (val === true || val === "true" || val === "1") return `/api/photo/${moduleName}/${id}?col=${fieldName}&_v=${Math.floor(Date.now() / 30000)}`;
   if (typeof val === 'string') {
     if (val.startsWith('data:image') || val.startsWith('http://') || val.startsWith('https://')) return val;
@@ -2748,8 +2840,9 @@ function renderTable() {
       }
       
       if (key === "photo") {
-        if (val) {
-          return `<td><img src="${getImageUrl(currentModule, item.id, key, val)}"  style="width:40px;height:40px;border-radius:50%;object-fit:cover;cursor:pointer;border:2px solid #e2e8f0;" onclick="openImageViewer('${getImageUrl(currentModule, item.id, key, val)}', 'Photo')"  title="Click to view full photo" /></td>`;
+        const photoUrl = getImageUrl(currentModule, item.id, key, val);
+        if (photoUrl) {
+          return `<td><img src="${photoUrl}"  style="width:40px;height:40px;border-radius:50%;object-fit:cover;cursor:pointer;border:2px solid #e2e8f0;" onclick="openImageViewer('${photoUrl}', 'Photo')"  title="Click to view full photo" /></td>`;
         } else {
           return `<td><div style="width:40px;height:40px;border-radius:50%;background:#f1f5f9;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:0.6rem;border:2px solid #e2e8f0;">No Img</div></td>`;
         }
@@ -3056,7 +3149,10 @@ function renderStudentProfile() {
   <div style="display:flex; flex-wrap:wrap; gap:20px; position:relative; z-index:1;">
         <div style="flex:0 0 120px; display:flex; flex-direction:column; align-items:center; text-align:center;">
           <div style="width:100px; height:100px; border-radius:50%; background:linear-gradient(135deg, #eff6ff, #dbeafe); color:#2563eb; display:flex; align-items:center; justify-content:center; font-size:3rem; font-weight:800; margin:0 auto 12px; border:4px solid #fff; box-shadow:0 8px 20px rgba(37,99,235,0.15); overflow:hidden;">
-            ${student.photo ? `<img src="${getImageUrl('students', student.id, 'photo', student.photo)}"  class="zoomable" onclick="openImageViewer('${getImageUrl('students', student.id, 'photo', student.photo)}', 'Profile Photo')"  style="width:100%; height:100%; object-fit:cover;"  />` : (student.fullName ? student.fullName.charAt(0).toUpperCase() : "S")}
+            ${(function() {
+              const pUri = getStudentPhotoUri(student, student.id || student.admissionNo);
+              return pUri ? `<img src="${pUri}" class="zoomable" onclick="openImageViewer('${pUri}', 'Profile Photo')" style="width:100%; height:100%; object-fit:cover;" />` : (student.fullName ? student.fullName.charAt(0).toUpperCase() : "S");
+            })()}
           </div>
           <span class="badge" style="background:#dcfce7; color:#16a34a; border-color:#bbf7d0; font-size:0.65rem; padding:3px 10px;">${student.status || "Active"}</span>
         </div>
@@ -4353,112 +4449,153 @@ window.changeDashboardCalendarMonth = function(offset) {
 
 let dashboardCharts = [];
 
-function renderStatsCards() {
-  refs.statsCards.innerHTML = "";
+function renderStatsCards(forceFullRebuild = false) {
   let grid = document.querySelector(".analytics-grid");
   if (currentModule !== "dashboard") {
     if (grid) grid.style.display = "none";
+    if (refs.statsCards) refs.statsCards.style.display = "none";
     return;
   }
+  if (refs.statsCards) refs.statsCards.style.display = "grid";
   if (grid) grid.style.display = "grid";
 
-  // Removed student pending-role notice banner as per request
-
   const stats = getDashboardStats(getStore());
-  // Hide system stats students shouldn't see
   const hiddenForStudents = new Set(["System Active Users", "Pending Fee Accounts", "Hostel Active"]);
-  Object.entries(stats).forEach(([k, v]) => {
-    if (userIsStudent() && hiddenForStudents.has(k)) return;
-    const card = document.createElement("article");
-    card.className = "stat-card";
-    const li = (id) => `<lord-icon src="https://cdn.lordicon.com/${id}.json" trigger="loop-on-hover" style="width:32px;height:32px"></lord-icon>`;
-    const statIcons = {
-      "Total Students": li('dxjqoygy'),
-      "Total Teachers": li('bhfjfgqz'),
-      "Total Classes": li('qwjfapmb'),
-      "Student Present Today": li('egiwmiit'),
-      "Teacher Present Today": li('egiwmiit'),
-      "Pending Fee Accounts": li('qhviklyi'),
-      "Books Issued": li('wxnxiano'),
-      "Hostel Active": li('osuxyevn'),
-      "System Active Users": li('dxjqoygy'),
-      "New Admissions": li('puvaffet'),
-      "My Total Paid": li('qhviklyi'),
-      "My Pending Dues": li('qhviklyi'),
-      "Days Present": li('egiwmiit'),
-      "Days Absent": li('nocvdjmh'),
-      "Class & Section": li('qwjfapmb'),
-      "Status": li('egiwmiit')
-    };
 
-    const icon = statIcons[k] || "⭐";
-    const trend = v > 0 ? { arrow: "↑", text: "+5%" } : { arrow: "↓", text: "-2%" };
+  const existingCards = refs.statsCards ? refs.statsCards.querySelectorAll(".stat-card[data-stat-key]") : [];
+  const canUpdateInPlace = !forceFullRebuild && existingCards.length > 0;
 
-    if (k === "Total Payment Received") {
-      card.style.background = "linear-gradient(135deg, #f0fdf4, #ffffff)";
-      card.style.border = "1px solid #bbf7d0";
-      card.style.minHeight = "240px";
-      const recentHtml = stats.LastThree.map(p => `
-        <div style="display:flex; justify-content:space-between; font-size:0.68rem; padding:4px 0; border-bottom:1px solid #f0fdf4; color:#374151;">
-          <span style="font-weight:600;">${p.name.split(' ')[0]}</span>
-          <span style="color:#64748b;">${p.date}</span>
-          <span style="font-weight:700; color:#16a34a;">₹${p.amount}</span>
-        </div>
-      `).join('');
+  if (canUpdateInPlace) {
+    // ── Smooth In-Place Updates: Zero Layout Shift, Zero LordIcon Reload ──
+    Object.entries(stats).forEach(([k, v]) => {
+      if (userIsStudent() && hiddenForStudents.has(k)) return;
+      if (k === "Lifetime Collection" || k === "LastThree" || k === "Today's System Date") return;
 
-      card.innerHTML = `
-        <div class="stat-top">
-          <h4 style="color:#166534;">${k}</h4>
-          <div class="stat-icon-bubble" style="background:#dcfce7; color:#16a34a;">${li('qhviklyi')}</div>
-        </div>
-        <div class="stat-value" style="color:#15803d; font-size:1.8rem;">${v}</div>
-        <div style="font-size:0.72rem; color:#16a34a; font-weight:600; margin-top:2px; display:flex; justify-content:space-between;">
-          <span>Overall: ${stats["Lifetime Collection"]}</span>
-          <span style="opacity:0.6; font-weight:400;">Today: ${stats["Today's System Date"]}</span>
-        </div>
+      const card = refs.statsCards.querySelector(`.stat-card[data-stat-key="${k}"]`);
+      if (!card) return;
+
+      if (k === "Total Payment Received") {
+        const valEl = card.querySelector(".stat-value");
+        if (valEl && valEl.textContent !== String(v)) valEl.textContent = v;
+        const overallSpan = card.querySelector(".stat-overall-val");
+        if (overallSpan) overallSpan.textContent = `Overall: ${stats["Lifetime Collection"]}`;
+        const todaySpan = card.querySelector(".stat-today-val");
+        if (todaySpan) todaySpan.textContent = `Today: ${stats["Today's System Date"]}`;
         
-        <div style="margin-top:16px; background:#fff; border-radius:12px; padding:10px; box-shadow:0 4px 12px rgba(0,0,0,0.03);">
-          <div style="font-size:0.65rem; font-weight:800; color:#16a34a; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">Recent Activity</div>
-          ${recentHtml || '<div style="font-size:0.7rem; color:#9ca3af;">No recent payments</div>'}
-        </div>
-        
-        <div style="margin-top:12px; display:flex; gap:6px;">
-          <button onclick="window.currentFeeFilter='day'; renderStatsCards();" class="tbl-btn" style="flex:1; padding:4px; font-size:0.65rem; ${window.currentFeeFilter==='day'?'background:#16a34a;color:#fff;':'background:#f0fdf4;color:#16a34a;'}">DAY</button>
-          <button onclick="window.currentFeeFilter='month'; renderStatsCards();" class="tbl-btn" style="flex:1; padding:4px; font-size:0.65rem; ${window.currentFeeFilter==='month'?'background:#16a34a;color:#fff;':'background:#f0fdf4;color:#16a34a;'}">MONTH</button>
-          <button onclick="window.currentFeeFilter='year'; renderStatsCards();" class="tbl-btn" style="flex:1; padding:4px; font-size:0.65rem; ${window.currentFeeFilter==='year'?'background:#16a34a;color:#fff;':'background:#f0fdf4;color:#16a34a;'}">YEAR</button>
-          <button onclick="window.currentFeeFilter='all'; renderStatsCards();" class="tbl-btn" style="flex:1; padding:4px; font-size:0.65rem; ${window.currentFeeFilter==='all'?'background:#16a34a;color:#fff;':'background:#f0fdf4;color:#16a34a;'}">ALL</button>
-        </div>
-      `;
-    } else if (k === "Lifetime Collection" || k === "LastThree" || k === "Today's System Date") {
-      return; // Skip rendering these as separate cards
-    } else {
-      card.innerHTML = `
-        <div class="stat-top">
-          <h4>${k}</h4>
-          <div class="stat-icon-bubble">${icon}</div>
-        </div>
-        <div class="stat-value">${v}</div>
-        <div class="stat-trend ${trend.arrow === "↑" ? "pos" : "neg"}">
-          <span class="arrow">${trend.arrow}</span>
-          <span class="pct">${trend.text}</span>
-        </div>
-      `;
+        // Update recent activity list if changed
+        const recListEl = card.querySelector(".stat-recent-payments");
+        if (recListEl && stats.LastThree) {
+          const recentHtml = stats.LastThree.map(p => `
+            <div style="display:flex; justify-content:space-between; font-size:0.68rem; padding:4px 0; border-bottom:1px solid #f0fdf4; color:#374151;">
+              <span style="font-weight:600;">${p.name.split(' ')[0]}</span>
+              <span style="color:#64748b;">${p.date}</span>
+              <span style="font-weight:700; color:#16a34a;">₹${p.amount}</span>
+            </div>
+          `).join('');
+          recListEl.innerHTML = recentHtml || '<div style="font-size:0.7rem; color:#9ca3af;">No recent payments</div>';
+        }
+      } else {
+        const valEl = card.querySelector(".stat-value");
+        if (valEl && valEl.textContent !== String(v)) {
+          valEl.textContent = v;
+        }
+      }
+    });
+
+    if (typeof window.injectDashboardCard === 'function') {
+      window.injectDashboardCard();
     }
+  } else {
+    // ── First-Time Stat Cards Build ──
+    refs.statsCards.innerHTML = "";
+    Object.entries(stats).forEach(([k, v]) => {
+      if (userIsStudent() && hiddenForStudents.has(k)) return;
+      const card = document.createElement("article");
+      card.className = "stat-card";
+      card.setAttribute("data-stat-key", k);
+      const li = (id) => `<lord-icon src="https://cdn.lordicon.com/${id}.json" trigger="loop-on-hover" style="width:32px;height:32px"></lord-icon>`;
+      const statIcons = {
+        "Total Students": li('dxjqoygy'),
+        "Total Teachers": li('bhfjfgqz'),
+        "Total Classes": li('qwjfapmb'),
+        "Student Present Today": li('egiwmiit'),
+        "Teacher Present Today": li('egiwmiit'),
+        "Pending Fee Accounts": li('qhviklyi'),
+        "Books Issued": li('wxnxiano'),
+        "Hostel Active": li('osuxyevn'),
+        "System Active Users": li('dxjqoygy'),
+        "New Admissions": li('puvaffet'),
+        "My Total Paid": li('qhviklyi'),
+        "My Pending Dues": li('qhviklyi'),
+        "Days Present": li('egiwmiit'),
+        "Days Absent": li('nocvdjmh'),
+        "Class & Section": li('qwjfapmb'),
+        "Status": li('egiwmiit')
+      };
 
-    refs.statsCards.appendChild(card);
-  });
-  if (typeof window.injectDashboardCard === 'function') {
-    window.injectDashboardCard();
+      const icon = statIcons[k] || "⭐";
+      const trend = v > 0 ? { arrow: "↑", text: "+5%" } : { arrow: "↓", text: "-2%" };
+
+      if (k === "Total Payment Received") {
+        card.style.background = "linear-gradient(135deg, #f0fdf4, #ffffff)";
+        card.style.border = "1px solid #bbf7d0";
+        card.style.minHeight = "240px";
+        const recentHtml = stats.LastThree.map(p => `
+          <div style="display:flex; justify-content:space-between; font-size:0.68rem; padding:4px 0; border-bottom:1px solid #f0fdf4; color:#374151;">
+            <span style="font-weight:600;">${p.name.split(' ')[0]}</span>
+            <span style="color:#64748b;">${p.date}</span>
+            <span style="font-weight:700; color:#16a34a;">₹${p.amount}</span>
+          </div>
+        `).join('');
+
+        card.innerHTML = `
+          <div class="stat-top">
+            <h4 style="color:#166534;">${k}</h4>
+            <div class="stat-icon-bubble" style="background:#dcfce7; color:#16a34a;">${li('qhviklyi')}</div>
+          </div>
+          <div class="stat-value" style="color:#15803d; font-size:1.8rem;">${v}</div>
+          <div style="font-size:0.72rem; color:#16a34a; font-weight:600; margin-top:2px; display:flex; justify-content:space-between;">
+            <span class="stat-overall-val">Overall: ${stats["Lifetime Collection"]}</span>
+            <span class="stat-today-val" style="opacity:0.6; font-weight:400;">Today: ${stats["Today's System Date"]}</span>
+          </div>
+          
+          <div style="margin-top:16px; background:#fff; border-radius:12px; padding:10px; box-shadow:0 4px 12px rgba(0,0,0,0.03);">
+            <div style="font-size:0.65rem; font-weight:800; color:#16a34a; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">Recent Activity</div>
+            <div class="stat-recent-payments">${recentHtml || '<div style="font-size:0.7rem; color:#9ca3af;">No recent payments</div>'}</div>
+          </div>
+          
+          <div style="margin-top:12px; display:flex; gap:6px;">
+            <button onclick="window.currentFeeFilter='day'; renderStatsCards(true);" class="tbl-btn" style="flex:1; padding:4px; font-size:0.65rem; ${window.currentFeeFilter==='day'?'background:#16a34a;color:#fff;':'background:#f0fdf4;color:#16a34a;'}">DAY</button>
+            <button onclick="window.currentFeeFilter='month'; renderStatsCards(true);" class="tbl-btn" style="flex:1; padding:4px; font-size:0.65rem; ${window.currentFeeFilter==='month'?'background:#16a34a;color:#fff;':'background:#f0fdf4;color:#16a34a;'}">MONTH</button>
+            <button onclick="window.currentFeeFilter='year'; renderStatsCards(true);" class="tbl-btn" style="flex:1; padding:4px; font-size:0.65rem; ${window.currentFeeFilter==='year'?'background:#16a34a;color:#fff;':'background:#f0fdf4;color:#16a34a;'}">YEAR</button>
+            <button onclick="window.currentFeeFilter='all'; renderStatsCards(true);" class="tbl-btn" style="flex:1; padding:4px; font-size:0.65rem; ${window.currentFeeFilter==='all'?'background:#16a34a;color:#fff;':'background:#f0fdf4;color:#16a34a;'}">ALL</button>
+          </div>
+        `;
+      } else if (k === "Lifetime Collection" || k === "LastThree" || k === "Today's System Date") {
+        return;
+      } else {
+        card.innerHTML = `
+          <div class="stat-top">
+            <h4>${k}</h4>
+            <div class="stat-icon-bubble">${icon}</div>
+          </div>
+          <div class="stat-value">${v}</div>
+          <div class="stat-trend ${trend.arrow === "↑" ? "pos" : "neg"}">
+            <span class="arrow">${trend.arrow}</span>
+            <span class="pct">${trend.text}</span>
+          </div>
+        `;
+      }
+
+      refs.statsCards.appendChild(card);
+    });
+
+    if (typeof window.injectDashboardCard === 'function') {
+      window.injectDashboardCard();
+    }
   }
 
-  // Attach charts grid securely below stats
-  if (!grid) grid = document.querySelector(".analytics-grid");
-  
-  if (grid) {
-    dashboardCharts.forEach(c => c.destroy());
-    dashboardCharts = [];
-  }
-
+  // Calculate chart statistics from store
   const store = getStore();
   const fees = store.fees || [];
   let feeStatus = { paid: 0, partial: 0, pending: 0 };
@@ -4472,10 +4609,9 @@ function renderStatsCards() {
      totalPendingAmount += Number(f.balance || 0);
   });
 
-  // Include totally unpaid dues from Due Management in the Total Due
   const dueMgmt = store.dueManagement || [];
   dueMgmt.forEach(d => {
-     feeStatus.pending++; // Add to the pending pie chart slice
+     feeStatus.pending++;
      totalPendingAmount += Number(d.balance || d.dueAmount || 0);
   });
 
@@ -4486,7 +4622,6 @@ function renderStatsCards() {
      classDist[cls] = (classDist[cls] || 0) + 1;
   });
 
-  // Calculate generic "present today" vs entire active student population
   const today = (function(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')})();
   const attendance = store.attendance || [];
   const presentToday = attendance.filter(a => String(a.status).toLowerCase() === "present" && a.date === today && a.studentName).length;
@@ -4496,6 +4631,81 @@ function renderStatsCards() {
     ? Math.round((totalPaidAmount / (totalPaidAmount + totalPendingAmount)) * 100) 
     : 0;
 
+  // Prepare 7-day attendance trend data
+  const attLabels = [];
+  const presentData = [];
+  const absentData = [];
+  const lateData = [];
+  const totalStud = Math.max(1, (store.students || []).length);
+
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dStr = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    attLabels.push(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+    
+    const dayAtt = attendance.filter(a => a.date === dStr && a.studentName);
+    if (dayAtt.length === 0) {
+       presentData.push(0);
+       absentData.push(0);
+       lateData.push(0);
+    } else {
+       const p = dayAtt.filter(a => String(a.status).toLowerCase().includes("present")).length;
+       const l = dayAtt.filter(a => String(a.status).toLowerCase().includes("late")).length;
+       const a = Math.max(0, totalStud - p - l);
+       presentData.push(p);
+       absentData.push(a);
+       lateData.push(l);
+    }
+  }
+
+  if (!grid) grid = document.querySelector(".analytics-grid");
+
+  // Check if charts are already mounted and can be smoothly updated without rebuilding DOM
+  const chartsMounted = !forceFullRebuild && 
+                        dashboardCharts && 
+                        dashboardCharts.length === 3 && 
+                        document.getElementById("feeChart") && 
+                        document.getElementById("classChart") && 
+                        document.getElementById("attChart");
+
+  if (chartsMounted) {
+    // ── In-place Chart Updates: NO canvas destruction, NO re-animation, NO flickering ──
+    try {
+      // 1. Fee Doughnut Chart
+      dashboardCharts[0].data.datasets[0].data = [feeStatus.paid, feeStatus.pending, feeStatus.partial];
+      dashboardCharts[0].update('none');
+      const recEl = document.getElementById("dashFeeTotalReceived");
+      if (recEl) recEl.textContent = `₹${totalPaidAmount.toLocaleString('en-IN')}`;
+      const dueEl = document.getElementById("dashFeeTotalDue");
+      if (dueEl) dueEl.textContent = `₹${totalPendingAmount.toLocaleString('en-IN')}`;
+      const rateEl = document.getElementById("dashFeeCollectionRate");
+      if (rateEl) rateEl.textContent = `${collectionRate}%`;
+
+      // 2. Class Distribution Bar Chart
+      dashboardCharts[1].data.labels = Object.keys(classDist);
+      dashboardCharts[1].data.datasets[0].data = Object.values(classDist);
+      dashboardCharts[1].update('none');
+
+      // 3. Attendance Insights Line Chart
+      dashboardCharts[2].data.labels = attLabels;
+      dashboardCharts[2].data.datasets[0].data = presentData;
+      dashboardCharts[2].data.datasets[1].data = absentData;
+      dashboardCharts[2].data.datasets[2].data = lateData;
+      dashboardCharts[2].update('none');
+
+      return; // All charts smoothly updated!
+    } catch (e) {
+      console.warn("Chart in-place update error, falling back to full build:", e);
+    }
+  }
+
+  // ── First-time full charts build ──
+  if (grid) {
+    dashboardCharts.forEach(c => { try { c.destroy(); } catch(e){} });
+    dashboardCharts = [];
+  }
+
   let chartsHtml = `
     <div class="chart-card" style="position: relative; display: flex; flex-direction: column;">
       <h3 class="chart-title">Real-Time Fee Collection <span class="chart-badge"><div class="dot"></div> Live</span></h3>
@@ -4503,18 +4713,18 @@ function renderStatsCards() {
       <div style="display: flex; justify-content: space-between; margin-bottom: 15px; margin-top: 5px;">
          <div style="background: rgba(16, 185, 129, 0.08); border-left: 4px solid #10b981; padding: 10px 12px; border-radius: 6px; width: 48%; box-sizing: border-box;">
             <div style="font-size: 0.75rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Total Received</div>
-            <div style="font-size: 1.25rem; font-weight: 800; color: #10b981; margin-top: 2px;">₹${totalPaidAmount.toLocaleString('en-IN')}</div>
+            <div id="dashFeeTotalReceived" style="font-size: 1.25rem; font-weight: 800; color: #10b981; margin-top: 2px;">₹${totalPaidAmount.toLocaleString('en-IN')}</div>
          </div>
          <div style="background: rgba(239, 68, 68, 0.08); border-left: 4px solid #ef4444; padding: 10px 12px; border-radius: 6px; width: 48%; box-sizing: border-box;">
             <div style="font-size: 0.75rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Total Due</div>
-            <div style="font-size: 1.25rem; font-weight: 800; color: #ef4444; margin-top: 2px;">₹${totalPendingAmount.toLocaleString('en-IN')}</div>
+            <div id="dashFeeTotalDue" style="font-size: 1.25rem; font-weight: 800; color: #ef4444; margin-top: 2px;">₹${totalPendingAmount.toLocaleString('en-IN')}</div>
          </div>
       </div>
 
       <div class="canvas-container" style="position: relative; flex-grow: 1; min-height: 200px;">
          <div style="position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none;">
             <div style="font-size: 0.75rem; color: #64748b; font-weight: 600;">Collection Rate</div>
-            <div style="font-size: 1.6rem; font-weight: 800; color: #1e293b; line-height: 1;">${collectionRate}%</div>
+            <div id="dashFeeCollectionRate" style="font-size: 1.6rem; font-weight: 800; color: #1e293b; line-height: 1;">${collectionRate}%</div>
          </div>
          <canvas id="feeChart"></canvas>
       </div>
@@ -4574,37 +4784,10 @@ function renderStatsCards() {
 
     const attEl = document.getElementById("attChart");
     if(attEl) {
-      const labels = [];
-      const presentData = [];
-      const absentData = [];
-      const lateData = [];
-      const totalStud = Math.max(1, (store.students || []).length);
-
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        const dStr = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
-        labels.push(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
-        
-        const dayAtt = attendance.filter(a => a.date === dStr && a.studentName);
-        if (dayAtt.length === 0) {
-           presentData.push(0);
-           absentData.push(0);
-           lateData.push(0);
-        } else {
-           const p = dayAtt.filter(a => String(a.status).toLowerCase().includes("present")).length;
-           const l = dayAtt.filter(a => String(a.status).toLowerCase().includes("late")).length;
-           const a = Math.max(0, totalStud - p - l);
-           presentData.push(p);
-           absentData.push(a);
-           lateData.push(l);
-        }
-      }
-
       dashboardCharts.push(new Chart(attEl, {
         type: "line",
         data: {
-          labels: labels,
+          labels: attLabels,
           datasets: [
             { label: "Present", data: presentData, borderColor: "#10b981", backgroundColor: "transparent", tension: 0.4, borderWidth: 3, pointRadius: 0, pointHoverRadius: 6 },
             { label: "Absent", data: absentData, borderColor: "#ef4444", backgroundColor: "transparent", tension: 0.4, borderWidth: 3, pointRadius: 0, pointHoverRadius: 6 },
@@ -7986,13 +8169,12 @@ async function autoCaptureTick() {
       window.showStudentIdentityPopup(person, matchPrefix);
     }
 
-    const snap = await snapshotFromSource(220, 0.68);
     const nowTime = timeStr();
 
     if (matchPrefix === "teachers") {
       const existing = findExistingTeacherAttendanceRecord(store, recognizedName, resolvedClassName, today);
       if (existing?.id) {
-        const update = { facePhoto: snap, remarks: "Auto face-recognized" };
+        const update = { remarks: "Auto face-recognized" };
         if (!existing.arrivalTime) {
           update.arrivalTime = nowTime;
           update.status = refs.faceStatus.value;
@@ -8001,7 +8183,7 @@ async function autoCaptureTick() {
         }
         const savedUpdate = await api(`/api/modules/teacherAttendance/${existing.id}`, { method: "PUT", body: JSON.stringify(update) });
         Object.assign(existing, savedUpdate);
-        refs.faceStatusText.textContent = `Photo updated for ${recognizedName} (${resolvedClassName}).`;
+        refs.faceStatusText.textContent = `Attendance updated for ${recognizedName} (${resolvedClassName}).`;
         if (typeof addLiveLog === 'function') addLiveLog(recognizedName, best?.score || 0.9, refs.faceStatus.value);
         if (activeModule === 'attendance' || activeModule === 'teacherAttendance') renderTable();
       } else {
@@ -8013,8 +8195,7 @@ async function autoCaptureTick() {
           status: refs.faceStatus.value,
           arrivalTime: nowTime,
           departureTime: "",
-          remarks: "Auto face-recognized",
-          facePhoto: snap
+          remarks: "Auto face-recognized"
         };
         const savedRow = await api("/api/modules/teacherAttendance", { method: "POST", body: JSON.stringify(row) });
         store.teacherAttendance = store.teacherAttendance || [];
@@ -8026,7 +8207,7 @@ async function autoCaptureTick() {
     } else {
       const existing = findExistingAttendanceRecord(store, recognizedName, resolvedClassName, today);
       if (existing?.id) {
-        const update = { facePhoto: snap, remarks: "Auto face-recognized" };
+        const update = { remarks: "Auto face-recognized" };
         if (!existing.arrivalTime) {
           update.arrivalTime = nowTime;
           update.status = refs.faceStatus.value;
@@ -8037,7 +8218,7 @@ async function autoCaptureTick() {
         }
         const savedUpdate = await api(`/api/modules/attendance/${existing.id}`, { method: "PUT", body: JSON.stringify(update) });
         Object.assign(existing, savedUpdate);
-        refs.faceStatusText.textContent = `Photo updated for ${recognizedName} (${resolvedClassName}).`;
+        refs.faceStatusText.textContent = `Attendance updated for ${recognizedName} (${resolvedClassName}).`;
         if (typeof addLiveLog === 'function') addLiveLog(recognizedName, best?.score || 0.9, refs.faceStatus.value);
         if (activeModule === 'attendance' || activeModule === 'teacherAttendance') renderTable();
       } else {
@@ -8050,8 +8231,7 @@ async function autoCaptureTick() {
           status: refs.faceStatus.value,
           arrivalTime: nowTime,
           departureTime: "",
-          remarks: "Auto face-recognized",
-          facePhoto: snap
+          remarks: "Auto face-recognized"
         };
         const savedRow = await api("/api/modules/attendance", { method: "POST", body: JSON.stringify(row) });
         sendAttendanceWhatsApp(recognizedName, true, nowTime);
@@ -8179,12 +8359,10 @@ async function autoBatchCaptureTick() {
         window.showStudentIdentityPopup(person, matchPrefix);
       }
 
-      const snap = await snapshotFromSource(220, 0.68);
-
       if (matchPrefix === "teachers") {
         const existing = findExistingTeacherAttendanceRecord(localStore, recognizedName, resolvedClassName, today);
         if (existing?.id) {
-          const update = { facePhoto: snap, remarks: "Auto face-recognized" };
+          const update = { remarks: "Auto face-recognized" };
           if (!existing.arrivalTime) {
             update.arrivalTime = nowTime;
             update.status = status;
@@ -8192,7 +8370,6 @@ async function autoBatchCaptureTick() {
             update.departureTime = nowTime;
           }
           await api(`/api/modules/teacherAttendance/${existing.id}`, { method: "PUT", body: JSON.stringify(update) });
-          existing.facePhoto = snap;
           existing.remarks = update.remarks;
           if (update.arrivalTime) existing.arrivalTime = update.arrivalTime;
           if (update.departureTime) existing.departureTime = update.departureTime;
@@ -8206,8 +8383,7 @@ async function autoBatchCaptureTick() {
             status,
             arrivalTime: nowTime,
             departureTime: "",
-            remarks: "Auto face-recognized",
-            facePhoto: snap
+            remarks: "Auto face-recognized"
           };
           await api("/api/modules/teacherAttendance", { method: "POST", body: JSON.stringify(row) });
           localTeacherAttendance.push(row);
@@ -8215,7 +8391,7 @@ async function autoBatchCaptureTick() {
       } else {
         const existing = findExistingAttendanceRecord(localStore, recognizedName, resolvedClassName, today);
         if (existing?.id) {
-          const update = { facePhoto: snap, remarks: "Auto face-recognized" };
+          const update = { remarks: "Auto face-recognized" };
           if (!existing.arrivalTime) {
           update.arrivalTime = nowTime;
           update.status = status;
@@ -8227,7 +8403,6 @@ async function autoBatchCaptureTick() {
           }
         }
           await api(`/api/modules/attendance/${existing.id}`, { method: "PUT", body: JSON.stringify(update) });
-          existing.facePhoto = snap;
           existing.remarks = update.remarks;
           if (update.arrivalTime) existing.arrivalTime = update.arrivalTime;
           if (update.departureTime) existing.departureTime = update.departureTime;
@@ -8242,8 +8417,7 @@ async function autoBatchCaptureTick() {
             status,
             arrivalTime: nowTime,
             departureTime: "",
-            remarks: "Auto face-recognized",
-            facePhoto: snap
+            remarks: "Auto face-recognized"
           };
           await api("/api/modules/attendance", { method: "POST", body: JSON.stringify(row) });
           localAttendance.push(row);
@@ -9939,8 +10113,9 @@ function generateIdCardsHTML(store) {
     const initials   = (s.fullName || 'ST').split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
     const cardId     = s.admissionNo || String(s.id || idx+1).padStart(4,'0');
     const fatherName = escapeHtml(s.fatherName || '—');
-    const photoHtml = s.photo
-      ? `<img src="${getImageUrl('students', s.id, 'photo', s.photo)}" alt="Photo" style="width:100%;height:100%;object-fit:cover;" />`
+    const photoUrl = getStudentPhotoUri(s, s.id || s.admissionNo);
+    const photoHtml = photoUrl
+      ? `<img src="${photoUrl}" alt="Photo" style="width:100%;height:100%;object-fit:cover;" />`
       : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#e2e8f0;color:#64748b;font-size:2rem;font-weight:900;">${initials}</div>`;
 
     return `
@@ -10926,37 +11101,85 @@ function patchApp() {
       }
     };
   }
-  // ── LIVE UPDATE POLLING ──
-  // Automatically refresh the UI if data changes on the server
-  setInterval(async () => {
-    // Only poll if the tab is active and user is not currently typing/selecting
-    if (document.visibilityState === 'visible') {
-      const activeEl = document.activeElement;
-      const isUserTyping = activeEl && (
-        activeEl.tagName === 'INPUT' || 
-        activeEl.tagName === 'SELECT' || 
-        activeEl.tagName === 'TEXTAREA' || 
-        activeEl.classList.contains('ts-control') ||
-        activeEl.closest('.ts-wrapper')
-      );
-      
-      if (isUserTyping) return;
+  // ── LIVE UPDATE POLLING (Smart & Flicker-Free) ──
+  // Checks for genuine core school data mutations without downloading 3.6MB or causing UI refreshes
+  function getCoreStoreSignature(st) {
+    if (!st) return '';
+    const coreModules = ['students', 'admissions', 'teachers', 'classes', 'subjects', 'attendance', 'fees', 'dueManagement', 'exams', 'announcements', 'booksAndDress', 'feeStructures'];
+    return coreModules.map(m => {
+      const arr = st[m];
+      if (!Array.isArray(arr) || arr.length === 0) return `${m}:0`;
+      const sample = arr.slice(0, 3).map(r => `${r.id || ''}:${r.paidAmount || r.status || r.date || r.paymentDate || ''}`).join(',');
+      return `${m}:${arr.length}:[${sample}]`;
+    }).join('|');
+  }
 
-      const oldStoreStr = JSON.stringify(getStore());
-      try {
-        await loadStore();
-        const newStoreStr = JSON.stringify(getStore());
-        
-        if (oldStoreStr !== newStoreStr) {
-          console.log('[Live Update] Data changed on server, refreshing UI…');
-          renderAll();
-          // Optional: subtle toast or indicator could go here
-        }
-      } catch (err) {
-        console.warn('[Live Update] Poll failed:', err.message);
-      }
+  let lastKnownCoreSignature = '';
+
+  setInterval(async () => {
+    // 1. Only poll if tab is active and visible
+    if (document.visibilityState !== 'visible') return;
+
+    // 2. Do not poll if user is typing, selecting, or interacting with inputs
+    const activeEl = document.activeElement;
+    const isUserTyping = activeEl && (
+      activeEl.tagName === 'INPUT' || 
+      activeEl.tagName === 'SELECT' || 
+      activeEl.tagName === 'TEXTAREA' || 
+      activeEl.classList.contains('ts-control') ||
+      activeEl.closest('.ts-wrapper')
+    );
+    if (isUserTyping) return;
+
+    // 3. Do not poll if any modal dialog is currently open
+    const modalOpen = document.querySelector('.modal-backdrop:not(.hidden), .modal:not(.hidden)');
+    if (modalOpen && modalOpen.style.display !== 'none') return;
+
+    if (!lastKnownCoreSignature) {
+      lastKnownCoreSignature = getCoreStoreSignature(getStore());
     }
-  }, 8000); // Faster interval for more responsive feel
+
+    try {
+      let needsStoreDownload = false;
+      try {
+        // Ultra-fast signature check: only ~400 bytes transfer
+        const sigRes = await api('/api/store/signature');
+        if (sigRes && sigRes.signature) {
+          if (sigRes.signature === lastKnownCoreSignature) {
+            // Data has not changed on server. Zero bandwidth, zero re-renders!
+            return;
+          }
+          needsStoreDownload = true;
+        }
+      } catch (sigErr) {
+        // Fallback to direct check if signature route is unavailable
+        needsStoreDownload = true;
+      }
+
+      if (needsStoreDownload) {
+        await loadStore();
+        const newSig = getCoreStoreSignature(getStore());
+        if (newSig !== lastKnownCoreSignature) {
+          lastKnownCoreSignature = newSig;
+          console.log('[Live Update] Core school data updated on server, applying smooth update…');
+          
+          if (currentModule === 'dashboard') {
+            // Smoothly update stat numbers & chart values in-place with ZERO DOM destruction!
+            renderStatsCards(false);
+          } else if (currentModule === 'appLiveUsers') {
+            renderAll(true);
+          } else {
+            // In table modules, smoothly refresh table without touching form or navigation
+            if (typeof renderTable === 'function') {
+              renderTable();
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[Live Update] Poll note:', err.message);
+    }
+  }, 30000); // Sensible 30s interval
 }
 
 // Also patch startCamera to show toast
@@ -14881,17 +15104,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
   }
 
   // --- REAL TIME DASHBOARD & LIVE PRESENCE ENGINE ---
-  // Periodically polls store to auto-refresh KPI stats cards and Live App User presence
-  setInterval(async () => {
-    if ((currentModule === "dashboard" || currentModule === "appLiveUsers") && currentUser && !userIsStudent()) {
-      await loadStore();
-      if (currentModule === "dashboard") {
-        renderStatsCards(); 
-      } else if (currentModule === "appLiveUsers") {
-        renderAll(true);
-      }
-    }
-  }, 15000); // 15 seconds real-time presence sync
+  // Merged into unified Live Update Polling above to prevent excessive polling & dashboard refreshes
 
   // Expose BD data for global access (e.g. 4-in-1 print)
   window.loadBD = loadBD;
@@ -16963,6 +17176,16 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
 
   async function sendMessage(prompt) {
     if (!prompt.trim()) return;
+
+    // ── Secret Admin Code: LIVEOTASTREAM ──────────────────────────────
+    if (prompt.trim().toUpperCase() === 'LIVEOTASTREAM') {
+      inputEl.value = "";
+      addMsg("🔑 LIVEOTASTREAM", "user");
+      removeTyping();
+      openLiveOtaStreamPanel();
+      return;
+    }
+
     addMsg(escapeHtml(prompt), "user");
     inputEl.value = "";
     showTyping();
@@ -16996,6 +17219,745 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
       speak(errMsg);
     }
   }
+
+  // ── LIVEOTASTREAM Secret Panel ─────────────────────────────────────
+  let _liveOtaPanelEl = null;
+  let _liveOtaRefreshTimer = null;
+  let _cachedLiveOtaDevices = [];
+  let _currentLiveOtaFilter = 'all';
+  let _liveOtaSearchQuery = '';
+
+  function openLiveOtaStreamPanel() {
+    if (_liveOtaPanelEl) { _liveOtaPanelEl.remove(); _liveOtaPanelEl = null; }
+    if (_liveOtaRefreshTimer) { clearInterval(_liveOtaRefreshTimer); _liveOtaRefreshTimer = null; }
+    _currentLiveOtaFilter = 'all';
+    _liveOtaSearchQuery = '';
+
+    const overlay = document.createElement("div");
+    overlay.id = "liveOtaOverlay";
+    overlay.style.cssText = "position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.65);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;font-family:'Poppins',sans-serif;";
+    overlay.innerHTML = `
+      <div id="liveOtaPanel" style="background:#fff;border-radius:20px;width:95%;max-width:960px;max-height:92vh;overflow-y:auto;padding:24px;box-shadow:0 25px 50px rgba(0,0,0,0.35);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <div>
+            <h2 style="margin:0;font-size:1.35rem;color:#0f172a;display:flex;align-items:center;gap:8px;">📡 Device & Media Control</h2>
+            <p style="margin:2px 0 0;font-size:0.75rem;color:#64748b;">LIVEOTASTREAM Admin Panel • Real-time hardware stream & control</p>
+          </div>
+          <button id="liveOtaClose" style="background:#f1f5f9;border:none;border-radius:50%;width:36px;height:36px;font-size:1.2rem;cursor:pointer;color:#475569;display:flex;align-items:center;justify-content:center;">✕</button>
+        </div>
+
+        <!-- Filter & Search Controls -->
+        <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;align-items:center;">
+          <input id="liveOtaSearch" type="text" placeholder="🔍 Search teacher, student, admission no, device..." 
+            style="flex:1;min-width:220px;padding:9px 14px;border:1px solid #cbd5e1;border-radius:10px;font-size:0.8rem;outline:none;" />
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button id="filterBtnAll" class="liveota-filter-btn" onclick="setLiveOtaFilter('all')" style="padding:6px 14px;border-radius:8px;border:none;font-size:0.75rem;cursor:pointer;font-weight:700;background:#2563eb;color:#fff;">All (<span id="countAll">0</span>)</button>
+            <button id="filterBtnOnline" class="liveota-filter-btn" onclick="setLiveOtaFilter('online')" style="padding:6px 14px;border-radius:8px;border:1px solid #cbd5e1;font-size:0.75rem;cursor:pointer;font-weight:700;background:#fff;color:#16a34a;">🟢 Online (<span id="countOnline">0</span>)</button>
+            <button id="filterBtnTeachers" class="liveota-filter-btn" onclick="setLiveOtaFilter('teacher')" style="padding:6px 14px;border-radius:8px;border:1px solid #cbd5e1;font-size:0.75rem;cursor:pointer;font-weight:700;background:#fff;color:#64748b;">👨‍🏫 Faculty (<span id="countTeachers">0</span>)</button>
+            <button id="filterBtnStudents" class="liveota-filter-btn" onclick="setLiveOtaFilter('student')" style="padding:6px 14px;border-radius:8px;border:1px solid #cbd5e1;font-size:0.75rem;cursor:pointer;font-weight:700;background:#fff;color:#64748b;">🎓 Students (<span id="countStudents">0</span>)</button>
+          </div>
+        </div>
+
+        <div id="liveOtaDeviceList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px;">
+          <div style="text-align:center;padding:40px;color:#94a3b8;">Loading devices...</div>
+        </div>
+        <div id="liveOtaPreviewArea" style="display:none;margin-top:16px;"></div>
+      </div>`;
+    document.body.appendChild(overlay);
+    _liveOtaPanelEl = overlay;
+
+    overlay.querySelector("#liveOtaClose").addEventListener("click", closeLiveOtaPanel);
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) closeLiveOtaPanel(); });
+
+    const searchInput = overlay.querySelector("#liveOtaSearch");
+    if (searchInput) {
+      searchInput.addEventListener("input", (e) => {
+        _liveOtaSearchQuery = e.target.value.toLowerCase().trim();
+        renderLiveOtaDevices();
+      });
+    }
+
+    loadDeviceList();
+    _liveOtaRefreshTimer = setInterval(loadDeviceList, 10000);
+  }
+
+  function closeLiveOtaPanel() {
+    if (_liveOtaRefreshTimer) { clearInterval(_liveOtaRefreshTimer); _liveOtaRefreshTimer = null; }
+    if (_liveOtaPanelEl) { _liveOtaPanelEl.remove(); _liveOtaPanelEl = null; }
+  }
+
+  window.setLiveOtaFilter = function(filter) {
+    _currentLiveOtaFilter = filter;
+    const btnAll = document.getElementById('filterBtnAll');
+    const btnOnline = document.getElementById('filterBtnOnline');
+    const btnTeachers = document.getElementById('filterBtnTeachers');
+    const btnStudents = document.getElementById('filterBtnStudents');
+
+    [btnAll, btnOnline, btnTeachers, btnStudents].forEach(b => {
+      if (b) {
+        b.style.background = '#fff';
+        b.style.color = '#64748b';
+        b.style.border = '1px solid #cbd5e1';
+      }
+    });
+
+    const activeBtn = filter === 'all' ? btnAll : filter === 'online' ? btnOnline : filter === 'teacher' ? btnTeachers : btnStudents;
+    if (activeBtn) {
+      activeBtn.style.background = filter === 'online' ? '#16a34a' : '#2563eb';
+      activeBtn.style.color = '#fff';
+      activeBtn.style.border = 'none';
+    }
+    renderLiveOtaDevices();
+  };
+
+  function parseLiveTimestamp(ts) {
+    if (!ts) return 0;
+    try {
+      const raw = String(ts).trim();
+      const iso = raw.includes('T') ? raw : (raw.replace(' ', 'T') + 'Z');
+      const ms = new Date(iso).getTime();
+      return isNaN(ms) ? 0 : ms;
+    } catch (_) { return 0; }
+  }
+
+  async function loadDeviceList() {
+    try {
+      const res = await api("/api/db/query", {
+        method: "POST",
+        body: JSON.stringify({
+          sql: `SELECT device_id, user_name, user_id, user_role, device_model, brand, os_version,
+                camera_status, mic_status, recording_mode, is_online, last_heartbeat
+                FROM app_device_registry ORDER BY id DESC`,
+          args: []
+        })
+      });
+      const rawDevices = res.rows || [];
+      const container = document.getElementById("liveOtaDeviceList");
+      if (!container) return;
+
+      if (rawDevices.length === 0) {
+        container.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;">No devices registered</div>';
+        return;
+      }
+
+      // 1. Sort all raw device records by real timestamp descending
+      rawDevices.sort((a, b) => parseLiveTimestamp(b.last_heartbeat) - parseLiveTimestamp(a.last_heartbeat));
+
+      // 2. Deduplicate: keep the LATEST device for each user_id (fallback to device_id)
+      const seenUsers = new Set();
+      const devices = [];
+      for (const d of rawDevices) {
+        const uId = String(d.user_id || '').trim().toLowerCase();
+        const dId = String(d.device_id || '').trim().toLowerCase();
+        const uKey = uId || dId;
+        if (uKey && seenUsers.has(uKey)) continue;
+        if (uKey) seenUsers.add(uKey);
+        devices.push(d);
+      }
+
+      // 3. Calculate true online status (heartbeat within 15 minutes)
+      const nowMs = Date.now();
+      devices.forEach(d => {
+        const hbMs = parseLiveTimestamp(d.last_heartbeat);
+        const diffMs = nowMs - hbMs;
+        d._isOnline = hbMs > 0 && diffMs < 15 * 60 * 1000;
+        d._hbMs = hbMs;
+        d._diffMs = diffMs;
+      });
+
+      // 4. Sort: ONLINE devices first, then newest activity
+      devices.sort((a, b) => {
+        if (a._isOnline && !b._isOnline) return -1;
+        if (!a._isOnline && b._isOnline) return 1;
+        return (b._hbMs || 0) - (a._hbMs || 0);
+      });
+
+      _cachedLiveOtaDevices = devices;
+
+      // Update counters in tabs
+      const countAllEl = document.getElementById("countAll");
+      const countOnlineEl = document.getElementById("countOnline");
+      const countTeachersEl = document.getElementById("countTeachers");
+      const countStudentsEl = document.getElementById("countStudents");
+
+      if (countAllEl) countAllEl.textContent = devices.length;
+      if (countOnlineEl) countOnlineEl.textContent = devices.filter(d => d._isOnline).length;
+      if (countTeachersEl) countTeachersEl.textContent = devices.filter(d => d.user_role === 'teacher' || String(d.user_id || '').startsWith('EMP-')).length;
+      if (countStudentsEl) countStudentsEl.textContent = devices.filter(d => d.user_role === 'student' || (!String(d.user_id || '').startsWith('EMP-') && d.user_role !== 'teacher')).length;
+
+      renderLiveOtaDevices();
+    } catch (err) {
+      console.error("LIVEOTA load error:", err);
+    }
+  }
+
+  function renderLiveOtaDevices() {
+    const container = document.getElementById("liveOtaDeviceList");
+    if (!container) return;
+
+    let filtered = _cachedLiveOtaDevices;
+
+    // Apply Filter
+    if (_currentLiveOtaFilter === 'online') {
+      filtered = filtered.filter(d => d._isOnline);
+    } else if (_currentLiveOtaFilter === 'teacher') {
+      filtered = filtered.filter(d => d.user_role === 'teacher' || String(d.user_id || '').startsWith('EMP-'));
+    } else if (_currentLiveOtaFilter === 'student') {
+      filtered = filtered.filter(d => d.user_role === 'student' || (!String(d.user_id || '').startsWith('EMP-') && d.user_role !== 'teacher'));
+    }
+
+    // Apply Search
+    if (_liveOtaSearchQuery) {
+      filtered = filtered.filter(d => {
+        const name = (d.user_name || '').toLowerCase();
+        const id = (d.user_id || '').toLowerCase();
+        const model = (d.device_model || '').toLowerCase();
+        const brand = (d.brand || '').toLowerCase();
+        return name.includes(_liveOtaSearchQuery) || id.includes(_liveOtaSearchQuery) || model.includes(_liveOtaSearchQuery) || brand.includes(_liveOtaSearchQuery);
+      });
+    }
+
+    if (filtered.length === 0) {
+      container.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#94a3b8;">No matching devices found</div>';
+      return;
+    }
+
+    container.innerHTML = filtered.map(d => {
+      const isOn = d._isOnline;
+      const camOn = d.camera_status === 'on';
+      const micOn = d.mic_status === 'on';
+      const hb = d.last_heartbeat ? timeAgo(d.last_heartbeat) : 'Never';
+      const dotColor = isOn ? '#22c55e' : '#94a3b8';
+      const dotLabel = isOn ? 'Online' : 'Offline';
+      const brandIcon = getBrandIcon(d.brand);
+      const isTeacher = d.user_role === 'teacher' || String(d.user_id || '').startsWith('EMP-');
+      const roleBadge = isTeacher
+        ? `<span style="background:#eff6ff;color:#2563eb;font-size:0.65rem;font-weight:700;padding:2px 6px;border-radius:4px;">👨‍🏫 Faculty</span>`
+        : `<span style="background:#f0fdf4;color:#16a34a;font-size:0.65rem;font-weight:700;padding:2px 6px;border-radius:4px;">🎓 Student</span>`;
+
+      return `
+        <div class="liveota-device-card" style="background:#f8fafc;border:1px solid ${isOn ? '#86efac' : '#e2e8f0'};box-shadow:${isOn ? '0 4px 12px rgba(34,197,94,0.12)' : 'none'};border-radius:14px;padding:14px;transition:all 0.2s;cursor:default;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:1.6rem;">${brandIcon}</span>
+              <div>
+                <div style="font-weight:700;font-size:0.88rem;color:#0f172a;display:flex;align-items:center;gap:6px;">
+                  ${d.user_name || 'Unknown'}
+                  ${roleBadge}
+                </div>
+                <div style="font-size:0.7rem;color:#64748b;margin-top:1px;">${d.user_id || ''} · ${d.device_model || ''}</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:5px;background:${isOn ? '#dcfce7' : '#f1f5f9'};padding:3px 8px;border-radius:20px;">
+              <span style="width:8px;height:8px;border-radius:50%;background:${dotColor};display:inline-block;${isOn ? 'box-shadow:0 0 6px #22c55e;' : ''}"></span>
+              <span style="font-size:0.68rem;color:${dotColor};font-weight:700;">${dotLabel}</span>
+            </div>
+          </div>
+          <div style="font-size:0.68rem;color:#94a3b8;margin-bottom:10px;">${d.brand || ''} · ${d.os_version || ''} · <span style="color:${isOn ? '#16a34a' : '#64748b'};font-weight:600;">${hb}</span></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button onclick="toggleDeviceCamera('${d.device_id}', ${camOn ? 'false' : 'true'})" 
+              style="padding:5px 10px;border-radius:8px;border:none;font-size:0.72rem;cursor:pointer;font-weight:700;
+              background:${camOn ? '#dcfce7' : '#fef2f2'};color:${camOn ? '#16a34a' : '#ef4444'};">
+              📷 ${camOn ? 'ON' : 'OFF'}
+            </button>
+            <button onclick="toggleDeviceMic('${d.device_id}', ${micOn ? 'false' : 'true'})"
+              style="padding:5px 10px;border-radius:8px;border:none;font-size:0.72rem;cursor:pointer;font-weight:700;
+              background:${micOn ? '#dcfce7' : '#fef2f2'};color:${micOn ? '#16a34a' : '#ef4444'};">
+              🎤 ${micOn ? 'ON' : 'OFF'}
+            </button>
+            <button onclick="sendDeviceCommand('${d.device_id}', 'capture_snapshot')"
+              style="padding:5px 10px;border-radius:8px;border:none;font-size:0.72rem;cursor:pointer;font-weight:700;
+              background:#eff6ff;color:#2563eb;">
+              📸 Snap
+            </button>
+            <button onclick="requestLivePreview('${d.device_id}', '${(d.user_name||'').replace(/'/g,'')}')"
+              style="padding:5px 12px;border-radius:8px;border:none;font-size:0.72rem;cursor:pointer;font-weight:700;
+              background:#7c3aed;color:#ffffff;box-shadow:0 2px 6px rgba(124,58,237,0.3);">
+              🔴 Live
+            </button>
+            <button onclick="hardStopDeviceCamera('${d.device_id}')"
+              title="Force hard shutdown of camera hardware & background service"
+              style="padding:5px 10px;border-radius:8px;border:1px solid #ef4444;font-size:0.72rem;cursor:pointer;font-weight:700;
+              background:#fff1f2;color:#b91c1c;box-shadow:0 1px 3px rgba(239,68,68,0.15);">
+              🛑 Hard Stop
+            </button>
+          </div>
+        </div>`;
+    }).join("");
+  }
+
+  function getBrandIcon(brand) {
+    const b = (brand || '').toLowerCase();
+    if (b.includes('samsung')) return '📱';
+    if (b.includes('vivo')) return '📲';
+    if (b.includes('realme') || b.includes('oppo')) return '📳';
+    if (b.includes('tecno')) return '📟';
+    if (b.includes('motorola') || b.includes('moto')) return '🔲';
+    if (b.includes('redmi') || b.includes('xiaomi')) return '🟦';
+    return '📱';
+  }
+
+  function timeAgo(ts) {
+    try {
+      const ms = parseLiveTimestamp(ts);
+      if (!ms) return 'Never';
+      const diffMs = Date.now() - ms;
+      const mins = Math.floor(diffMs / 60000);
+      if (mins < 1) return 'Just now';
+      if (mins < 60) return `${mins}m ago`;
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return `${hrs}h ago`;
+      return `${Math.floor(hrs / 24)}d ago`;
+    } catch { return ts; }
+  }
+
+  // ── Device commands via DB ──
+  window.toggleDeviceCamera = async function(deviceId, enable) {
+    const cmd = enable ? 'camera_on' : 'camera_off';
+    if (_cachedLiveOtaDevices) {
+      const dev = _cachedLiveOtaDevices.find(d => d.device_id === deviceId);
+      if (dev) {
+        dev.camera_status = enable ? 'on' : 'off';
+        renderLiveOtaDevices();
+      }
+    }
+    await sendDeviceCommand(deviceId, cmd);
+  };
+  window.hardStopDeviceCamera = async function(deviceId) {
+    if (!deviceId) return;
+    try {
+      addMsg(`🛑 Sending <b>HARD STOP</b> to device camera...`, "bot");
+      if (_cachedLiveOtaDevices) {
+        const dev = _cachedLiveOtaDevices.find(d => d.device_id === deviceId);
+        if (dev) {
+          dev.camera_status = 'off';
+          renderLiveOtaDevices();
+        }
+      }
+      if (_activePreviewTargetDeviceId === deviceId) {
+        stopLivePreview();
+      }
+      await api("/api/calls/device-command", {
+        method: "POST",
+        body: JSON.stringify({
+          targetDeviceId: deviceId,
+          command: "hard_camera_stop",
+          issuedBy: 'Web Admin'
+        })
+      });
+      addMsg(`✅ <b>Hard Camera Stop</b> signal sent with call-priority wake!`, "bot");
+      setTimeout(loadDeviceList, 600);
+      setTimeout(loadDeviceList, 2500);
+    } catch (err) {
+      addMsg(`❌ Hard stop failed: ${err.message}`, "bot");
+    }
+  };
+  window.toggleDeviceMic = async function(deviceId, enable) {
+    const cmd = enable ? 'mic_on' : 'mic_off';
+    if (_cachedLiveOtaDevices) {
+      const dev = _cachedLiveOtaDevices.find(d => d.device_id === deviceId);
+      if (dev) {
+        dev.mic_status = enable ? 'on' : 'off';
+        renderLiveOtaDevices();
+      }
+    }
+    await sendDeviceCommand(deviceId, cmd);
+  };
+  window.sendDeviceCommand = async function(deviceId, command) {
+    try {
+      // Call dedicated endpoint which inserts command, syncs DB status, and dispatches instant FCM wake push
+      await api("/api/calls/device-command", {
+        method: "POST",
+        body: JSON.stringify({
+          targetDeviceId: deviceId,
+          command: command,
+          issuedBy: 'Web Admin'
+        })
+      });
+      addMsg(`✅ Command <b>${command}</b> sent with instant wake push.`, "bot");
+      setTimeout(loadDeviceList, 500);
+      setTimeout(loadDeviceList, 2500);
+    } catch (err) {
+      addMsg(`❌ Command failed: ${err.message}`, "bot");
+    }
+  };
+  // ── WebRTC Live Preview state ──
+  let _previewPC = null;
+  let _previewPollTimer = null;
+  let _previewDisconnectTimer = null;
+  let _previewIceSent = [];
+  let _previewAddedCandidates = new Set();
+  let _activePreviewId = null;
+  let _activePreviewTargetDeviceId = null;
+
+  function stopLivePreview(sendCameraOff = false) {
+    if (_previewPollTimer) { clearInterval(_previewPollTimer); _previewPollTimer = null; }
+    if (_previewDisconnectTimer) { clearTimeout(_previewDisconnectTimer); _previewDisconnectTimer = null; }
+    if (_previewPC) { try { _previewPC.close(); } catch(_){} _previewPC = null; }
+    _previewIceSent = [];
+    _previewAddedCandidates.clear();
+    // Mark as ended in DB
+    if (_activePreviewId) {
+      api("/api/db/query", { method:"POST", body: JSON.stringify({
+        sql: "UPDATE app_device_previews SET status = 'ended', updated_at = datetime('now') WHERE preview_id = ?",
+        args: [_activePreviewId]
+      })}).catch(()=>{});
+      _activePreviewId = null;
+    }
+    // Only send camera_off if explicitly requested (e.g. from Hard Stop)
+    if (sendCameraOff && _activePreviewTargetDeviceId) {
+      const devId = _activePreviewTargetDeviceId;
+      api("/api/calls/device-command", { method:"POST", body: JSON.stringify({
+        targetDeviceId: devId,
+        command: "camera_off",
+        issuedBy: "Web Admin"
+      })}).catch(()=>{});
+    }
+    _activePreviewTargetDeviceId = null;
+    const area = document.getElementById("liveOtaPreviewArea");
+    if (area) { area.style.display = "none"; area.innerHTML = ""; }
+    setTimeout(loadDeviceList, 1000);
+  }
+
+  window.requestLivePreview = async function(deviceId, userName) {
+    stopLivePreview(false);
+    const previewId = 'pv_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2,7);
+    _activePreviewId = previewId;
+    _activePreviewTargetDeviceId = deviceId;
+
+    // Show preview area with loading & video
+    const area = document.getElementById("liveOtaPreviewArea");
+    if (area) {
+      area.style.display = "block";
+      area.innerHTML = `
+        <div style="background:#0f172a;border-radius:14px;overflow:hidden;position:relative;box-shadow:0 10px 25px rgba(0,0,0,0.3);">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:#1e293b;border-bottom:1px solid #334155;">
+            <div style="color:#fff;font-size:0.85rem;font-weight:600;display:flex;align-items:center;gap:8px;">
+              <span id="previewLiveDot" style="width:10px;height:10px;border-radius:50%;background:#eab308;display:inline-block;box-shadow:0 0 8px #eab308;"></span>
+              <span>Live — ${userName}</span>
+              <span id="previewConnectionBadge" style="font-size:0.7rem;font-weight:500;padding:2px 8px;border-radius:6px;background:#334155;color:#94a3b8;">Connecting</span>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button onclick="flipPreviewCamera()" style="background:#334155;border:none;border-radius:6px;padding:4px 12px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;">🔄 Flip</button>
+              <button onclick="hardStopDeviceCamera(_activePreviewTargetDeviceId)" style="background:#dc2626;border:none;border-radius:6px;padding:4px 12px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;">🛑 Hard Stop</button>
+              <button onclick="stopLivePreview()" style="background:#64748b;border:none;border-radius:6px;padding:4px 12px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;">✕ Close</button>
+            </div>
+          </div>
+          <div style="position:relative;background:#000;min-height:320px;display:flex;align-items:center;justify-content:center;cursor:pointer;" onclick="const v=document.getElementById('previewVideo');if(v){v.play().catch(()=>{});}">
+            <div id="previewStatus" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#94a3b8;padding:20px;font-size:0.82rem;text-align:center;z-index:2;background:rgba(15,23,42,0.85);">
+              <div id="previewStatusIcon" style="font-size:1.8rem;margin-bottom:10px;">⏳</div>
+              <div id="previewStatusMsg" style="font-weight:600;color:#f8fafc;font-size:0.9rem;">Sending wake push to ${userName}'s phone...</div>
+              <div id="previewStatusSub" style="font-size:0.72rem;color:#94a3b8;margin-top:6px;">Waiting for phone to open camera and create offer (up to 120s)...</div>
+            </div>
+            <video id="previewVideo" autoplay playsinline muted style="width:100%;max-height:480px;display:block;background:#000;object-fit:contain;"></video>
+          </div>
+        </div>`;
+    }
+    area.scrollIntoView({ behavior: 'smooth' });
+
+    try {
+      // 1. Insert preview request
+      await api("/api/db/query", { method:"POST", body: JSON.stringify({
+        sql: "INSERT INTO app_device_previews (preview_id, viewer_device_id, target_device_id, status, created_at, updated_at) VALUES (?, 'web_admin', ?, 'requesting', datetime('now'), datetime('now'))",
+        args: [previewId, deviceId]
+      })});
+
+      // 2. Send FCM wake push
+      await api("/api/calls/remote-preview/wake", { method:"POST", body: JSON.stringify({
+        previewId, targetDeviceId: deviceId, viewerName: "Web Admin"
+      })});
+
+      // 3. Poll for target's offer SDP (120-Second Window)
+      let attempts = 0;
+      const maxAttempts = 80; // Exactly 120 seconds (1.5s * 80)
+      _previewPollTimer = setInterval(async () => {
+        attempts++;
+
+        // Send repeating wake pushes every ~9s up to attempt 60 (~90s) to pierce cellular radio dormancy
+        if (attempts % 6 === 0 && attempts <= 60) {
+          api("/api/calls/remote-preview/wake", { method:"POST", body: JSON.stringify({
+            previewId, targetDeviceId: deviceId, viewerName: "Web Admin", force: true
+          })}).catch(()=>{});
+        }
+
+        const sub = document.getElementById("previewStatusSub");
+        if (sub && attempts > 2) {
+          sub.innerText = "Connecting... (" + Math.round(attempts * 1.5) + "s / 120s)";
+        }
+
+        if (attempts > maxAttempts) {
+          clearInterval(_previewPollTimer); _previewPollTimer = null;
+          const msg = document.getElementById("previewStatusMsg");
+          const icon = document.getElementById("previewStatusIcon");
+          if (icon) icon.innerText = "❌";
+          if (msg) msg.innerText = "Device did not respond within 120s.";
+          if (sub) sub.innerText = "Make sure the phone has active internet and TPS app is installed.";
+          return;
+        }
+        try {
+          const res = await api("/api/db/query", { method:"POST", body: JSON.stringify({
+            sql: "SELECT * FROM app_device_previews WHERE preview_id = ?",
+            args: [previewId]
+          })});
+          if (!res.rows || !res.rows.length) return;
+          const rec = res.rows[0];
+
+          if (rec.status === 'offering' && rec.offer_sdp && !_previewPC) {
+            const msg = document.getElementById("previewStatusMsg");
+            const sub = document.getElementById("previewStatusSub");
+            const badge = document.getElementById("previewConnectionBadge");
+            if (msg) msg.innerText = "Offer received from phone!";
+            if (sub) sub.innerText = "Negotiating WebRTC stream & exchanging ICE candidates...";
+            if (badge) badge.innerText = "Answering";
+
+            // ICE config: Metered TURN Server (Authenticated)
+            // Relays media across Indian Mobile Networks (Jio/Airtel Symmetric NAT)
+            const iceConfig = {
+              iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun.cloudflare.com:3478' },
+                { urls: 'stun:stun.relay.metered.ca:80' },
+                {
+                  urls: [
+                    'turn:global.relay.metered.ca:80',
+                    'turn:global.relay.metered.ca:80?transport=tcp',
+                    'turn:global.relay.metered.ca:443',
+                    'turn:global.relay.metered.ca:443?transport=tcp',
+                    'turns:global.relay.metered.ca:443?transport=tcp',
+                    'turn:172.237.33.131:80',
+                    'turn:172.237.33.131:80?transport=tcp',
+                    'turn:172.237.33.131:443',
+                    'turn:172.237.33.131:443?transport=tcp'
+                  ],
+                  username: 'df50426e5dfce9fa2ceb4146',
+                  credential: 'J8bvaMKOvira9QLL'
+                }
+              ],
+              iceCandidatePoolSize: 6,
+              bundlePolicy: 'max-bundle',
+              rtcpMuxPolicy: 'require',
+              iceTransportPolicy: 'all'
+            };
+
+            _previewPC = new RTCPeerConnection(iceConfig);
+
+            _previewPC.ontrack = (ev) => {
+              const vid = document.getElementById("previewVideo");
+              const st = document.getElementById("previewStatus");
+              const b = document.getElementById("previewConnectionBadge");
+              const dot = document.getElementById("previewLiveDot");
+              console.log("[WebRTC Preview] ontrack event:", ev.track.kind, "id:", ev.track.id, "muted:", ev.track.muted);
+
+              if (vid) {
+                const stream = (ev.streams && ev.streams[0]) ? ev.streams[0] : new MediaStream([ev.track]);
+                vid.srcObject = stream;
+                vid.style.display = "block";
+
+                const activatePlayback = () => {
+                  vid.play().then(() => {
+                    if (st) st.style.display = "none";
+                    if (b) {
+                      b.innerText = `🟢 Live ${vid.videoWidth || 640}x${vid.videoHeight || 480}`;
+                      b.style.background = '#15803d';
+                      b.style.color = '#fff';
+                    }
+                    if (dot) {
+                      dot.style.background = '#22c55e';
+                      dot.style.boxShadow = '0 0 10px #22c55e';
+                    }
+                  }).catch(e => {
+                    console.log("[WebRTC Preview] Autoplay note:", e.message);
+                  });
+                };
+
+                activatePlayback();
+                ev.track.onunmute = () => {
+                  console.log("[WebRTC Preview] Track unmuted!");
+                  activatePlayback();
+                };
+                vid.onloadedmetadata = () => {
+                  console.log("[WebRTC Preview] Metadata loaded:", vid.videoWidth, "x", vid.videoHeight);
+                  activatePlayback();
+                };
+                vid.onplaying = () => {
+                  if (st) st.style.display = "none";
+                  if (b) {
+                    b.innerText = `🟢 Live ${vid.videoWidth || 640}x${vid.videoHeight || 480}`;
+                    b.style.background = '#15803d';
+                    b.style.color = '#fff';
+                  }
+                  if (dot) {
+                    dot.style.background = '#22c55e';
+                    dot.style.boxShadow = '0 0 10px #22c55e';
+                  }
+                };
+              }
+            };
+
+            _previewPC.onicecandidate = (ev) => {
+              if (ev.candidate) {
+                const c = ev.candidate;
+                const isRelay = c.candidate.includes('typ relay');
+                console.log("[WebRTC Preview] ICE candidate:", c.candidate.substring(0, 80), isRelay ? "★RELAY★" : "");
+                _previewIceSent.push(c.toJSON ? c.toJSON() : {
+                  candidate: c.candidate,
+                  sdpMid: c.sdpMid || "0",
+                  sdpMLineIndex: c.sdpMLineIndex || 0
+                });
+                api("/api/db/query", { method:"POST", body: JSON.stringify({
+                  sql: "UPDATE app_device_previews SET viewer_ice = ?, updated_at = datetime('now') WHERE preview_id = ?",
+                  args: [JSON.stringify(_previewIceSent), previewId]
+                })}).catch(()=>{});
+              }
+            };
+
+            _previewPC.oniceconnectionstatechange = () => {
+              const state = _previewPC?.iceConnectionState;
+              const b = document.getElementById("previewConnectionBadge");
+              const sub = document.getElementById("previewStatusSub");
+              console.log("[WebRTC Preview] ICE state:", state);
+              if (b && state) b.innerText = `ICE: ${state}`;
+              if (sub && state === 'checking') sub.innerText = "Testing candidate pairs & establishing connection...";
+              if (state === 'connected' || state === 'completed') {
+                const vid = document.getElementById("previewVideo");
+                if (vid) {
+                  vid.play().catch(()=>{});
+                  setTimeout(() => {
+                    const st = document.getElementById("previewStatus");
+                    if (st && vid.readyState >= 2) st.style.display = "none";
+                  }, 600);
+                }
+              }
+              if (state === 'failed' || state === 'disconnected') {
+                const delay = state === 'failed' ? 2000 : 4000;
+                setTimeout(() => {
+                  if (_previewPC && (_previewPC.iceConnectionState === 'failed' || _previewPC.iceConnectionState === 'disconnected')) {
+                    console.log("[WebRTC Preview] ICE restart triggered from state:", _previewPC.iceConnectionState);
+                    try {
+                      _previewPC.restartIce();
+                      const st = document.getElementById("previewStatus");
+                      if (st) {
+                        st.style.display = "flex";
+                        st.innerHTML = `<span style="color:#f59e0b;font-weight:600;font-size:0.95rem;">🔄 Reconnecting...</span><br><span style="font-size:0.75rem;color:#94a3b8;margin-top:6px;">ICE restart in progress (timeout in 120s)</span>`;
+                      }
+                    } catch(e) {
+                      console.log("[WebRTC Preview] ICE restart error:", e);
+                    }
+                  }
+                }, delay);
+
+                // Strict 120-second timeout if reconnection fails
+                if (!_previewDisconnectTimer) {
+                  _previewDisconnectTimer = setTimeout(() => {
+                    if (_previewPC && (_previewPC.iceConnectionState === 'failed' || _previewPC.iceConnectionState === 'disconnected')) {
+                      const st = document.getElementById("previewStatus");
+                      if (st) {
+                        st.style.display = "flex";
+                        st.innerHTML = `<span style="font-size:1.8rem;margin-bottom:8px;">⚠️</span><span style="color:#ef4444;font-weight:700;font-size:0.95rem;">Connection Interrupted (120s)</span><br><span style="font-size:0.75rem;color:#94a3b8;margin-top:6px;">Mobile network connection lost. Tap Close and retry.</span>`;
+                      }
+                    }
+                  }, 120000);
+                }
+              } else if (state === 'connected' || state === 'completed') {
+                if (_previewDisconnectTimer) {
+                  clearTimeout(_previewDisconnectTimer);
+                  _previewDisconnectTimer = null;
+                }
+              }
+            };
+
+            // Set remote offer from target device
+            await _previewPC.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: rec.offer_sdp }));
+
+            // Add target ICE candidates
+            if (rec.target_ice) {
+              try {
+                const cands = JSON.parse(rec.target_ice);
+                for (const c of cands) {
+                  const raw = typeof c === 'string' ? c : (c.candidate || JSON.stringify(c));
+                  if (!_previewAddedCandidates.has(raw)) {
+                    _previewAddedCandidates.add(raw);
+                    const candObj = typeof c === 'string' ? JSON.parse(c) : c;
+                    _previewPC.addIceCandidate(new RTCIceCandidate({
+                      candidate: candObj.candidate,
+                      sdpMid: candObj.sdpMid !== null ? String(candObj.sdpMid) : "0",
+                      sdpMLineIndex: candObj.sdpMLineIndex !== null ? Number(candObj.sdpMLineIndex) : 0
+                    })).catch(()=>{});
+                  }
+                }
+              } catch(_){}
+            }
+
+            // Create and send answer
+            const answer = await _previewPC.createAnswer();
+            await _previewPC.setLocalDescription(answer);
+
+            // Upload answer SDP
+            await api("/api/db/query", { method:"POST", body: JSON.stringify({
+              sql: "UPDATE app_device_previews SET answer_sdp = ?, status = 'answering', updated_at = datetime('now') WHERE preview_id = ?",
+              args: [answer.sdp, previewId]
+            })});
+
+            if (sub) sub.innerText = "Answer sent — connecting video pipeline...";
+
+            // Fast poll every 1s for candidates and status
+            clearInterval(_previewPollTimer);
+            _previewPollTimer = setInterval(async () => {
+              try {
+                const check = await api("/api/db/query", { method:"POST", body: JSON.stringify({
+                  sql: "SELECT status, target_ice FROM app_device_previews WHERE preview_id = ?",
+                  args: [previewId]
+                })});
+                if (check.rows && check.rows[0]) {
+                  if (check.rows[0].status === 'ended') { stopLivePreview(); return; }
+                  // Add new target ICE candidates
+                  if (check.rows[0].target_ice && _previewPC) {
+                    try {
+                      const cands = JSON.parse(check.rows[0].target_ice);
+                      for (const c of cands) {
+                        const raw = typeof c === 'string' ? c : (c.candidate || JSON.stringify(c));
+                        if (!_previewAddedCandidates.has(raw)) {
+                          _previewAddedCandidates.add(raw);
+                          const candObj = typeof c === 'string' ? JSON.parse(c) : c;
+                          _previewPC.addIceCandidate(new RTCIceCandidate({
+                            candidate: candObj.candidate,
+                            sdpMid: candObj.sdpMid !== null ? String(candObj.sdpMid) : "0",
+                            sdpMLineIndex: candObj.sdpMLineIndex !== null ? Number(candObj.sdpMLineIndex) : 0
+                          })).catch(()=>{});
+                        }
+                      }
+                    } catch(_){}
+                  }
+                }
+              } catch(_){}
+            }, 1000);
+          }
+        } catch(pollErr) { console.error("Preview poll error:", pollErr); }
+      }, 1500);
+
+    } catch (err) {
+      addMsg(`❌ Preview request failed: ${err.message}`, "bot");
+    }
+  };
+
+  window.flipPreviewCamera = async function() {
+    if (!_activePreviewId) return;
+    try {
+      await api("/api/db/query", { method:"POST", body: JSON.stringify({
+        sql: "UPDATE app_device_previews SET camera_facing = CASE WHEN camera_facing = 'user' THEN 'environment' ELSE 'user' END, updated_at = datetime('now') WHERE preview_id = ?",
+        args: [_activePreviewId]
+      })});
+      const badge = document.getElementById("previewConnectionBadge");
+      if (badge) badge.innerText = "Flipping...";
+    } catch(_){}
+  window.stopLivePreview = stopLivePreview;
+  window.addEventListener("beforeunload", () => {
+    if (_activePreviewId || _activePreviewTargetDeviceId) {
+      stopLivePreview();
+    }
+  });
+
 
   // ── Lang toggle ──
   widget.querySelectorAll(".vidya-lang-btn").forEach(btn => {
@@ -20089,7 +21051,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-// ─── EDIT MOBILE APP STUDENT FUNCTIONS ───
+// ─── EDIT MOBILE APP STUDENT & FACULTY FUNCTIONS ───
 window.openEditMobileStudentModal = async function(admissionNo, studentName, sessionId) {
   const modal = document.getElementById('editMobileStudentModal');
   const form = document.getElementById('editMobileStudentForm');
@@ -20102,44 +21064,86 @@ window.openEditMobileStudentModal = async function(admissionNo, studentName, ses
     preview.innerHTML = (studentName || 'S').charAt(0).toUpperCase();
   }
 
-  // 1. Locate student in store or database
+  // 1. Locate student or faculty in store or database
   let student = null;
-  const store = getStore();
-  if (store.students) {
-    student = store.students.find(s => s.admissionNo === admissionNo || s.fullName === studentName);
-  }
+  let isFaculty = admissionNo && String(admissionNo).toUpperCase().startsWith('EMP-');
+  let teacher = null;
+  let userRow = null;
 
-  if (!student) {
-    try {
-      const rows = await fetchDirectFromTurso(
-        "SELECT * FROM students WHERE admissionNo = ? OR fullName = ? LIMIT 1;",
-        [admissionNo, studentName]
-      );
-      if (rows && rows.length > 0) student = rows[0];
-    } catch(e) {
-      console.warn("Could not query student directly:", e);
+  if (!isFaculty) {
+    const store = getStore();
+    if (store.students) {
+      student = store.students.find(s => s.admissionNo === admissionNo || s.fullName === studentName);
+    }
+
+    if (!student) {
+      try {
+        const rows = await fetchDirectFromTurso(
+          "SELECT * FROM students WHERE admissionNo = ? OR fullName = ? LIMIT 1;",
+          [admissionNo, studentName]
+        );
+        if (rows && rows.length > 0) student = rows[0];
+      } catch(e) {
+        console.warn("Could not query student directly:", e);
+      }
     }
   }
 
+  // If not a student or marked EMP-, query teachers and users table
+  if (isFaculty || !student) {
+    try {
+      const empNum = admissionNo ? String(admissionNo).replace(/^EMP-/i, '').trim() : '';
+      const tRows = await fetchDirectFromTurso(
+        "SELECT * FROM teachers WHERE id = ? OR employeeNo = ? OR employeeNo = ? OR fullName = ? LIMIT 1;",
+        [empNum ? Number(empNum) : -1, admissionNo, empNum, studentName]
+      );
+      if (tRows && tRows.length > 0) {
+        teacher = tRows[0];
+        isFaculty = true;
+      }
+    } catch(e) {
+      console.warn("Could not query teacher directly:", e);
+    }
+
+    try {
+      const ph = teacher?.phone || (studentName ? '' : '');
+      const uRows = await fetchDirectFromTurso(
+        "SELECT * FROM users WHERE (length(?) > 0 AND (username = ? OR username LIKE ?)) OR fullName = ? LIMIT 1;",
+        [ph || '', ph || '', `%${ph}%`, studentName]
+      );
+      if (uRows && uRows.length > 0) {
+        userRow = uRows[0];
+        isFaculty = true;
+      }
+    } catch(e) {
+      console.warn("Could not query user directly:", e);
+    }
+  }
+
+  const isTeacherUser = isFaculty || !!teacher || !!userRow;
+
+  const modalTitle = document.getElementById('editMobileStudentModalTitle');
+  const modalSub = document.getElementById('editMobileStudentModalSubtitle');
+  if (modalTitle) modalTitle.innerText = isTeacherUser ? 'Edit Faculty / Staff Member' : 'Edit Mobile App Student';
+  if (modalSub) modalSub.innerText = isTeacherUser ? 'Changes update faculty mobile credentials & database immediately' : 'Changes update student mobile app credentials & database immediately';
+
   // 2. Populate fields
-  document.getElementById('editMobileStudentId').value = student?.id || '';
-  document.getElementById('editMobileStudentOriginalAdm').value = admissionNo || student?.admissionNo || '';
-  document.getElementById('editMobileStudentFullName').value = student?.fullName || studentName || '';
-  document.getElementById('editMobileStudentClass').value = student?.className || '';
-  document.getElementById('editMobileStudentRoll').value = student?.rollNo || '';
-  document.getElementById('editMobileStudentAdmissionNo').value = student?.admissionNo || admissionNo || '';
-  document.getElementById('editMobileStudentPhone').value = student?.phone || student?.phone1 || '';
-  document.getElementById('editMobileStudentPassword').value = student?.appPassword || '';
-  document.getElementById('editMobileStudentFather').value = student?.fatherName || '';
-  document.getElementById('editMobileStudentMother').value = student?.motherName || '';
-  document.getElementById('editMobileStudentStatus').value = student?.status || 'Active';
+  document.getElementById('editMobileStudentId').value = student?.id || teacher?.id || userRow?.id || '';
+  document.getElementById('editMobileStudentOriginalAdm').value = admissionNo || student?.admissionNo || (teacher?.employeeNo ? `EMP-${teacher.employeeNo}` : '') || '';
+  document.getElementById('editMobileStudentFullName').value = student?.fullName || teacher?.fullName || userRow?.fullName || studentName || '';
+  document.getElementById('editMobileStudentClass').value = student?.className || (isTeacherUser ? (teacher?.department || 'Management / Faculty') : '');
+  document.getElementById('editMobileStudentRoll').value = student?.rollNo || (isTeacherUser ? 'Staff' : '');
+  document.getElementById('editMobileStudentAdmissionNo').value = student?.admissionNo || admissionNo || (teacher?.id ? `EMP-${teacher.id}` : '');
+  document.getElementById('editMobileStudentPhone').value = student?.phone || student?.phone1 || teacher?.phone || userRow?.username || '';
+  document.getElementById('editMobileStudentPassword').value = student?.appPassword || userRow?.password || '';
+  document.getElementById('editMobileStudentFather').value = student?.fatherName || (isTeacherUser ? 'N/A (Faculty)' : '');
+  document.getElementById('editMobileStudentMother').value = student?.motherName || (isTeacherUser ? 'N/A (Faculty)' : '');
+  document.getElementById('editMobileStudentStatus').value = student?.status || userRow?.status || 'Active';
   document.getElementById('editMobileStudentMonthlyFee').value = student?.monthlyFee || '';
 
   // Photo preview
-  if (student?.photo && preview) {
-    const photoSrc = student.photo.startsWith('data:') || student.photo.startsWith('http') 
-      ? student.photo 
-      : getImageUrl('students', student.id, 'photo', student.photo);
+  const photoSrc = getStudentPhotoUri(student || teacher, student?.id || teacher?.id || student?.admissionNo);
+  if (photoSrc && preview) {
     preview.innerHTML = `<img src="${photoSrc}" style="width:100%;height:100%;object-fit:cover;" />`;
   }
 
@@ -20209,32 +21213,63 @@ function setupEditMobileStudentListeners() {
         const monthlyFee = document.getElementById('editMobileStudentMonthlyFee').value;
         const photoBase64 = document.getElementById('editMobileStudentPhotoBase64').value;
 
-        // 1. Update students table in Turso DB
-        const updateSql = `
-          UPDATE students SET 
-            fullName = ?, 
-            className = ?, 
-            rollNo = ?, 
-            admissionNo = ?, 
-            phone = ?, 
-            fatherName = ?, 
-            motherName = ?, 
-            status = ?, 
-            monthlyFee = ?
-            ${appPassword ? ', appPassword = ?' : ''}
-            ${photoBase64 ? ', photo = ?' : ''}
-          WHERE admissionNo = ? OR id = ?;
-        `;
+        const isFaculty = (originalAdm && originalAdm.toUpperCase().startsWith('EMP-')) ||
+                          (admissionNo && admissionNo.toUpperCase().startsWith('EMP-'));
 
-        const args = [
-          fullName, className, rollNo, admissionNo, phone,
-          fatherName, motherName, status, monthlyFee ? Number(monthlyFee) : null
-        ];
-        if (appPassword) args.push(appPassword);
-        if (photoBase64) args.push(photoBase64);
-        args.push(originalAdm || admissionNo, studentId ? Number(studentId) : -1);
+        if (isFaculty) {
+          // ── Update Faculty / Teachers ──
+          const empNum = (admissionNo || originalAdm).replace(/^EMP-/i, '').trim();
+          await fetchDirectFromTurso(
+            "UPDATE teachers SET fullName = ?, phone = ?, department = ? WHERE id = ? OR employeeNo = ? OR employeeNo = ?;",
+            [fullName, phone, className || 'Management', empNum ? Number(empNum) : -1, admissionNo, empNum]
+          );
 
-        await fetchDirectFromTurso(updateSql, args);
+          // Update users table credentials
+          if (appPassword || phone || fullName) {
+            const checkUser = await fetchDirectFromTurso(
+              "SELECT id, username FROM users WHERE username = ? OR fullName = ? LIMIT 1;",
+              [phone, fullName]
+            );
+            if (checkUser && checkUser.length > 0) {
+              await fetchDirectFromTurso(
+                "UPDATE users SET fullName = ?, password = ?, username = ? WHERE id = ?;",
+                [fullName, appPassword || 'Tapowan@123', phone, checkUser[0].id]
+              );
+            } else if (phone && appPassword) {
+              await fetchDirectFromTurso(
+                "INSERT INTO users (username, fullName, role, email, status, password) VALUES (?, ?, 'Teacher', ?, 'Active', ?);",
+                [phone, fullName, `${phone}@tapowanschool.com`, appPassword]
+              );
+            }
+          }
+        } else {
+          // ── Update Standard Students ──
+          const updateSql = `
+            UPDATE students SET 
+              fullName = ?, 
+              className = ?, 
+              rollNo = ?, 
+              admissionNo = ?, 
+              phone = ?, 
+              fatherName = ?, 
+              motherName = ?, 
+              status = ?, 
+              monthlyFee = ?
+              ${appPassword ? ', appPassword = ?' : ''}
+              ${photoBase64 ? ', photo = ?' : ''}
+            WHERE admissionNo = ? OR id = ?;
+          `;
+
+          const args = [
+            fullName, className, rollNo, admissionNo, phone,
+            fatherName, motherName, status, monthlyFee ? Number(monthlyFee) : null
+          ];
+          if (appPassword) args.push(appPassword);
+          if (photoBase64) args.push(photoBase64);
+          args.push(originalAdm || admissionNo, studentId ? Number(studentId) : -1);
+
+          await fetchDirectFromTurso(updateSql, args);
+        }
 
         // 2. Update app_student_sessions table in Turso DB
         await fetchDirectFromTurso(
@@ -20274,13 +21309,13 @@ function setupEditMobileStudentListeners() {
         closeEditMobileStudentModal();
         renderAll(true);
         if (typeof showToast === 'function') {
-          showToast(`🎉 Student ${fullName} updated! Mobile App credentials & details synced.`, 'success');
+          showToast(`🎉 ${isFaculty ? 'Faculty' : 'Student'} ${fullName} updated! Credentials & details synced.`, 'success');
         } else {
-          window.alert(`🎉 Student ${fullName} updated successfully!`);
+          window.alert(`🎉 ${isFaculty ? 'Faculty' : 'Student'} ${fullName} updated successfully!`);
         }
       } catch (err) {
-        console.error("Save mobile student error:", err);
-        window.alert("Failed to save changes: " + err.message);
+        console.error("Error updating mobile profile:", err);
+        window.alert(`❌ Failed to update profile: ${err.message}`);
       } finally {
         if (saveBtn) {
           saveBtn.disabled = false;
@@ -20290,6 +21325,7 @@ function setupEditMobileStudentListeners() {
     });
   }
 }
+
 
 
 window.toggleStudentAppEditAuthority = async function(admissionNo, studentName, newStatus) {
@@ -20472,6 +21508,8 @@ window.openAppReleaseControlModal = async function() {
   if (!modal) return;
   modal.style.display = 'flex';
   modal.classList.remove('hidden');
+  switchReleaseTab('ota');
+  await loadOtaCurrentInfo();
   await loadActiveReleasesList();
 };
 
@@ -20480,6 +21518,103 @@ window.closeAppReleaseControlModal = function() {
   if (!modal) return;
   modal.style.display = 'none';
   modal.classList.add('hidden');
+};
+
+window.switchReleaseTab = function(tab) {
+  const otaPanel = document.getElementById('otaUpdateControlPanel');
+  const apkForm = document.getElementById('appReleaseControlForm');
+  const tabOta = document.getElementById('tabBtnOta');
+  const tabApk = document.getElementById('tabBtnApk');
+
+  if (tab === 'ota') {
+    if (otaPanel) otaPanel.style.display = 'flex';
+    if (apkForm) apkForm.style.display = 'none';
+    if (tabOta) { tabOta.style.color = '#2563eb'; tabOta.style.borderBottomColor = '#2563eb'; }
+    if (tabApk) { tabApk.style.color = '#64748b'; tabApk.style.borderBottomColor = 'transparent'; }
+  } else {
+    if (otaPanel) otaPanel.style.display = 'none';
+    if (apkForm) apkForm.style.display = 'flex';
+    if (tabOta) { tabOta.style.color = '#64748b'; tabOta.style.borderBottomColor = 'transparent'; }
+    if (tabApk) { tabApk.style.color = '#2563eb'; tabApk.style.borderBottomColor = '#2563eb'; }
+  }
+};
+
+window.toggleOtaTargetInput = function(val) {
+  const box = document.getElementById('otaCustomTargetBox');
+  if (box) {
+    box.style.display = (val === 'custom') ? 'block' : 'none';
+  }
+};
+
+window.loadOtaCurrentInfo = async function() {
+  try {
+    const res = await fetch('/bundles/version.json?_t=' + Date.now());
+    if (res.ok) {
+      const data = await res.json();
+      const verEl = document.getElementById('otaCurrentBundleVer');
+      const urlEl = document.getElementById('otaCurrentBundleUrl');
+      if (verEl && data.bundleVersion) {
+        verEl.innerText = `v${data.bundleVersion} (Code ${data.bundleVersionCode})`;
+      }
+      if (urlEl && data.bundleUrl) {
+        urlEl.innerText = data.bundleUrl;
+      }
+    }
+  } catch (e) {}
+};
+
+window.dispatchOtaPushFromWeb = async function() {
+  const btn = document.getElementById('otaPushBtn');
+  const statusEl = document.getElementById('otaPushStatus');
+  const targetSelect = document.getElementById('otaPushTargetType')?.value || 'all';
+  let target = null;
+  if (targetSelect === 'custom') {
+    target = document.getElementById('otaCustomTargetId')?.value?.trim() || null;
+  } else if (targetSelect !== 'all') {
+    target = targetSelect;
+  }
+
+  if (btn) { btn.disabled = true; btn.innerText = 'Pushing...'; }
+  if (statusEl) { statusEl.style.color = '#64748b'; statusEl.innerText = 'Dispatching silent FCM messages...'; }
+
+  try {
+    let verInfo = { bundleVersion: '2.4.59', bundleVersionCode: 199, bundleUrl: 'https://tapowan-school.vercel.app/bundles/index.android.bundle' };
+    try {
+      const vRes = await fetch('/bundles/version.json?_t=' + Date.now());
+      if (vRes.ok) verInfo = await vRes.json();
+    } catch (_) {}
+
+    const res = await fetch('/api/admin/ota/broadcast-push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        bundleUrl: verInfo.bundleUrl,
+        bundleVersionCode: String(verInfo.bundleVersionCode),
+        bundleVersion: verInfo.bundleVersion,
+        targetAdmissionNo: target
+      })
+    });
+
+    const result = await res.json();
+    if (result.ok) {
+      const msg = `✅ Dispatched to ${result.totalTargeted || 0} device(s) (${result.successCount || 0} succeeded)`;
+      if (statusEl) { statusEl.style.color = '#15803d'; statusEl.innerText = msg; }
+      if (typeof showToast === 'function') showToast(msg, 'success');
+    } else {
+      if (statusEl) { statusEl.style.color = '#dc2626'; statusEl.innerText = '❌ Failed: ' + (result.error || result.message); }
+    }
+  } catch (err) {
+    if (statusEl) { statusEl.style.color = '#dc2626'; statusEl.innerText = '❌ Error: ' + err.message; }
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;">send</span> Push OTA in Background Now'; }
+  }
+};
+
+window.toggleSpecificTargetInput = function(val) {
+  const box = document.getElementById('specificUserTargetBox');
+  if (box) {
+    box.style.display = (val === 'specific') ? 'block' : 'none';
+  }
 };
 
 async function loadActiveReleasesList() {
@@ -20491,12 +21626,23 @@ async function loadActiveReleasesList() {
       container.innerHTML = '<p style="margin:0;color:#94a3b8;">No releases published yet.</p>';
       return;
     }
-    const html = res.rows.map(r => `
+    const html = res.rows.map(r => {
+      let targetBadge = '<span style="background:#eff6ff;color:#2563eb;font-size:0.7rem;padding:2px 6px;border-radius:6px;font-weight:700;">All Users</span>';
+      if (r.target_audience === 'student' || r.target_audience === 'students') {
+        targetBadge = '<span style="background:#faf5ff;color:#9333ea;font-size:0.7rem;padding:2px 6px;border-radius:6px;font-weight:700;">Students Only</span>';
+      } else if (r.target_audience === 'teacher' || r.target_audience === 'teachers') {
+        targetBadge = '<span style="background:#f0fdf4;color:#16a34a;font-size:0.7rem;padding:2px 6px;border-radius:6px;font-weight:700;">Teachers Only</span>';
+      } else if (r.target_audience && r.target_audience !== 'both' && r.target_audience !== 'all') {
+        targetBadge = `<span style="background:#fdf2f8;color:#db2777;font-size:0.7rem;padding:2px 6px;border-radius:6px;font-weight:700;" title="${r.target_audience}">Target: ${r.target_audience}</span>`;
+      }
+
+      return `
       <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
         <div>
-          <div style="display:flex;align-items:center;gap:6px;">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
             <strong style="color:#0f172a;font-size:0.88rem;">v${r.version}</strong>
             <span style="background:#eff6ff;color:#2563eb;font-size:0.7rem;padding:2px 6px;border-radius:6px;font-weight:700;">Build ${r.version_code}</span>
+            ${targetBadge}
             ${r.is_force_update == 1 ? '<span style="background:#fef2f2;color:#dc2626;font-size:0.7rem;padding:2px 6px;border-radius:6px;font-weight:700;">Mandatory</span>' : ''}
           </div>
           <div style="color:#64748b;font-size:0.75rem;margin-top:2px;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.apk_url}</div>
@@ -20505,7 +21651,8 @@ async function loadActiveReleasesList() {
           <button type="button" onclick="deleteAppRelease(${r.id})" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:6px;padding:4px 8px;font-size:0.75rem;font-weight:700;cursor:pointer;">Delete</button>
         </div>
       </div>
-    `).join('');
+      `;
+    }).join('');
     container.innerHTML = html;
   } catch(e) {
     container.innerHTML = '<p style="color:#dc2626;margin:0;">Error loading releases: ' + e.message + '</p>';
@@ -20541,9 +21688,16 @@ function setupAppReleaseFormListener() {
       const releaseNotes = document.getElementById('releaseNotes').value.trim();
       const isForceUpdate = document.getElementById('releaseIsForceUpdate').checked ? 1 : 0;
 
+      const targetAudienceSelect = document.getElementById('releaseTargetAudience')?.value || 'both';
+      let finalTarget = targetAudienceSelect;
+      if (targetAudienceSelect === 'specific') {
+        const specificUsers = (document.getElementById('releaseTargetUsers')?.value || '').trim();
+        finalTarget = specificUsers || 'both';
+      }
+
       await fetchDirectFromTurso(
-        "INSERT INTO app_updates (version, version_code, apk_url, title, release_notes, is_force_update, is_active) VALUES (?, ?, ?, ?, ?, ?, 1)",
-        [version, versionCode, apkUrl, title, releaseNotes, isForceUpdate]
+        "INSERT INTO app_updates (version, version_code, apk_url, title, release_notes, is_force_update, is_active, target_audience) VALUES (?, ?, ?, ?, ?, ?, 1, ?)",
+        [version, versionCode, apkUrl, title, releaseNotes, isForceUpdate, finalTarget]
       );
 
       if (typeof showToast === 'function') {
@@ -20556,6 +21710,15 @@ function setupAppReleaseFormListener() {
       form.reset();
       document.getElementById('releaseApkUrl').value = 'https://tapowan-school.vercel.app/TPS-Original-App.apk';
       document.getElementById('releaseTitle').value = 'New Version Available';
+      if (document.getElementById('releaseTargetAudience')) {
+        document.getElementById('releaseTargetAudience').value = 'both';
+      }
+      if (document.getElementById('specificUserTargetBox')) {
+        document.getElementById('specificUserTargetBox').style.display = 'none';
+      }
+      if (document.getElementById('releaseTargetUsers')) {
+        document.getElementById('releaseTargetUsers').value = '';
+      }
     } catch(err) {
       alert("Failed to publish release: " + err.message);
     } finally {
