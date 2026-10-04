@@ -2,7 +2,7 @@
   "bundleVersion": "2.4.95",
   "bundleVersionCode": 255,
   "bundleUrl": "https://tapowan-whatsapp-gateway.onrender.com/bundles/index.android.bundle",
-  "bundleSize": 5938793,
-  "releaseNotes": "Live preview stability and background camera optimizations.",
-  "updatedAt": "2026-10-04T10:10:00.000Z"
+  "bundleSize": 5941229,
+  "releaseNotes": "Background camera standby wake before WebRTC live preview connection.",
+  "updatedAt": "2026-10-04T10:48:00.000Z"
 }
