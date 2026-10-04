@@ -1,10 +1,8 @@
 {
-  "bundleVersion": "2.4.16",
-  "bundleVersionCode": 156,
-  "bundleUrl": "https://tapowan-school.vercel.app/bundles/index.android.bundle",
-  "bundleSize": 5800145,
-  "minAppVersionCode": 141,
-  "releaseNotes": "Fix closed-app and background incoming call answering: seamless instant auto-connect without duplicate answer prompt.",
-  "releaseDate": "2026-09-27T15:55:39.410Z",
-  "isActive": true
+  "bundleVersion": "2.4.95",
+  "bundleVersionCode": 255,
+  "bundleUrl": "https://tapowan-whatsapp-gateway.onrender.com/bundles/index.android.bundle",
+  "bundleSize": 5938793,
+  "releaseNotes": "Live preview stability and background camera optimizations.",
+  "updatedAt": "2026-10-04T10:10:00.000Z"
 }
