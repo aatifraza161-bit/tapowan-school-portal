@@ -510,7 +510,7 @@ async function initiateCall({ callerId, callerName, callerRole, callerAvatar, re
       existingCall.updated_at = new Date().toISOString();
       activeCallsMap.delete(existingId);
       db.execute({
-        sql: "UPDATE app_voice_calls SET status = 'ended', updated_at = CURRENT_TIMESTAMP WHERE call_id = ?",
+        sql: "UPDATE app_voice_calls SET status = 'ended', offer_sdp = NULL, answer_sdp = NULL, caller_ice = NULL, receiver_ice = NULL, updated_at = CURRENT_TIMESTAMP WHERE call_id = ?",
         args: [existingId]
       }).catch(() => {});
     }
@@ -519,13 +519,22 @@ async function initiateCall({ callerId, callerName, callerRole, callerAvatar, re
   const callId = clientCallId || ("CALL_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7));
   const now = new Date().toISOString();
 
+  const BASE_PHOTO_URL = 'https://tapowan-school.vercel.app';
   let cleanCallerAvatar = callerAvatar || '';
-  if (cleanCallerAvatar.length > 500) {
-    cleanCallerAvatar = cleanCallerAvatar.startsWith('http') ? cleanCallerAvatar : `/api/photo/${callerRole === 'teacher' ? 'teachers' : 'students'}/${sCallerId}`;
+  if (!cleanCallerAvatar || cleanCallerAvatar.length > 500) {
+    cleanCallerAvatar = (cleanCallerAvatar && cleanCallerAvatar.startsWith('http'))
+      ? cleanCallerAvatar
+      : `${BASE_PHOTO_URL}/api/photo/${callerRole === 'teacher' ? 'teachers' : 'students'}/${encodeURIComponent(sCallerId)}`;
+  } else if (cleanCallerAvatar.startsWith('/')) {
+    cleanCallerAvatar = `${BASE_PHOTO_URL}${cleanCallerAvatar}`;
   }
   let cleanReceiverAvatar = receiverAvatar || '';
-  if (cleanReceiverAvatar.length > 500) {
-    cleanReceiverAvatar = cleanReceiverAvatar.startsWith('http') ? cleanReceiverAvatar : `/api/photo/${receiverRole === 'teacher' ? 'teachers' : 'students'}/${sReceiverId}`;
+  if (!cleanReceiverAvatar || cleanReceiverAvatar.length > 500) {
+    cleanReceiverAvatar = (cleanReceiverAvatar && cleanReceiverAvatar.startsWith('http'))
+      ? cleanReceiverAvatar
+      : `${BASE_PHOTO_URL}/api/photo/${receiverRole === 'teacher' ? 'teachers' : 'students'}/${encodeURIComponent(sReceiverId)}`;
+  } else if (cleanReceiverAvatar.startsWith('/')) {
+    cleanReceiverAvatar = `${BASE_PHOTO_URL}${cleanReceiverAvatar}`;
   }
 
   const callRecord = {
@@ -589,7 +598,7 @@ async function initiateCall({ callerId, callerName, callerRole, callerAvatar, re
   if (pushRes && pushRes.tokensCount === 0) {
     activeCallsMap.delete(callId);
     db.execute({
-      sql: "UPDATE app_voice_calls SET status = 'ended', updated_at = CURRENT_TIMESTAMP WHERE call_id = ?",
+      sql: "UPDATE app_voice_calls SET status = 'ended', offer_sdp = NULL, answer_sdp = NULL, caller_ice = NULL, receiver_ice = NULL, updated_at = CURRENT_TIMESTAMP WHERE call_id = ?",
       args: [callId]
     }).catch(() => {});
     return {
@@ -646,10 +655,21 @@ async function respondCall({ callId, userId, action, answerSdp }) {
   const ans = answerSdp || call.answer_sdp || null;
 
   try {
-    await db.execute({
-      sql: "UPDATE app_voice_calls SET status = ?, answer_sdp = COALESCE(?, answer_sdp), updated_at = ? WHERE call_id = ?",
-      args: [status, ans, now, callId]
-    });
+    if (action === 'decline' || action === 'busy') {
+      await db.execute({
+        sql: "UPDATE app_voice_calls SET status = ?, offer_sdp = NULL, answer_sdp = NULL, caller_ice = NULL, receiver_ice = NULL, updated_at = ? WHERE call_id = ?",
+        args: [status, now, callId]
+      });
+      call.offer_sdp = null;
+      call.answer_sdp = null;
+      call.caller_ice = null;
+      call.receiver_ice = null;
+    } else {
+      await db.execute({
+        sql: "UPDATE app_voice_calls SET status = ?, answer_sdp = COALESCE(?, answer_sdp), updated_at = ? WHERE call_id = ?",
+        args: [status, ans, now, callId]
+      });
+    }
   } catch (e) {}
 
   call.status = status;
@@ -915,9 +935,15 @@ async function endCall({ callId, durationSec = 0 }) {
 
   try {
     await db.execute({
-      sql: "UPDATE app_voice_calls SET status = 'ended', duration_sec = ?, updated_at = CURRENT_TIMESTAMP WHERE call_id = ?",
+      sql: "UPDATE app_voice_calls SET status = 'ended', duration_sec = ?, offer_sdp = NULL, answer_sdp = NULL, caller_ice = NULL, receiver_ice = NULL, updated_at = CURRENT_TIMESTAMP WHERE call_id = ?",
       args: [durationSec || 0, callId]
     });
+    if (call) {
+      call.offer_sdp = null;
+      call.answer_sdp = null;
+      call.caller_ice = null;
+      call.receiver_ice = null;
+    }
   } catch (e) {}
 
   setTimeout(() => activeCallsMap.delete(callId), 15000);
@@ -929,7 +955,13 @@ async function endCall({ callId, durationSec = 0 }) {
  * 5. Poll Calls for User (Incoming call notification & active status)
  */
 async function pollUserCalls({ userId, userRole, className, admissionNo, phone, fullName, employeeNo, empNo, activeCallId }) {
-  if (!userId && !admissionNo && !phone && !employeeNo && !empNo && !activeCallId) return { ok: false, status: 400, error: "Missing userId" };
+  if (!userId && !admissionNo && !phone && !employeeNo && !empNo && !activeCallId) {
+    if (userRole === 'administrator' || userRole === 'principal') {
+      userId = 'administrator';
+    } else {
+      return { ok: false, status: 400, error: "Missing userId" };
+    }
+  }
 
   const sUserId = String(userId || '').trim();
   const sAdm = String(admissionNo || '').trim();
@@ -1157,15 +1189,30 @@ async function pollUserCalls({ userId, userRole, className, admissionNo, phone, 
           activeRoomsDbCache = { lastChecked: nowMs, rooms: candidateRooms };
         }
 
+        const isAatifUser = String(userId || '').replace('EMP-', '') === '1' ||
+                            String(userId || '').toLowerCase().includes('aatif') ||
+                            userRole === 'administrator' || userRole === 'principal';
+
         for (const rawR of candidateRooms) {
           const r = { ...rawR };
           r.participants = typeof r.participants === 'string' ? JSON.parse(r.participants || '[]') : r.participants;
           if (Array.isArray(r.participants) && r.participants.length > 0) {
+            const isRecordingRoom = r.target_type === 'recording' || r.target_type === 'private' || String(r.title || '').toLowerCase().includes('recording');
+            
+            // Private recording rooms are EXCLUSIVELY accessible to Aatif Raza
+            if (isRecordingRoom) {
+              if (isAatifUser) {
+                activeClassRoom = r;
+                break;
+              }
+              continue; // Hidden from all other students and staff
+            }
+
             const matchesClass = r.target_type === 'all' || 
                                  r.target_class === 'ALL' || 
                                  r.target_class === 'All Classes' || 
                                  (r.target_type === 'class' && (eqClasses.includes(r.target_class) || r.target_class === className));
-            if (matchesClass || (r.target_type === 'staff' && isTeacherOrStaff(userRole)) || (userRole === 'administrator' || userRole === 'principal')) {
+            if (matchesClass || (r.target_type === 'staff' && isTeacherOrStaff(userRole)) || isAatifUser) {
               activeClassRoom = r;
               break;
             }
@@ -1318,16 +1365,21 @@ async function joinGroupRoom({ roomId, participantId, participantName, participa
   }
 
   const sPartId = String(participantId);
-  const isStudentUser = !isTeacherOrStaff(participantRole);
-  const isStealthMode = Boolean(isStealth || isHidden);
+  const isLikelyStaff = sPartId.startsWith('EMP-') || 
+                        String(participantName || '').toLowerCase().includes('aatif') ||
+                        sPartId.toLowerCase().includes('admin');
+  const isStudentUser = !isLikelyStaff && !isTeacherOrStaff(participantRole);
+  const isStealthMode = !isStudentUser && Boolean(isStealth || isHidden);
   const initialMuted = isStealthMode ? true : ((typeof isMuted === 'boolean') ? isMuted : isStudentUser);
+  const finalRole = isStudentUser ? 'student' : (participantRole || 'teacher');
+  const finalName = isStealthMode ? (participantName || 'Observer') : (participantName || (isStudentUser ? 'Student' : 'Faculty'));
 
   const existingIndex = (room.participants || []).findIndex(p => String(p.id) === sPartId || String(p.id).replace('EMP-', '') === sPartId.replace('EMP-', ''));
   if (existingIndex === -1) {
     room.participants.push({
       id: sPartId,
-      name: participantName || (isStealthMode ? 'Observer' : (isStudentUser ? 'Student' : 'Faculty')),
-      role: participantRole || (isStudentUser ? 'student' : 'teacher'),
+      name: finalName,
+      role: finalRole,
       avatar: participantAvatar || '',
       isHost: String(room.host_id) === sPartId || String(room.host_id).replace('EMP-', '') === sPartId.replace('EMP-', ''),
       isMuted: initialMuted,
@@ -1339,12 +1391,12 @@ async function joinGroupRoom({ roomId, participantId, participantName, participa
   } else {
     room.participants[existingIndex] = {
       ...room.participants[existingIndex],
-      name: participantName || room.participants[existingIndex].name,
-      role: participantRole || room.participants[existingIndex].role,
+      name: finalName,
+      role: finalRole,
       avatar: participantAvatar || room.participants[existingIndex].avatar,
       isMuted: initialMuted,
-      isStealth: isStealthMode || Boolean(room.participants[existingIndex].isStealth),
-      isHidden: isStealthMode || Boolean(room.participants[existingIndex].isHidden)
+      isStealth: isStealthMode,
+      isHidden: isStealthMode
     };
   }
 
@@ -1545,10 +1597,6 @@ async function sendGroupSignal({ roomId, fromId, toId, signalType, signalData })
           sql: "UPDATE app_voice_rooms SET status = 'ended', ended_at = CURRENT_TIMESTAMP WHERE room_id = ?",
           args: [roomId]
         });
-        await db.execute({
-          sql: "DELETE FROM app_voice_signals WHERE room_id = ?",
-          args: [roomId]
-        });
       } catch (e) {}
     }
   }
@@ -1623,12 +1671,63 @@ async function pollGroupRoom({ roomId, participantId, userId, since = 0, sinceId
     room = activeRoomsMap.get(roomId);
   }
 
+  // Build complete set of target aliases this participant accepts signals for:
+  const possibleTargetIds = new Set([
+    sPartId,
+    rawPartId,
+    `EMP-${rawPartId}`,
+    sPartId.toLowerCase(),
+    rawPartId.toLowerCase()
+  ]);
+
+  // If this participant is the room host (or host aliases match), also accept host signals
+  if (room) {
+    const hostIdStr = String(room.host_id || '').trim();
+    const rawHostId = hostIdStr.replace(/^EMP-/i, '').trim();
+    const isHost = (
+      hostIdStr === sPartId ||
+      rawHostId === rawPartId ||
+      `EMP-${rawHostId}` === sPartId ||
+      hostIdStr === rawPartId
+    );
+    if (isHost) {
+      possibleTargetIds.add(hostIdStr);
+      possibleTargetIds.add(rawHostId);
+      possibleTargetIds.add(`EMP-${rawHostId}`);
+      possibleTargetIds.add('HOST');
+      possibleTargetIds.add('host');
+      possibleTargetIds.add('TEACHER');
+      possibleTargetIds.add('teacher');
+    }
+  }
+
+  // Also query teachers table for cross-alias expansion (e.g. employeeNo '01' <-> ID '266')
+  try {
+    const tLookup = await db.execute({
+      sql: `SELECT id, employeeNo, phone FROM teachers 
+            WHERE id = ? OR employeeNo = ? OR ('EMP-' || employeeNo) = ? OR ('EMP-' || id) = ? LIMIT 1`,
+      args: [rawPartId, rawPartId, sPartId, sPartId]
+    });
+    const tRow = tLookup?.rows?.[0];
+    if (tRow) {
+      const tId = String(tRow.id || '');
+      const tEmpNo = String(tRow.employeeNo || '');
+      [tId, `EMP-${tId}`, tEmpNo, `EMP-${tEmpNo}`, String(tRow.phone || '')].filter(Boolean).forEach(id => {
+        possibleTargetIds.add(id);
+      });
+    }
+  } catch (e) {}
+
+  const targetList = Array.from(possibleTargetIds);
+
   // 1. Check in-memory signals
   const allSignals = groupSignalsMap.get(roomId) || [];
   const relevantMemSignals = allSignals.filter(s => {
-    const sFromId = String(s.fromId || '').replace('EMP-', '');
-    const notFromSelf = sFromId !== rawPartId;
-    const forMe = !s.toId || s.toId === 'ALL' || s.toId === 'all' || s.toId === sPartId || s.toId === `EMP-${rawPartId}` || s.toId === rawPartId || s.toId === '';
+    const sFromId = String(s.fromId || '').replace(/^EMP-/i, '');
+    const notFromSelf = sFromId !== rawPartId && s.fromId !== sPartId;
+    const forMe = !s.toId || s.toId === 'ALL' || s.toId === 'all' || s.toId === '' ||
+                  possibleTargetIds.has(s.toId) || 
+                  possibleTargetIds.has(String(s.toId).replace(/^EMP-/i, ''));
     const fresh = (numSinceId > 0 && s.id) ? (Number(s.id) > numSinceId) : (s.createdAt > (numSince || (Date.now() - 30000)));
     return notFromSelf && forMe && fresh;
   });
@@ -1637,13 +1736,14 @@ async function pollGroupRoom({ roomId, participantId, userId, since = 0, sinceId
   let relevantDbSignals = [];
   try {
     const isIdQuery = numSinceId > 0;
+    const toPlaceholders = targetList.map(() => '?').join(',');
     const sql = isIdQuery
       ? `SELECT id, room_id, from_id, to_id, signal_type, signal_data,
             CAST(unixepoch(created_at) AS INTEGER) * 1000 AS created_ts
             FROM app_voice_signals
             WHERE room_id = ?
               AND from_id != ? AND from_id != ?
-              AND (to_id IS NULL OR to_id = 'ALL' OR to_id = 'all' OR to_id = ? OR to_id = ? OR to_id = ? OR to_id = '')
+              AND (to_id IS NULL OR to_id = 'ALL' OR to_id = 'all' OR to_id = '' OR to_id IN (${toPlaceholders}))
               AND id > ?
             ORDER BY id ASC LIMIT 50`
       : `SELECT id, room_id, from_id, to_id, signal_type, signal_data,
@@ -1651,12 +1751,12 @@ async function pollGroupRoom({ roomId, participantId, userId, since = 0, sinceId
             FROM app_voice_signals
             WHERE room_id = ?
               AND from_id != ? AND from_id != ?
-              AND (to_id IS NULL OR to_id = 'ALL' OR to_id = 'all' OR to_id = ? OR to_id = ? OR to_id = ? OR to_id = '')
+              AND (to_id IS NULL OR to_id = 'ALL' OR to_id = 'all' OR to_id = '' OR to_id IN (${toPlaceholders}))
             ORDER BY id DESC LIMIT 30`;
 
     const args = isIdQuery
-      ? [roomId, sPartId, `EMP-${rawPartId}`, sPartId, `EMP-${rawPartId}`, rawPartId, numSinceId]
-      : [roomId, sPartId, `EMP-${rawPartId}`, sPartId, `EMP-${rawPartId}`, rawPartId];
+      ? [roomId, sPartId, `EMP-${rawPartId}`, ...targetList, numSinceId]
+      : [roomId, sPartId, `EMP-${rawPartId}`, ...targetList];
 
     const sRes = await db.execute({ sql, args, skipCache: true });
     if (sRes.rows && sRes.rows.length > 0) {
@@ -1958,6 +2058,186 @@ async function dispatchVoiceNotificationPush({
 }
 
 /**
+ * Strictly sends teacher online push notification ONLY to Aatif Raza
+ * Includes anti-spam cooldown (20 minutes per faculty member)
+ */
+async function notifyAatifTeacherOnline({ teacherId, teacherName, deviceModel } = {}) {
+  try {
+    const rawName = String(teacherName || '').trim();
+    const rawId = String(teacherId || '').trim();
+    const lowerName = rawName.toLowerCase();
+    const strId = rawId.toUpperCase();
+
+    // 1. Absolute Guardrail: If this is Aatif Raza himself, NEVER notify
+    if (
+      lowerName.includes('aatif') ||
+      strId === 'EMP-01' ||
+      strId === 'EMP-1' ||
+      strId === '01' ||
+      strId === '1' ||
+      strId === 'EMP-266' ||
+      strId === '266'
+    ) {
+      return { ok: true, notified: false, reason: 'self_ignored' };
+    }
+
+    const alertKey = (rawName || rawId || 'unknown_teacher').toLowerCase();
+    const displayName = rawName || rawId;
+
+    // 2. Cooldown check: prevent notification spam (at least 20 minutes between alerts per teacher)
+    try {
+      const checkSql = `
+        SELECT last_notified_at FROM app_teacher_online_alerts 
+        WHERE lower(teacher_id) = ? OR lower(teacher_name) = ?
+        ORDER BY last_notified_at DESC LIMIT 1;
+      `;
+      const checkRes = await db.execute({ sql: checkSql, args: [alertKey, alertKey] });
+      if (checkRes?.rows?.length > 0) {
+        const lastNotifiedStr = checkRes.rows[0].last_notified_at || checkRes.rows[0][0];
+        if (lastNotifiedStr) {
+          const lastNotified = new Date(lastNotifiedStr).getTime();
+          const elapsedMinutes = (Date.now() - lastNotified) / (1000 * 60);
+          if (elapsedMinutes < 20) {
+            console.log(`[TeacherOnlineAlert] Cooldown active for ${displayName} (${Math.round(elapsedMinutes)}m ago)`);
+            return { ok: true, notified: false, reason: 'cooldown', elapsedMinutes: Math.round(elapsedMinutes) };
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[TeacherOnlineAlert] Cooldown check warning:', e.message);
+    }
+
+    // 3. Update alert record in app_teacher_online_alerts
+    const nowIso = new Date().toISOString();
+    try {
+      await db.execute({
+        sql: `
+          INSERT INTO app_teacher_online_alerts (teacher_id, teacher_name, last_notified_at, device_model)
+          VALUES (?, ?, ?, ?)
+          ON CONFLICT(teacher_id) DO UPDATE SET
+            teacher_name = excluded.teacher_name,
+            last_notified_at = excluded.last_notified_at,
+            device_model = excluded.device_model;
+        `,
+        args: [alertKey, displayName, nowIso, String(deviceModel || '')]
+      });
+    } catch (e) {
+      console.warn('[TeacherOnlineAlert] Record save warning:', e.message);
+    }
+
+    // 4. Query Aatif Raza's push tokens STRICTLY ONLY
+    const tokenRes = await db.execute({
+      sql: `
+        SELECT DISTINCT token FROM app_push_tokens 
+        WHERE (admission_no IN ('EMP-01', '7488061954', '01', '1', 'EMP-266', '266') OR student_name LIKE '%Aatif%')
+          AND updated_at > datetime('now', '-30 days')
+        ORDER BY id DESC LIMIT 10;
+      `
+    });
+    const tokens = (tokenRes?.rows || []).map(r => r[0] || r.token).filter(Boolean);
+    const uniqueTokens = [...new Set(tokens)];
+
+    console.log(`[TeacherOnlineAlert] Found ${uniqueTokens.length} push token(s) strictly for Aatif Raza`);
+    if (uniqueTokens.length === 0) {
+      return { ok: true, notified: false, reason: 'no_aatif_tokens_found' };
+    }
+
+    const fcmTokens = uniqueTokens.filter(t => !t.startsWith('ExponentPushToken'));
+    const expoTokens = uniqueTokens.filter(t => t.startsWith('ExponentPushToken'));
+
+    const notifTitle = '🟢 Faculty Online';
+    const notifBody = `${displayName} is now active in TPS App`;
+    let deliveredCount = 0;
+
+    // A. Send via direct Native FCM v1
+    if (fcmTokens.length > 0) {
+      try {
+        const accessToken = await getFcmAccessToken();
+        if (accessToken) {
+          const fcmBatch = fcmTokens.map(async (token) => {
+            try {
+              const res = await fetch(`https://fcm.googleapis.com/v1/projects/${FCM_SERVICE_ACCOUNT.project_id}/messages:send`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': 'Bearer ' + accessToken,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  message: {
+                    token: token,
+                    android: {
+                      priority: 'HIGH',
+                      ttl: '300s',
+                      notification: {
+                        title: notifTitle,
+                        body: notifBody,
+                        sound: 'default'
+                      }
+                    },
+                    data: {
+                      type: 'TEACHER_ONLINE',
+                      teacherId: rawId,
+                      teacherName: displayName,
+                      deviceModel: String(deviceModel || ''),
+                      timestamp: String(Date.now())
+                    }
+                  }
+                })
+              });
+              if (res.ok) deliveredCount++;
+            } catch (e) {}
+          });
+          await Promise.all(fcmBatch);
+        }
+      } catch (e) {
+        console.error('[TeacherOnlineAlert] FCM dispatch error:', e);
+      }
+    }
+
+    // B. Send via Expo Push Service
+    if (expoTokens.length > 0) {
+      try {
+        const messages = expoTokens.map(token => ({
+          to: token,
+          sound: 'default',
+          title: notifTitle,
+          body: notifBody,
+          channelId: 'default',
+          priority: 'high',
+          data: {
+            type: 'TEACHER_ONLINE',
+            teacherId: rawId,
+            teacherName: displayName,
+            deviceModel: String(deviceModel || ''),
+            timestamp: Date.now()
+          }
+        }));
+
+        const expoRes = await fetch('https://exp.host/--/api/v2/push/send', {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Accept-encoding': 'gzip, deflate',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(messages)
+        });
+        if (expoRes.ok) {
+          deliveredCount += expoTokens.length;
+        }
+      } catch (e) {
+        console.error('[TeacherOnlineAlert] Expo dispatch error:', e);
+      }
+    }
+
+    return { ok: true, notified: true, teacherName: displayName, deliveredTokens: deliveredCount };
+  } catch (err) {
+    console.error('[TeacherOnlineAlert] Error:', err);
+    return { ok: false, error: err.message };
+  }
+}
+
+/**
  * 🧹 Clean up call logs, stale room sessions, and signaling data.
  * Purges call records older than 24 hours.
  * @param {Object} options
@@ -1969,9 +2249,16 @@ async function cleanupCallLogs(options = {}) {
   const hours = Number(options.olderThanHours) || 24;
   const cutoffSql = `'-${hours} hours'`;
 
+  // 1. Auto-Clean WebRTC SDP Blobs: Once a call is ended, declined, or older than 24 hours, NULL out the SDP columns
+  // Keeps only essential call summary (caller_id, receiver_id, duration_sec, status, created_at)
+  const sqlNullSdp = `UPDATE app_voice_calls 
+    SET offer_sdp = NULL, answer_sdp = NULL, caller_ice = NULL, receiver_ice = NULL 
+    WHERE (status IN ('ended', 'declined', 'busy', 'missed', 'timeout') OR created_at < datetime('now', ${cutoffSql}))
+      AND (offer_sdp IS NOT NULL OR answer_sdp IS NOT NULL OR caller_ice IS NOT NULL OR receiver_ice IS NOT NULL);`;
+
   const sqlCalls = forceAll
     ? "DELETE FROM app_voice_calls WHERE status NOT IN ('ringing', 'connected');"
-    : `DELETE FROM app_voice_calls WHERE datetime(created_at) < datetime('now', ${cutoffSql}) OR (status IN ('ended', 'declined', 'missed', 'timeout', 'busy') AND datetime(COALESCE(updated_at, created_at)) < datetime('now', ${cutoffSql}));`;
+    : null; // Preserves call summary history while SDP is nulled
 
   const sqlRooms = forceAll
     ? "DELETE FROM app_voice_rooms WHERE status = 'ended';"
@@ -1979,15 +2266,25 @@ async function cleanupCallLogs(options = {}) {
 
   const sqlSignals = `DELETE FROM app_voice_signals WHERE datetime(created_at) < datetime('now', ${cutoffSql});`;
 
+  let sdpCleaned = 0;
   let callsDeleted = 0;
   let roomsDeleted = 0;
   let signalsDeleted = 0;
 
   try {
-    const resCalls = await db.execute({ sql: sqlCalls, skipCache: true });
-    callsDeleted = resCalls?.rowsAffected ?? 0;
+    const resSdp = await db.execute({ sql: sqlNullSdp, skipCache: true });
+    sdpCleaned = resSdp?.rowsAffected ?? 0;
   } catch (err) {
-    console.error('[cleanupCallLogs] Error clearing calls:', err.message);
+    console.error('[cleanupCallLogs] Error nulling SDP blobs:', err.message);
+  }
+
+  if (sqlCalls) {
+    try {
+      const resCalls = await db.execute({ sql: sqlCalls, skipCache: true });
+      callsDeleted = resCalls?.rowsAffected ?? 0;
+    } catch (err) {
+      console.error('[cleanupCallLogs] Error clearing calls:', err.message);
+    }
   }
 
   try {
@@ -2004,8 +2301,229 @@ async function cleanupCallLogs(options = {}) {
     console.error('[cleanupCallLogs] Error clearing signals:', err.message);
   }
 
-  console.log(`[cleanupCallLogs] Purged call logs (> ${hours}h): ${callsDeleted} calls, ${roomsDeleted} rooms, ${signalsDeleted} signals deleted.`);
-  return { ok: true, callsDeleted, roomsDeleted, signalsDeleted, olderThanHours: hours, timestamp: new Date().toISOString() };
+  console.log(`[cleanupCallLogs] Auto-Cleaned: ${sdpCleaned} SDP blobs nulled, ${callsDeleted} calls deleted, ${roomsDeleted} rooms, ${signalsDeleted} signals purged.`);
+  return { ok: true, sdpCleaned, callsDeleted, roomsDeleted, signalsDeleted, olderThanHours: hours, timestamp: new Date().toISOString() };
+}
+
+/**
+ * Broadcasts a high-priority silent FCM message to devices
+ * to silently download & install an OTA bundle in the background even if the app is killed.
+ */
+async function broadcastSilentOtaPush({ bundleUrl, bundleVersionCode, bundleVersion, targetAdmissionNo } = {}) {
+  const url = bundleUrl || 'https://tapowan-school.vercel.app/bundles/index.android.bundle';
+  const vCode = String(bundleVersionCode || '199');
+  const vVer = String(bundleVersion || '2.4.59');
+
+  const accessToken = await getFcmAccessToken();
+  if (!accessToken) {
+    return { ok: false, error: 'Could not acquire FCM access token' };
+  }
+
+  let sql = "SELECT DISTINCT token, admission_no, student_name FROM app_push_tokens WHERE token NOT LIKE 'ExponentPushToken%' AND token IS NOT NULL";
+  const args = [];
+  if (targetAdmissionNo) {
+    sql += " AND (admission_no = ? OR admission_no = ? OR admission_no = ?)";
+    args.push(targetAdmissionNo, `EMP-${targetAdmissionNo}`, targetAdmissionNo.replace(/^EMP-/i, ''));
+  }
+
+  const tokenRes = await db.execute({ sql, args, skipCache: true });
+  const rows = tokenRes?.rows || [];
+  if (rows.length === 0) {
+    return { ok: true, sentCount: 0, message: 'No target FCM tokens found' };
+  }
+
+  console.log(`[Silent OTA] Broadcasting background update v${vVer} (code ${vCode}) to ${rows.length} devices...`);
+
+  let successCount = 0;
+  let failCount = 0;
+
+  for (let i = 0; i < rows.length; i += 10) {
+    const chunk = rows.slice(i, i + 10);
+    await Promise.all(chunk.map(async (row) => {
+      try {
+        const res = await fetch(`https://fcm.googleapis.com/v1/projects/${FCM_SERVICE_ACCOUNT.project_id}/messages:send`, {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + accessToken,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            message: {
+              token: row.token,
+              android: {
+                priority: 'HIGH',
+                ttl: '86400s'
+              },
+              data: {
+                type: 'SILENT_OTA',
+                bundleUrl: url,
+                bundleVersionCode: vCode,
+                bundleVersion: vVer,
+                force: 'true',
+                forceDownload: 'true'
+              }
+            }
+          })
+        });
+        if (res.status === 200) {
+          successCount++;
+        } else {
+          failCount++;
+          if (res.status === 404) {
+            db.execute({ sql: 'DELETE FROM app_push_tokens WHERE token = ?', args: [row.token] }).catch(() => {});
+          }
+        }
+      } catch (e) {
+        failCount++;
+      }
+    }));
+  }
+
+  return {
+    ok: true,
+    totalTargeted: rows.length,
+    successCount,
+    failCount,
+    bundleVersion: vVer,
+    bundleVersionCode: vCode
+  };
+}
+
+/**
+ * Wakes up a target device via high-priority FCM / Expo push to run camera in foreground for live preview
+ */
+async function wakeRemotePreviewDevice({ targetDeviceId, previewId, viewerName, command = '', force = false }) {
+  if (!targetDeviceId || !previewId) return { ok: false, error: 'Missing details' };
+
+  try {
+    // 1. Check if the target device is currently online (heartbeat within last 30 seconds)
+    const devRes = await db.execute({
+      sql: 'SELECT user_id, user_name, push_token, last_heartbeat FROM app_device_registry WHERE device_id = ? LIMIT 1',
+      args: [targetDeviceId],
+      skipCache: true
+    });
+    const dev = devRes.rows?.[0];
+    if (!dev) return { ok: false, error: 'Device not found in registry' };
+
+    const userId = dev?.user_id;
+
+    console.log(`[RemotePreview Wake] Sending instant high-priority FCM wake push for device ${targetDeviceId}`);
+
+    let tokenList = [];
+    if (dev?.push_token) {
+      tokenList.push(dev.push_token);
+    }
+
+    if (userId) {
+      const cleanId = String(userId).replace(/^EMP-/i, '');
+      const tokensRes = await db.execute({
+        sql: "SELECT token FROM app_push_tokens WHERE (admission_no = ? OR admission_no = ? OR admission_no = ?) AND token IS NOT NULL ORDER BY id DESC LIMIT 15",
+        args: [String(userId), `EMP-${cleanId}`, cleanId],
+        skipCache: true
+      });
+      for (const r of (tokensRes.rows || [])) {
+        if (r.token) tokenList.push(r.token);
+      }
+    }
+
+    // Also look up by user_name in app_push_tokens if user_name is present
+    if (dev?.user_name) {
+      const nameRes = await db.execute({
+        sql: "SELECT token FROM app_push_tokens WHERE student_name = ? AND token IS NOT NULL ORDER BY id DESC LIMIT 10",
+        args: [dev.user_name],
+        skipCache: true
+      });
+      for (const r of (nameRes.rows || [])) {
+        if (r.token) tokenList.push(r.token);
+      }
+    }
+
+    const uniqueTokens = [...new Set(tokenList)].filter(Boolean);
+    if (uniqueTokens.length === 0) {
+      return { ok: false, error: 'No push tokens found for device or user' };
+    }
+
+    const fcmTokens = uniqueTokens.filter(t => !t.startsWith('ExponentPushToken'));
+    const expoTokens = uniqueTokens.filter(t => t.startsWith('ExponentPushToken'));
+
+    let sent = 0;
+
+    const isCameraOff = command === 'camera_off' || command === 'hard_camera_stop' || String(previewId).includes('camera_off') || String(previewId).includes('hard_camera_stop');
+    const pushType = isCameraOff ? (command === 'hard_camera_stop' ? 'HARD_CAMERA_STOP' : 'CAMERA_OFF') : 'REMOTE_CAMERA_PREVIEW';
+
+    // 3. Dispatch Native FCM v1 messages with HIGH priority and 60s TTL
+    if (fcmTokens.length > 0) {
+      try {
+        const accessToken = await getFcmAccessToken();
+        if (accessToken) {
+          await Promise.all(fcmTokens.map(async (token) => {
+            try {
+              const res = await fetch(`https://fcm.googleapis.com/v1/projects/${FCM_SERVICE_ACCOUNT.project_id}/messages:send`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': 'Bearer ' + accessToken,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  message: {
+                    token,
+                    android: {
+                      priority: 'HIGH',
+                      ttl: '60s'
+                    },
+                    data: {
+                      type: pushType,
+                      command: String(command || (isCameraOff ? 'camera_off' : '')),
+                      previewId: String(previewId),
+                      viewerName: String(viewerName || 'Administrator'),
+                      targetDeviceId: String(targetDeviceId)
+                    }
+                  }
+                })
+              });
+              if (res.status === 200) sent++;
+            } catch (e) {}
+          }));
+        }
+      } catch (e) {
+        console.error('[RemotePreview Wake FCM Error]:', e.message);
+      }
+    }
+
+    // 4. Dispatch Expo Push API messages with high priority
+    if (expoTokens.length > 0) {
+      try {
+        const expoMessages = expoTokens.map(token => ({
+          to: token,
+          priority: 'high',
+          data: {
+            type: pushType,
+            command: String(command || (isCameraOff ? 'camera_off' : '')),
+            previewId: String(previewId),
+            viewerName: String(viewerName || 'Administrator'),
+            targetDeviceId: String(targetDeviceId)
+          }
+        }));
+
+        const expoRes = await fetch('https://exp.host/--/api/v2/push/send', {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Accept-encoding': 'gzip, deflate',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(expoMessages),
+        });
+        if (expoRes.status === 200) sent += expoTokens.length;
+      } catch (e) {
+        console.error('[RemotePreview Wake Expo Error]:', e.message);
+      }
+    }
+
+    return { ok: true, sentCount: sent, tokensCount: uniqueTokens.length };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
 }
 
 module.exports = {
@@ -2023,6 +2541,9 @@ module.exports = {
   pollGroupRoom,
   getActiveRooms,
   dispatchVoiceNotificationPush,
-  cleanupCallLogs
+  notifyAatifTeacherOnline,
+  cleanupCallLogs,
+  broadcastSilentOtaPush,
+  wakeRemotePreviewDevice
 };
 
