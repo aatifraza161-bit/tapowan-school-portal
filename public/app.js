@@ -17656,6 +17656,25 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     area.scrollIntoView({ behavior: 'smooth' });
 
     try {
+      // ── Stage 1: Load Camera Standby on device first ──
+      const msg = document.getElementById("previewStatusMsg");
+      const sub = document.getElementById("previewStatusSub");
+      if (msg) msg.innerText = `Loading camera standby on ${userName}'s phone...`;
+      if (sub) sub.innerText = "Step 1 of 2: Waking device into camera standby mode...";
+
+      await api("/api/calls/device-command", { method: "POST", body: JSON.stringify({
+        targetDeviceId: deviceId,
+        command: "camera_on",
+        issuedBy: "Web Admin"
+      })}).catch(() => {});
+
+      // Brief 2.5s pause to allow phone to launch foreground service and warm up camera
+      await new Promise(r => setTimeout(r, 2500));
+
+      // ── Stage 2: Connect WebRTC stream to active standby camera ──
+      if (msg) msg.innerText = `Connecting live WebRTC stream with ${userName}...`;
+      if (sub) sub.innerText = "Step 2 of 2: Attaching WebRTC to warm camera stream...";
+
       // 1. Insert preview request
       await api("/api/db/query", { method:"POST", body: JSON.stringify({
         sql: "INSERT INTO app_device_previews (preview_id, viewer_device_id, target_device_id, status, created_at, updated_at) VALUES (?, 'web_admin', ?, 'requesting', datetime('now'), datetime('now'))",
