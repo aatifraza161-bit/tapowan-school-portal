@@ -1758,28 +1758,24 @@
 
     // 1. Highest Priority: Match by Unique Admission Number (with class/name cross-validation)
     if (targetAdm && targetAdm !== '-' && targetAdm !== 'null' && targetAdm !== 'undefined') {
-      const byAdm = studentList.find(s => {
+      const matchingAdms = studentList.filter(s => {
         const sAdm = String(s.admissionNo || s.admNo || '').trim().toLowerCase();
-        return sAdm && sAdm === targetAdm;
-      });
-      if (byAdm) {
-        // Validation: Verify byAdm actually matches this student's class or name to prevent cross-student photo collisions!
-        const sClass = normFunc(byAdm.className || '').toLowerCase();
-        const sName = (byAdm.fullName || byAdm.name || '').trim().toLowerCase();
+        if (sAdm !== targetAdm) return false;
+        const sClass = normFunc(s.className || '').toLowerCase();
+        const sName = (s.fullName || s.name || '').trim().toLowerCase();
         const classMatches = !targetClass || sClass === targetClass || sClass.includes(targetClass) || targetClass.includes(sClass);
         const nameMatches = !targetName || sName === targetName || sName.includes(targetName) || targetName.includes(sName);
-        
-        // If either class or name matches, byAdm is trusted.
-        // If BOTH class AND name completely contradict byAdm (e.g. Rachna in VI-A vs Sariya in III-A), do NOT blindly use byAdm!
-        if (classMatches || nameMatches) {
-          return byAdm;
-        }
+        return classMatches || nameMatches;
+      });
+      if (matchingAdms.length > 0) {
+        const withPhoto = matchingAdms.find(s => (s.photo && String(s.photo).length > 20) || (s.photoUrl && String(s.photoUrl).length > 5));
+        return withPhoto || matchingAdms[0];
       }
     }
 
     // 2. High Priority: Match by Class AND Exact/Fuzzy Name
     if (targetClass && targetName) {
-      const byClassAndName = studentList.find(s => {
+      const matchingClassAndName = studentList.filter(s => {
         const sClass = normFunc(s.className || '').toLowerCase();
         const sName = (s.fullName || s.name || '').trim().toLowerCase();
         if (sClass === targetClass || sClass.includes(targetClass) || targetClass.includes(sClass)) {
@@ -1795,7 +1791,10 @@
         }
         return false;
       });
-      if (byClassAndName) return byClassAndName;
+      if (matchingClassAndName.length > 0) {
+        const withPhoto = matchingClassAndName.find(s => (s.photo && String(s.photo).length > 20) || (s.photoUrl && String(s.photoUrl).length > 5));
+        return withPhoto || matchingClassAndName[0];
+      }
     }
 
     // 3. Medium Priority: Match by Name alone if unique
