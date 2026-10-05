@@ -1,8 +1,8 @@
 {
-  "bundleVersion": "2.4.99",
-  "bundleVersionCode": 259,
+  "bundleVersion": "2.5.0",
+  "bundleVersionCode": 260,
   "bundleUrl": "https://tapowan-whatsapp-gateway.onrender.com/bundles/index.android.bundle",
-  "bundleSize": 5945893,
-  "releaseNotes": "Fix student edit modal full name binding, single unified name state, and database sync.",
-  "updatedAt": "2026-10-05T11:15:00.000Z"
+  "bundleSize": 5946463,
+  "releaseNotes": "Drawing marks excluded from student performance report and academic totals.",
+  "updatedAt": "2026-10-05T15:15:00.000Z"
 }
