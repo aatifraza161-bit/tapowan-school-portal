@@ -6027,6 +6027,12 @@ function getMarksheetHtml(exam, theme, config) {
           <select id="resultClassSelect"></select>
         </div>
         <div class="exam-field">
+          <label>Select Student</label>
+          <select id="resultStudentPreSelect">
+            <option value="">-- All Students in Class --</option>
+          </select>
+        </div>
+        <div class="exam-field">
           <label>Session</label>
           <input id="resultSession" value="2026-27" />
         </div>
@@ -6034,11 +6040,20 @@ function getMarksheetHtml(exam, theme, config) {
           <label>Exam Name</label>
           <select id="resultExamName"></select>
         </div>
-        <div class="exam-field">
-          <label>Filter Student (Optional)</label>
-          <select id="resultStudentPreSelect">
-            <option value="">-- All Students in Class --</option>
-          </select>
+        <div class="exam-field" style="grid-column: 1 / -1;">
+          <details style="background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px;">
+            <summary style="cursor: pointer; font-weight: bold; outline: none; display: flex; align-items: center; justify-content: space-between;">
+              <span>Select Specific Students (Checkboxes)</span>
+              <span id="resultSelectedStudentsCountBadge" style="font-size: 12px; font-weight: 600; color: #2563eb; background: #eff6ff; padding: 2px 10px; border-radius: 12px;">All Selected</span>
+            </summary>
+            <div style="display:flex; gap: 10px; margin: 10px 0; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
+              <button id="btnCheckAllResultStudents" type="button" style="padding: 4px 10px; font-size: 0.8rem; cursor: pointer; border-radius: 4px; border: 1px solid #cbd5e1; background: #f8fafc; font-weight:bold;">Select All</button>
+              <button id="btnUncheckAllResultStudents" type="button" style="padding: 4px 10px; font-size: 0.8rem; cursor: pointer; border-radius: 4px; border: 1px solid #cbd5e1; background: #f8fafc; font-weight:bold;">Unselect All</button>
+            </div>
+            <div id="resultStudentCheckboxes" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; max-height: 200px; overflow-y: auto; background: #f8fafc; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                <div style="grid-column: 1 / -1; font-size: 0.9rem; color: #64748b;">Select a class first...</div>
+            </div>
+          </details>
         </div>
           <div class="exam-field">
             <label>Layout Theme</label>
@@ -6110,15 +6125,20 @@ function getMarksheetHtml(exam, theme, config) {
         </div>
       </div>
       <div id="resultPrintActions" class="exam-print-hide" style="margin-bottom: 20px; display:none; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; background:#fff; padding:12px 18px; border-radius:12px; border:1px solid #cbd5e1; box-shadow:0 2px 6px rgba(0,0,0,0.05);">
-        <div style="display:flex; align-items:center; flex-wrap:wrap; gap:10px; flex:1; min-width:280px;">
-          <div style="position:relative; flex:1; min-width:220px; max-width:420px;">
+        <div style="display:flex; align-items:center; flex-wrap:wrap; gap:12px; flex:1; min-width:320px;">
+          <div style="position:relative; flex:1; min-width:220px; max-width:380px;">
             <span style="position:absolute; left:12px; top:50%; transform:translateY(-50%); font-size:15px; color:#64748b; pointer-events:none;">🔍</span>
-            <input type="text" id="resultStudentSearch" placeholder="Search student by Name, Roll, or Adm No..." style="width:100%; height:40px; padding:8px 34px 8px 36px; border-radius:8px; border:1.5px solid #cbd5e1; font-size:13.5px; outline:none; background:#f8fafc; box-sizing:border-box;" />
+            <input type="text" id="resultStudentSearch" placeholder="Search student name, roll, adm..." style="width:100%; height:40px; padding:8px 34px 8px 36px; border-radius:8px; border:1.5px solid #cbd5e1; font-size:13px; outline:none; background:#f8fafc; box-sizing:border-box;" />
             <button id="resultClearSearchBtn" type="button" title="Clear Search" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:none; color:#94a3b8; cursor:pointer; font-size:16px; display:none; padding:4px;">✕</button>
           </div>
-          <select id="resultStudentFilterSelect" style="height:40px; padding:0 12px; border-radius:8px; border:1.5px solid #cbd5e1; font-size:13px; outline:none; background:#f8fafc; font-weight:500; cursor:pointer;">
-            <option value="">-- All Students --</option>
-          </select>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <label for="resultStudentFilterSelect" style="font-size:13px; font-weight:700; color:#334155; white-space:nowrap; display:flex; align-items:center; gap:4px;">
+              <span>👤</span> Select Student:
+            </label>
+            <select id="resultStudentFilterSelect" style="height:40px; padding:0 12px; border-radius:8px; border:1.5px solid #cbd5e1; font-size:13px; outline:none; background:#f8fafc; font-weight:600; cursor:pointer; max-width:290px;">
+              <option value="">-- All Students --</option>
+            </select>
+          </div>
         </div>
         <div style="display:flex; align-items:center; gap:12px;">
           <span id="resultStudentCountBadge" style="font-size:13px; font-weight:600; color:#334155; background:#f1f5f9; padding:6px 14px; border-radius:20px; border:1px solid #e2e8f0; white-space:nowrap;">
@@ -6143,11 +6163,12 @@ function getMarksheetHtml(exam, theme, config) {
     const refreshResultStudents = () => {
         const cls = document.getElementById("resultClassSelect") ? document.getElementById("resultClassSelect").value : '';
         const studentPreSelect = document.getElementById("resultStudentPreSelect");
-        if (!studentPreSelect) return;
+        const checkboxContainer = document.getElementById("resultStudentCheckboxes");
+        const badge = document.getElementById("resultSelectedStudentsCountBadge");
         
         const store = typeof getStore !== 'undefined' ? getStore() : {};
         const normFunc = typeof normalizeCanonicalClass === 'function' ? normalizeCanonicalClass : (x => x);
-        const classStudents = (store.students || []).filter(s => normFunc(s.className) === normFunc(cls) || s.className === cls);
+        const classStudents = (store.students || []).filter(s => (normFunc(s.className) === normFunc(cls) || s.className === cls) && isStudentActive(s));
         
         classStudents.sort((a, b) => {
           const rA = parseInt(String(a.rollNo || '').replace(/\D/g, ''), 10) || 9999;
@@ -6156,9 +6177,80 @@ function getMarksheetHtml(exam, theme, config) {
           return (a.fullName || '').localeCompare(b.fullName || '');
         });
         
-        studentPreSelect.innerHTML = `<option value="">-- All Students in Class (${classStudents.length}) --</option>` +
-          classStudents.map(s => `<option value="${s.admissionNo || s.fullName}">Roll ${s.rollNo || '-'} - ${s.fullName || s.studentName} (${s.admissionNo || ''})</option>`).join('');
+        if (studentPreSelect) {
+          studentPreSelect.innerHTML = `<option value="">-- All Students in Class (${classStudents.length}) --</option>` +
+            classStudents.map(s => `<option value="${s.admissionNo || s.fullName}">Roll ${s.rollNo || '-'} - ${s.fullName || s.studentName} (${s.admissionNo || ''})</option>`).join('');
+        }
+
+        if (checkboxContainer) {
+          if (classStudents.length === 0) {
+            checkboxContainer.innerHTML = `<div style="grid-column: 1 / -1; font-size: 0.9rem; color: #64748b;">No active students found in this class.</div>`;
+            if (badge) badge.textContent = '0 Selected';
+          } else {
+            checkboxContainer.innerHTML = classStudents.map(s => `
+              <label style="display:flex; align-items:center; gap: 8px; font-size: 0.88rem; cursor: pointer; text-transform:none; font-weight:500;">
+                <input type="checkbox" class="result-student-cb" value="${s.admissionNo || s.fullName}" checked style="width:16px; height:16px; margin:0;" />
+                <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${s.fullName}">Roll ${s.rollNo || '-'}: ${s.fullName}</span>
+              </label>
+            `).join('');
+            if (badge) badge.textContent = `All (${classStudents.length}) Selected`;
+
+            checkboxContainer.querySelectorAll('.result-student-cb').forEach(cb => {
+              cb.onchange = () => {
+                const total = checkboxContainer.querySelectorAll('.result-student-cb').length;
+                const checked = checkboxContainer.querySelectorAll('.result-student-cb:checked').length;
+                if (badge) {
+                  badge.textContent = checked === total ? `All (${total}) Selected` : `${checked} of ${total} Selected`;
+                }
+              };
+            });
+          }
+        }
     };
+
+    const btnCheckAllResult = document.getElementById("btnCheckAllResultStudents");
+    const btnUncheckAllResult = document.getElementById("btnUncheckAllResultStudents");
+    if (btnCheckAllResult) {
+      btnCheckAllResult.onclick = (e) => {
+        e.preventDefault();
+        const container = document.getElementById("resultStudentCheckboxes");
+        if (container) {
+          container.querySelectorAll('.result-student-cb').forEach(cb => cb.checked = true);
+          const badge = document.getElementById("resultSelectedStudentsCountBadge");
+          const total = container.querySelectorAll('.result-student-cb').length;
+          if (badge) badge.textContent = `All (${total}) Selected`;
+        }
+      };
+    }
+    if (btnUncheckAllResult) {
+      btnUncheckAllResult.onclick = (e) => {
+        e.preventDefault();
+        const container = document.getElementById("resultStudentCheckboxes");
+        if (container) {
+          container.querySelectorAll('.result-student-cb').forEach(cb => cb.checked = false);
+          const badge = document.getElementById("resultSelectedStudentsCountBadge");
+          if (badge) badge.textContent = `0 Selected`;
+        }
+      };
+    }
+
+    const preSelectEl = document.getElementById("resultStudentPreSelect");
+    if (preSelectEl) {
+      preSelectEl.onchange = () => {
+        const selVal = preSelectEl.value;
+        const container = document.getElementById("resultStudentCheckboxes");
+        if (!container) return;
+        const checkboxes = container.querySelectorAll('.result-student-cb');
+        const badge = document.getElementById("resultSelectedStudentsCountBadge");
+        if (!selVal) {
+          checkboxes.forEach(cb => cb.checked = true);
+          if (badge) badge.textContent = `All (${checkboxes.length}) Selected`;
+        } else {
+          checkboxes.forEach(cb => cb.checked = (cb.value === selVal));
+          if (badge) badge.textContent = `1 of ${checkboxes.length} Selected`;
+        }
+      };
+    }
 
     const refreshResultExamNames = () => {
         const cls = document.getElementById("resultClassSelect").value;
@@ -6204,6 +6296,7 @@ function getMarksheetHtml(exam, theme, config) {
       if (clsEl) {
         clsEl.value = savedClass;
         refreshResultExamNames();
+        refreshResultStudents();
       }
     }
 
@@ -6300,6 +6393,17 @@ function getMarksheetHtml(exam, theme, config) {
       const examName = document.getElementById("resultExamName").value;
       const theme = document.getElementById("resultThemeSelect").value;
       const preSelectedStudent = document.getElementById("resultStudentPreSelect") ? document.getElementById("resultStudentPreSelect").value : '';
+      
+      const allCheckboxes = Array.from(document.querySelectorAll('.result-student-cb'));
+      const checkedBoxes = allCheckboxes.filter(cb => cb.checked).map(cb => cb.value);
+      
+      let selectedStudentIds = null;
+      if (preSelectedStudent) {
+        selectedStudentIds = [preSelectedStudent];
+      } else if (allCheckboxes.length > 0 && checkedBoxes.length < allCheckboxes.length) {
+        selectedStudentIds = checkedBoxes;
+      }
+
       const config = {
           color: document.getElementById("resultColor").value,
           font: document.getElementById("resultFont").value,
@@ -6310,7 +6414,8 @@ function getMarksheetHtml(exam, theme, config) {
           fontColor: document.getElementById("resultFontColor").value,
           bgOpacity: document.getElementById("resultBgOpacity").value,
           bgImage: document.getElementById("resultBgImage").value,
-          filterStudent: preSelectedStudent
+          filterStudent: preSelectedStudent,
+          selectedStudentIds: selectedStudentIds
         };
       if(!cls || !examName) return window.showToast ? showToast("Select class and exam", "warning") : alert("Select class and exam");
       generateMarksheets(cls, session, examName, theme, config);
@@ -6448,6 +6553,10 @@ function getMarksheetHtml(exam, theme, config) {
             const s = studentList.find(x => x.key === val);
             if (searchInput) searchInput.value = s ? s.name : '';
             doFilter(s ? s.name : '', val);
+            const matchedCard = container.querySelector(`.marksheet-card-wrapper[data-student-key="${val}"]`);
+            if (matchedCard) {
+              matchedCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
           }
         };
       }
@@ -6517,10 +6626,23 @@ function getMarksheetHtml(exam, theme, config) {
           return (a.studentName || '').localeCompare(b.studentName || '');
         });
 
+        let targetStudents = sortedStudents;
+        if (config?.selectedStudentIds && config.selectedStudentIds.length > 0) {
+            targetStudents = sortedStudents.filter(stdGroup => {
+              const student = findStudentFromStore(store.students || [], stdGroup);
+              const adm = String(student?.admissionNo || stdGroup.admissionNo || '').trim().toLowerCase();
+              const name = String(stdGroup.studentName || '').trim().toLowerCase();
+              return config.selectedStudentIds.some(id => {
+                const cleanId = String(id).trim().toLowerCase();
+                return cleanId === adm || cleanId === name;
+              });
+            });
+        }
+
         let html = '';
-        sortedStudents.forEach(stdGroup => {
+        targetStudents.forEach(stdGroup => {
             const student = findStudentFromStore(store.students || [], stdGroup);
-            const stdKey = `std_${stdGroup.rollNo || ''}_${stdGroup.studentName || ''}`;
+            const stdKey = `std_${stdGroup.rollNo || ''}_${(stdGroup.studentName || '').trim().replace(/\s+/g, '_')}`;
             const admNo = student?.admissionNo || '';
             html += `<div class="marksheet-card-wrapper" data-student-name="${(stdGroup.studentName || '').toLowerCase()}" data-roll-no="${String(stdGroup.rollNo || '').toLowerCase()}" data-admission-no="${admNo.toLowerCase()}" data-student-key="${stdKey}" style="width: 100%; display: flex; flex-direction: column; align-items: center;">
               ${getConsolidatedResultHtml(stdGroup, reqExams, student, config)}
@@ -6530,10 +6652,10 @@ function getMarksheetHtml(exam, theme, config) {
         container.innerHTML = html;
         document.getElementById("resultPrintActions").style.display = "flex";
 
-        const studentList = sortedStudents.map(stdGroup => {
+        const studentList = targetStudents.map(stdGroup => {
           const student = findStudentFromStore(store.students || [], stdGroup);
           return {
-            key: `std_${stdGroup.rollNo || ''}_${stdGroup.studentName || ''}`,
+            key: `std_${stdGroup.rollNo || ''}_${(stdGroup.studentName || '').trim().replace(/\s+/g, '_')}`,
             rollNo: stdGroup.rollNo || '-',
             name: stdGroup.studentName || '',
             admNo: student?.admissionNo || ''
@@ -6543,7 +6665,7 @@ function getMarksheetHtml(exam, theme, config) {
         
         // Render Charts after DOM injection
         setTimeout(() => {
-            sortedStudents.forEach(stdGroup => {
+            targetStudents.forEach(stdGroup => {
                 const canvas = document.getElementById(`consolidatedChart_${stdGroup.rollNo}`);
                 if (canvas) renderConsolidatedChart(canvas, stdGroup, reqExams);
             });
@@ -6645,8 +6767,21 @@ function getMarksheetHtml(exam, theme, config) {
       return (a.studentName || '').localeCompare(b.studentName || '');
     });
 
+    let targetExams = matchingExams;
+    if (config?.selectedStudentIds && config.selectedStudentIds.length > 0) {
+        targetExams = matchingExams.filter(ex => {
+          const student = findStudentFromStore(store.students || [], ex);
+          const adm = String(student?.admissionNo || ex.admissionNo || '').trim().toLowerCase();
+          const name = String(ex.studentName || '').trim().toLowerCase();
+          return config.selectedStudentIds.some(id => {
+            const cleanId = String(id).trim().toLowerCase();
+            return cleanId === adm || cleanId === name;
+          });
+        });
+    }
+
     let html = '';
-    matchingExams.forEach(ex => {
+    targetExams.forEach(ex => {
           const sName = (ex.studentName || '').trim().toLowerCase();
           const sRoll = String(ex.rollNo || '').trim().replace(/^0+/, '');
           const sClass = (ex.className || '').trim().toLowerCase();
@@ -6718,7 +6853,7 @@ function getMarksheetHtml(exam, theme, config) {
               }, theme, config);
           }
 
-          const stdKey = `ex_${ex.rollNo || ''}_${ex.studentName || ''}`;
+          const stdKey = `ex_${ex.rollNo || ''}_${(ex.studentName || '').trim().replace(/\s+/g, '_')}`;
           const admNo = (student?.admissionNo || ex.admissionNo || '').toLowerCase();
           const sNameLower = (ex.studentName || '').toLowerCase();
           const sRollLower = String(ex.rollNo || '').toLowerCase();
@@ -6748,10 +6883,10 @@ function getMarksheetHtml(exam, theme, config) {
     container.innerHTML = html;
     document.getElementById("resultPrintActions").style.display = "flex";
 
-    const studentList = matchingExams.map((ex, idx) => {
+    const studentList = targetExams.map((ex, idx) => {
       const student = findStudentFromStore(store.students || [], ex);
       return {
-        key: `ex_${ex.rollNo || ''}_${ex.studentName || ''}`,
+        key: `ex_${ex.rollNo || ''}_${(ex.studentName || '').trim().replace(/\s+/g, '_')}`,
         rollNo: ex.rollNo || '-',
         name: ex.studentName || '',
         admNo: student?.admissionNo || ex.admissionNo || ''
