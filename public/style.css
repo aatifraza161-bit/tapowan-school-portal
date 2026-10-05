@@ -1950,3 +1950,35 @@ input, textarea, select { user-select: auto !important; -webkit-user-select: aut
     box-shadow: 0 0 0 0 rgba(22, 163, 74, 0);
   }
 }
+
+/* 🎯 Auto Face-Centering & Headroom Balance Rules for Avatars and Student Photos */
+.photo-thumb,
+.t-photo img,
+.user-avatar img,
+img.student-avatar,
+img[src*="/api/photo/"],
+img[src*="student-photos"],
+#editMobileStudentPhotoPreview img,
+#studentProfileModal img,
+.admission-modal img {
+  object-fit: cover !important;
+  object-position: center center !important;
+}
+
+@keyframes pulseLive {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+  70% { transform: scale(1.05); box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+@keyframes pulseBorder {
+  0% { border-color: #38bdf8; box-shadow: 0 0 10px rgba(56, 189, 248, 0.3); }
+  50% { border-color: #22c55e; box-shadow: 0 0 20px rgba(34, 197, 94, 0.6); }
+  100% { border-color: #38bdf8; box-shadow: 0 0 10px rgba(56, 189, 248, 0.3); }
+}
+
+@keyframes floatUp {
+  0% { transform: translateY(0) scale(0.8); opacity: 1; }
+  100% { transform: translateY(-160px) scale(1.4); opacity: 0; }
+}
+

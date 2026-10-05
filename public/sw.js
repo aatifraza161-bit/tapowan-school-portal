@@ -1,4 +1,4 @@
-const CACHE_NAME = 'educore-tps-v202609271555';
+const CACHE_NAME = 'educore-tps-v202610041800';
 
 self.addEventListener('install', event => {
   self.skipWaiting();

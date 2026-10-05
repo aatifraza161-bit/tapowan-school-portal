@@ -693,7 +693,26 @@ async function getById(moduleName, id) {
     if (queued) return normalizeRow(moduleName, queued.payload);
     return undefined;
   }
-  const result = await getDb(moduleName).execute({ sql: `SELECT * FROM ${moduleName} WHERE id = ?`, args: [finalId] });
+  let result = await getDb(moduleName).execute({ sql: `SELECT * FROM ${moduleName} WHERE id = ?`, args: [finalId] });
+  if ((!result?.rows || result.rows.length === 0) && moduleName === 'teachers') {
+    const sId = String(id).trim();
+    const rawId = sId.replace(/^EMP[-_]?/i, '').trim();
+    const parsedNum = parseInt(rawId, 10);
+    const pad2 = !isNaN(parsedNum) ? String(parsedNum).padStart(2, '0') : rawId;
+    const numArg = !isNaN(parsedNum) ? parsedNum : -999999;
+    result = await getDb('teachers').execute({
+      sql: `SELECT * FROM teachers WHERE id = ? OR employeeNo = ? OR employeeNo = ? OR ('EMP-' || employeeNo) = ? OR ('EMP-' || id) = ? OR (id = ? AND id > 0) OR (CAST(employeeNo AS INTEGER) = ? AND ? > 0) LIMIT 1`,
+      args: [sId, sId, pad2, sId, sId, numArg, numArg, numArg]
+    });
+  } else if ((!result?.rows || result.rows.length === 0) && moduleName === 'students') {
+    const sId = String(id).trim();
+    const parsedNum = parseInt(sId, 10);
+    const numArg = !isNaN(parsedNum) ? parsedNum : -999999;
+    result = await getDb('students').execute({
+      sql: `SELECT * FROM students WHERE id = ? OR admissionNo = ? OR (id = ? AND id > 0) LIMIT 1`,
+      args: [sId, sId, numArg]
+    });
+  }
   return normalizeRow(moduleName, result.rows[0]);
 }
 
@@ -869,28 +888,91 @@ async function rawList(moduleName) {
         const appMarksRes = await db.execute(`SELECT exam_name, class_name, subject, student_name, admission_no, roll_no, marks_obtained, max_marks, passing_marks, grade, remarks, pa1_marks, notebook_marks, enrichment_marks, subjective_marks FROM app_exam_marks ORDER BY id ASC`);
         const appRows = appMarksRes.rows || [];
         if (appRows.length > 0) {
+          const MAIN_KEYWORDS_SERVER = [
+            'english', 'hindi', 'science', 'social science', 'math',
+            'mathematics', 'maths', 'social studies', 'sst', 'evs', 'environmental',
+            'physics', 'chemistry', 'biology', 'accountancy', 'business', 'economics',
+            'history', 'geography', 'civics', 'political science'
+          ];
+          const ADDITIONAL_KEYWORDS_SERVER = [
+            'drawing', 'art', 'craft', 'gk', 'g.k', 'gk & me', 'me & gk', 'me/gk',
+            'general knowledge', 'moral science', 'moral', 'computer', 'computer science',
+            'information tech', 'infotech', 'it (402)', 'it', 'sanskrit', 'urdu',
+            'physical education', 'phe', 'pe', 'sports', 'yoga', 'music', 'dance'
+          ];
+
+          const isSubjectMainServer = (subName) => {
+            const s = String(subName || '').trim().toLowerCase();
+            if (!s) return false;
+            if (ADDITIONAL_KEYWORDS_SERVER.some(k => s === k || s.includes(k))) return false;
+            if (MAIN_KEYWORDS_SERVER.some(k => s === k || s.includes(k))) return true;
+            return true;
+          };
+
+          const getSubjectDisplayOrderServer = (subName) => {
+            const raw = String(subName || '').trim().toLowerCase();
+            if (raw.includes('english') || raw === 'eng') return 10;
+            if (raw.includes('hindi') || raw === 'hin') return 20;
+            if (raw.includes('math')) return 30;
+            if (raw.includes('social') || raw.includes('sst') || raw.includes('history') || raw.includes('geography') || raw.includes('civics') || raw.includes('pol') || raw.includes('econ')) return 50;
+            if (raw.includes('science') || raw.includes('evs') || raw.includes('environmental') || raw.includes('physics') || raw.includes('chemistry') || raw.includes('biology')) return 40;
+            if (isSubjectMainServer(subName)) return 60;
+            if (raw.includes('comp') || raw.includes('it') || raw.includes('info')) return 70;
+            if (raw.includes('gk') || raw.includes('knowledge') || raw.includes('moral')) return 80;
+            if (raw.includes('sansk') || raw.includes('urdu')) return 90;
+            if (raw.includes('draw') || raw.includes('art') || raw.includes('craft')) return 100;
+            if (raw.includes('physical') || raw.includes('sport') || raw.includes('yoga') || raw.includes('pe') || raw.includes('music') || raw.includes('dance')) return 110;
+            return 120;
+          };
+
+          const classCurriculumMap = new Map();
+          for (const ar of appRows) {
+            const cKey = (ar.class_name || '').trim().toLowerCase();
+            if (!classCurriculumMap.has(cKey)) classCurriculumMap.set(cKey, new Set());
+            if (ar.subject) classCurriculumMap.get(cKey).add((ar.subject || '').trim());
+          }
+
           const appMarksMap = new Map();
           for (const ar of appRows) {
             const key = `${(ar.exam_name || '').trim().toLowerCase()}:::${(ar.class_name || '').trim().toLowerCase()}:::${(ar.student_name || '').trim().toLowerCase()}`;
             if (!appMarksMap.has(key)) appMarksMap.set(key, []);
+            const isAb = ar.grade === 'AB' || ar.remarks === 'Absent' || String(ar.marks_obtained).toUpperCase() === 'AB' || String(ar.subjective_marks).toUpperCase() === 'AB';
             appMarksMap.get(key).push({
               subject: (ar.subject || '').trim(),
               max: parseFloat(ar.max_marks) || 100,
               min: parseFloat(ar.passing_marks) || 33,
-              pa1: parseFloat(ar.pa1_marks) || 0,
+              pa1: isAb ? 0 : (parseFloat(ar.pa1_marks) || 0),
               pa2: 0,
-              notebook: parseFloat(ar.notebook_marks) || 0,
-              enrichment: parseFloat(ar.enrichment_marks) || 0,
-              theory: parseFloat(ar.subjective_marks) || 0,
-              subjective: parseFloat(ar.subjective_marks) || 0,
-              practical: (parseFloat(ar.pa1_marks) || 0) + (parseFloat(ar.notebook_marks) || 0) + (parseFloat(ar.enrichment_marks) || 0),
-              total: parseFloat(ar.marks_obtained) || 0,
-              grade: ar.grade || ''
+              notebook: isAb ? 0 : (parseFloat(ar.notebook_marks) || 0),
+              enrichment: isAb ? 0 : (parseFloat(ar.enrichment_marks) || 0),
+              theory: isAb ? 'AB' : (parseFloat(ar.subjective_marks) || 0),
+              subjective: isAb ? 'AB' : (parseFloat(ar.subjective_marks) || 0),
+              practical: isAb ? 0 : ((parseFloat(ar.pa1_marks) || 0) + (parseFloat(ar.notebook_marks) || 0) + (parseFloat(ar.enrichment_marks) || 0)),
+              total: isAb ? 'AB' : (parseFloat(ar.marks_obtained) || 0),
+              grade: isAb ? 'AB' : (ar.grade || ''),
+              isAbsent: isAb
             });
           }
 
           rows.forEach(r => {
             const key = `${(r.examName || '').trim().toLowerCase()}:::${(r.className || '').trim().toLowerCase()}:::${(r.studentName || '').trim().toLowerCase()}`;
+            const cKey = (r.className || '').trim().toLowerCase();
+            const classSubsSet = classCurriculumMap.get(cKey) || new Set();
+            let standardClassCount = 9;
+            let standardMainCount = 5;
+            if (cKey.includes('nursery') || cKey.includes('lkg')) {
+              standardClassCount = 4;
+              standardMainCount = 3;
+            } else if (cKey.includes('ukg')) {
+              standardClassCount = 5;
+              standardMainCount = 4;
+            } else if (/^(i|ii|iii)(-a)?$/i.test(cKey) || /^(1|2|3)(-a)?$/i.test(cKey) || /^class\s*(1|2|3|i|ii|iii)(-a)?$/i.test(cKey)) {
+              standardClassCount = 8;
+              standardMainCount = 5;
+            }
+            const expectedClassSubjectsCount = Math.max(classSubsSet.size, standardClassCount);
+            const expectedMainCount = Math.max(Array.from(classSubsSet).filter(isSubjectMainServer).length, standardMainCount);
+
             const appSubjects = appMarksMap.get(key);
             if (appSubjects && appSubjects.length > 0) {
               let existingSubjects = [];
@@ -907,17 +989,58 @@ async function rawList(moduleName) {
                 if (s && s.subject) mergedMap.set(s.subject.trim().toLowerCase(), s);
               });
               const mergedList = Array.from(mergedMap.values());
+              mergedList.sort((a, b) => getSubjectDisplayOrderServer(a.subject) - getSubjectDisplayOrderServer(b.subject));
               r.subjectMarks = JSON.stringify(mergedList);
 
               let grandTotal = 0;
-              let grandMax = 0;
+              let evaluatedMax = 0;
+              let mainTotal = 0;
+              let mainMax = 0;
+              let mainCount = 0;
+              let failedMainCount = 0;
+
               mergedList.forEach(s => {
-                grandTotal += (parseFloat(s.total) || 0);
-                grandMax += (parseFloat(s.max) || 100);
+                const isSubAb = s.isAbsent === true || String(s.total).trim().toUpperCase() === 'AB' || String(s.theory).trim().toUpperCase() === 'AB' || s.grade === 'AB';
+                const tot = isSubAb ? 0 : (parseFloat(s.total) || 0);
+                const mx = parseFloat(s.max) || 100;
+                const mn = parseFloat(s.min) || 33;
+                const isMain = isSubjectMainServer(s.subject);
+
+                grandTotal += tot;
+                evaluatedMax += mx;
+
+                if (isMain) {
+                  mainCount++;
+                  mainTotal += tot;
+                  mainMax += mx;
+                  if (isSubAb || tot < mn) failedMainCount++;
+                }
               });
+
               r.totalMarks = String(grandTotal);
-              r.percentage = grandMax > 0 ? ((grandTotal / grandMax) * 100).toFixed(1) : (r.percentage || '0');
-              r.resultStatus = parseFloat(r.percentage) >= 33 ? 'PASS' : 'FAIL';
+
+              // Check total number of curriculum subjects for proper class percentage denominator
+              const effectiveMax = Math.max(evaluatedMax, expectedClassSubjectsCount * 100);
+              r.percentage = effectiveMax > 0 ? ((grandTotal / effectiveMax) * 100).toFixed(1) : (r.percentage || '0');
+
+              const mainPct = mainMax > 0 ? (mainTotal / mainMax) * 100 : 0;
+
+              // Core main subjects rule: Additional subject alone (like Drawing) CANNOT decide Pass/Fail!
+              if (mainCount === 0) {
+                r.resultStatus = 'PENDING';
+                r.grade = '---';
+              } else if (mainCount < expectedMainCount) {
+                r.resultStatus = 'PENDING';
+                r.grade = '---';
+              } else if (failedMainCount > 0) {
+                r.resultStatus = 'FAIL';
+                r.grade = 'E';
+              } else if (mainPct >= 33) {
+                r.resultStatus = 'PASS';
+              } else {
+                r.resultStatus = 'FAIL';
+                r.grade = 'E';
+              }
             }
           });
         }
@@ -1045,6 +1168,7 @@ const withRetry = (fn) => async (...args) => {
 
 module.exports = { 
   db, feeDb, MODULES, initDb, list, getById, getStore, getFullStore, resetAndSeed, runRaw, seedIfEmpty,
+  getDb, normalizeRow,
   DEFAULT_TURSO_URL, tursoHttpUrl, invalidateQueryCache, invalidateStoreCache, getStoreVersion,
   insert: withRetry(insert), 
   update: withRetry(update), 
