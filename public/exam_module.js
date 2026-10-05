@@ -12,6 +12,69 @@
     return name;
   };
 
+  /**
+   * Unified Student Photo URL Resolver (matches mobile app getStudentPhotoUri)
+   * Resolves photos from Turso streaming API, Cloudflare/Vercel edge, or Base64 data URIs.
+   */
+  const getStudentPhotoUri = (typeof window !== 'undefined' && typeof window.getStudentPhotoUri === 'function')
+    ? window.getStudentPhotoUri
+    : function(studentOrPhoto, fallbackId = null) {
+        if (!studentOrPhoto) {
+          if (fallbackId) {
+            return `/api/photo/students/${encodeURIComponent(String(fallbackId).trim())}?_v=${Math.floor(Date.now() / 60000)}`;
+          }
+          return '';
+        }
+        let photoVal = null;
+        let cacheKey = null;
+        if (typeof studentOrPhoto === 'object') {
+          if (studentOrPhoto.photo && String(studentOrPhoto.photo).startsWith('data:image')) {
+            return studentOrPhoto.photo;
+          }
+          photoVal = studentOrPhoto.photoUrl || studentOrPhoto.photo || studentOrPhoto.avatar || studentOrPhoto.image || studentOrPhoto.student_photo || studentOrPhoto.studentPhoto;
+          cacheKey = studentOrPhoto.photoLen || studentOrPhoto.updated_at || null;
+          if (!photoVal) {
+            const idToUse = studentOrPhoto.id || studentOrPhoto.admissionNo || fallbackId;
+            if (idToUse) {
+              return `/api/photo/students/${encodeURIComponent(String(idToUse).trim())}?_v=${Math.floor(Date.now() / 60000)}`;
+            }
+            return '';
+          }
+        } else if (typeof studentOrPhoto === 'string') {
+          photoVal = studentOrPhoto;
+        }
+        if (photoVal) {
+          const trimmed = String(photoVal).trim();
+          if (!trimmed || trimmed === 'null' || trimmed === 'undefined' || trimmed === '---' || trimmed === 'none' || trimmed === 'false' || trimmed === 'has_data') {
+            const idToUse = (typeof studentOrPhoto === 'object' ? (studentOrPhoto.id || studentOrPhoto.admissionNo) : null) || fallbackId;
+            if (idToUse) {
+              return `/api/photo/students/${encodeURIComponent(String(idToUse).trim())}?_v=${Math.floor(Date.now() / 60000)}`;
+            }
+            return '';
+          }
+          if (trimmed.startsWith('data:image')) return trimmed;
+          const cleanB64 = trimmed.replace(/\s+/g, '');
+          if (cleanB64.length > 100) {
+            if (cleanB64.startsWith('/9j/')) return `data:image/jpeg;base64,${cleanB64}`;
+            if (cleanB64.startsWith('iVBOR')) return `data:image/png;base64,${cleanB64}`;
+            if (cleanB64.startsWith('UklGR')) return `data:image/webp;base64,${cleanB64}`;
+            if (cleanB64.startsWith('R0lGOD')) return `data:image/gif;base64,${cleanB64}`;
+            if (cleanB64.startsWith('Qk')) return `data:image/bmp;base64,${cleanB64}`;
+          }
+          let url = trimmed;
+          if (url.startsWith('http://tapowan-school.vercel.app')) url = url.replace('http://', 'https://');
+          if (url.startsWith('/api/photo/') || url.startsWith('/api/image/')) {
+            const sep = url.includes('?') ? '&' : '?';
+            return `${url}${sep}_v=${Math.floor(Date.now() / 60000)}`;
+          }
+          return url;
+        }
+        if (fallbackId) {
+          return `/api/photo/students/${encodeURIComponent(String(fallbackId).trim())}?_v=${Math.floor(Date.now() / 60000)}`;
+        }
+        return '';
+      };
+
   // Inject Custom CSS for Exam Module
   if (!document.getElementById("examCustomStyles")) {
     const style = document.createElement("style");
@@ -107,10 +170,51 @@
   }
 
   // Define subjects by class level
+  const CANONICAL_9_SUBJECTS = [
+    'English', 'Hindi', 'Science', 'Social Science', 'Math',
+    'GK & Me', 'Computer', 'Sanskrit', 'Drawing'
+  ];
+
+  function canonicalSubjectName(raw) {
+    if (!raw) return '';
+    const s = String(raw).trim().toLowerCase();
+
+    if (s.includes('english')) return 'English';
+    if (s === 'hindi' || s === 'course-b' || s.includes('hindi')) return 'Hindi';
+    if (s.includes('social') || s.includes('sst') || s.includes('history') || s.includes('geography') || s.includes('civics')) return 'Social Science';
+    if (s === 'evs' || s === 'e.v.s' || s.includes('e.v.s') || s.includes('environmental') || s.includes('environment')) return 'EVS';
+    if (s === 'science' || (s.includes('science') && !s.includes('social') && !s.includes('computer') && !s.includes('moral') && !s.includes('home') && !s.includes('env'))) return 'Science';
+    if (s === 'math' || s.includes('math')) return 'Math';
+    if (s === 'computer' || s === 'cs' || s.includes('computer') || s.includes('infotech') || s.includes('information tech') || s === 'it') return 'Computer';
+    if (s.includes('sanskrit')) return 'Sanskrit';
+    if (s.includes('drawing') || s.includes('art') || s.includes('craft')) return 'Drawing';
+    if (
+      s === 'gk & me' ||
+      s === 'me & gk' ||
+      s === 'me/gk' ||
+      s === 'gk' ||
+      s === 'g.k' ||
+      s === 'g.k.' ||
+      s.includes('general knowledge') ||
+      s.includes('moral') ||
+      s.includes('m.sc') ||
+      s.includes('m.s') ||
+      s === 'gk and me' ||
+      s === 'me and gk'
+    ) {
+      return 'GK & Me';
+    }
+
+    return raw.trim();
+  }
+
+  window.CANONICAL_9_SUBJECTS = CANONICAL_9_SUBJECTS;
+  window.canonicalSubjectName = canonicalSubjectName;
+
   const defaultSubjects = {
-    primary: ['English', 'Hindi', 'Mathematics', 'EVS', 'Computer', 'G.K'],
-    middle: ['English', 'Hindi', 'Mathematics', 'Science', 'Social Science', 'Sanskrit', 'Computer'],
-    high: ['English (184)', 'Hindi Course-B (085)', 'Mathematics (041)', 'Science (086)', 'Social Science (087)', 'Information Tech (402)']
+    primary: CANONICAL_9_SUBJECTS,
+    middle: CANONICAL_9_SUBJECTS,
+    high: CANONICAL_9_SUBJECTS
   };
 
   function getSubjectsForClass(className) {
@@ -128,15 +232,31 @@
             });
             
             if (classSubjects.length > 0) {
-                return Array.from(new Set(classSubjects.map(s => s.subjectName).filter(Boolean)));
+                const distinctList = Array.from(new Set(classSubjects.map(s => canonicalSubjectName(s.subjectName)).filter(Boolean)));
+                if (distinctList.length > 0) {
+                  distinctList.sort((a, b) => getSubjectDisplayOrder(a, className) - getSubjectDisplayOrder(b, className));
+                  return distinctList;
+                }
             }
         }
     }
 
-    const cl = canonicalTarget;
-    if (cl.includes('9') || cl.includes('10') || cl.includes('ix') || cl.includes('x')) return defaultSubjects.high;
-    if (cl.includes('6') || cl.includes('7') || cl.includes('8') || cl.includes('vi') || cl.includes('vii') || cl.includes('viii')) return defaultSubjects.middle;
-    return defaultSubjects.primary;
+    // Standard CBSE Curriculum Defaults by Class Level:
+    // Nursery & LKG: English, Hindi, Math, Drawing (4 subjects)
+    if (canonicalTarget.includes('nursery') || canonicalTarget.includes('lkg')) {
+      return ['English', 'Hindi', 'Math', 'Drawing'];
+    }
+    // UKG: English, Hindi, Math, EVS, Drawing (5 subjects)
+    if (canonicalTarget.includes('ukg')) {
+      return ['English', 'Hindi', 'Math', 'EVS', 'Drawing'];
+    }
+    // Class 1 to 3: English, Hindi, Science, Social Science, Math, GK & Me, Computer, Drawing (8 subjects, NO Sanskrit)
+    if (/^(i|ii|iii)(-a)?$/i.test(canonicalTarget) || /^(1|2|3)(-a)?$/i.test(canonicalTarget) || /^class\s*(1|2|3|i|ii|iii)(-a)?$/i.test(canonicalTarget)) {
+      return ['English', 'Hindi', 'Science', 'Social Science', 'Math', 'GK & Me', 'Computer', 'Drawing'];
+    }
+
+    // Class 4 to 10: Includes Sanskrit (9 subjects)
+    return [...CANONICAL_9_SUBJECTS];
   }
 
   // =========================================================================
@@ -146,15 +266,17 @@
 
   const DEFAULT_SUBJECT_RULES = {
     mainKeywords: [
-      'hindi', 'english', 'mathematics', 'math', 'maths', 'science',
-      'social science', 'social studies', 'sst', 'evs', 'environmental',
+      'english', 'hindi', 'science', 'social science', 'math',
+      'mathematics', 'maths', 'social studies', 'sst', 'evs', 'environmental',
       'physics', 'chemistry', 'biology', 'accountancy', 'business', 'economics',
       'history', 'geography', 'civics', 'political science'
     ],
     additionalKeywords: [
-      'computer', 'information tech', 'infotech', 'it (402)', 'sanskrit', 'urdu',
-      'moral science', 'moral', 'drawing', 'art', 'craft', 'gk', 'g.k',
-      'general knowledge', 'physical education', 'physical ed', 'phe', 'pe',
+      'gk & me', 'computer', 'sanskrit', 'drawing',
+      'gk', 'g.k', 'me/gk', 'me & gk', 'general knowledge', 'moral science', 'moral',
+      'computer science', 'information tech', 'infotech', 'it (402)', 'it',
+      'art', 'craft', 'urdu',
+      'physical education', 'physical ed', 'phe', 'pe',
       'sports', 'yoga', 'music', 'dance', 'work education', 'life skills'
     ],
     passingPercentage: 33
@@ -268,31 +390,158 @@
       }
     }
 
-    // 2. Known standard 50-mark subjects
-    if (
-      sName.includes('moral') ||
-      sName.includes('g.k') ||
-      sName.includes('gk') ||
-      sName.includes('general knowledge') ||
-      sName.includes('drawing') ||
-      sName.includes('craft') ||
-      sName.includes('conversation')
-    ) {
-      return { max: 50, min: 17 };
-    }
-
+    // All subjects default to 100 Max, 33 Passing Marks
     return { max: 100, min: 33 };
   }
 
-  window.getDefaultMaxMarksForSubject = getDefaultMaxMarksForSubject;
+  function isSubjectAdditional(subjectName, className, subjectObj) {
+    return !isSubjectMain(subjectName, className, subjectObj);
+  }
+
+  /**
+   * Canonical Subject Display Ordering:
+   * 1. English
+   * 2. Hindi
+   * 3. Math
+   * 4. Science / EVS
+   * 5. Social Science (SST)
+   * 6. Other Main subjects
+   * 7. Computer (Additional)
+   * 8. GK & Me (Additional)
+   * 9. Sanskrit / Urdu (Additional)
+   * 10. Drawing / Art (Additional)
+   * 11. Co-curricular / Physical Education (Additional)
+   */
+  function getSubjectDisplayOrder(subjectName, className, subjectObj) {
+    const raw = String(subjectName || '').trim().toLowerCase();
+    const canonical = (canonicalSubjectName(subjectName) || raw).toLowerCase();
+
+    // 1. English
+    if (canonical === 'english' || raw.includes('english') || raw === 'eng') return 10;
+    // 2. Hindi
+    if (canonical === 'hindi' || raw.includes('hindi') || raw === 'hin') return 20;
+    // 3. Math
+    if (canonical === 'math' || canonical === 'mathematics' || raw.includes('math')) return 30;
+    // 5. Social Science / SST (checked before Science because "social science" contains "science")
+    if (canonical === 'social science' || raw === 'sst' || raw.includes('social') || raw.includes('sst') || raw.includes('history') || raw.includes('geography') || raw.includes('civics') || raw.includes('pol') || raw.includes('econ')) return 50;
+    // 4. Science / EVS
+    if (canonical === 'science' || canonical === 'evs' || raw === 'sci' || raw.includes('science') || raw.includes('evs') || raw.includes('environmental') || raw.includes('physics') || raw.includes('chemistry') || raw.includes('biology')) return 40;
+
+    // Other core academic subjects
+    const isMain = isSubjectMain(subjectName, className, subjectObj);
+    if (isMain) return 60;
+
+    // --- ADDITIONAL SUBJECTS ---
+    // 6. Computer / IT
+    if (canonical === 'computer' || raw === 'comp' || raw.includes('comp') || raw.includes('it') || raw.includes('info')) return 70;
+    // 7. GK & Me / Moral Science
+    if (canonical === 'gk & me' || raw === 'gkme' || raw.includes('gk') || raw.includes('knowledge') || raw.includes('moral')) return 80;
+    // 8. Sanskrit / Urdu / Regional Language
+    if (canonical === 'sanskrit' || raw === 'sans' || raw.includes('sansk') || raw.includes('urdu')) return 90;
+    // 9. Drawing / Art / Craft
+    if (canonical === 'drawing' || raw === 'draw' || raw.includes('draw') || raw.includes('art') || raw.includes('craft')) return 100;
+    // 10. Physical Education / Music / Dance / Other
+    if (raw.includes('physical') || raw.includes('sport') || raw.includes('yoga') || raw.includes('pe') || raw.includes('phe') || raw.includes('music') || raw.includes('dance')) return 110;
+
+    return 120;
+  }
+  window.getSubjectDisplayOrder = getSubjectDisplayOrder;
+
+  function getCurriculumSubjectsForClass(className, existingSubjects) {
+    const defaultSubs = typeof getSubjectsForClass === 'function' ? getSubjectsForClass(className) : [...CANONICAL_9_SUBJECTS];
+    const resultSubs = [];
+    const seen = new Set();
+
+    (defaultSubs || []).forEach(subName => {
+      const canonical = canonicalSubjectName(subName) || String(subName).trim();
+      const normKey = canonical.toLowerCase();
+      if (normKey && !seen.has(normKey)) {
+        seen.add(normKey);
+        resultSubs.push(canonical);
+      }
+    });
+
+    if (Array.isArray(existingSubjects)) {
+      existingSubjects.forEach(s => {
+        if (!s || !s.subject) return;
+        const canonical = canonicalSubjectName(s.subject) || String(s.subject).trim();
+        const normKey = canonical.toLowerCase();
+        if (normKey && !seen.has(normKey)) {
+          seen.add(normKey);
+          resultSubs.push(canonical);
+        }
+      });
+    }
+
+    // Sort curriculum subjects: English, Hindi, Math, Science, SST, then Additional
+    resultSubs.sort((a, b) => getSubjectDisplayOrder(a, className) - getSubjectDisplayOrder(b, className));
+
+    return resultSubs;
+  }
+  window.getCurriculumSubjectsForClass = getCurriculumSubjectsForClass;
+
+  function isDrawingSubject(name) {
+    if (!name) return false;
+    const s = String(name).trim().toLowerCase();
+    return s === 'drawing' || s.includes('drawing') || s === 'art' || s === 'craft' || s.includes('art & craft') || s.includes('art/craft') || s.includes('चित्रकला');
+  }
+  window.isDrawingSubject = isDrawingSubject;
+
+  function resolveDrawingGrade(sub, isCBSE = true) {
+    if (!sub) return '-';
+    if (sub.isAbsent === true || String(sub.total).toUpperCase() === 'AB' || String(sub.theory).toUpperCase() === 'AB') {
+      return 'AB';
+    }
+    if (sub.grade && sub.grade !== '-' && sub.grade !== '---' && sub.grade !== 'null' && sub.grade !== 'undefined') {
+      return String(sub.grade).trim().toUpperCase();
+    }
+    const valStr = String(sub.total !== undefined && sub.total !== '' && sub.total !== '-' ? sub.total : (sub.theory !== undefined && sub.theory !== '' ? sub.theory : (sub.subjective || ''))).trim();
+    if (/^[A-Ea-e][1-2\+\-]?$/.test(valStr)) {
+      return valStr.toUpperCase();
+    }
+    const numVal = parseFloat(valStr);
+    if (!isNaN(numVal)) {
+      const max = parseFloat(sub.max) > 0 ? parseFloat(sub.max) : 100;
+      const pct = (numVal / max) * 100;
+      if (isCBSE) {
+        if (pct >= 91) return 'A1';
+        if (pct >= 81) return 'A2';
+        if (pct >= 71) return 'B1';
+        if (pct >= 61) return 'B2';
+        if (pct >= 51) return 'C1';
+        if (pct >= 41) return 'C2';
+        if (pct >= 33) return 'D';
+        return 'E';
+      } else {
+        if (pct >= 91) return 'A+';
+        if (pct >= 81) return 'A';
+        if (pct >= 71) return 'B+';
+        if (pct >= 61) return 'B';
+        if (pct >= 51) return 'C';
+        if (pct >= 33) return 'D';
+        return 'E';
+      }
+    }
+    return sub.isPending ? 'Pending' : '-';
+  }
+  window.resolveDrawingGrade = resolveDrawingGrade;
 
   function evalStudentResultStatus(subjects, className) {
+    const classCurriculum = getCurriculumSubjectsForClass(className, subjects);
+    const expectedMainSubjects = classCurriculum.filter(sName => isSubjectMain(sName, className));
+    const expectedMainCount = expectedMainSubjects.length;
+    // Exclude Drawing / Graded subjects from academic curriculum denominator count
+    const academicClassCurriculum = classCurriculum.filter(sName => !isDrawingSubject(sName));
+    const totalClassSubjectsCount = Math.max(academicClassCurriculum.length, 1);
+
     if (!Array.isArray(subjects) || subjects.length === 0) {
       return {
-        resultStatus: "PASS",
+        resultStatus: "PENDING",
+        isPending: true,
+        pendingReason: "No subjects evaluated",
         failedMainSubjects: [],
-        mainStats: { grandTotal: 0, maxTotal: 0, percentage: 0 },
-        overallStats: { grandTotal: 0, maxTotal: 0, percentage: 0 }
+        mainStats: { grandTotal: 0, maxTotal: expectedMainCount * 100, percentage: 0 },
+        overallStats: { grandTotal: 0, maxTotal: totalClassSubjectsCount * 100, percentage: 0 }
       };
     }
 
@@ -310,20 +559,38 @@
       const subName = String(sub.subject).trim();
       if (!subName) return;
 
+      // Graded subjects like Drawing do NOT contribute to scholastic Grand Total or Percentage
+      if (isDrawingSubject(subName)) {
+        return;
+      }
+
       const isMain = isSubjectMain(subName, className, sub);
       const maxMarks = parseFloat(sub.max) > 0 ? parseFloat(sub.max) : 100;
       const minMarks = parseFloat(sub.min) > 0 ? parseFloat(sub.min) : Math.round(maxMarks * 0.33);
 
       let total = 0;
-      if (sub.total !== undefined && sub.total !== '' && !isNaN(parseFloat(sub.total))) {
+      let hasValidMarks = false;
+      const isAbsentSub = sub.isAbsent === true || String(sub.total).toUpperCase() === 'AB' || String(sub.theory).toUpperCase() === 'AB' || String(sub.subjective).toUpperCase() === 'AB' || sub.grade === 'AB';
+      if (isAbsentSub) {
+        total = 0;
+        hasValidMarks = true;
+      } else if (sub.total !== undefined && sub.total !== '' && sub.total !== '-' && !isNaN(parseFloat(sub.total))) {
         total = parseFloat(sub.total);
+        hasValidMarks = true;
       } else {
-        const pa = parseFloat(sub.pa1 || sub.pa2) || 0;
-        const nb = parseFloat(sub.notebook) || 0;
-        const enr = parseFloat(sub.enrichment) || 0;
-        const th = parseFloat(sub.theory !== undefined ? sub.theory : sub.subjective) || 0;
-        const pr = parseFloat(sub.practical) || 0;
-        total = Math.min(maxMarks, Math.round((pa + nb + enr + th + pr) * 10) / 10);
+        const pa = parseFloat(sub.pa1 || sub.pa2);
+        const nb = parseFloat(sub.notebook);
+        const enr = parseFloat(sub.enrichment);
+        const th = parseFloat(sub.theory !== undefined ? sub.theory : sub.subjective);
+        const pr = parseFloat(sub.practical);
+        if (!isNaN(pa) || !isNaN(nb) || !isNaN(enr) || !isNaN(th) || !isNaN(pr)) {
+          total = Math.min(maxMarks, Math.round(((pa || 0) + (nb || 0) + (enr || 0) + (th || 0) + (pr || 0)) * 10) / 10);
+          hasValidMarks = true;
+        }
+      }
+
+      if (!hasValidMarks) {
+        return; // Pending / unentered subject
       }
 
       overallGrandTotal += total;
@@ -344,48 +611,202 @@
           });
         }
       } else {
-        // Additional Subject: marks are recorded but NEVER added to failedMainSubjects!
+        // Additional Subject: marks are recorded in overall stats, but NEVER decide PASS/FAIL alone!
       }
     });
 
+    // Check total number of curriculum subjects to calculate percentage properly:
+    // When only 1 subject (e.g. Drawing) is entered out of 8, maxTotal is based on class curriculum
+    const effectiveOverallMax = Math.max(overallMaxTotal, totalClassSubjectsCount * 100);
+    const overallPercentage = effectiveOverallMax > 0 ? parseFloat(((overallGrandTotal / effectiveOverallMax) * 100).toFixed(1)) : 0;
     const mainPercentage = mainMaxTotal > 0 ? parseFloat(((mainGrandTotal / mainMaxTotal) * 100).toFixed(1)) : 0;
-    const overallPercentage = overallMaxTotal > 0 ? parseFloat(((overallGrandTotal / overallMaxTotal) * 100).toFixed(1)) : 0;
 
-    // Student PASSES if and only if all Main subjects pass and main percentage >= 33%
-    const isPassed = (failedMainSubjects.length === 0) && (mainSubjectsCount === 0 || mainPercentage >= 33);
+    // Check if main subjects are missing or incomplete:
+    // Core main subjects are mandatory to decide Pass/Fail. Additional subjects alone CANNOT grant PASS!
+    const hasZeroMain = (mainSubjectsCount === 0);
+    const hasIncompleteMain = (expectedMainCount > 0 && mainSubjectsCount < expectedMainCount);
+
+    let resultStatus = "PENDING";
+    let isPending = false;
+    let pendingReason = "";
+
+    if (hasZeroMain) {
+      resultStatus = "PENDING";
+      isPending = true;
+      pendingReason = "Awaiting Core Main Subjects (Additional subject only)";
+    } else if (hasIncompleteMain) {
+      resultStatus = "PENDING";
+      isPending = true;
+      pendingReason = `Incomplete Main Subjects (${mainSubjectsCount}/${expectedMainCount} evaluated)`;
+    } else if (failedMainSubjects.length > 0) {
+      resultStatus = "FAIL";
+    } else if (mainPercentage >= 33) {
+      resultStatus = "PASS";
+    } else {
+      resultStatus = "FAIL";
+    }
 
     return {
-      resultStatus: isPassed ? "PASS" : "FAIL",
+      resultStatus,
+      isPending,
+      pendingReason,
       failedMainSubjects,
+      expectedMainCount,
+      mainSubjectsCount,
+      totalClassSubjectsCount,
       mainStats: {
         grandTotal: mainGrandTotal,
-        maxTotal: mainMaxTotal,
+        maxTotal: mainMaxTotal > 0 ? mainMaxTotal : expectedMainCount * 100,
         percentage: mainPercentage
       },
       overallStats: {
         grandTotal: overallGrandTotal,
-        maxTotal: overallMaxTotal,
+        maxTotal: effectiveOverallMax,
         percentage: overallPercentage
       }
     };
   }
 
+  function prepareCompleteMarksheetSubjects(rawSubs, className, isCBSE, isAnnual) {
+    let subs = [];
+    if (typeof rawSubs === 'string') {
+      try { subs = JSON.parse(rawSubs); } catch(e) { subs = []; }
+    } else if (Array.isArray(rawSubs)) {
+      subs = [...rawSubs];
+    }
+    if (!Array.isArray(subs)) subs = [];
+
+    const classCurriculum = getCurriculumSubjectsForClass(className, subs);
+    const completeList = [];
+    const usedIndices = new Set();
+
+    classCurriculum.forEach(subName => {
+      const canonical = canonicalSubjectName(subName) || String(subName).trim();
+      const normName = canonical.toLowerCase();
+
+      // Find in student's entered marks
+      const foundIdx = subs.findIndex((s, idx) => {
+        if (!s || !s.subject || usedIndices.has(idx)) return false;
+        const sNorm = (canonicalSubjectName(s.subject) || String(s.subject).trim()).toLowerCase();
+        return sNorm === normName;
+      });
+
+      const isMain = isSubjectMain(canonical, className);
+      const defMaxMin = getDefaultMaxMarksForSubject(canonical, className);
+
+      if (foundIdx !== -1) {
+        usedIndices.add(foundIdx);
+        const found = subs[foundIdx];
+        completeList.push({
+          ...found,
+          subject: canonical,
+          isMain,
+          isPending: false,
+          max: parseFloat(found.max) > 0 ? parseFloat(found.max) : defMaxMin.max,
+          min: parseFloat(found.min) > 0 ? parseFloat(found.min) : defMaxMin.min
+        });
+      } else {
+        // Pending subject for this student in this exam
+        completeList.push({
+          subject: canonical,
+          isMain,
+          isPending: true,
+          max: defMaxMin.max,
+          min: defMaxMin.min,
+          pa1: '-',
+          pa2: '-',
+          notebook: '-',
+          enrichment: '-',
+          theory: '-',
+          subjective: '-',
+          practical: '-',
+          total: '-'
+        });
+      }
+    });
+
+    // Add any remaining subjects that the student had which were not in classCurriculum
+    subs.forEach((s, idx) => {
+      if (!usedIndices.has(idx) && s && s.subject) {
+        const canonical = canonicalSubjectName(s.subject) || String(s.subject).trim();
+        const isMain = isSubjectMain(canonical, className, s);
+        completeList.push({
+          ...s,
+          subject: canonical,
+          isMain,
+        });
+      }
+    });
+
+    // Strictly enforce canonical display order: English, Hindi, Math, Science, SST, then Additional
+    completeList.sort((a, b) => {
+      const orderA = getSubjectDisplayOrder(a.subject, className, a);
+      const orderB = getSubjectDisplayOrder(b.subject, className, b);
+      return orderA - orderB;
+    });
+
+    return completeList;
+  }
+
   window.DEFAULT_SUBJECT_RULES = DEFAULT_SUBJECT_RULES;
   window.isSubjectMain = isSubjectMain;
   window.evalStudentResultStatus = evalStudentResultStatus;
+  window.prepareCompleteMarksheetSubjects = prepareCompleteMarksheetSubjects;
 
   window.toggleSubjectRoleInRow = function(btn) {
     const currentIsMain = btn.getAttribute('data-is-main') === '1';
     const newIsMain = !currentIsMain;
     btn.setAttribute('data-is-main', newIsMain ? '1' : '0');
+    const row = btn.closest('.marks-subject-row');
+
     if (newIsMain) {
       btn.className = 'sub-role-toggle role-main';
       btn.innerHTML = '⭐ Main';
-      btn.title = 'Main Subject: Marks strictly decide Pass or Fail';
+      btn.title = 'Main Subject: CBSE Pattern with PA1 (10) + NB (5) + Enr (5) + Theory (80) = 100';
+      if (row && row.classList.contains('cbse-mode')) {
+        const paInp = row.querySelector('.sub-pa');
+        const nbInp = row.querySelector('.sub-nb');
+        const enrInp = row.querySelector('.sub-enr');
+        const thInp = row.querySelector('.sub-th');
+        if (paInp) { paInp.disabled = false; paInp.placeholder = '0-10'; paInp.style.background = ''; paInp.style.color = ''; paInp.style.cursor = ''; }
+        if (nbInp) { nbInp.disabled = false; nbInp.placeholder = '0-5'; nbInp.style.background = ''; nbInp.style.color = ''; nbInp.style.cursor = ''; }
+        if (enrInp) { enrInp.disabled = false; enrInp.placeholder = '0-5'; enrInp.style.background = ''; enrInp.style.color = ''; enrInp.style.cursor = ''; }
+        if (thInp) {
+          const maxVal = parseFloat(row.querySelector('.sub-max')?.value) || 100;
+          const thMax = maxVal <= 50 ? maxVal : 80;
+          thInp.placeholder = `0-${thMax}`;
+          thInp.max = thMax;
+          thInp.title = 'Exam Marks (0-80)';
+          thInp.style.background = '';
+          thInp.style.borderColor = '';
+        }
+      }
     } else {
       btn.className = 'sub-role-toggle role-additional';
       btn.innerHTML = '➕ Addl';
-      btn.title = 'Additional Subject: Marks recorded, but NEVER fails student';
+      btn.title = 'Additional Subject: In 100 only (No PA1, NB, Enr option needed in Half Yearly)';
+      if (row && row.classList.contains('cbse-mode')) {
+        const paInp = row.querySelector('.sub-pa');
+        const nbInp = row.querySelector('.sub-nb');
+        const enrInp = row.querySelector('.sub-enr');
+        const thInp = row.querySelector('.sub-th');
+        const maxInp = row.querySelector('.sub-max');
+        if (maxInp && (maxInp.value === '80' || maxInp.value === '50')) {
+          maxInp.value = 100;
+          if (typeof window.handleRowMaxChange === 'function') window.handleRowMaxChange(maxInp);
+        }
+        if (paInp) { paInp.value = ''; paInp.disabled = true; paInp.placeholder = '-'; paInp.style.background = '#f1f5f9'; paInp.style.color = '#94a3b8'; paInp.style.cursor = 'not-allowed'; }
+        if (nbInp) { nbInp.value = ''; nbInp.disabled = true; nbInp.placeholder = '-'; nbInp.style.background = '#f1f5f9'; nbInp.style.color = '#94a3b8'; nbInp.style.cursor = 'not-allowed'; }
+        if (enrInp) { enrInp.value = ''; enrInp.disabled = true; enrInp.placeholder = '-'; enrInp.style.background = '#f1f5f9'; enrInp.style.color = '#94a3b8'; enrInp.style.cursor = 'not-allowed'; }
+        if (thInp) {
+          const maxVal = parseFloat(row.querySelector('.sub-max')?.value) || 100;
+          thInp.placeholder = `0-${maxVal}`;
+          thInp.max = maxVal;
+          thInp.title = 'Direct Exam Marks in 100 only';
+          thInp.style.background = '#eff6ff';
+          thInp.style.borderColor = '#3b82f6';
+        }
+      }
     }
     if (typeof window.calcExamTotals === 'function') {
       window.calcExamTotals();
@@ -448,14 +869,13 @@
       let subjectsForSelection = [];
       if (selectedClass === "all") {
         subjectsForSelection = Array.from(new Set([
-          'Hindi', 'English', 'Mathematics', 'Science', 'Social Science', 'EVS',
-          'Computer', 'Information Tech', 'Sanskrit', 'Urdu', 'Moral Science', 'Drawing', 'G.K', 'Physical Education',
-          ...(store.subjects || []).map(s => s.subjectName).filter(Boolean)
+          ...CANONICAL_9_SUBJECTS,
+          ...(store.subjects || []).map(s => canonicalSubjectName(s.subjectName)).filter(Boolean)
         ]));
       } else {
         subjectsForSelection = Array.from(new Set([
           ...getSubjectsForClass(selectedClass),
-          ...(store.subjects || []).filter(s => normFunc(s.className).toLowerCase() === normFunc(selectedClass).toLowerCase() || s.className === 'all').map(s => s.subjectName).filter(Boolean)
+          ...(store.subjects || []).filter(s => normFunc(s.className).toLowerCase() === normFunc(selectedClass).toLowerCase() || s.className === 'all').map(s => canonicalSubjectName(s.subjectName)).filter(Boolean)
         ]));
       }
 
@@ -1191,9 +1611,10 @@
       return;
     }
 
-    // Group by className, examName, session
+    // Group by className, examName, session (only active students)
     const grouped = {};
-    exams.forEach(e => {
+    const activeExams = (store.exams || []).filter(e => isExamForActiveStudent(e, store.students || []));
+    activeExams.forEach(e => {
         const key = `${e.className}|${e.examName}|${e.session}`;
         if (!grouped[key]) {
             grouped[key] = { className: e.className, examName: e.examName, session: e.session, count: 0, ids: [] };
@@ -1299,11 +1720,122 @@
       }
   };
 
+  function isStudentActive(student) {
+    if (!student) return false;
+    const st = String(student.status || '').trim().toLowerCase();
+    if (st === 'inactive' || st === 'left' || st === 'archived' || st === 'dropped' || st === 'tc issued') {
+      return false;
+    }
+    return true;
+  }
+  window.isStudentActive = isStudentActive;
+
+  function isExamForActiveStudent(exam, studentList) {
+    if (!exam) return false;
+    const s = findStudentFromStore(studentList || [], exam);
+    if (s && s.id) {
+      return isStudentActive(s);
+    }
+    return true;
+  }
+  window.isExamForActiveStudent = isExamForActiveStudent;
+
+  function findStudentFromStore(studentList, criteria) {
+    if (!studentList || !Array.isArray(studentList) || !criteria) return {};
+    const normFunc = typeof normalizeCanonicalClass === 'function' ? normalizeCanonicalClass : (x => (x || '').trim());
+
+    // 0. Absolute Priority: Match by Student Primary Key ID (only when explicitly studentId/student_id)
+    const targetId = criteria.studentId || criteria.student_id;
+    if (targetId && String(targetId) !== '0' && String(targetId) !== '-1') {
+      const byId = studentList.find(s => String(s.id) === String(targetId));
+      if (byId) return byId;
+    }
+    
+    const targetAdm = String(criteria.admissionNo || criteria.admNo || '').trim().toLowerCase();
+    const targetName = (criteria.studentName || criteria.fullName || criteria.name || '').trim().toLowerCase();
+    const targetClass = normFunc(criteria.className || criteria.class || '').toLowerCase();
+    const targetRoll = String(criteria.rollNo || criteria.roll || '').trim().replace(/^0+/, '');
+
+    // 1. Highest Priority: Match by Unique Admission Number (with class/name cross-validation)
+    if (targetAdm && targetAdm !== '-' && targetAdm !== 'null' && targetAdm !== 'undefined') {
+      const byAdm = studentList.find(s => {
+        const sAdm = String(s.admissionNo || s.admNo || '').trim().toLowerCase();
+        return sAdm && sAdm === targetAdm;
+      });
+      if (byAdm) {
+        // Validation: Verify byAdm actually matches this student's class or name to prevent cross-student photo collisions!
+        const sClass = normFunc(byAdm.className || '').toLowerCase();
+        const sName = (byAdm.fullName || byAdm.name || '').trim().toLowerCase();
+        const classMatches = !targetClass || sClass === targetClass || sClass.includes(targetClass) || targetClass.includes(sClass);
+        const nameMatches = !targetName || sName === targetName || sName.includes(targetName) || targetName.includes(sName);
+        
+        // If either class or name matches, byAdm is trusted.
+        // If BOTH class AND name completely contradict byAdm (e.g. Rachna in VI-A vs Sariya in III-A), do NOT blindly use byAdm!
+        if (classMatches || nameMatches) {
+          return byAdm;
+        }
+      }
+    }
+
+    // 2. High Priority: Match by Class AND Exact/Fuzzy Name
+    if (targetClass && targetName) {
+      const byClassAndName = studentList.find(s => {
+        const sClass = normFunc(s.className || '').toLowerCase();
+        const sName = (s.fullName || s.name || '').trim().toLowerCase();
+        if (sClass === targetClass || sClass.includes(targetClass) || targetClass.includes(sClass)) {
+          if (sName === targetName) return true;
+          const partsTarget = targetName.split(/\s+/).filter(Boolean);
+          const partsS = sName.split(/\s+/).filter(Boolean);
+          if (partsTarget.length > 0 && partsS.length > 0) {
+            if (partsTarget[0] === partsS[0]) {
+              if (partsTarget.length === 1 || partsS.length === 1) return true;
+              if (partsTarget[partsTarget.length - 1] === partsS[partsS.length - 1]) return true;
+            }
+          }
+        }
+        return false;
+      });
+      if (byClassAndName) return byClassAndName;
+    }
+
+    // 3. Medium Priority: Match by Name alone if unique
+    if (targetName) {
+      const byName = studentList.find(s => {
+        const sName = (s.fullName || s.name || '').trim().toLowerCase();
+        return sName === targetName;
+      });
+      if (byName) return byName;
+    }
+
+    // 4. Low Priority Fallback: Match by Class AND Roll ONLY IF student name is NOT completely contradictory
+    if (targetClass && targetRoll) {
+      const byClassAndRoll = studentList.find(s => {
+        const sClass = normFunc(s.className || '').toLowerCase();
+        const sRoll = String(s.rollNo || '').trim().replace(/^0+/, '');
+        const sName = (s.fullName || s.name || '').trim().toLowerCase();
+        if ((sClass === targetClass || sClass.includes(targetClass) || targetClass.includes(sClass)) && sRoll === targetRoll) {
+          if (targetName && sName) {
+            const firstTarget = targetName.split(/\s+/)[0];
+            const firstS = sName.split(/\s+/)[0];
+            if (firstTarget !== firstS && !targetName.includes(firstS) && !sName.includes(firstTarget)) {
+              return false;
+            }
+          }
+          return true;
+        }
+        return false;
+      });
+      if (byClassAndRoll) return byClassAndRoll;
+    }
+
+    return {};
+  }
+
   function loadStudentsForMarksEntry(className, examName, session) {
     const container = document.getElementById("examEntryTableContainer");
     const store = typeof getStore !== 'undefined' ? getStore() : {};
     const normFunc = typeof normalizeCanonicalClass === 'function' ? normalizeCanonicalClass : (x => x);
-    const students = (store.students || []).filter(s => (normFunc(s.className) === normFunc(className) || s.className === className) && s.status !== "Left");
+    const students = (store.students || []).filter(s => (normFunc(s.className) === normFunc(className) || s.className === className) && isStudentActive(s));
     
     if(students.length === 0) {
       container.innerHTML = `
@@ -1359,7 +1891,7 @@
 
         const nameA = (e.studentName || '').trim().toLowerCase();
         const nameB = (s.fullName || '').trim().toLowerCase();
-        const matchName = nameA && nameB && nameA === nameB;
+        const matchName = nameA && nameB && (nameA === nameB || nameA.includes(nameB) || nameB.includes(nameA));
 
         const rollA = String(e.rollNo || '').trim().replace(/^0+/, '');
         const rollB = String(s.rollNo || '').trim().replace(/^0+/, '');
@@ -1369,7 +1901,19 @@
         const admB = (s.admissionNo || '').trim().toLowerCase();
         const matchAdm = admA && admB && admA === admB;
 
-        return matchName || matchAdm || matchRoll;
+        if (matchAdm) return true;
+        if (matchName) return true;
+        if (matchRoll) {
+          if (nameA && nameB) {
+            const firstA = nameA.split(' ')[0];
+            const firstB = nameB.split(' ')[0];
+            if (firstA !== firstB && !nameA.includes(firstB) && !nameB.includes(firstA)) {
+              return false;
+            }
+          }
+          return true;
+        }
+        return false;
       });
       const isEntered = !!existingExam;
       const statusHtml = isEntered ? '<span class="status-badge status-entered">Entered</span>' : '<span class="status-badge status-pending">Pending</span>';
@@ -1380,12 +1924,19 @@
           actionButtons += ` <button class="exam-btn" style="background:#ef4444; color:#fff; border:none; padding:8px 12px; margin-left:5px; border-radius:4px; font-weight:600; cursor:pointer;" onclick="window.deleteMarksEntry('${existingExam.id}', '${className}', '${examName}', '${session}')">Delete</button>`;
       }
 
+      const sPhotoUri = getStudentPhotoUri(s, s.id || s.admissionNo);
       html += `
         <tr>
-          <td>${s.rollNo || '-'}</td>
+          <td><strong>${s.rollNo || '-'}</strong></td>
           <td>
-            <div style="font-weight:700; color: inherit; ">${s.fullName}</div>
-            <div style="font-size:0.8rem; color: inherit;">${s.fatherName || ''}</div>
+            <div style="display:flex; align-items:center; gap:10px;">
+              ${sPhotoUri ? `<img src="${sPhotoUri}" style="width:34px; height:34px; border-radius:50%; object-fit:cover; border:1.5px solid #cbd5e1; background:#f8fafc; flex-shrink:0;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />` : ''}
+              <div style="${sPhotoUri ? 'display:none;' : 'display:flex;'} width:34px; height:34px; border-radius:50%; background:#e2e8f0; color:#475569; align-items:center; justify-content:center; font-size:12px; font-weight:800; flex-shrink:0;">${(s.fullName || 'S')[0]}</div>
+              <div>
+                <div style="font-weight:700; color: inherit; font-size:0.92rem;">${s.fullName}</div>
+                <div style="font-size:0.75rem; color: #64748b;">Adm: <strong>${s.admissionNo || '-'}</strong> ${s.fatherName ? '• S/D of ' + formatParentName(s.fatherName) : ''}</div>
+              </div>
+            </div>
           </td>
           <td>${statusHtml}</td>
           <td style="text-align:right;">
@@ -1447,7 +1998,7 @@
 
       const nameA = (e.studentName || '').trim().toLowerCase();
       const nameB = (student.fullName || '').trim().toLowerCase();
-      const matchName = nameA && nameB && nameA === nameB;
+      const matchName = nameA && nameB && (nameA === nameB || nameA.includes(nameB) || nameB.includes(nameA));
 
       const rollA = String(e.rollNo || '').trim().replace(/^0+/, '');
       const rollB = String(student.rollNo || '').trim().replace(/^0+/, '');
@@ -1457,7 +2008,19 @@
       const admB = (student.admissionNo || '').trim().toLowerCase();
       const matchAdm = admA && admB && admA === admB;
 
-      return matchName || matchAdm || matchRoll;
+      if (matchAdm) return true;
+      if (matchName) return true;
+      if (matchRoll) {
+        if (nameA && nameB) {
+          const firstA = nameA.split(' ')[0];
+          const firstB = nameB.split(' ')[0];
+          if (firstA !== firstB && !nameA.includes(firstB) && !nameB.includes(firstA)) {
+            return false;
+          }
+        }
+        return true;
+      }
+      return false;
     });
     
     let existingSubjects = [];
@@ -1476,25 +2039,27 @@
     const defaults = getSubjectsForClass(className);
     const allSubjectNames = [];
     defaults.forEach(sub => {
-      if (sub && !allSubjectNames.some(n => n.trim().toLowerCase() === sub.trim().toLowerCase())) {
-        allSubjectNames.push(sub.trim());
+      const c = canonicalSubjectName(sub);
+      if (c && !allSubjectNames.includes(c)) {
+        allSubjectNames.push(c);
       }
     });
     existingSubjects.forEach(s => {
-      if (s && s.subject && !allSubjectNames.some(n => n.trim().toLowerCase() === s.subject.trim().toLowerCase())) {
-        allSubjectNames.push(s.subject.trim());
+      const c = canonicalSubjectName(s && s.subject);
+      if (c && !allSubjectNames.includes(c)) {
+        allSubjectNames.push(c);
       }
     });
 
     let subjectData = allSubjectNames.map(subName => {
-      const found = existingSubjects.find(s => s && s.subject && s.subject.trim().toLowerCase() === subName.trim().toLowerCase());
+      const found = existingSubjects.find(s => s && s.subject && canonicalSubjectName(s.subject) === subName);
       const isMain = isSubjectMain(subName, className, found);
       const defMaxMin = getDefaultMaxMarksForSubject(subName, className);
       if (found) {
         const foundMax = found.max !== undefined && found.max !== '' ? parseFloat(found.max) : defMaxMin.max;
         const foundMin = found.min !== undefined && found.min !== '' ? parseFloat(found.min) : defMaxMin.min;
         return {
-          subject: found.subject || subName,
+          subject: subName,
           isMain: isMain,
           max: foundMax,
           min: foundMin,
@@ -1530,6 +2095,8 @@
 
     let rowsHtml = '';
     subjectData.forEach((sd, idx) => {
+      const isDrawing = isDrawingSubject(sd.subject);
+      const isAddl = isDrawing ? true : !sd.isMain;
       const paVal = isAnnual ? (sd.pa2 !== undefined && sd.pa2 !== '' ? sd.pa2 : (sd.pa1 || '')) : (sd.pa1 !== undefined && sd.pa1 !== '' ? sd.pa1 : '');
       const nbVal = sd.notebook !== undefined ? sd.notebook : '';
       const enrVal = sd.enrichment !== undefined ? sd.enrichment : '';
@@ -1537,14 +2104,19 @@
 
       const maxVal = sd.max !== undefined && parseFloat(sd.max) > 0 ? parseFloat(sd.max) : 100;
       const minVal = sd.min !== undefined && parseFloat(sd.min) > 0 ? parseFloat(sd.min) : Math.round(maxVal * 0.33);
-      const thMax = maxVal <= 50 ? maxVal : 80;
-      const thPlaceholder = maxVal <= 50 ? `0-${maxVal}` : "0-80";
+      const thMax = isAddl ? maxVal : (maxVal <= 50 ? maxVal : 80);
+      const thPlaceholder = isDrawing ? "Grade (A-E) or Marks" : (isAddl ? `0-${maxVal}` : (maxVal <= 50 ? `0-${maxVal}` : "0-80"));
 
       if (isCBSE) {
+        const drawGrade = isDrawing ? resolveDrawingGrade(sd, true) : '';
+        const cellContent = (sd.isAbsent || String(sd.total).toUpperCase() === 'AB')
+          ? '<span style="color:#dc2626; font-weight:900;">AB</span>'
+          : (isDrawing ? `<span style="color:#2563eb; font-weight:900; background:#eff6ff; padding:2px 8px; border-radius:4px; border:1px solid #bfdbfe;">${drawGrade}</span>` : (sd.total || 0));
+
         rowsHtml += `
           <div class="marks-subject-row cbse-mode" data-idx="${idx}">
             <input type="text" class="sub-name" value="${sd.subject}" placeholder="Subject Name" />
-            <button type="button" class="sub-role-toggle ${sd.isMain ? 'role-main' : 'role-additional'}" data-is-main="${sd.isMain ? '1' : '0'}" onclick="window.toggleSubjectRoleInRow(this)" title="${sd.isMain ? 'Main Subject: Marks strictly decide Pass or Fail' : 'Additional Subject: Never fails student'}">${sd.isMain ? '⭐ Main' : '➕ Addl'}</button>
+            <button type="button" class="sub-role-toggle ${isDrawing ? 'role-additional' : (sd.isMain ? 'role-main' : 'role-additional')}" data-is-main="${isDrawing ? '0' : (sd.isMain ? '1' : '0')}" onclick="window.toggleSubjectRoleInRow(this)" title="${isDrawing ? 'Graded Subject: Graded only, excluded from Grand Total' : (sd.isMain ? 'Main Subject: CBSE Pattern with PA1 (10) + NB (5) + Enr (5) + Theory (80) = 100' : 'Additional Subject: In 100 only (No PA1, NB, Enr option needed in Half Yearly)')}">${isDrawing ? '🎨 Graded' : (sd.isMain ? '⭐ Main' : '➕ Addl')}</button>
             <div class="sub-max-box" style="display:flex; flex-direction:column; align-items:center; gap:2px;">
               <input type="number" class="sub-max" value="${maxVal}" placeholder="${maxVal}" min="1" oninput="window.handleRowMaxChange(this)" style="padding:6px 2px; text-align:center; font-weight:800; font-size:0.9rem;" />
               <div style="display:flex; gap:2px;">
@@ -1553,21 +2125,26 @@
               </div>
             </div>
             <input type="number" class="sub-min" value="${minVal}" placeholder="${minVal}" min="0" />
-            <input type="number" class="sub-pa" value="${paVal}" placeholder="0-10" min="0" max="10" />
-            <input type="number" class="sub-nb" value="${nbVal}" placeholder="0-5" min="0" max="5" />
-            <input type="number" class="sub-enr" value="${enrVal}" placeholder="0-5" min="0" max="5" />
-            <input type="number" class="sub-th" value="${thVal}" placeholder="${thPlaceholder}" min="0" max="${thMax}" />
-            <div class="total-cell" id="sub-tot-${idx}">${sd.total || 0}</div>
+            <input type="number" class="sub-pa" value="${isAddl ? '' : paVal}" placeholder="${isAddl ? '-' : '0-10'}" min="0" max="10" ${isAddl ? 'disabled style="background:#f1f5f9; color:#94a3b8; cursor:not-allowed; text-align:center;" title="N/A for Additional Subject (100 Max)"' : ''} />
+            <input type="number" class="sub-nb" value="${isAddl ? '' : nbVal}" placeholder="${isAddl ? '-' : '0-5'}" min="0" max="5" ${isAddl ? 'disabled style="background:#f1f5f9; color:#94a3b8; cursor:not-allowed; text-align:center;" title="N/A for Additional Subject (100 Max)"' : ''} />
+            <input type="number" class="sub-enr" value="${isAddl ? '' : enrVal}" placeholder="${isAddl ? '-' : '0-5'}" min="0" max="5" ${isAddl ? 'disabled style="background:#f1f5f9; color:#94a3b8; cursor:not-allowed; text-align:center;" title="N/A for Additional Subject (100 Max)"' : ''} />
+            <input type="text" class="sub-th" value="${thVal}" placeholder="${thPlaceholder}" title="${isDrawing ? 'Enter Grade (e.g. A, B, C2) or Marks (0-100)' : (isAddl ? 'Direct Exam Marks in 100 only or AB' : 'Exam Marks (0-80 or AB)')}" style="${isAddl ? 'border-color:#3b82f6; background:#eff6ff; font-weight:800;' : ''}" />
+            <div class="total-cell" id="sub-tot-${idx}">${cellContent}</div>
             <button class="del-row-btn" onclick="this.parentElement.remove(); window.calcExamTotals();">×</button>
           </div>
         `;
       } else {
         const standardMax = sd.max !== undefined && parseFloat(sd.max) > 0 ? parseFloat(sd.max) : 100;
         const standardMin = sd.min !== undefined && parseFloat(sd.min) > 0 ? parseFloat(sd.min) : Math.round(standardMax * 0.33);
+        const drawGrade = isDrawing ? resolveDrawingGrade(sd, false) : '';
+        const cellContent = (sd.isAbsent || String(sd.total).toUpperCase() === 'AB')
+          ? '<span style="color:#dc2626; font-weight:900;">AB</span>'
+          : (isDrawing ? `<span style="color:#2563eb; font-weight:900; background:#eff6ff; padding:2px 8px; border-radius:4px; border:1px solid #bfdbfe;">${drawGrade}</span>` : (sd.total || 0));
+
         rowsHtml += `
           <div class="marks-subject-row" data-idx="${idx}">
             <input type="text" class="sub-name" value="${sd.subject}" placeholder="Subject Name" />
-            <button type="button" class="sub-role-toggle ${sd.isMain ? 'role-main' : 'role-additional'}" data-is-main="${sd.isMain ? '1' : '0'}" onclick="window.toggleSubjectRoleInRow(this)" title="${sd.isMain ? 'Main Subject: Marks strictly decide Pass or Fail' : 'Additional Subject: Never fails student'}">${sd.isMain ? '⭐ Main' : '➕ Addl'}</button>
+            <button type="button" class="sub-role-toggle ${isDrawing ? 'role-additional' : (sd.isMain ? 'role-main' : 'role-additional')}" data-is-main="${isDrawing ? '0' : (sd.isMain ? '1' : '0')}" onclick="window.toggleSubjectRoleInRow(this)" title="${isDrawing ? 'Graded Subject: Graded only, excluded from Grand Total' : (sd.isMain ? 'Main Subject: Marks strictly decide Pass or Fail' : 'Additional Subject: Never fails student')}">${isDrawing ? '🎨 Graded' : (sd.isMain ? '⭐ Main' : '➕ Addl')}</button>
             <div class="sub-max-box" style="display:flex; flex-direction:column; align-items:center; gap:2px;">
               <input type="number" class="sub-max" value="${standardMax}" placeholder="${standardMax}" min="1" oninput="window.handleRowMaxChange(this)" style="padding:6px 2px; text-align:center; font-weight:800; font-size:0.9rem;" />
               <div style="display:flex; gap:2px;">
@@ -1576,9 +2153,9 @@
               </div>
             </div>
             <input type="number" class="sub-min" value="${standardMin}" placeholder="${standardMin}" min="0" />
-            <input type="number" class="sub-th" value="${sd.theory}" placeholder="0" min="0" />
-            <input type="number" class="sub-pr" value="${sd.practical}" placeholder="0" min="0" />
-            <div class="total-cell" id="sub-tot-${idx}">${sd.total || 0}</div>
+            <input type="text" class="sub-th" value="${sd.theory}" placeholder="${isDrawing ? 'Grade or Marks' : '0 or AB'}" />
+            <input type="number" class="sub-pr" value="${isDrawing ? '' : sd.practical}" placeholder="${isDrawing ? '-' : '0'}" min="0" ${isDrawing ? 'disabled style="background:#f1f5f9; color:#94a3b8; cursor:not-allowed;"' : ''} />
+            <div class="total-cell" id="sub-tot-${idx}">${cellContent}</div>
             <button class="del-row-btn" onclick="this.parentElement.remove(); window.calcExamTotals();">×</button>
           </div>
         `;
@@ -1594,7 +2171,7 @@
         <div>${paLabel}</div>
         <div>Notebook (5)</div>
         <div>Subject Enrichment (5)</div>
-        <div>${examLabel}</div>
+        <div>${examLabel}<br><small style="font-size:0.65rem; opacity:0.85;">(Core 80 / Addl 100)</small></div>
         <div style="text-align:center;">Total</div>
         <div></div>
       </div>
@@ -1613,8 +2190,16 @@
 
     overlay.innerHTML = `
       <div class="exam-modal" style="max-width: ${isCBSE ? '1020px' : '900px'};">
-        <div class="exam-modal-header">
-          <h2>${student.fullName} <span>Class: ${className} | Roll: ${student.rollNo} | Exam: ${examName} ${isCBSE ? '• (CBSE ' + (isAnnual ? 'Term-2' : 'Term-1') + ' Format)' : ''}</span></h2>
+        <div class="exam-modal-header" style="display:flex; justify-content:space-between; align-items:center;">
+          <div style="display:flex; align-items:center; gap:12px;">
+            ${(function() {
+              const pUri = getStudentPhotoUri(student, student.id || student.admissionNo);
+              return pUri ? `<img src="${pUri}" style="width:48px; height:48px; border-radius:50%; object-fit:cover; border:2px solid #3b82f6; background:#fff; flex-shrink:0;" onerror="this.style.display='none'" />` : '';
+            })()}
+            <div>
+              <h2 style="margin:0;">${student.fullName} <span style="display:block; font-size:0.85rem; font-weight:600; color:#64748b; margin-top:3px;">Class: ${className} | Roll: ${student.rollNo} | Adm: ${student.admissionNo || '-'} | Exam: ${examName} ${isCBSE ? '• (CBSE ' + (isAnnual ? 'Term-2' : 'Term-1') + ' Format)' : ''}</span></h2>
+            </div>
+          </div>
           <button class="exam-close-btn" onclick="document.getElementById('examMarksModal').remove()">×</button>
         </div>
         
@@ -1760,6 +2345,7 @@
 
       rows.forEach((row, i) => {
         let total = 0;
+        let isRowAbsent = false;
         const maxMarks = parseFloat(row.querySelector(".sub-max")?.value) || 100;
         const minMarks = parseFloat(row.querySelector(".sub-min")?.value) || 33;
         const subName = row.querySelector(".sub-name")?.value || `Subject ${i+1}`;
@@ -1767,26 +2353,47 @@
         let hasAnyInput = false;
 
         if (isCBSE) {
+          const isAddl = !isMain;
           const paRaw = row.querySelector(".sub-pa")?.value;
           const nbRaw = row.querySelector(".sub-nb")?.value;
           const enrRaw = row.querySelector(".sub-enr")?.value;
-          const thRaw = row.querySelector(".sub-th")?.value;
+          const thRaw = row.querySelector(".sub-th")?.value?.trim();
+          const isExplicitAB = thRaw && thRaw.toUpperCase() === 'AB';
 
-          if ((paRaw !== '' && paRaw !== undefined) ||
-              (nbRaw !== '' && nbRaw !== undefined) ||
-              (enrRaw !== '' && enrRaw !== undefined) ||
-              (thRaw !== '' && thRaw !== undefined)) {
+          if (isExplicitAB) {
             hasAnyInput = true;
-            const pa = parseFloat(paRaw) || 0;
-            const nb = parseFloat(nbRaw) || 0;
-            const enr = parseFloat(enrRaw) || 0;
-            const th = parseFloat(thRaw) || 0;
-            total = Math.min(maxMarks, Math.round((pa + nb + enr + th) * 10) / 10);
+            isRowAbsent = true;
+            total = 'AB';
+          } else if (isAddl) {
+            // Additional subjects (Sanskrit, Moral Science, GK, Computer): Direct in 100 only, no PA1, NB, Enr needed
+            if (thRaw !== '' && thRaw !== undefined) {
+              hasAnyInput = true;
+              const th = parseFloat(thRaw) || 0;
+              total = Math.min(maxMarks, Math.round(th * 10) / 10);
+            }
+          } else {
+            // Main / Core subjects: PA1 (10) + NB (5) + Enr (5) + Half Yearly (80) = 100
+            if ((paRaw !== '' && paRaw !== undefined) ||
+                (nbRaw !== '' && nbRaw !== undefined) ||
+                (enrRaw !== '' && enrRaw !== undefined) ||
+                (thRaw !== '' && thRaw !== undefined)) {
+              hasAnyInput = true;
+              const pa = parseFloat(paRaw) || 0;
+              const nb = parseFloat(nbRaw) || 0;
+              const enr = parseFloat(enrRaw) || 0;
+              const th = parseFloat(thRaw) || 0;
+              total = Math.min(maxMarks, Math.round((pa + nb + enr + th) * 10) / 10);
+            }
           }
         } else {
-          const thRaw = row.querySelector(".sub-th")?.value;
-          const prRaw = row.querySelector(".sub-pr")?.value;
-          if ((thRaw !== '' && thRaw !== undefined) || (prRaw !== '' && prRaw !== undefined)) {
+          const thRaw = row.querySelector(".sub-th")?.value?.trim();
+          const prRaw = row.querySelector(".sub-pr")?.value?.trim();
+          const isExplicitAB = (thRaw && thRaw.toUpperCase() === 'AB') || (prRaw && prRaw.toUpperCase() === 'AB');
+          if (isExplicitAB) {
+            hasAnyInput = true;
+            isRowAbsent = true;
+            total = 'AB';
+          } else if ((thRaw !== '' && thRaw !== undefined) || (prRaw !== '' && prRaw !== undefined)) {
             hasAnyInput = true;
             const th = parseFloat(thRaw) || 0;
             const pr = parseFloat(prRaw) || 0;
@@ -1794,7 +2401,21 @@
           }
         }
 
-        row.querySelector(".total-cell").textContent = hasAnyInput ? total : '0';
+        if (isDrawingSubject(subName)) {
+          const thInputVal = row.querySelector(".sub-th")?.value?.trim();
+          const drawGrade = resolveDrawingGrade({
+            theory: thInputVal,
+            total: thInputVal,
+            max: maxMarks
+          }, isCBSE);
+          row.querySelector(".total-cell").innerHTML = (isRowAbsent || total === 'AB')
+            ? '<span style="color:#dc2626; font-weight:900;">AB</span>'
+            : (hasAnyInput ? `<span style="color:#2563eb; font-weight:900; background:#eff6ff; padding:2px 8px; border-radius:4px; border:1px solid #bfdbfe;">${drawGrade}</span>` : '<span style="color:#94a3b8; font-weight:700;">-</span>');
+        } else {
+          row.querySelector(".total-cell").innerHTML = (isRowAbsent || total === 'AB')
+            ? '<span style="color:#dc2626; font-weight:900;">AB</span>'
+            : (hasAnyInput ? total : '0');
+        }
         
         evaluatedForStatus.push({
           subject: subName,
@@ -1802,6 +2423,8 @@
           max: maxMarks,
           min: minMarks,
           total: total,
+          theory: isRowAbsent ? 'AB' : total,
+          isAbsent: isRowAbsent || total === 'AB',
           hasInput: hasAnyInput
         });
       });
@@ -1852,18 +2475,30 @@
       const statusReasonEl = document.getElementById("marksStatusReason");
       const overallSubtextEl = document.getElementById("marksOverallSubtext");
 
+      const isPending = evalRes.isPending || resultStatus === "PENDING";
+      const displayGrade = isPending ? "---" : grade;
+
       if (grandTotalEl) grandTotalEl.textContent = mainStats.grandTotal + " / " + mainStats.maxTotal;
       if (overallSubtextEl) overallSubtextEl.textContent = "All Subjects: " + overallStats.grandTotal + " / " + overallStats.maxTotal;
       if (percentageEl) percentageEl.textContent = targetPct + "%";
-      if (gradeEl) gradeEl.textContent = grade;
+      if (gradeEl) gradeEl.textContent = displayGrade;
       if (resultStatusEl) {
         resultStatusEl.textContent = resultStatus;
-        resultStatusEl.style.color = resultStatus === "PASS" ? "#4ade80" : "#f87171";
+        if (resultStatus === "PASS") {
+          resultStatusEl.style.color = "#4ade80";
+        } else if (resultStatus === "PENDING") {
+          resultStatusEl.style.color = "#f59e0b";
+        } else {
+          resultStatusEl.style.color = "#f87171";
+        }
       }
       if (statusReasonEl) {
         if (resultStatus === "PASS") {
           statusReasonEl.textContent = "★ All Main Subjects Passed (Additional subjects exempt)";
           statusReasonEl.style.color = "#86efac";
+        } else if (resultStatus === "PENDING") {
+          statusReasonEl.textContent = "⏳ " + (evalRes.pendingReason || "Awaiting complete subject evaluation");
+          statusReasonEl.style.color = "#fcd34d";
         } else {
           const failedNames = evalRes.failedMainSubjects.map(f => f.subject).join(", ");
           statusReasonEl.textContent = failedNames ? `Failed in Main: ${failedNames}` : `Main Aggregate < 33%`;
@@ -1872,10 +2507,10 @@
       }
 
       return {
-        grandTotal: mainStats.grandTotal,
-        maxTotal: mainStats.maxTotal,
+        grandTotal: overallStats.grandTotal > 0 ? overallStats.grandTotal : mainStats.grandTotal,
+        maxTotal: overallStats.maxTotal > 0 ? overallStats.maxTotal : mainStats.maxTotal,
         percentage: targetPct,
-        grade,
+        grade: displayGrade,
         resultStatus,
         overallGrandTotal: overallStats.grandTotal,
         overallMaxTotal: overallStats.maxTotal
@@ -1905,7 +2540,7 @@
           <input type="number" class="sub-pa" placeholder="0-10" min="0" max="10" />
           <input type="number" class="sub-nb" placeholder="0-5" min="0" max="5" />
           <input type="number" class="sub-enr" placeholder="0-5" min="0" max="5" />
-          <input type="number" class="sub-th" placeholder="0-80" min="0" max="80" />
+          <input type="text" class="sub-th" placeholder="0-80 or AB" />
           <div class="total-cell">0</div>
           <button class="del-row-btn" onclick="this.parentElement.remove(); window.calcExamTotals();">×</button>
         `;
@@ -1922,7 +2557,7 @@
             </div>
           </div>
           <input type="number" class="sub-min" value="33" placeholder="33" min="0" />
-          <input type="number" class="sub-th" placeholder="0" min="0" />
+          <input type="text" class="sub-th" placeholder="0 or AB" />
           <input type="number" class="sub-pr" placeholder="0" min="0" />
           <div class="total-cell">0</div>
           <button class="del-row-btn" onclick="this.parentElement.remove(); window.calcExamTotals();">×</button>
@@ -1937,72 +2572,164 @@
       const rows = container.querySelectorAll(".marks-subject-row");
       const finalSubjects = [];
       rows.forEach(row => {
-        const sub = row.querySelector(".sub-name").value.trim();
-        if(!sub) return;
+        const rawSub = row.querySelector(".sub-name").value.trim();
+        if(!rawSub) return;
+        const sub = canonicalSubjectName(rawSub);
         const isMain = row.querySelector(".sub-role-toggle")?.getAttribute("data-is-main") === "1";
 
         if (isCBSE) {
+          const isAddl = !isMain;
           const paRaw = row.querySelector(".sub-pa")?.value;
           const nbRaw = row.querySelector(".sub-nb")?.value;
           const enrRaw = row.querySelector(".sub-enr")?.value;
-          const thRaw = row.querySelector(".sub-th")?.value;
+          const thRaw = row.querySelector(".sub-th")?.value?.trim();
+          const isExplicitAB = thRaw && thRaw.toUpperCase() === 'AB';
 
-          const hasAny = (paRaw !== '' && paRaw !== undefined) ||
-                         (nbRaw !== '' && nbRaw !== undefined) ||
-                         (enrRaw !== '' && enrRaw !== undefined) ||
-                         (thRaw !== '' && thRaw !== undefined);
+          const hasAny = isAddl
+            ? (thRaw !== '' && thRaw !== undefined)
+            : ((paRaw !== '' && paRaw !== undefined) ||
+               (nbRaw !== '' && nbRaw !== undefined) ||
+               (enrRaw !== '' && enrRaw !== undefined) ||
+               (thRaw !== '' && thRaw !== undefined));
 
-          // If completely empty and other subjects were entered, don't overwrite with 0s
-          if (!hasAny && rows.length > 1) {
-            const anyOtherEntered = Array.from(rows).some(r => {
-              return (r.querySelector(".sub-pa")?.value !== '' && r.querySelector(".sub-pa")?.value !== undefined) ||
-                     (r.querySelector(".sub-nb")?.value !== '' && r.querySelector(".sub-nb")?.value !== undefined) ||
-                     (r.querySelector(".sub-enr")?.value !== '' && r.querySelector(".sub-enr")?.value !== undefined) ||
-                     (r.querySelector(".sub-th")?.value !== '' && r.querySelector(".sub-th")?.value !== undefined);
-            });
-            if (anyOtherEntered) return;
-          }
-
-          const pa = parseFloat(paRaw) || 0;
-          const nb = parseFloat(nbRaw) || 0;
-          const enr = parseFloat(enrRaw) || 0;
-          const th = parseFloat(thRaw) || 0;
           const maxMarks = parseFloat(row.querySelector(".sub-max")?.value) || 100;
-          const tot = Math.min(maxMarks, Math.round((pa + nb + enr + th) * 10) / 10);
-          finalSubjects.push({
-            subject: sub,
-            isMain: isMain,
-            max: maxMarks,
-            min: parseFloat(row.querySelector(".sub-min")?.value) || 33,
-            pa1: pa,
-            pa2: isAnnual ? pa : 0,
-            notebook: nb,
-            enrichment: enr,
-            theory: th,
-            subjective: th,
-            practical: pa + nb + enr,
-            total: tot
-          });
-        } else {
-          const thRaw = row.querySelector(".sub-th")?.value;
-          const prRaw = row.querySelector(".sub-pr")?.value;
-          const hasAny = (thRaw !== '' && thRaw !== undefined) || (prRaw !== '' && prRaw !== undefined);
-          if (!hasAny && rows.length > 1) {
-            const anyOtherEntered = Array.from(rows).some(r => {
-              return (r.querySelector(".sub-th")?.value !== '' && r.querySelector(".sub-th")?.value !== undefined) ||
-                     (r.querySelector(".sub-pr")?.value !== '' && r.querySelector(".sub-pr")?.value !== undefined);
+          const minMarks = parseFloat(row.querySelector(".sub-min")?.value) || Math.round(maxMarks * 0.33);
+
+          if (!hasAny || isExplicitAB) {
+            // Student left blank or marked AB => Save as AB (Absent)!
+            finalSubjects.push({
+              subject: sub,
+              isMain: isMain,
+              isAdditional: isAddl,
+              max: maxMarks,
+              min: minMarks,
+              pa1: 0,
+              pa2: 0,
+              notebook: 0,
+              enrichment: 0,
+              theory: 'AB',
+              subjective: 'AB',
+              practical: 0,
+              total: 'AB',
+              grade: 'AB',
+              isAbsent: true
             });
-            if (anyOtherEntered) return;
+          } else {
+            const th = parseFloat(thRaw) || 0;
+            if (isDrawingSubject(sub)) {
+              const drawGrade = resolveDrawingGrade({ theory: thRaw, total: thRaw, max: maxMarks }, isCBSE);
+              finalSubjects.push({
+                subject: sub,
+                isMain: false,
+                isAdditional: true,
+                isGraded: true,
+                max: maxMarks,
+                min: minMarks,
+                pa1: 0,
+                pa2: 0,
+                notebook: 0,
+                enrichment: 0,
+                theory: '-',
+                subjective: '-',
+                marks: th,
+                practical: 0,
+                total: drawGrade,
+                grade: drawGrade,
+                isAbsent: false
+              });
+            } else if (isAddl) {
+              // Additional subject: evaluated in 100 only, zero PA1 / NB / Enr
+              const tot = Math.min(maxMarks, Math.round(th * 10) / 10);
+              finalSubjects.push({
+                subject: sub,
+                isMain: false,
+                isAdditional: true,
+                max: maxMarks,
+                min: minMarks,
+                pa1: 0,
+                pa2: 0,
+                notebook: 0,
+                enrichment: 0,
+                theory: th,
+                subjective: th,
+                practical: 0,
+                total: tot,
+                isAbsent: false
+              });
+            } else {
+              const pa = parseFloat(paRaw) || 0;
+              const nb = parseFloat(nbRaw) || 0;
+              const enr = parseFloat(enrRaw) || 0;
+              const tot = Math.min(maxMarks, Math.round((pa + nb + enr + th) * 10) / 10);
+              finalSubjects.push({
+                subject: sub,
+                isMain: true,
+                isAdditional: false,
+                max: maxMarks,
+                min: minMarks,
+                pa1: pa,
+                pa2: isAnnual ? pa : 0,
+                notebook: nb,
+                enrichment: enr,
+                theory: th,
+                subjective: th,
+                practical: pa + nb + enr,
+                total: tot,
+                isAbsent: false
+              });
+            }
           }
-          finalSubjects.push({
-            subject: sub,
-            isMain: isMain,
-            max: parseFloat(row.querySelector(".sub-max")?.value) || 100,
-            min: parseFloat(row.querySelector(".sub-min")?.value) || 33,
-            theory: parseFloat(thRaw) || 0,
-            practical: parseFloat(prRaw) || 0,
-            total: (parseFloat(thRaw) || 0) + (parseFloat(prRaw) || 0)
-          });
+        } else {
+          const thRaw = row.querySelector(".sub-th")?.value?.trim();
+          const prRaw = row.querySelector(".sub-pr")?.value?.trim();
+          const isExplicitAB = (thRaw && thRaw.toUpperCase() === 'AB') || (prRaw && prRaw.toUpperCase() === 'AB');
+          const hasAny = (thRaw !== '' && thRaw !== undefined) || (prRaw !== '' && prRaw !== undefined);
+          const maxMarks = parseFloat(row.querySelector(".sub-max")?.value) || 100;
+          const minMarks = parseFloat(row.querySelector(".sub-min")?.value) || 33;
+
+          if (!hasAny || isExplicitAB) {
+            // Student left blank or marked AB => Save as AB (Absent)!
+            finalSubjects.push({
+              subject: sub,
+              isMain: isMain,
+              max: maxMarks,
+              min: minMarks,
+              theory: 'AB',
+              practical: 0,
+              total: 'AB',
+              grade: 'AB',
+              isAbsent: true
+            });
+          } else {
+            if (isDrawingSubject(sub)) {
+              const drawGrade = resolveDrawingGrade({ theory: thRaw, total: thRaw, max: maxMarks }, false);
+              finalSubjects.push({
+                subject: sub,
+                isMain: false,
+                isAdditional: true,
+                isGraded: true,
+                max: maxMarks,
+                min: minMarks,
+                theory: '-',
+                marks: parseFloat(thRaw) || 0,
+                practical: 0,
+                total: drawGrade,
+                grade: drawGrade,
+                isAbsent: false
+              });
+            } else {
+              finalSubjects.push({
+                subject: sub,
+                isMain: isMain,
+                max: maxMarks,
+                min: minMarks,
+                theory: parseFloat(thRaw) || 0,
+                practical: parseFloat(prRaw) || 0,
+                total: (parseFloat(thRaw) || 0) + (parseFloat(prRaw) || 0),
+                isAbsent: false
+              });
+            }
+          }
         }
       });
 
@@ -2017,7 +2744,7 @@
         studentName: student.fullName,
         rollNo: student.rollNo,
         admissionNo: student.admissionNo || (existingExam && existingExam.admissionNo) || '',
-        studentPhoto: student.photo || '',
+        studentPhoto: getStudentPhotoUri(student, student.id || student.admissionNo) || (existingExam && existingExam.studentPhoto) || '',
         subjectMarks: JSON.stringify(consolidatedSubjects),
         totalMarks: stats.grandTotal.toString(),
         percentage: stats.percentage.toString(),
@@ -2365,7 +3092,7 @@
         const store = typeof getStore !== 'undefined' ? getStore() : {};
         const normFunc = typeof normalizeCanonicalClass === 'function' ? normalizeCanonicalClass : (x => x);
         const studentsInClass = (store.students || []).filter(s => {
-          return (normFunc(s.className) === normFunc(cls) || s.className === cls) && s.status !== "Left";
+          return (normFunc(s.className) === normFunc(cls) || s.className === cls) && isStudentActive(s);
         });
         
         const container = document.getElementById("admitStudentCheckboxes");
@@ -2511,13 +3238,26 @@
     const store = typeof getStore !== 'undefined' ? getStore() : {};
     const normFunc = typeof normalizeCanonicalClass === 'function' ? normalizeCanonicalClass : (x => x);
     let students = (store.students || []).filter(s => {
-      return (normFunc(s.className) === normFunc(className) || s.className === className) && s.status !== "Left";
+      return (normFunc(s.className) === normFunc(className) || s.className === className) && isStudentActive(s);
     });
     
     if (selectedStudentIds && selectedStudentIds.length > 0) {
         students = students.filter(s => selectedStudentIds.includes(String(s.admissionNo)));
     }
     
+    // Sort students by Roll Number ascending (1, 2, 3 ... 38)
+    students.sort((a, b) => {
+      const parseRoll = (r) => {
+        if (!r && r !== 0) return 999999;
+        const num = parseInt(String(r).replace(/\D/g, ''), 10);
+        return isNaN(num) ? 999999 : num;
+      };
+      const rA = parseRoll(a.rollNo);
+      const rB = parseRoll(b.rollNo);
+      if (rA !== rB) return rA - rB;
+      return (a.fullName || a.name || '').localeCompare(b.fullName || b.name || '');
+    });
+
     if(students.length === 0) {
       container.innerHTML = `<div class="empty-state"><h4>No active students found in ${className}.</h4></div>`;
       document.getElementById("admitPrintActions").style.display = "none";
@@ -2831,17 +3571,7 @@
     })(student.dob);
 
     const logoSrc = 'tps_logo_new.png';
-    const photoUrl = (function() {
-      const p = student.photo || student.photoUrl || student.studentPhoto;
-      if (!p) return '';
-      let s = String(p).trim();
-      if (['null', 'undefined', '---', '0', 'none', 'false', 'has_data'].includes(s.toLowerCase())) return '';
-      if (s.length < 4) return '';
-      if (s.startsWith('/api/photo/')) {
-        s += (s.includes('?') ? '&' : '?') + 't=' + Date.now();
-      }
-      return s;
-    })();
+    const photoUrl = getStudentPhotoUri(student, student.id || student.admissionNo);
 
     const photoHtml = photoUrl 
       ? `<div style="width:100%; height:100%; position:relative; display:flex; align-items:center; justify-content:center;">
@@ -3010,7 +3740,7 @@
       const fontColorStyle = c.fontColor ? `color: ${c.fontColor} !important;` : '';
       
       const borderCss = c.border === 'none' ? 'none' : `${c.border === 'double' ? 6 : 2}px ${c.border} ${c.color}`;
-      const photoUrl = student.photo || DEFAULT_SCHOOL_LOGO;
+      const photoUrl = getStudentPhotoUri(student, student.id || student.admissionNo) || DEFAULT_SCHOOL_LOGO;
       const admNo = student.admissionNo || '-';
       
       let headerHtml = '';
@@ -3090,22 +3820,10 @@
     const store = typeof getStore !== "undefined" ? getStore() : (typeof window !== "undefined" && window.store ? window.store : {});
     const studentList = (store && store.students) || [];
     
-    const admNo = exam.admissionNo || exam.admNo || "-";
-    
     // Look up matching student from store to ensure phone, dob, father/mother name, photo etc. are available
-    const matchedStudent = studentList.find(s => {
-      const matchAdm = s.admissionNo && admNo && admNo !== "-" && String(s.admissionNo).trim().toLowerCase() === String(admNo).trim().toLowerCase();
-      const normClassA = (s.className || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
-      const normClassB = (exam.className || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
-      const matchClass = normClassA && normClassB && (normClassA === normClassB || normClassA.includes(normClassB) || normClassB.includes(normClassA));
-      const rollA = String(s.rollNo || "").trim().replace(/^0+/, "");
-      const rollB = String(exam.rollNo || "").trim().replace(/^0+/, "");
-      const matchRoll = rollA && rollB && rollA === rollB;
-      const nameA = (s.fullName || "").trim().toLowerCase();
-      const nameB = (exam.studentName || "").trim().toLowerCase();
-      const matchName = nameA && nameB && nameA === nameB;
-      return matchAdm || (matchClass && (matchRoll || matchName));
-    }) || {};
+    const matchedStudent = findStudentFromStore(studentList, exam);
+    
+    const admNo = matchedStudent.admissionNo || exam.admissionNo || exam.admNo || "-";
 
     const candidateName = exam.studentName || matchedStudent.fullName || matchedStudent.name || "";
     const fatherName = exam.fatherName || matchedStudent.fatherName || "---";
@@ -3201,21 +3919,20 @@
     if (!Array.isArray(subs)) subs = [];
 
     const evalStatus = evalStudentResultStatus(subs, exam.className);
-    const safeGrade = (exam.grade && exam.grade !== 'null' && exam.grade !== 'undefined') ? exam.grade : getGrade(exam.percentage);
-    const safeResultStatus = (exam.resultStatus && exam.resultStatus !== 'null' && exam.resultStatus !== 'undefined' && exam.resultStatus !== '') ? exam.resultStatus : evalStatus.resultStatus;
+    const hasExplicitPassOrFail = (exam.resultStatus === 'PASS' || exam.resultStatus === 'FAIL');
+    const isPending = !hasExplicitPassOrFail && (evalStatus.isPending || (evalStatus.resultStatus === 'PENDING') || (exam.resultStatus === 'PENDING'));
+    const safeResultStatus = hasExplicitPassOrFail ? exam.resultStatus : (isPending ? 'PENDING' : evalStatus.resultStatus);
+    const displayOverallPct = (evalStatus.overallStats && evalStatus.overallStats.percentage > 0) ? evalStatus.overallStats.percentage : (parseFloat(exam.percentage) || 0);
+    const safeGrade = (exam.grade && exam.grade !== 'null' && exam.grade !== 'undefined' && exam.grade !== '---' && exam.grade !== '-')
+      ? ((evalStatus.overallStats.grandTotal > 0 && exam.totalMarks != evalStatus.overallStats.grandTotal) ? getGrade(displayOverallPct) : exam.grade)
+      : getGrade(displayOverallPct);
+
+    // Prepare complete class curriculum subjects so all subjects for the class are displayed
+    const completeSubs = prepareCompleteMarksheetSubjects(subs, exam.className, isCBSE, isAnnual);
+    const tableSubs = completeSubs.length > 0 ? completeSubs : subs;
 
     const logoSrc = 'tps_logo_new.png';
-    const photoUrl = (function() {
-      const p = exam.studentPhoto;
-      if (!p) return '';
-      let s = String(p).trim();
-      if (['null', 'undefined', '---', '0', 'none', 'false', 'has_data'].includes(s.toLowerCase())) return '';
-      if (s.length < 4) return '';
-      if (s.startsWith('/api/photo/')) {
-        s += (s.includes('?') ? '&' : '?') + 't=' + Date.now();
-      }
-      return s;
-    })();
+    const photoUrl = getStudentPhotoUri(matchedStudent, matchedStudent.admissionNo || matchedStudent.id || exam.admissionNo || exam.admNo) || getStudentPhotoUri(exam.studentPhoto, matchedStudent.admissionNo || exam.admissionNo || exam.admNo) || '';
 
     const photoHtml = photoUrl 
       ? `<div style="width:100%; height:100%; position:relative; display:flex; align-items:center; justify-content:center;">
@@ -3230,71 +3947,106 @@
              <span>AFFIX PASSPORT<br>SIZE PHOTO<br><small style="font-size:5pt;">(पासपोर्ट साइज फोटो)</small></span>
          </div>`;
 
-    // Extract valid evaluated subjects for the Performance Graph before table padding
-    const evaluatedSubjects = subs.filter(s => s && s.subject && String(s.subject).trim() !== '');
+    // Extract valid evaluated subjects for the Performance Graph (exclude pending and graded subjects)
+    const evaluatedSubjects = tableSubs.filter(s => s && s.subject && !isDrawingSubject(s.subject) && !s.isPending && s.total !== '' && s.total !== '-' && !isNaN(parseFloat(s.total)));
 
     // Ensure table has at least 5 rows for a balanced single-page layout
     const minRows = 5;
-    while(subs.length < minRows) {
-        subs.push({ subject: '', max: '', min: '', theory: '', practical: '', total: '', pa1: '', pa2: '', notebook: '', enrichment: '' });
+    while(tableSubs.length < minRows) {
+        tableSubs.push({ subject: '', max: '', min: '', theory: '', practical: '', total: '', pa1: '', pa2: '', notebook: '', enrichment: '' });
     }
     
-    const rowPad = '6px 5px';
+    const rowPad = '2.5px 4px';
     
     let tableHeadHtml = '';
     if (isCBSE) {
       tableHeadHtml = `
-        <th style="width:5%; border:1px solid #cbd5e1; padding:6px 3px; text-align:center; font-size:7.5pt; font-weight:800; line-height:1.2; letter-spacing:0.3px;">क्र.सं.<br>Sl.No</th>
-        <th style="width:26%; border:1px solid #cbd5e1; padding:6px 5px; text-align:center; font-size:8pt; font-weight:800; line-height:1.2; letter-spacing:0.5px;">विषय / SUBJECT</th>
-        <th style="width:11%; border:1px solid #cbd5e1; padding:6px 4px; text-align:center; font-size:7.5pt; font-weight:800; line-height:1.2; letter-spacing:0.3px;">${paLabel}</th>
-        <th style="width:14%; border:1px solid #cbd5e1; padding:6px 4px; text-align:center; font-size:7.5pt; font-weight:800; line-height:1.2; letter-spacing:0.3px;">Notebook<br>(5)</th>
-        <th style="width:18%; border:1px solid #cbd5e1; padding:6px 4px; text-align:center; font-size:7.5pt; font-weight:800; line-height:1.15; letter-spacing:0.2px;">Subject Enrichment<br>(5)</th>
-        <th style="width:14%; border:1px solid #cbd5e1; padding:6px 4px; text-align:center; font-size:7.5pt; font-weight:800; line-height:1.2; letter-spacing:0.3px;">${examLabel}</th>
-        <th style="width:12%; border:1px solid #cbd5e1; padding:6px 4px; text-align:center; font-size:8pt; font-weight:800; line-height:1.2; letter-spacing:0.5px; background:rgba(217,119,6,0.25);">TOTAL<br>(100)</th>
+        <th style="width:5%; border:1px solid #cbd5e1; padding:3.5px 2px; text-align:center; font-size:8pt; font-weight:800; line-height:1.15; letter-spacing:0.2px; background:#f8fafc; color:#0f2b5c;">क्र.सं.<br>Sl.No</th>
+        <th style="width:26%; border:1px solid #cbd5e1; padding:3.5px 4px; text-align:center; font-size:9.5pt; font-weight:800; line-height:1.15; letter-spacing:0.4px; background:#f8fafc; color:#0f2b5c;">विषय / SUBJECT</th>
+        <th style="width:11%; border:1px solid #cbd5e1; padding:3.5px 3px; text-align:center; font-size:8pt; font-weight:800; line-height:1.15; letter-spacing:0.2px; background:#f8fafc; color:#0f2b5c;">${paLabel}</th>
+        <th style="width:14%; border:1px solid #cbd5e1; padding:3.5px 3px; text-align:center; font-size:8pt; font-weight:800; line-height:1.15; letter-spacing:0.2px; background:#f8fafc; color:#0f2b5c;">Notebook<br>(5)</th>
+        <th style="width:18%; border:1px solid #cbd5e1; padding:3.5px 3px; text-align:center; font-size:8pt; font-weight:800; line-height:1.1; letter-spacing:0.2px; background:#f8fafc; color:#0f2b5c;">Subject Enrichment<br>(5)</th>
+        <th style="width:14%; border:1px solid #cbd5e1; padding:3.5px 3px; text-align:center; font-size:8pt; font-weight:800; line-height:1.15; letter-spacing:0.2px; background:#f8fafc; color:#0f2b5c;">${examLabel}</th>
+        <th style="width:12%; border:1px solid #cbd5e1; padding:3.5px 3px; text-align:center; font-size:9pt; font-weight:900; line-height:1.15; letter-spacing:0.4px; background:#f1f5f9; color:#0f2b5c;">TOTAL / GRADE<br>(100)</th>
       `;
     } else {
       tableHeadHtml = `
-        <th style="width:6%; border:1px solid #cbd5e1; padding:7px 5px; text-align:center; font-size:8pt; font-weight:800; line-height:1.2; letter-spacing:0.5px;">क्र.सं.<br>Sl.No</th>
-        <th style="width:34%; border:1px solid #cbd5e1; padding:7px 5px; text-align:center; font-size:8pt; font-weight:800; line-height:1.2; letter-spacing:0.5px;">विषय / SUBJECT</th>
-        <th style="width:12%; border:1px solid #cbd5e1; padding:7px 5px; text-align:center; font-size:8pt; font-weight:800; line-height:1.2; letter-spacing:0.5px;">MAX</th>
-        <th style="width:12%; border:1px solid #cbd5e1; padding:7px 5px; text-align:center; font-size:8pt; font-weight:800; line-height:1.2; letter-spacing:0.5px;">MIN</th>
-        <th style="width:12%; border:1px solid #cbd5e1; padding:7px 5px; text-align:center; font-size:8pt; font-weight:800; line-height:1.2; letter-spacing:0.5px;">TH.</th>
-        <th style="width:12%; border:1px solid #cbd5e1; padding:7px 5px; text-align:center; font-size:8pt; font-weight:800; line-height:1.2; letter-spacing:0.5px;">PR.</th>
-        <th style="width:12%; border:1px solid #cbd5e1; padding:7px 5px; text-align:center; font-size:8pt; font-weight:800; line-height:1.2; letter-spacing:0.5px; background:rgba(217,119,6,0.25);">TOTAL</th>
+        <th style="width:6%; border:1px solid #cbd5e1; padding:3.5px 3px; text-align:center; font-size:8pt; font-weight:800; line-height:1.15; letter-spacing:0.3px; background:#f8fafc; color:#0f2b5c;">क्र.सं.<br>Sl.No</th>
+        <th style="width:34%; border:1px solid #cbd5e1; padding:3.5px 4px; text-align:center; font-size:9.5pt; font-weight:800; line-height:1.15; letter-spacing:0.4px; background:#f8fafc; color:#0f2b5c;">विषय / SUBJECT</th>
+        <th style="width:12%; border:1px solid #cbd5e1; padding:3.5px 3px; text-align:center; font-size:8.5pt; font-weight:800; line-height:1.15; letter-spacing:0.3px; background:#f8fafc; color:#0f2b5c;">MAX</th>
+        <th style="width:12%; border:1px solid #cbd5e1; padding:3.5px 3px; text-align:center; font-size:8.5pt; font-weight:800; line-height:1.15; letter-spacing:0.3px; background:#f8fafc; color:#0f2b5c;">MIN</th>
+        <th style="width:12%; border:1px solid #cbd5e1; padding:3.5px 3px; text-align:center; font-size:8.5pt; font-weight:800; line-height:1.15; letter-spacing:0.3px; background:#f8fafc; color:#0f2b5c;">TH.</th>
+        <th style="width:12%; border:1px solid #cbd5e1; padding:3.5px 3px; text-align:center; font-size:8.5pt; font-weight:800; line-height:1.15; letter-spacing:0.3px; background:#f8fafc; color:#0f2b5c;">PR.</th>
+        <th style="width:12%; border:1px solid #cbd5e1; padding:3.5px 3px; text-align:center; font-size:9pt; font-weight:900; line-height:1.15; letter-spacing:0.3px; background:#f1f5f9; color:#0f2b5c;">TOTAL / GRADE</th>
       `;
     }
 
-    const rowsHtml = subs.map((sub, rIdx) => {
+    const rowsHtml = tableSubs.map((sub, rIdx) => {
       const isEmpty = !sub.subject;
-      const isMain = isEmpty ? true : isSubjectMain(sub.subject, exam.className, sub);
-      const addlBadge = (!isEmpty && !isMain) ? `<span style="font-size:5.5pt; font-weight:800; color:#b45309; background:#fef3c7; border:1px solid #fde68a; border-radius:3px; padding:1px 4px; margin-left:5px; vertical-align:middle; display:inline-block; letter-spacing:0.3px;">ADDITIONAL</span>` : '';
+      const isDrawing = !isEmpty && isDrawingSubject(sub.subject);
+      const isMain = isEmpty ? true : (isDrawing ? false : (sub.isMain !== undefined ? sub.isMain : isSubjectMain(sub.subject, exam.className, sub)));
+      const addlBadge = (!isEmpty && !isMain) 
+        ? (isDrawing 
+            ? `<span style="font-size:5.5pt; font-weight:800; color:#2563eb; background:#eff6ff; border:1px solid #bfdbfe; border-radius:2.5px; padding:0.5px 3px; margin-left:4px; vertical-align:middle; display:inline-block; letter-spacing:0.2px;">GRADED</span>`
+            : `<span style="font-size:5.5pt; font-weight:800; color:#b45309; background:#fef3c7; border:1px solid #fde68a; border-radius:2.5px; padding:0.5px 3px; margin-left:4px; vertical-align:middle; display:inline-block; letter-spacing:0.2px;">ADDITIONAL</span>`)
+        : '';
+      const isPendingRow = sub.isPending === true;
+      const pendingText = `<span style="font-size:8.5pt; font-weight:700; color:#94a3b8; font-style:italic;">Pending</span>`;
 
       if (isCBSE) {
-        const paVal = isAnnual ? (sub.pa2 !== undefined && sub.pa2 !== '' ? sub.pa2 : (sub.pa1 || '')) : (sub.pa1 !== undefined && sub.pa1 !== '' ? sub.pa1 : '');
-        const nbVal = sub.notebook !== undefined ? sub.notebook : '';
-        const enrVal = sub.enrichment !== undefined ? sub.enrichment : '';
-        const thVal = sub.theory !== undefined ? sub.theory : (sub.subjective || '');
-        const totVal = sub.total !== undefined && sub.total !== '' ? sub.total : (isEmpty ? '' : 0);
+        const isAddl = !isMain;
+        const isSubAbsent = sub.isAbsent === true || String(sub.total).toUpperCase() === 'AB' || String(sub.theory).toUpperCase() === 'AB' || String(sub.subjective).toUpperCase() === 'AB';
+        let paVal = isPendingRow ? '-' : (isAddl ? '-' : (isAnnual ? (sub.pa2 !== undefined && sub.pa2 !== '' ? sub.pa2 : (sub.pa1 || '')) : (sub.pa1 !== undefined && sub.pa1 !== '' ? sub.pa1 : '')));
+        let nbVal = isPendingRow ? '-' : (isAddl ? '-' : (sub.notebook !== undefined && sub.notebook !== '' ? sub.notebook : ''));
+        let enrVal = isPendingRow ? '-' : (isAddl ? '-' : (sub.enrichment !== undefined && sub.enrichment !== '' ? sub.enrichment : ''));
+        let thVal = isPendingRow ? '-' : (isSubAbsent ? `<strong style="color:#dc2626;">AB</strong>` : (sub.theory !== undefined && sub.theory !== '' ? sub.theory : (sub.subjective !== undefined && sub.subjective !== '' ? sub.subjective : '')));
+        let totVal = isPendingRow ? pendingText : (isSubAbsent ? `<strong style="color:#dc2626;">AB</strong>` : (sub.total !== undefined && sub.total !== '' ? sub.total : (isEmpty ? '' : 0)));
+
+        if (isDrawing) {
+          const drawGrade = resolveDrawingGrade(sub, true);
+          paVal = '-';
+          nbVal = '-';
+          enrVal = '-';
+          thVal = '-';
+          totVal = isSubAbsent ? `<strong style="color:#dc2626;">AB</strong>` : `<span style="display:inline-block; font-size:10.5pt; font-weight:900; color:#1e40af; background:#eff6ff; border:1px solid #bfdbfe; border-radius:4px; padding:1.5px 8px; letter-spacing:0.5px;">${drawGrade}</span>`;
+        }
+
         return `
-        <tr style="background: ${rIdx % 2 === 1 ? '#f8fafc' : '#ffffff'}; height: 26px;">
-          <td style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:9pt; color:#64748b;">${isEmpty ? '' : rIdx + 1}</td>
-          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; font-weight: 800; color: #0f2b5c; text-align: left; padding-left: 10px; font-size:9.5pt;">${sub.subject || ''}${addlBadge}</td>
-          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:10pt; color:#334155;">${isEmpty ? '' : paVal}</td>
-          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:10pt; color:#334155;">${isEmpty ? '' : nbVal}</td>
-          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:10pt; color:#334155;">${isEmpty ? '' : enrVal}</td>
-          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:10pt; color:#334155;">${isEmpty ? '' : thVal}</td>
-          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 900; color:#0f2b5c; font-size:11pt; background: ${isEmpty ? 'transparent' : 'rgba(30, 58, 138, 0.05)'};">${isEmpty ? '' : totVal}</td>
+        <tr style="background: ${rIdx % 2 === 1 ? '#f8fafc' : '#ffffff'}; height: 21px;">
+          <td style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 800; font-size:9pt; color:#64748b;">${isEmpty ? '' : rIdx + 1}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; font-weight: 800; color: #0f2b5c; text-align: left; padding-left: 8px; font-size:10.5pt;">${sub.subject || ''}${addlBadge}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:10pt; color:${(isAddl || isPendingRow) ? '#94a3b8' : '#334155'};">${isEmpty ? '' : paVal}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:10pt; color:${(isAddl || isPendingRow) ? '#94a3b8' : '#334155'};">${isEmpty ? '' : nbVal}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:10pt; color:${(isAddl || isPendingRow) ? '#94a3b8' : '#334155'};">${isEmpty ? '' : enrVal}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:10pt; color:${isPendingRow ? '#94a3b8' : '#334155'};">${isEmpty ? '' : thVal}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 900; color:${isPendingRow ? '#94a3b8' : (isSubAbsent ? '#dc2626' : '#0f2b5c')}; font-size:${isPendingRow ? '8.5pt' : '11.5pt'}; background: ${isEmpty ? 'transparent' : 'rgba(30, 58, 138, 0.05)'};">${isEmpty ? '' : totVal}</td>
         </tr>`;
       } else {
+        const isSubAbsent = sub.isAbsent === true || String(sub.total).toUpperCase() === 'AB' || String(sub.theory).toUpperCase() === 'AB';
+        let maxVal = sub.max || 100;
+        let minVal = sub.min !== undefined ? sub.min : 33;
+        let thVal = isPendingRow ? '-' : (isSubAbsent ? `<strong style="color:#dc2626;">AB</strong>` : (sub.theory || 0));
+        let prVal = isPendingRow ? '-' : (sub.practical || 0);
+        let totVal = isPendingRow ? pendingText : (isSubAbsent ? `<strong style="color:#dc2626;">AB</strong>` : (sub.total !== undefined && sub.total !== '' ? sub.total : (isEmpty ? '' : 0)));
+
+        if (isDrawing) {
+          const drawGrade = resolveDrawingGrade(sub, false);
+          maxVal = '-';
+          minVal = '-';
+          thVal = '-';
+          prVal = '-';
+          totVal = isSubAbsent ? `<strong style="color:#dc2626;">AB</strong>` : `<span style="display:inline-block; font-size:10.5pt; font-weight:900; color:#1e40af; background:#eff6ff; border:1px solid #bfdbfe; border-radius:4px; padding:1.5px 8px; letter-spacing:0.5px;">${drawGrade}</span>`;
+        }
+
         return `
-        <tr style="background: ${rIdx % 2 === 1 ? '#f8fafc' : '#ffffff'}; height: 26px;">
-          <td style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:9pt; color:#64748b;">${isEmpty ? '' : rIdx + 1}</td>
-          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; font-weight: 800; color: #0f2b5c; text-align: left; padding-left: 10px; font-size:9.5pt;">${sub.subject || ''}${addlBadge}</td>
-          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:10pt; color:#334155;">${isEmpty ? '' : (sub.max || 100)}</td>
-          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:10pt; color:#334155;">${isEmpty ? '' : (sub.min !== undefined ? sub.min : 33)}</td>
-          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:10pt; color:#334155;">${isEmpty ? '' : (sub.theory || 0)}</td>
-          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:10pt; color:#334155;">${isEmpty ? '' : (sub.practical || 0)}</td>
-          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 900; color:#0f2b5c; font-size:11pt; background: ${isEmpty ? 'transparent' : 'rgba(30, 58, 138, 0.05)'};">${isEmpty ? '' : (sub.total || 0)}</td>
+        <tr style="background: ${rIdx % 2 === 1 ? '#f8fafc' : '#ffffff'}; height: 21px;">
+          <td style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 800; font-size:9pt; color:#64748b;">${isEmpty ? '' : rIdx + 1}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; font-weight: 800; color: #0f2b5c; text-align: left; padding-left: 8px; font-size:10.5pt;">${sub.subject || ''}${addlBadge}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:10pt; color:${isDrawing ? '#94a3b8' : '#334155'};">${isEmpty ? '' : maxVal}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:10pt; color:${isDrawing ? '#94a3b8' : '#334155'};">${isEmpty ? '' : minVal}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:10pt; color:${isPendingRow ? '#94a3b8' : '#334155'};">${isEmpty ? '' : thVal}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:10pt; color:${isPendingRow ? '#94a3b8' : '#334155'};">${isEmpty ? '' : prVal}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 900; color:${isPendingRow ? '#94a3b8' : (isSubAbsent ? '#dc2626' : '#0f2b5c')}; font-size:${isPendingRow ? '8.5pt' : '11.5pt'}; background: ${isEmpty ? 'transparent' : 'rgba(30, 58, 138, 0.05)'};">${isEmpty ? '' : totVal}</td>
         </tr>`;
       }
     }).join('');
@@ -3340,48 +4092,48 @@
         }
 
         return `
-          <div style="display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; flex:1; min-width:32px; max-width:68px; padding:0 2px;">
+          <div style="display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; flex:1; min-width:28px; max-width:62px; padding:0 1px;">
             <!-- Score % Pill -->
-            <span style="font-size:6.5pt; font-weight:800; color:${textColor}; background:${bgBadge}; border:1px solid ${borderColor}; padding:1px 3px; border-radius:3px; margin-bottom:2px; line-height:1; box-shadow:0 1px 2px rgba(0,0,0,0.04); min-width:24px; text-align:center;">${pct}%</span>
-            <!-- Bar Container (50px fixed slot) -->
-            <div style="width:100%; height:50px; display:flex; align-items:flex-end; justify-content:center; position:relative;">
-              <div style="width:18px; max-width:70%; height:${Math.max(6, pct)}%; background:${gradient}; border-radius:3px 3px 0 0; border:1px solid ${borderColor}; border-bottom:none; box-shadow:0 2px 4px rgba(0,0,0,0.12); position:relative;"></div>
+            <span style="font-size:6.5pt; font-weight:800; color:${textColor}; background:${bgBadge}; border:1px solid ${borderColor}; padding:1px 3px; border-radius:3px; margin-bottom:2px; line-height:1; box-shadow:0 1px 2px rgba(0,0,0,0.04); min-width:22px; text-align:center;">${pct}%</span>
+            <!-- Bar Container (62px slot) -->
+            <div style="width:100%; height:62px; display:flex; align-items:flex-end; justify-content:center; position:relative;">
+              <div style="width:16px; max-width:70%; height:${Math.max(6, pct)}%; background:${gradient}; border-radius:3px 3px 0 0; border:1px solid ${borderColor}; border-bottom:none; box-shadow:0 1.5px 3px rgba(0,0,0,0.12); position:relative;"></div>
             </div>
             <!-- Baseline -->
             <div style="width:100%; height:1.5px; background:#94a3b8;"></div>
-            <!-- Subject Name -->
-            <div title="${s.subject}" style="font-size:6.5pt; font-weight:800; color:#0f2b5c; text-align:center; margin-top:2px; width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-transform:capitalize; line-height:1.1;">${s.subject}</div>
+            <!-- Subject Name (No ellipsis cutoff, clean wrapping) -->
+            <div title="${s.subject}" style="font-size:6.8pt; font-weight:800; color:#0f2b5c; text-align:center; margin-top:2px; width:100%; line-height:1.1; word-break:break-word; max-height:20px; overflow:hidden; text-transform:capitalize;">${s.subject}</div>
             <!-- Marks Obtained / Max -->
-            <div style="font-size:5.5pt; font-weight:700; color:#64748b; text-align:center; line-height:1; margin-top:1px;">${obtained}/${maxMarks}</div>
+            <div style="font-size:5.8pt; font-weight:700; color:#64748b; text-align:center; line-height:1; margin-top:1px;">${obtained}/${maxMarks}</div>
           </div>
         `;
       }).join('');
     } else {
-      subjectBarsHtml = `<div style="width:100%; text-align:center; font-size:7pt; color:#94a3b8; font-weight:700; padding:12px 0;">No evaluated subjects available to generate performance graph.</div>`;
+      subjectBarsHtml = `<div style="width:100%; text-align:center; font-size:7pt; color:#94a3b8; font-weight:700; padding:8px 0;">No evaluated subjects available to generate performance graph.</div>`;
     }
 
     const subjectGraphSectionHtml = `
       <!-- Subject Performance Graph / विषयवार प्रदर्शन आलेख -->
-      <div style="border:1.5px solid #cbd5e1; border-radius:6px; background:#ffffff; padding:5px 8px 4px 8px; margin-bottom:6px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+      <div style="border:1.5px solid #cbd5e1; border-radius:6px; background:#ffffff; padding:4px 6px 3px 6px; margin-bottom:5px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
         <!-- Graph Header & Legend -->
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:3px; padding-bottom:2px; border-bottom:1px solid #f1f5f9;">
-          <div style="display:flex; align-items:center; gap:4px;">
-            <span style="font-size:7.5pt; line-height:1;">📊</span>
-            <span style="font-size:6.5pt; font-weight:900; color:#0f2b5c; text-transform:uppercase; letter-spacing:0.5px;">SUBJECT PERFORMANCE GRAPH / विषयवार प्रदर्शन आलेख</span>
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:2px; padding-bottom:1.5px; border-bottom:1px solid #f1f5f9;">
+          <div style="display:flex; align-items:center; gap:3px;">
+            <span style="font-size:7pt; line-height:1;">📊</span>
+            <span style="font-size:6.8pt; font-weight:900; color:#0f2b5c; text-transform:uppercase; letter-spacing:0.4px;">SUBJECT PERFORMANCE GRAPH / विषयवार प्रदर्शन आलेख</span>
           </div>
           <!-- Legend Indicators -->
-          <div style="display:flex; align-items:center; gap:6px; font-size:5.5pt; font-weight:800;">
+          <div style="display:flex; align-items:center; gap:5px; font-size:5.5pt; font-weight:800;">
             <span style="display:flex; align-items:center; gap:2px; color:#047857;">
-              <span style="width:6px; height:6px; border-radius:2px; background:#10b981; display:inline-block;"></span> ≥80% Distinction
+              <span style="width:5.5px; height:5.5px; border-radius:1.5px; background:#10b981; display:inline-block;"></span> ≥80% Distinction
             </span>
             <span style="display:flex; align-items:center; gap:2px; color:#1d4ed8;">
-              <span style="width:6px; height:6px; border-radius:2px; background:#3b82f6; display:inline-block;"></span> 60-79% Good
+              <span style="width:5.5px; height:5.5px; border-radius:1.5px; background:#3b82f6; display:inline-block;"></span> 60-79% Good
             </span>
             <span style="display:flex; align-items:center; gap:2px; color:#b45309;">
-              <span style="width:6px; height:6px; border-radius:2px; background:#f59e0b; display:inline-block;"></span> 33-59% Pass
+              <span style="width:5.5px; height:5.5px; border-radius:1.5px; background:#f59e0b; display:inline-block;"></span> 33-59% Pass
             </span>
             <span style="display:flex; align-items:center; gap:2px; color:#dc2626;">
-              <span style="width:6px; height:6px; border-radius:2px; background:#ef4444; display:inline-block;"></span> &lt;33% Needs Help
+              <span style="width:5.5px; height:5.5px; border-radius:1.5px; background:#ef4444; display:inline-block;"></span> &lt;33% Needs Help
             </span>
           </div>
         </div>
@@ -3389,7 +4141,7 @@
         <!-- Graph Chart Area -->
         <div style="position:relative; width:100%;">
           <!-- 33% Pass Benchmark Guideline -->
-          <div style="position:absolute; top:18px; left:0; right:0; height:50px; pointer-events:none; z-index:0;">
+          <div style="position:absolute; top:14px; left:0; right:0; height:62px; pointer-events:none; z-index:0;">
             <div style="position:absolute; bottom:33%; left:0; right:0; border-top:1px dashed #cbd5e1;"></div>
             <span style="position:absolute; bottom:calc(33% + 1px); right:2px; font-size:5pt; font-weight:800; color:#94a3b8;">33% PASS</span>
           </div>
@@ -3406,7 +4158,7 @@
 
     return `
       <!-- FULL A4 SIZED WRAPPER WITH PRESTIGE CERTIFICATE BORDER -->
-      <div style="width:100%; height:277mm; min-height:277mm; max-height:277mm; box-sizing:border-box; border:3px solid #0f2b5c; outline:1.5px solid #d97706; outline-offset:-4px; padding:6mm 9mm 5mm 9mm; -webkit-print-color-adjust:exact; print-color-adjust:exact; display:flex; flex-direction:column; justify-content:space-between; background:#ffffff; font-family:'Plus Jakarta Sans', Arial, sans-serif; color:#0f172a; font-size:9.5pt; position:relative; overflow:hidden; box-shadow: inset 0 0 0 7px #ffffff;">
+      <div style="width:100%; height:277mm; min-height:277mm; max-height:277mm; box-sizing:border-box; border:3px solid #0f2b5c; outline:1.5px solid #d97706; outline-offset:-4px; padding:4.5mm 8mm 3.5mm 8mm; -webkit-print-color-adjust:exact; print-color-adjust:exact; display:flex; flex-direction:column; justify-content:space-between; background:#ffffff; font-family:'Plus Jakarta Sans', Arial, sans-serif; color:#0f172a; font-size:9pt; position:relative; overflow:hidden; box-shadow: inset 0 0 0 7px #ffffff;">
         
         <!-- Corner Ornaments (Gold & Navy) -->
         <div style="position:absolute; top:6px; left:6px; width:18px; height:18px; border-top:2.5px solid #d97706; border-left:2.5px solid #d97706; pointer-events:none; z-index:2;"></div>
@@ -3415,46 +4167,46 @@
         <div style="position:absolute; bottom:6px; right:6px; width:18px; height:18px; border-bottom:2.5px solid #d97706; border-right:2.5px solid #d97706; pointer-events:none; z-index:2;"></div>
 
         <!-- Subtle Watermark -->
-        <img src="${logoSrc}" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:320px; max-height:320px; object-fit:contain; opacity:0.04; pointer-events:none; z-index:0;" alt="" onerror="this.style.display='none'" />
+        <img src="${logoSrc}" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:300px; max-height:300px; object-fit:contain; opacity:0.04; pointer-events:none; z-index:0;" alt="" onerror="this.style.display='none'" />
 
         <!-- Main Content -->
-        <div style="display:flex; flex-direction:column; flex:1; justify-content:flex-start; position:relative; z-index:1;">
+        <div style="display:flex; flex-direction:column; justify-content:flex-start; position:relative; z-index:1;">
           
           <!-- Header -->
-          <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:2px solid #0f2b5c; padding-bottom:8px; margin-bottom:10px;">
-            <div style="width:28mm; display:flex; flex-direction:column; align-items:center; justify-content:center;">
-              <div style="width:24mm; height:24mm; border-radius:50%; border:2px solid #d97706; padding:2px; box-shadow:0 2px 6px rgba(0,0,0,0.08); background:#ffffff; display:flex; align-items:center; justify-content:center;">
-                <img src="${logoSrc}" style="max-width:21mm; max-height:21mm; object-fit:contain;" alt="Logo" onerror="this.src='school_logo.png'" />
+          <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:2px solid #0f2b5c; padding-bottom:5px; margin-bottom:5px;">
+            <div style="width:24mm; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+              <div style="width:20mm; height:20mm; border-radius:50%; border:2px solid #d97706; padding:1.5px; box-shadow:0 2px 5px rgba(0,0,0,0.08); background:#ffffff; display:flex; align-items:center; justify-content:center;">
+                <img src="${logoSrc}" style="max-width:18mm; max-height:18mm; object-fit:contain;" alt="Logo" onerror="this.src='school_logo.png'" />
               </div>
             </div>
-            <div style="flex:1; text-align:center; padding:0 8px;">
-              <div style="font-size:7pt; font-weight:800; letter-spacing:1.5px; color:#b45309; text-transform:uppercase; margin-bottom:2px;">
+            <div style="flex:1; text-align:center; padding:0 6px;">
+              <div style="font-size:7.2pt; font-weight:800; letter-spacing:1.2px; color:#b45309; text-transform:uppercase; margin-bottom:1px;">
                 CBSE AFFILIATED PATTERN • AN ENGLISH MEDIUM CO-ED INSTITUTION
               </div>
-              <div style="font-family:'Cinzel', 'Times New Roman', serif; font-size:19pt; font-weight:900; color:#0f2b5c; letter-spacing:1.5px; line-height:1.1; margin-bottom:2px; text-shadow: 0 1px 2px rgba(15,43,92,0.1);">
+              <div style="font-family:'Cinzel', 'Times New Roman', serif; font-size:17.5pt; font-weight:900; color:#0f2b5c; letter-spacing:1.2px; line-height:1.1; margin-bottom:1px; text-shadow: 0 1px 2px rgba(15,43,92,0.1);">
                 TAPOWAN PUBLIC SCHOOL
               </div>
-              <div style="font-size:7pt; font-weight:700; color:#475569; margin-bottom:5px;">
+              <div style="font-size:7pt; font-weight:700; color:#475569; margin-bottom:3px;">
                 Prem Nagar, Banjee, Tapin, Ramgarh, Jharkhand - 825314 | Helpline: +91 87577 44973, 62991 22869
               </div>
-              <div style="margin:2px 0;">
-                <span contenteditable="true" style="background:linear-gradient(180deg, #0f2b5c 0%, #1e3a8a 100%); color:#ffffff; font-size:8.5pt; font-weight:800; padding:4px 16px; border-radius:4px; letter-spacing:0.8px; display:inline-block; border:1px solid #d97706; box-shadow:0 2px 4px rgba(15,43,92,0.15);">
+              <div style="margin:1px 0;">
+                <span contenteditable="true" style="background:linear-gradient(180deg, #0f2b5c 0%, #1e3a8a 100%); color:#ffffff; font-size:8.5pt; font-weight:900; padding:2px 14px; border-radius:3.5px; letter-spacing:0.6px; display:inline-block; border:1px solid #d97706; box-shadow:0 1.5px 3px rgba(15,43,92,0.15);">
                   ${displayExamTitle}
                 </span>
               </div>
-              <div style="font-size:12pt; font-weight:900; color:#047857; letter-spacing:2px; margin-top:4px; text-transform:uppercase;">
+              <div style="font-size:11.5pt; font-weight:900; color:#047857; letter-spacing:1.5px; margin-top:2px; text-transform:uppercase;">
                 ❖ PROGRESS REPORT / प्रगति-पत्र ❖
               </div>
             </div>
-            <div style="width:34mm; text-align:right;">
-              <div style="border:1.5px solid #d97706; background:linear-gradient(180deg, #fffdf5 0%, #fef3c7 100%); padding:5px 6px; border-radius:6px; font-size:7.5pt; text-align:center; box-shadow:0 2px 5px rgba(217,119,6,0.08); line-height:1.35;">
-                <div style="font-weight:800; color:#0f172a; border-bottom:1px dashed #d97706; padding-bottom:3px; margin-bottom:3px; font-size:7pt;">
+            <div style="width:30mm; text-align:right;">
+              <div style="border:1.5px solid #d97706; background:linear-gradient(180deg, #fffdf5 0%, #fef3c7 100%); padding:3.5px 4px; border-radius:5px; font-size:7pt; text-align:center; box-shadow:0 1.5px 4px rgba(217,119,6,0.08); line-height:1.25;">
+                <div style="font-weight:800; color:#0f172a; border-bottom:1px dashed #d97706; padding-bottom:2px; margin-bottom:2px; font-size:7pt;">
                   U-DISE: 20241202412
                 </div>
-                <div style="font-weight:900; color:#0f2b5c; font-size:8pt;">
+                <div style="font-weight:900; color:#0f2b5c; font-size:8.5pt;">
                   SESSION: ${exam.session || '2026-2027'}
                 </div>
-                <div style="font-size:6.5pt; font-weight:700; color:#b45309; margin-top:2px;">
+                <div style="font-size:6.8pt; font-weight:800; color:#b45309; margin-top:1px;">
                   SCH. NO: 825314
                 </div>
               </div>
@@ -3462,61 +4214,61 @@
           </div>
 
           <!-- School & Center Bar -->
-          <div style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; border:1px solid #cbd5e1; border-left:4px solid #0f2b5c; padding:4px 10px; font-size:7.5pt; margin-bottom:10px; border-radius:4px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; border:1px solid #cbd5e1; border-left:3.5px solid #0f2b5c; padding:2.5px 8px; font-size:7.8pt; margin-bottom:5px; border-radius:4px;">
             <div><strong style="color:#0f2b5c;">School Code & Name:</strong> 825314 • TAPOWAN PUBLIC SCHOOL, RAMGARH</div>
             <div style="text-align:right;"><strong style="color:#0f2b5c;">Exam Centre:</strong> TPS MAIN CAMPUS (RAMGARH)</div>
           </div>
 
           <!-- Student Profile Dossier & Photo -->
-          <div style="display:flex; gap:10px; margin-bottom:10px; background:#ffffff; border:1.5px solid #cbd5e1; border-radius:6px; padding:8px 10px; box-shadow:0 1px 4px rgba(0,0,0,0.02);">
+          <div style="display:flex; gap:8px; margin-bottom:5px; background:#ffffff; border:1.5px solid #cbd5e1; border-radius:5px; padding:4px 8px; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
             <table style="flex:1; border-collapse:collapse; font-size:8.5pt;">
               <tbody>
                 <tr style="border-bottom:1px solid #e2e8f0;">
-                  <td style="padding:4px 6px; font-weight:800; color:#64748b; width:16%; font-size:7.5pt; text-transform:uppercase;">Student Name:</td>
-                  <td colspan="3" contenteditable="true" style="padding:4px 6px; font-weight:900; color:#0f2b5c; font-size:11pt; letter-spacing:0.3px;">${candidateName}</td>
-                  <td style="padding:4px 6px; font-weight:800; color:#64748b; width:14%; font-size:7.5pt; text-transform:uppercase;">Class & Sec:</td>
-                  <td contenteditable="true" style="padding:4px 6px; width:18%;">
-                    <span style="background:#eff6ff; color:#1d4ed8; font-weight:900; padding:2px 8px; border-radius:4px; border:1px solid #bfdbfe; font-size:9pt;">${exam.className}</span>
+                  <td style="padding:2.5px 4px; font-weight:800; color:#64748b; width:16%; font-size:7.8pt; text-transform:uppercase;">Student Name:</td>
+                  <td colspan="3" contenteditable="true" style="padding:2.5px 4px; font-weight:900; color:#0f2b5c; font-size:12pt; letter-spacing:0.2px;">${candidateName}</td>
+                  <td style="padding:2.5px 4px; font-weight:800; color:#64748b; width:14%; font-size:7.8pt; text-transform:uppercase;">Class & Sec:</td>
+                  <td contenteditable="true" style="padding:2.5px 4px; width:18%;">
+                    <span style="background:#eff6ff; color:#1d4ed8; font-weight:900; padding:1.5px 7px; border-radius:3px; border:1px solid #bfdbfe; font-size:10pt;">${exam.className}</span>
                   </td>
                 </tr>
                 <tr style="border-bottom:1px solid #e2e8f0;">
-                  <td style="padding:4px 6px; font-weight:800; color:#64748b; font-size:7.5pt; text-transform:uppercase;">Roll No:</td>
-                  <td contenteditable="true" style="padding:4px 6px; width:16%;">
-                    <span style="background:#fef2f2; color:#dc2626; font-weight:900; padding:2px 8px; border-radius:4px; border:1px solid #fecaca; font-size:9.5pt;">${exam.rollNo}</span>
+                  <td style="padding:2.5px 4px; font-weight:800; color:#64748b; font-size:7.8pt; text-transform:uppercase;">Roll No:</td>
+                  <td contenteditable="true" style="padding:2.5px 4px; width:16%;">
+                    <span style="background:#fef2f2; color:#dc2626; font-weight:900; padding:1.5px 7px; border-radius:3px; border:1px solid #fecaca; font-size:11pt;">${exam.rollNo}</span>
                   </td>
-                  <td style="padding:4px 6px; font-weight:800; color:#64748b; width:16%; font-size:7.5pt; text-transform:uppercase;">Adm / Reg No:</td>
-                  <td contenteditable="true" style="padding:4px 6px; width:18%;">
-                    <span style="background:#f8fafc; color:#0f172a; font-weight:900; padding:2px 8px; border-radius:4px; border:1px solid #cbd5e1; font-size:9pt;">${admNo}</span>
+                  <td style="padding:2.5px 4px; font-weight:800; color:#64748b; width:16%; font-size:7.8pt; text-transform:uppercase;">Adm / Reg No:</td>
+                  <td contenteditable="true" style="padding:2.5px 4px; width:18%;">
+                    <span style="background:#f8fafc; color:#0f172a; font-weight:900; padding:1.5px 7px; border-radius:3px; border:1px solid #cbd5e1; font-size:10pt;">${admNo}</span>
                   </td>
-                  <td style="padding:4px 6px; font-weight:800; color:#64748b; font-size:7.5pt; text-transform:uppercase;">Date of Birth:</td>
-                  <td contenteditable="true" style="padding:4px 6px; font-weight:800; color:#0f172a; font-size:8.5pt;">${dobFormatted}</td>
+                  <td style="padding:2.5px 4px; font-weight:800; color:#64748b; font-size:7.8pt; text-transform:uppercase;">Date of Birth:</td>
+                  <td contenteditable="true" style="padding:2.5px 4px; font-weight:800; color:#0f172a; font-size:9.5pt;">${dobFormatted}</td>
                 </tr>
                 <tr style="border-bottom:1px solid #e2e8f0;">
-                  <td style="padding:4px 6px; font-weight:800; color:#64748b; font-size:7.5pt; text-transform:uppercase;">Father's Name:</td>
-                  <td colspan="3" contenteditable="true" style="padding:4px 6px; font-weight:800; color:#0f172a; text-transform:uppercase; font-size:8.5pt;">${fatherName}</td>
-                  <td style="padding:4px 6px; font-weight:800; color:#64748b; font-size:7.5pt; text-transform:uppercase;">Mother's Name:</td>
-                  <td contenteditable="true" style="padding:4px 6px; font-weight:800; color:#0f172a; text-transform:uppercase; font-size:8.5pt;">${motherName}</td>
+                  <td style="padding:2.5px 4px; font-weight:800; color:#64748b; font-size:7.8pt; text-transform:uppercase;">Father's Name:</td>
+                  <td colspan="3" contenteditable="true" style="padding:2.5px 4px; font-weight:800; color:#0f172a; text-transform:uppercase; font-size:9.5pt;">${fatherName}</td>
+                  <td style="padding:2.5px 4px; font-weight:800; color:#64748b; font-size:7.8pt; text-transform:uppercase;">Mother's Name:</td>
+                  <td contenteditable="true" style="padding:2.5px 4px; font-weight:800; color:#0f172a; text-transform:uppercase; font-size:9.5pt;">${motherName}</td>
                 </tr>
                 <tr>
-                  <td style="padding:4px 6px; font-weight:800; color:#64748b; font-size:7.5pt; text-transform:uppercase;">Contact No:</td>
-                  <td colspan="3" contenteditable="true" style="padding:4px 6px; font-weight:800; color:#0f172a; font-family:monospace; font-size:9pt;">${phoneNo}</td>
-                  <td style="padding:4px 6px; font-weight:800; color:#64748b; font-size:7.5pt; text-transform:uppercase;">Attendance:</td>
-                  <td contenteditable="true" style="padding:4px 6px; font-weight:800; color:#0f172a; font-size:8.5pt;">___ / ___ Days</td>
+                  <td style="padding:2.5px 4px; font-weight:800; color:#64748b; font-size:7.8pt; text-transform:uppercase;">Contact No:</td>
+                  <td colspan="3" contenteditable="true" style="padding:2.5px 4px; font-weight:800; color:#0f172a; font-family:monospace; font-size:9.5pt;">${phoneNo}</td>
+                  <td style="padding:2.5px 4px; font-weight:800; color:#64748b; font-size:7.8pt; text-transform:uppercase;">Attendance:</td>
+                  <td contenteditable="true" style="padding:2.5px 4px; font-weight:800; color:#0f172a; font-size:9pt;">___ / ___ Days</td>
                 </tr>
               </tbody>
             </table>
             
             <!-- Photo Box -->
-            <div style="width:26mm; height:33mm; border:2px solid #0f2b5c; outline:1.5px solid #d97706; outline-offset:1px; border-radius:4px; box-shadow:0 3px 6px rgba(0,0,0,0.1); overflow:hidden; background:#f8fafc; display:flex; flex-direction:column; align-items:center; justify-content:center; flex-shrink:0;">
+            <div style="width:22mm; height:27mm; border:1.5px solid #0f2b5c; outline:1px solid #d97706; outline-offset:1px; border-radius:4px; box-shadow:0 2px 5px rgba(0,0,0,0.1); overflow:hidden; background:#f8fafc; display:flex; flex-direction:column; align-items:center; justify-content:center; flex-shrink:0;">
               ${photoHtml}
             </div>
           </div>
 
           <!-- Scholastic Performance Table -->
-          <div style="margin-bottom:6px; flex:1;">
-            <table style="width:100%; border-collapse:collapse; font-size:8.5pt; border:1px solid #cbd5e1; border-radius:4px; overflow:hidden;">
+          <div style="margin-bottom:5px;">
+            <table style="width:100%; border-collapse:collapse; font-size:8pt; border:1px solid #cbd5e1; border-radius:4px; overflow:hidden;">
               <thead>
-                <tr style="background:linear-gradient(180deg, #0f2b5c 0%, #1e3a8a 100%); color:#ffffff; border-bottom:2px solid #d97706;">
+                <tr style="background:#f8fafc; color:#0f2b5c; border-bottom:2px solid #0f2b5c;">
                   ${tableHeadHtml}
                 </tr>
               </thead>
@@ -3527,103 +4279,107 @@
           </div>
 
           <!-- Total Metrics Ribbon -->
-          <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:8px; margin-bottom:10px;">
+          <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:6px; margin-bottom:5px;">
             <!-- Grand Total -->
-            <div style="border:1.5px solid #93c5fd; background:linear-gradient(180deg, #f0f7ff 0%, #e0f2fe 100%); border-radius:6px; padding:6px 4px; text-align:center; box-shadow:0 1px 3px rgba(37,99,235,0.06);">
-              <div style="font-size:7pt; font-weight:800; color:#1e40af; text-transform:uppercase; letter-spacing:0.5px;">GRAND TOTAL</div>
-              <div contenteditable="true" style="font-size:15pt; font-weight:900; color:#0f2b5c; line-height:1.15; margin-top:1px;">${exam.totalMarks}</div>
-              <div style="font-size:6pt; font-weight:700; color:#64748b;">TOTAL OBTAINED</div>
+            <div style="border:1.5px solid #93c5fd; background:linear-gradient(180deg, #f0f7ff 0%, #e0f2fe 100%); border-radius:5px; padding:3.5px 3px 4px 3px; text-align:center; box-shadow:0 1px 3px rgba(37,99,235,0.06); display:flex; flex-direction:column; justify-content:center; align-items:center; overflow:hidden;">
+              <div style="font-size:7.8pt; font-weight:900; color:#1e40af; text-transform:uppercase; letter-spacing:0.5px; line-height:1.1; white-space:nowrap;">GRAND TOTAL</div>
+              <div contenteditable="true" style="font-size:16.5pt; font-weight:900; color:#0f2b5c; line-height:1.05; margin:1.5px 0; white-space:nowrap;">${isPending ? `${evalStatus.overallStats.grandTotal} / ${evalStatus.overallStats.maxTotal}` : (evalStatus.overallStats.grandTotal > 0 ? evalStatus.overallStats.grandTotal : (exam.totalMarks || 0))}</div>
+              <div style="font-size:6.8pt; font-weight:800; color:#475569; text-transform:uppercase; line-height:1.15; letter-spacing:0.3px; white-space:nowrap;">TOTAL OBTAINED</div>
             </div>
 
             <!-- Percentage -->
-            <div style="border:1.5px solid #c4b5fd; background:linear-gradient(180deg, #f5f3ff 0%, #ede9fe 100%); border-radius:6px; padding:6px 4px; text-align:center; box-shadow:0 1px 3px rgba(109,40,217,0.06);">
-              <div style="font-size:7pt; font-weight:800; color:#6d28d9; text-transform:uppercase; letter-spacing:0.5px;">PERCENTAGE</div>
-              <div contenteditable="true" style="font-size:15pt; font-weight:900; color:#5b21b6; line-height:1.15; margin-top:1px;">${exam.percentage}%</div>
-              <div style="font-size:6pt; font-weight:700; color:#64748b;">AGGREGATE SCORE</div>
+            <div style="border:1.5px solid #c4b5fd; background:linear-gradient(180deg, #f5f3ff 0%, #ede9fe 100%); border-radius:5px; padding:3.5px 3px 4px 3px; text-align:center; box-shadow:0 1px 3px rgba(109,40,217,0.06); display:flex; flex-direction:column; justify-content:center; align-items:center; overflow:hidden;">
+              <div style="font-size:7.8pt; font-weight:900; color:#6d28d9; text-transform:uppercase; letter-spacing:0.5px; line-height:1.1; white-space:nowrap;">PERCENTAGE</div>
+              <div contenteditable="true" style="font-size:17pt; font-weight:900; color:#5b21b6; line-height:1.05; margin:1.5px 0; white-space:nowrap;">${isPending ? `${evalStatus.overallStats.percentage}%` : `${evalStatus.overallStats.percentage > 0 ? evalStatus.overallStats.percentage : (exam.percentage || 0)}%`}</div>
+              <div style="font-size:6.8pt; font-weight:800; color:#475569; text-transform:uppercase; line-height:1.15; letter-spacing:0.3px; white-space:nowrap;">${isPending ? 'AGGREGATE (PENDING)' : 'AGGREGATE SCORE'}</div>
             </div>
 
             <!-- Grade -->
-            <div style="border:1.5px solid #fde68a; background:linear-gradient(180deg, #fffdf5 0%, #fef3c7 100%); border-radius:6px; padding:6px 4px; text-align:center; box-shadow:0 1px 3px rgba(217,119,6,0.06);">
-              <div style="font-size:7pt; font-weight:800; color:#b45309; text-transform:uppercase; letter-spacing:0.5px;">OVERALL GRADE</div>
-              <div contenteditable="true" style="font-size:15pt; font-weight:900; color:#92400e; line-height:1.15; margin-top:1px;">${safeGrade}</div>
-              <div style="font-size:6pt; font-weight:700; color:#64748b;">SCHOLASTIC EVALUATION</div>
+            <div style="border:1.5px solid #fde68a; background:linear-gradient(180deg, #fffdf5 0%, #fef3c7 100%); border-radius:5px; padding:3.5px 3px 4px 3px; text-align:center; box-shadow:0 1px 3px rgba(217,119,6,0.06); display:flex; flex-direction:column; justify-content:center; align-items:center; overflow:hidden;">
+              <div style="font-size:7.8pt; font-weight:900; color:#b45309; text-transform:uppercase; letter-spacing:0.5px; line-height:1.1; white-space:nowrap;">OVERALL GRADE</div>
+              <div contenteditable="true" style="font-size:17pt; font-weight:900; color:#92400e; line-height:1.05; margin:1.5px 0; white-space:nowrap;">${safeGrade}</div>
+              <div style="font-size:6.8pt; font-weight:800; color:#475569; text-transform:uppercase; line-height:1.15; letter-spacing:0.3px; white-space:nowrap;">SCHOLASTIC EVALUATION</div>
             </div>
 
             <!-- Result -->
-            <div style="border:1.5px solid ${safeResultStatus === 'PASS' ? '#86efac' : '#fca5a5'}; background:${safeResultStatus === 'PASS' ? 'linear-gradient(180deg, #f0fdf4 0%, #dcfce7 100%)' : 'linear-gradient(180deg, #fef2f2 0%, #fee2e2 100%)'}; border-radius:6px; padding:6px 4px; text-align:center; box-shadow:0 1px 3px rgba(22,163,74,0.08);">
-              <div style="font-size:7pt; font-weight:800; color:${safeResultStatus === 'PASS' ? '#15803d' : '#b91c1c'}; text-transform:uppercase; letter-spacing:0.5px;">RESULT STATUS</div>
-              <div contenteditable="true" style="font-size:15pt; font-weight:900; color:${safeResultStatus === 'PASS' ? '#16a34a' : '#dc2626'}; line-height:1.15; margin-top:1px; letter-spacing:0.5px;">★ ${safeResultStatus} ★</div>
-              <div style="font-size:6pt; font-weight:700; color:${safeResultStatus === 'PASS' ? '#15803d' : '#b91c1c'};">${safeResultStatus === 'PASS' ? 'PASSED / उत्तीर्ण' : 'NEEDS IMPROVEMENT'}</div>
+            <div style="border:1.5px solid ${isPending ? '#fcd34d' : (safeResultStatus === 'PASS' ? '#86efac' : '#fca5a5')}; background:${isPending ? 'linear-gradient(180deg, #fffdf5 0%, #fef3c7 100%)' : (safeResultStatus === 'PASS' ? 'linear-gradient(180deg, #f0fdf4 0%, #dcfce7 100%)' : 'linear-gradient(180deg, #fef2f2 0%, #fee2e2 100%)')}; border-radius:5px; padding:3.5px 3px 4px 3px; text-align:center; box-shadow:0 1px 3px ${isPending ? 'rgba(217,119,6,0.08)' : (safeResultStatus === 'PASS' ? 'rgba(22,163,74,0.08)' : 'rgba(220,38,38,0.08)')}; display:flex; flex-direction:column; justify-content:center; align-items:center; overflow:hidden;">
+              <div style="font-size:7.8pt; font-weight:900; color:${isPending ? '#b45309' : (safeResultStatus === 'PASS' ? '#15803d' : '#b91c1c')}; text-transform:uppercase; letter-spacing:0.5px; line-height:1.1; white-space:nowrap;">RESULT STATUS</div>
+              <div contenteditable="true" style="font-size:${isPending ? '12.5pt' : (safeResultStatus === 'PASS' ? '15.5pt' : '15pt')}; font-weight:900; color:${isPending ? '#d97706' : (safeResultStatus === 'PASS' ? '#16a34a' : '#dc2626')}; line-height:1.1; margin:1.5px 0; letter-spacing:0.5px; white-space:nowrap; display:flex; align-items:center; justify-content:center; gap:4px; width:100%; box-sizing:border-box;">
+                <span style="font-size:0.85em; opacity:0.9;">★</span>
+                <span>${safeResultStatus}</span>
+                <span style="font-size:0.85em; opacity:0.9;">★</span>
+              </div>
+              <div style="font-size:6.8pt; font-weight:800; color:${isPending ? '#b45309' : (safeResultStatus === 'PASS' ? '#15803d' : '#b91c1c')}; line-height:1.15; text-transform:uppercase; letter-spacing:0.3px; white-space:nowrap;">${isPending ? 'INCOMPLETE / अपूर्ण' : (safeResultStatus === 'PASS' ? 'PASSED / उत्तीर्ण' : 'NEEDS IMPROVEMENT')}</div>
             </div>
           </div>
 
           <!-- Rank & Remarks Row -->
-          <div style="display:flex; gap:10px; margin-bottom:10px;">
+          <div style="display:flex; gap:8px; margin-bottom:5px;">
             <!-- Sleek Class Rank & School Rank Slots -->
-            <div style="flex:1; border:1.5px solid #cbd5e1; border-radius:6px; background:linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%); padding:6px 12px; display:flex; align-items:center; justify-content:space-around; gap:12px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+            <div style="flex:1; border:1.5px solid #cbd5e1; border-radius:5px; background:linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%); padding:3px 8px; display:flex; align-items:center; justify-content:space-around; gap:8px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
               
               <!-- Class Rank Slot -->
-              <div style="display:flex; align-items:center; gap:6px;">
+              <div style="display:flex; align-items:center; gap:5px;">
                 <div style="display:flex; flex-direction:column; align-items:flex-start;">
-                  <span style="font-size:6.5pt; font-weight:900; color:#1e40af; text-transform:uppercase; letter-spacing:0.5px; line-height:1;">CLASS RANK</span>
+                  <span style="font-size:6.8pt; font-weight:900; color:#1e40af; text-transform:uppercase; letter-spacing:0.4px; line-height:1;">CLASS RANK</span>
                   <span style="font-size:5.5pt; font-weight:700; color:#64748b; line-height:1; margin-top:1px;">कक्षा स्थान</span>
                 </div>
-                <div style="display:flex; align-items:baseline; gap:3px;">
-                  <span contenteditable="true" style="display:inline-block; min-width:38px; padding:2px 6px; font-size:11pt; font-weight:900; color:#1e40af; background:#ffffff; border:1.5px solid #93c5fd; border-radius:4px; text-align:center; box-shadow:inset 0 1px 2px rgba(30,64,175,0.08); outline:none;">${formatRank(classRank)}</span>
-                  ${totalClassStudents ? `<span style="font-size:7pt; font-weight:800; color:#64748b;">/${totalClassStudents}</span>` : ''}
+                <div style="display:flex; align-items:baseline; gap:2px;">
+                  <span contenteditable="true" style="display:inline-block; min-width:34px; padding:1px 4px; font-size:11.5pt; font-weight:900; color:#1e40af; background:#ffffff; border:1.5px solid #93c5fd; border-radius:3.5px; text-align:center; box-shadow:inset 0 1px 2px rgba(30,64,175,0.08); outline:none;">${formatRank(classRank)}</span>
+                  ${totalClassStudents ? `<span style="font-size:7.5pt; font-weight:800; color:#64748b;">/${totalClassStudents}</span>` : ''}
                 </div>
               </div>
 
-              <div style="width:1px; height:24px; background:#cbd5e1;"></div>
+              <div style="width:1px; height:18px; background:#cbd5e1;"></div>
 
               <!-- School Rank Slot -->
-              <div style="display:flex; align-items:center; gap:6px;">
+              <div style="display:flex; align-items:center; gap:5px;">
                 <div style="display:flex; flex-direction:column; align-items:flex-start;">
-                  <span style="font-size:6.5pt; font-weight:900; color:#b45309; text-transform:uppercase; letter-spacing:0.5px; line-height:1;">SCHOOL RANK</span>
+                  <span style="font-size:6.8pt; font-weight:900; color:#b45309; text-transform:uppercase; letter-spacing:0.4px; line-height:1;">SCHOOL RANK</span>
                   <span style="font-size:5.5pt; font-weight:700; color:#64748b; line-height:1; margin-top:1px;">विद्यालय स्थान</span>
                 </div>
-                <div style="display:flex; align-items:baseline; gap:3px;">
-                  <span contenteditable="true" style="display:inline-block; min-width:38px; padding:2px 6px; font-size:11pt; font-weight:900; color:#b45309; background:#ffffff; border:1.5px solid #fde68a; border-radius:4px; text-align:center; box-shadow:inset 0 1px 2px rgba(180,83,9,0.08); outline:none;">${formatRank(schoolRank)}</span>
-                  ${totalSchoolStudents ? `<span style="font-size:7pt; font-weight:800; color:#64748b;">/${totalSchoolStudents}</span>` : ''}
+                <div style="display:flex; align-items:baseline; gap:2px;">
+                  <span contenteditable="true" style="display:inline-block; min-width:34px; padding:1px 4px; font-size:11.5pt; font-weight:900; color:#b45309; background:#ffffff; border:1.5px solid #fde68a; border-radius:3.5px; text-align:center; box-shadow:inset 0 1px 2px rgba(180,83,9,0.08); outline:none;">${formatRank(schoolRank)}</span>
+                  ${totalSchoolStudents ? `<span style="font-size:7.5pt; font-weight:800; color:#64748b;">/${totalSchoolStudents}</span>` : ''}
                 </div>
               </div>
 
             </div>
 
             <!-- Sleek Remarks Slot -->
-            <div style="flex:1.2; border:1.5px solid #cbd5e1; border-radius:6px; background:linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%); padding:6px 10px; display:flex; align-items:center; gap:8px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+            <div style="flex:1.2; border:1.5px solid #cbd5e1; border-radius:5px; background:linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%); padding:3px 8px; display:flex; align-items:center; gap:6px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
               <div style="display:flex; flex-direction:column; align-items:flex-start; flex-shrink:0;">
-                <span style="font-size:6.5pt; font-weight:900; color:#0f2b5c; text-transform:uppercase; letter-spacing:0.5px; line-height:1;">REMARKS</span>
+                <span style="font-size:6.8pt; font-weight:900; color:#0f2b5c; text-transform:uppercase; letter-spacing:0.4px; line-height:1;">REMARKS</span>
                 <span style="font-size:5.5pt; font-weight:700; color:#64748b; line-height:1; margin-top:1px;">शिक्षक टिप्पणी</span>
               </div>
-              <span contenteditable="true" style="font-size:8.5pt; font-weight:700; color:#0f172a; flex:1; background:#ffffff; border:1px solid #cbd5e1; border-radius:4px; padding:3px 8px; min-height:18px; outline:none; box-shadow:inset 0 1px 2px rgba(0,0,0,0.03);">${autoRemarks}</span>
+              <span contenteditable="true" style="font-size:8.5pt; font-weight:700; color:#0f172a; flex:1; background:#ffffff; border:1px solid #cbd5e1; border-radius:3.5px; padding:1.5px 6px; min-height:15px; outline:none; box-shadow:inset 0 1px 2px rgba(0,0,0,0.03);">${autoRemarks}</span>
             </div>
           </div>
 
           ${subjectGraphSectionHtml}
 
           <!-- Grading Scale Strip -->
-          <div style="border:1px solid #fde68a; background:linear-gradient(90deg, #fffdf5 0%, #fef3c7 50%, #fffdf5 100%); padding:4px 8px; border-radius:5px; margin-bottom:8px;">
+          <div style="border:1px solid #fde68a; background:linear-gradient(90deg, #fffdf5 0%, #fef3c7 50%, #fffdf5 100%); padding:2px 6px; border-radius:4px; margin-bottom:4px;">
             <div style="display:flex; align-items:center; justify-content:space-between; font-size:7pt;">
               <span style="font-weight:900; color:#92400e; text-transform:uppercase;">${isCBSE ? 'CBSE 8-Point Scale (ग्रेडिंग प्रणाली)' : 'Grading Scale (ग्रेडिंग प्रणाली)'}:</span>
-              <div style="display:flex; gap:4px; font-weight:800; color:#78350f;">
+              <div style="display:flex; gap:3px; font-weight:800; color:#78350f;">
                 ${isCBSE ? `
-                  <span style="background:rgba(255,255,255,0.8); padding:1px 4px; border-radius:3px; border:1px solid #fde68a;">A1 (91-100)</span>
-                  <span style="background:rgba(255,255,255,0.8); padding:1px 4px; border-radius:3px; border:1px solid #fde68a;">A2 (81-90)</span>
-                  <span style="background:rgba(255,255,255,0.8); padding:1px 4px; border-radius:3px; border:1px solid #fde68a;">B1 (71-80)</span>
-                  <span style="background:rgba(255,255,255,0.8); padding:1px 4px; border-radius:3px; border:1px solid #fde68a;">B2 (61-70)</span>
-                  <span style="background:rgba(255,255,255,0.8); padding:1px 4px; border-radius:3px; border:1px solid #fde68a;">C1 (51-60)</span>
-                  <span style="background:rgba(255,255,255,0.8); padding:1px 4px; border-radius:3px; border:1px solid #fde68a;">C2 (41-50)</span>
-                  <span style="background:rgba(255,255,255,0.8); padding:1px 4px; border-radius:3px; border:1px solid #fde68a;">D (33-40)</span>
-                  <span style="background:rgba(255,255,255,0.8); padding:1px 4px; border-radius:3px; border:1px solid #fde68a; color:#b91c1c;">E (Needs Help)</span>
+                  <span style="background:rgba(255,255,255,0.85); padding:0.5px 3px; border-radius:2px; border:1px solid #fde68a;">A1 (91-100)</span>
+                  <span style="background:rgba(255,255,255,0.85); padding:0.5px 3px; border-radius:2px; border:1px solid #fde68a;">A2 (81-90)</span>
+                  <span style="background:rgba(255,255,255,0.85); padding:0.5px 3px; border-radius:2px; border:1px solid #fde68a;">B1 (71-80)</span>
+                  <span style="background:rgba(255,255,255,0.85); padding:0.5px 3px; border-radius:2px; border:1px solid #fde68a;">B2 (61-70)</span>
+                  <span style="background:rgba(255,255,255,0.85); padding:0.5px 3px; border-radius:2px; border:1px solid #fde68a;">C1 (51-60)</span>
+                  <span style="background:rgba(255,255,255,0.85); padding:0.5px 3px; border-radius:2px; border:1px solid #fde68a;">C2 (41-50)</span>
+                  <span style="background:rgba(255,255,255,0.85); padding:0.5px 3px; border-radius:2px; border:1px solid #fde68a;">D (33-40)</span>
+                  <span style="background:rgba(255,255,255,0.85); padding:0.5px 3px; border-radius:2px; border:1px solid #fde68a; color:#b91c1c;">E (Needs Help)</span>
                 ` : `
-                  <span style="background:rgba(255,255,255,0.8); padding:1px 4px; border-radius:3px; border:1px solid #fde68a;">A+ (91-100%)</span>
-                  <span style="background:rgba(255,255,255,0.8); padding:1px 4px; border-radius:3px; border:1px solid #fde68a;">A (81-90%)</span>
-                  <span style="background:rgba(255,255,255,0.8); padding:1px 4px; border-radius:3px; border:1px solid #fde68a;">B+ (71-80%)</span>
-                  <span style="background:rgba(255,255,255,0.8); padding:1px 4px; border-radius:3px; border:1px solid #fde68a;">B (61-70%)</span>
-                  <span style="background:rgba(255,255,255,0.8); padding:1px 4px; border-radius:3px; border:1px solid #fde68a;">C (51-60%)</span>
-                  <span style="background:rgba(255,255,255,0.8); padding:1px 4px; border-radius:3px; border:1px solid #fde68a;">D (33-50%)</span>
-                  <span style="background:rgba(255,255,255,0.8); padding:1px 4px; border-radius:3px; border:1px solid #fde68a; color:#b91c1c;">E (0-32%)</span>
+                  <span style="background:rgba(255,255,255,0.85); padding:0.5px 3px; border-radius:2px; border:1px solid #fde68a;">A+ (91-100%)</span>
+                  <span style="background:rgba(255,255,255,0.85); padding:0.5px 3px; border-radius:2px; border:1px solid #fde68a;">A (81-90%)</span>
+                  <span style="background:rgba(255,255,255,0.85); padding:0.5px 3px; border-radius:2px; border:1px solid #fde68a;">B+ (71-80%)</span>
+                  <span style="background:rgba(255,255,255,0.85); padding:0.5px 3px; border-radius:2px; border:1px solid #fde68a;">B (61-70%)</span>
+                  <span style="background:rgba(255,255,255,0.85); padding:0.5px 3px; border-radius:2px; border:1px solid #fde68a;">C (51-60%)</span>
+                  <span style="background:rgba(255,255,255,0.85); padding:0.5px 3px; border-radius:2px; border:1px solid #fde68a;">D (33-50%)</span>
+                  <span style="background:rgba(255,255,255,0.85); padding:0.5px 3px; border-radius:2px; border:1px solid #fde68a; color:#b91c1c;">E (0-32%)</span>
                 `}
               </div>
             </div>
@@ -3632,15 +4388,15 @@
         </div>
 
         <!-- Footer Signatures & Official Stamp (Spacious Signing Zone) -->
-        <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:auto; padding:14px 14px 4px 14px; position:relative; z-index:1;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:auto; padding:3px 10px 2px 10px; position:relative; z-index:1;">
           
           <!-- Class Teacher Signature -->
           <div style="text-align:center; width:28%; display:flex; flex-direction:column; align-items:center;">
-            <div style="height:48px; width:100%; display:flex; align-items:flex-end; justify-content:center; margin-bottom:4px;">
+            <div style="height:24px; width:100%; display:flex; align-items:flex-end; justify-content:center; margin-bottom:2px;">
               <!-- Dedicated Signing Space for Class Teacher -->
             </div>
-            <div style="border-top:1.5px solid #0f2b5c; width:90%; margin-bottom:5px;"></div>
-            <div style="font-size:7.5pt; font-weight:800; color:#0f2b5c; line-height:1.2;">
+            <div style="border-top:1.5px solid #0f2b5c; width:85%; margin-bottom:3px;"></div>
+            <div style="font-size:7.5pt; font-weight:800; color:#0f2b5c; line-height:1.15;">
               <strong>कक्षा शिक्षक के हस्ताक्षर</strong><br>
               <span style="font-size:6.5pt; color:#64748b;">Class Teacher's Signature</span>
             </div>
@@ -3648,26 +4404,23 @@
 
           <!-- Parent Signature -->
           <div style="text-align:center; width:28%; display:flex; flex-direction:column; align-items:center;">
-            <div style="height:48px; width:100%; display:flex; align-items:flex-end; justify-content:center; margin-bottom:4px;">
+            <div style="height:24px; width:100%; display:flex; align-items:flex-end; justify-content:center; margin-bottom:2px;">
               <!-- Dedicated Signing Space for Parent -->
             </div>
-            <div style="border-top:1.5px solid #0f2b5c; width:90%; margin-bottom:5px;"></div>
-            <div style="font-size:7.5pt; font-weight:800; color:#0f2b5c; line-height:1.2;">
+            <div style="border-top:1.5px solid #0f2b5c; width:85%; margin-bottom:3px;"></div>
+            <div style="font-size:7.5pt; font-weight:800; color:#0f2b5c; line-height:1.15;">
               <strong>अभिभावक के हस्ताक्षर</strong><br>
               <span style="font-size:6.5pt; color:#64748b;">Parent's Signature</span>
             </div>
           </div>
 
           <!-- Principal Signature & Official Seal -->
-          <div style="text-align:center; width:34%; display:flex; flex-direction:column; align-items:center; position:relative;">
-            <div style="height:48px; width:100%; display:flex; align-items:center; justify-content:center; position:relative; margin-bottom:4px;">
-              <!-- Official Stamp Seal placed elegantly across the signing line without touching scale strip -->
-              <div style="position:absolute; bottom:-6px; left:8px; width:48px; height:48px; border:2px dashed #b91c1c; border-radius:50%; display:flex; flex-direction:column; align-items:center; justify-content:center; transform:rotate(-10deg); opacity:0.85; pointer-events:none; background:rgba(254, 242, 242, 0.45); z-index:2;">
-                <span style="font-size:5pt; font-weight:900; color:#b91c1c; text-align:center; line-height:1.05;">TAPOWAN<br>SEAL<br>TPS</span>
-              </div>
+          <div style="text-align:center; width:34%; display:flex; flex-direction:column; align-items:center;">
+            <div style="height:24px; width:100%; display:flex; align-items:center; justify-content:center; margin-bottom:2px;">
+              <!-- Dedicated Signing & Stamping Space for Principal -->
             </div>
-            <div style="border-top:1.5px solid #0f2b5c; width:90%; margin-bottom:5px;"></div>
-            <div style="font-size:7.5pt; font-weight:800; color:#0f2b5c; line-height:1.2;">
+            <div style="border-top:1.5px solid #0f2b5c; width:85%; margin-bottom:3px;"></div>
+            <div style="font-size:7.5pt; font-weight:800; color:#0f2b5c; line-height:1.15;">
               <strong>प्रधानाचार्य के हस्ताक्षर व मुहर</strong><br>
               <span style="font-size:6.5pt; color:#64748b;">Principal & Official Seal</span>
             </div>
@@ -3686,7 +4439,7 @@ function generateDynamicMarksheet(exam, themeId, config) {
       const fontColorStyle = c.fontColor ? `color: ${c.fontColor} !important;` : '';
       
       const borderCss = c.border === 'none' ? 'none' : `${c.border === 'double' ? 8 : 3}px ${c.border} ${c.color}`;
-      const photoUrl = exam.studentPhoto || DEFAULT_SCHOOL_LOGO;
+      const photoUrl = getStudentPhotoUri(exam, exam.admissionNo || exam.admNo) || DEFAULT_SCHOOL_LOGO;
       const admNo = exam.admissionNo || '-';
       
       let subjectRows = '';
@@ -3722,16 +4475,33 @@ function generateDynamicMarksheet(exam, themeId, config) {
     const safeResultStatus = (exam.resultStatus && exam.resultStatus !== 'null' && exam.resultStatus !== 'undefined' && exam.resultStatus !== '') ? exam.resultStatus : evalStatus.resultStatus;
 
     subs.forEach((sub, i) => {
-        const isMain = isSubjectMain(sub.subject, exam.className, sub);
-        const addlBadge = !isMain ? `<span style="font-size:7pt; font-weight:800; color:#b45309; background:#fef3c7; border:1px solid #fde68a; border-radius:3px; padding:1px 4px; margin-left:5px; vertical-align:middle; display:inline-block;">ADDITIONAL</span>` : '';
+        const isDrawing = isDrawingSubject(sub.subject);
+        const isMain = isDrawing ? false : isSubjectMain(sub.subject, exam.className, sub);
+        const addlBadge = !isMain ? `<span style="font-size:7pt; font-weight:800; color:${isDrawing ? '#2563eb' : '#b45309'}; background:${isDrawing ? '#eff6ff' : '#fef3c7'}; border:1px solid ${isDrawing ? '#bfdbfe' : '#fde68a'}; border-radius:3px; padding:1px 4px; margin-left:5px; vertical-align:middle; display:inline-block;">${isDrawing ? 'GRADED' : 'ADDITIONAL'}</span>` : '';
         const rowBg = (t.tableStyle === 'striped' && i%2!==0) ? `${c.color}11` : 'transparent';
+        
+        let maxVal = sub.max || 100;
+        let minVal = sub.min !== undefined ? sub.min : 33;
+        let thVal = sub.theory || 0;
+        let prVal = sub.practical || 0;
+        let totVal = sub.total || 0;
+
+        if (isDrawing) {
+          const drawGrade = resolveDrawingGrade(sub, false);
+          maxVal = '-';
+          minVal = '-';
+          thVal = '-';
+          prVal = '-';
+          totVal = `<span style="font-weight:900; color:#2563eb; background:#eff6ff; border:1px solid #bfdbfe; border-radius:3px; padding:2px 6px;">${drawGrade}</span>`;
+        }
+
         subjectRows += `<tr style="background:${rowBg};">
             <td style="padding:12px; border:${s.tableBorder}; font-weight:bold;" contenteditable="true">${sub.subject}${addlBadge}</td>
-            <td style="padding:12px; border:${s.tableBorder}; text-align:center;" contenteditable="true">${sub.max || 100}</td>
-            <td style="padding:12px; border:${s.tableBorder}; text-align:center;" contenteditable="true">${sub.min !== undefined ? sub.min : 33}</td>
-            <td style="padding:12px; border:${s.tableBorder}; text-align:center;" contenteditable="true">${sub.theory || 0}</td>
-            <td style="padding:12px; border:${s.tableBorder}; text-align:center;" contenteditable="true">${sub.practical || 0}</td>
-            <td style="padding:12px; border:${s.tableBorder}; text-align:center; font-weight:bold; color:${c.color};" contenteditable="true">${sub.total || 0}</td>
+            <td style="padding:12px; border:${s.tableBorder}; text-align:center;" contenteditable="true">${maxVal}</td>
+            <td style="padding:12px; border:${s.tableBorder}; text-align:center;" contenteditable="true">${minVal}</td>
+            <td style="padding:12px; border:${s.tableBorder}; text-align:center;" contenteditable="true">${thVal}</td>
+            <td style="padding:12px; border:${s.tableBorder}; text-align:center;" contenteditable="true">${prVal}</td>
+            <td style="padding:12px; border:${s.tableBorder}; text-align:center; font-weight:bold; color:${c.color};" contenteditable="true">${totVal}</td>
         </tr>`;
     });
 
@@ -3753,6 +4523,10 @@ function generateDynamicMarksheet(exam, themeId, config) {
               </div>
           </div>`;
       }
+
+      const displayDynGrandTotal = (evalStatus && evalStatus.overallStats && evalStatus.overallStats.grandTotal > 0) ? evalStatus.overallStats.grandTotal : (exam.totalMarks || 0);
+      const displayDynPercentage = (evalStatus && evalStatus.overallStats && evalStatus.overallStats.percentage > 0) ? evalStatus.overallStats.percentage : (exam.percentage || 0);
+      const displayDynGrade = (exam.grade && exam.grade !== 'null' && exam.grade !== 'undefined') ? ((evalStatus.overallStats.grandTotal > 0 && exam.totalMarks != evalStatus.overallStats.grandTotal) ? getGrade(displayDynPercentage) : exam.grade) : getGrade(displayDynPercentage);
 
       return `
       <div style="width: 190mm; min-height: 250mm; box-sizing: border-box; page-break-inside: avoid; color: inherit; ${fontColorStyle} border: ${borderCss}; padding: 30px; font-family: ${c.font}; position: relative; background: transparent; border-radius: ${t.tableStyle==='rounded'?20:0}px;">
@@ -3786,15 +4560,15 @@ function generateDynamicMarksheet(exam, themeId, config) {
               <div style="display: flex; gap: 15px; text-align:center;">
                   <div style="flex:1; border: 1px solid ${c.color}; padding: 15px; border-radius: 8px; background: transparent;">
                       <div style="font-size: 12px; font-weight:bold; color: inherit;">GRAND TOTAL</div>
-                      <div style="font-size: 24px; font-weight:900; color: ${c.color};" contenteditable="true">${exam.totalMarks}</div>
+                      <div style="font-size: 24px; font-weight:900; color: ${c.color};" contenteditable="true">${displayDynGrandTotal}</div>
                   </div>
                   <div style="flex:1; border: 1px solid ${c.color}; padding: 15px; border-radius: 8px; background: transparent;">
                       <div style="font-size: 12px; font-weight:bold; color: inherit;">PERCENTAGE</div>
-                      <div style="font-size: 24px; font-weight:900; color: ${c.color};" contenteditable="true">${exam.percentage}%</div>
+                      <div style="font-size: 24px; font-weight:900; color: ${c.color};" contenteditable="true">${displayDynPercentage}%</div>
                   </div>
                   <div style="flex:1; border: 1px solid ${c.color}; padding: 15px; border-radius: 8px; background: transparent;">
                       <div style="font-size: 12px; font-weight:bold; color: inherit;">GRADE</div>
-                      <div style="font-size: 24px; font-weight:900; color: ${c.color};" contenteditable="true">${exam.grade}</div>
+                      <div style="font-size: 24px; font-weight:900; color: ${c.color};" contenteditable="true">${displayDynGrade}</div>
                   </div>
                   <div style="flex:1; border: 1px solid ${c.color}; padding: 15px; border-radius: 8px; background: ${exam.resultStatus === 'PASS' ? '#dcfce7' : '#fee2e2'};">
                       <div style="font-size: 12px; font-weight:bold; color: inherit;">RESULT</div>
@@ -4020,13 +4794,19 @@ function generateDynamicMarksheet(exam, themeId, config) {
     const fatherName = formatParentName(exam.fatherName || '---').toUpperCase();
     const motherName = formatParentName(exam.motherName || '---').toUpperCase();
     
-    let subs = [];
+    let rawSubs = [];
     if (typeof exam.subjectMarks === 'string') {
-      try { subs = JSON.parse(exam.subjectMarks); } catch(e) {}
+      try { rawSubs = JSON.parse(exam.subjectMarks); } catch(e) {}
     } else if (Array.isArray(exam.subjectMarks)) {
-      subs = exam.subjectMarks;
+      rawSubs = exam.subjectMarks;
     }
-    if (!Array.isArray(subs)) subs = [];
+    if (!Array.isArray(rawSubs)) rawSubs = [];
+
+    const evalStatus = evalStudentResultStatus(rawSubs, exam.className);
+    const hasExplicitPassOrFail = (exam.resultStatus === 'PASS' || exam.resultStatus === 'FAIL');
+    const isPending = !hasExplicitPassOrFail && (evalStatus.isPending || (evalStatus.resultStatus === 'PENDING') || (exam.resultStatus === 'PENDING'));
+    const completeSubs = prepareCompleteMarksheetSubjects(rawSubs, exam.className);
+    const subs = completeSubs.length > 0 ? completeSubs : rawSubs;
 
     let grandTotal = 0;
     let maxAggregate = 0;
@@ -4035,11 +4815,14 @@ function generateDynamicMarksheet(exam, themeId, config) {
     const rowsHtml = subs.map((sub, idx) => {
       const max = parseFloat(sub.max) || 100;
       const pass = parseFloat(sub.min) || 33;
-      const th = sub.theory !== undefined && sub.theory !== '' ? sub.theory : (sub.subjective || '');
-      const pr = sub.practical !== undefined && sub.practical !== '' ? sub.practical : '';
-      const cce = sub.cce || sub.notebook || sub.pa1 || '';
-      const tot = sub.total !== undefined && sub.total !== '' ? parseFloat(sub.total) : ((parseFloat(th)||0) + (parseFloat(pr)||0));
-      grandTotal += (tot || 0);
+      const isPendingRow = sub.isPending === true;
+      const th = isPendingRow ? '-' : (sub.theory !== undefined && sub.theory !== '' ? sub.theory : (sub.subjective || ''));
+      const pr = isPendingRow ? '-' : (sub.practical !== undefined && sub.practical !== '' ? sub.practical : '');
+      const cce = isPendingRow ? '-' : (sub.cce || sub.notebook || sub.pa1 || '');
+      const tot = isPendingRow ? '<span style="color:#94a3b8; font-style:italic;">Pending</span>' : (sub.total !== undefined && sub.total !== '' ? parseFloat(sub.total) : ((parseFloat(th)||0) + (parseFloat(pr)||0)));
+      if (!isPendingRow) {
+        grandTotal += (parseFloat(sub.total) || 0);
+      }
       maxAggregate += max;
 
       let catLabel = '';
@@ -4051,19 +4834,20 @@ function generateDynamicMarksheet(exam, themeId, config) {
       return `
         ${catLabel ? `<tr><td colspan="7" style="border-left:1px solid #b91c1c; border-right:1px solid #b91c1c; border-bottom:none; border-top:1px dashed #fca5a5; padding:2px 6px; background:rgba(254,242,242,0.4);">${catLabel}</td></tr>` : ''}
         <tr style="height:23px; font-size:8.5pt;">
-          <td contenteditable="true" style="border:1px solid #b91c1c; border-top:none; border-bottom:1px solid #fecaca; padding:3px 8px; font-weight:800; color:#0f172a; text-transform:uppercase; letter-spacing:0.5px;">${sub.subject}</td>
+          <td contenteditable="true" style="border:1px solid #b91c1c; border-top:none; border-bottom:1px solid #fecaca; padding:3px 8px; font-weight:800; color:#0f2b5c; text-transform:uppercase; letter-spacing:0.5px;">${sub.subject}</td>
           <td contenteditable="true" style="border:1px solid #b91c1c; border-top:none; border-bottom:1px solid #fecaca; text-align:center; font-weight:700; color:#334155;">${max}</td>
           <td contenteditable="true" style="border:1px solid #b91c1c; border-top:none; border-bottom:1px solid #fecaca; text-align:center; font-weight:700; color:#334155;">${String(pass).padStart(3, '0')}</td>
-          <td contenteditable="true" style="border:1px solid #b91c1c; border-top:none; border-bottom:1px solid #fecaca; text-align:center; font-weight:800; color:#0f172a;">${th ? String(th).padStart(3, '0') : ''}</td>
-          <td contenteditable="true" style="border:1px solid #b91c1c; border-top:none; border-bottom:1px solid #fecaca; text-align:center; font-weight:800; color:#0f172a;">${pr ? String(pr).padStart(3, '0') : ''}</td>
-          <td contenteditable="true" style="border:1px solid #b91c1c; border-top:none; border-bottom:1px solid #fecaca; text-align:center; font-weight:800; color:#0f172a;">${cce ? String(cce).padStart(3, '0') : ''}</td>
-          <td contenteditable="true" style="border:1px solid #b91c1c; border-top:none; border-bottom:1px solid #fecaca; text-align:center; font-weight:900; color:#991b1b; background:rgba(254,242,242,0.3); font-size:9pt;">${tot ? String(tot).padStart(3, '0') : ''}</td>
+          <td contenteditable="true" style="border:1px solid #b91c1c; border-top:none; border-bottom:1px solid #fecaca; text-align:center; font-weight:800; color:#0f172a;">${th ? (isPendingRow ? '-' : String(th).padStart(3, '0')) : ''}</td>
+          <td contenteditable="true" style="border:1px solid #b91c1c; border-top:none; border-bottom:1px solid #fecaca; text-align:center; font-weight:800; color:#0f172a;">${pr ? (isPendingRow ? '-' : String(pr).padStart(3, '0')) : ''}</td>
+          <td contenteditable="true" style="border:1px solid #b91c1c; border-top:none; border-bottom:1px solid #fecaca; text-align:center; font-weight:800; color:#0f172a;">${cce ? (isPendingRow ? '-' : String(cce).padStart(3, '0')) : ''}</td>
+          <td contenteditable="true" style="border:1px solid #b91c1c; border-top:none; border-bottom:1px solid #fecaca; text-align:center; font-weight:900; color:#991b1b; background:rgba(254,242,242,0.3); font-size:9pt;">${tot ? (isPendingRow ? tot : String(tot).padStart(3, '0')) : ''}</td>
         </tr>
       `;
     }).join('');
 
-    const pct = maxAggregate > 0 ? ((grandTotal / maxAggregate) * 100).toFixed(2) : (exam.percentage || '0.00');
-    const division = parseFloat(pct) >= 60 ? '1ST DIVISION' : (parseFloat(pct) >= 45 ? '2ND DIVISION' : (parseFloat(pct) >= 33 ? '3RD DIVISION' : 'FAILED'));
+    const effectiveMaxAggregate = Math.max(maxAggregate, evalStatus.overallStats.maxTotal || 800);
+    const pct = isPending ? `${evalStatus.overallStats.percentage}` : (effectiveMaxAggregate > 0 ? ((grandTotal / effectiveMaxAggregate) * 100).toFixed(2) : (exam.percentage || '0.00'));
+    const division = isPending ? 'PENDING (INCOMPLETE / अपूर्ण)' : (parseFloat(pct) >= 60 ? '1ST DIVISION' : (parseFloat(pct) >= 45 ? '2ND DIVISION' : (parseFloat(pct) >= 33 ? '3RD DIVISION' : 'FAILED / NEEDS IMPROVEMENT')));
     const marksInWords = numberToWordsEnglish(grandTotal);
 
     return `
@@ -4207,10 +4991,8 @@ function generateDynamicMarksheet(exam, themeId, config) {
             Ramgarh, Dated : <strong contenteditable="true" style="color:#991b1b;">April 30, 2026</strong>
           </div>
 
-          <!-- Verification Seal -->
-          <div style="width:40px; height:40px; border:1.5px dashed #991b1b; border-radius:50%; display:flex; align-items:center; justify-content:center; text-align:center; font-size:5pt; font-weight:900; color:#991b1b; transform:rotate(-8deg); background:rgba(254,242,242,0.4);">
-            TAPOWAN<br>SEAL<br>TPS
-          </div>
+          <!-- Verification Seal Space -->
+          <div style="width:40px; height:40px;"></div>
 
           <!-- Secretary / Principal Signature -->
           <div style="text-align:center; width:38mm; display:flex; flex-direction:column; align-items:center;">
@@ -4233,7 +5015,7 @@ function generateDynamicMarksheet(exam, themeId, config) {
   function getJac12AdmitCardHtml(student, examName, config) {
       const store = typeof getStore !== 'undefined' ? getStore() : {};
       const schoolName = store.schoolProfile ? store.schoolProfile.schoolName : "JHARKHAND ACADEMIC COUNCIL, RANCHI"; 
-      const photoUrl = student.photo || DEFAULT_SCHOOL_LOGO;
+      const photoUrl = getStudentPhotoUri(student, student.id || student.admissionNo) || DEFAULT_SCHOOL_LOGO;
       
       const c = config || { color: '#000000', font: "'Times New Roman', serif", border: 'solid', bgOpacity: 1 };
       const fontColorStyle = c.fontColor ? `color: ${c.fontColor};` : 'color: #000;';
@@ -4386,7 +5168,7 @@ function generateDynamicMarksheet(exam, themeId, config) {
       const schoolName = store.schoolProfile ? store.schoolProfile.schoolName : "Tapowan Public School";
       template = template.replace(/{schoolName}/g, schoolName);
       
-      const photoUrl = student.photo || DEFAULT_SCHOOL_LOGO;
+      const photoUrl = getStudentPhotoUri(student, student.id || student.admissionNo) || DEFAULT_SCHOOL_LOGO;
       template = template.replace(/src="\{studentPhoto\}"/g, `src="${photoUrl}"`);
       template = template.replace(/\{studentPhoto\}/g, `<img src="${photoUrl}" style="width:100px; height:120px; object-fit:cover; border:1px solid #000;" />`);
       
@@ -4458,7 +5240,7 @@ function generateDynamicMarksheet(exam, themeId, config) {
   function getPrimaryAdmitCardHtml(student, examName, config) {
       const c = config || { color: '#3b82f6', font: "'Inter', sans-serif", border: 'solid' };
       const borderCss = c.border === 'none' ? 'none' : `4px ${c.border} ${c.color}`;
-      const photoUrl = student.photo || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='%23e2e8f0' viewBox='0 0 24 24'><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>";
+      const photoUrl = getStudentPhotoUri(student, student.id || student.admissionNo) || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='%23e2e8f0' viewBox='0 0 24 24'><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>";
       const admNo = student.admissionNo || '-';
       
       return `
@@ -4503,7 +5285,7 @@ function generateDynamicMarksheet(exam, themeId, config) {
   function getMiddleAdmitCardHtml(student, examName, config) {
       const c = config || { color: '#0f172a', font: "'Times New Roman', serif", border: 'solid' };
       const borderCss = c.border === 'none' ? 'none' : `2px ${c.border} ${c.color}`;
-      const photoUrl = student.photo || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='%23e2e8f0' viewBox='0 0 24 24'><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>";
+      const photoUrl = getStudentPhotoUri(student, student.id || student.admissionNo) || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='%23e2e8f0' viewBox='0 0 24 24'><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>";
       const admNo = student.admissionNo || '-';
       
       return `
@@ -4545,7 +5327,7 @@ function generateDynamicMarksheet(exam, themeId, config) {
   function getHighSchoolAdmitCardHtml(student, examName, config) {
       const c = config || { color: '#000000', font: "'Times New Roman', serif", border: 'solid' };
       const borderCss = c.border === 'none' ? 'none' : `2px ${c.border} ${c.color}`;
-      const photoUrl = student.photo || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='%23e2e8f0' viewBox='0 0 24 24'><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>";
+      const photoUrl = getStudentPhotoUri(student, student.id || student.admissionNo) || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='%23e2e8f0' viewBox='0 0 24 24'><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>";
       const admNo = student.admissionNo || '-';
       
       return `
@@ -4665,7 +5447,7 @@ function generateDynamicMarksheet(exam, themeId, config) {
       const schoolName = store.schoolProfile ? store.schoolProfile.schoolName : "Tapowan Public School";
       template = template.replace(/{schoolName}/g, schoolName);
       
-      const photoUrl = exam.studentPhoto || DEFAULT_SCHOOL_LOGO;
+      const photoUrl = getStudentPhotoUri(exam, exam.admissionNo || exam.admNo) || DEFAULT_SCHOOL_LOGO;
       template = template.replace(/src="\{studentPhoto\}"/g, `src="${photoUrl}"`);
       template = template.replace(/\{studentPhoto\}/g, `<img src="${photoUrl}" style="width:100px; height:120px; object-fit:cover; border:1px solid #000;" />`);
       
@@ -4692,12 +5474,15 @@ function generateDynamicMarksheet(exam, themeId, config) {
     const watermarkSvg = `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><text x='50%' y='50%' transform='rotate(-35 150 150)' text-anchor='middle' font-family='Arial' font-size='20' font-weight='bold' fill='%23000'>${watermarkText}</text></svg>`;
 
     let marksRows = '';
-    let marksTableData = [];
+    let rawTableData = [];
     if (typeof exam.subjectMarks === 'string') {
-        try { marksTableData = JSON.parse(exam.subjectMarks); } catch(e){}
+        try { rawTableData = JSON.parse(exam.subjectMarks); } catch(e){}
     } else if (Array.isArray(exam.subjectMarks)) {
-        marksTableData = exam.subjectMarks;
+        rawTableData = exam.subjectMarks;
     }
+    const marksTableData = typeof prepareCompleteMarksheetSubjects === 'function'
+        ? prepareCompleteMarksheetSubjects(rawTableData, exam.className)
+        : rawTableData;
 
     let scale = [
         { min: 91, max: 100, grade: 'A+' }, { min: 81, max: 90, grade: 'A' },
@@ -4712,14 +5497,29 @@ function generateDynamicMarksheet(exam, themeId, config) {
       }
       scale.sort((a, b) => b.min - a.min);
 
+      const evalStatus = evalStudentResultStatus(marksTableData, exam.className);
+      const displayGrandTotal = (evalStatus && evalStatus.overallStats && evalStatus.overallStats.grandTotal > 0) ? evalStatus.overallStats.grandTotal : (exam.totalMarks || '-');
+      const displayPercentage = (evalStatus && evalStatus.overallStats && evalStatus.overallStats.percentage > 0) ? evalStatus.overallStats.percentage : (exam.percentage || '-');
+
       marksTableData.forEach((m, idx) => {
+          const isDrawing = isDrawingSubject(m.subject);
           const bg = (idx % 2 === 0) ? '#f8f9fa' : '#ffffff';
-          const full = m.max !== undefined ? m.max : 100;
-          const pass = m.min !== undefined ? m.min : 33;
-          const obtained = m.total !== undefined ? m.total : 0;
-          const p = full > 0 ? (obtained / full) * 100 : 0;
+          let full = m.max !== undefined ? m.max : 100;
+          let pass = m.min !== undefined ? m.min : 33;
+          const isPending = m.isPending === true;
+          const isSubAbsent = m.isAbsent === true || String(m.total).toUpperCase() === 'AB' || String(m.theory).toUpperCase() === 'AB';
+          let obtained = isPending ? '<span style="color:#94a3b8; font-style:italic;">Pending</span>' : (isSubAbsent ? '<strong style="color:#dc2626;">AB</strong>' : (m.total !== undefined ? m.total : 0));
+          const p = (!isPending && !isSubAbsent && full > 0) ? ((parseFloat(m.total) || 0) / full) * 100 : 0;
           const matched = scale.find(g => p >= g.min);
-          const grade = matched ? matched.grade : 'F';
+          let grade = isPending ? '-' : (isSubAbsent ? '<strong style="color:#dc2626;">AB</strong>' : (matched ? matched.grade : 'F'));
+
+          if (isDrawing) {
+            const drawGrade = resolveDrawingGrade(m, false);
+            full = '-';
+            pass = '-';
+            obtained = isSubAbsent ? '<strong style="color:#dc2626;">AB</strong>' : `<span style="font-weight:900; color:#2563eb;">${drawGrade}</span>`;
+            grade = drawGrade;
+          }
           
           marksRows += `
           <tr style="background: ${bg};">
@@ -4805,7 +5605,7 @@ function generateDynamicMarksheet(exam, themeId, config) {
 
                 <!-- Photo Right -->
                 <div style="position: absolute; right: 0; top: 0; width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
-                      <img src="${exam.studentPhoto || 'data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'40\' height=\'40\' fill=\'%23cbd5e1\' viewBox=\'0 0 24 24\'><path d=\'M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z\'/></svg>'}" style="width: 100%; height: 100%; object-fit: contain;">
+                      <img src="${getStudentPhotoUri(exam, exam.admissionNo || exam.admNo) || 'data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'40\' height=\'40\' fill=\'%23cbd5e1\' viewBox=\'0 0 24 24\'><path d=\'M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z\'/></svg>'}" style="width: 100%; height: 100%; object-fit: contain;">
                 </div>
             </div>
 
@@ -4864,12 +5664,12 @@ function generateDynamicMarksheet(exam, themeId, config) {
             <div style="display: flex; justify-content: space-between; margin-bottom: 5px; padding: 0 20px; font-size: 10px;">
                 <div style="text-align: center;">
                     <div style="color: #666; margin-bottom: 2px;">Total Obtained Marks</div>
-                    <div style="font-size: 12px; font-weight: bold;" contenteditable="true">${exam.totalMarks || '-'}</div>
+                    <div style="font-size: 12px; font-weight: bold;" contenteditable="true">${displayGrandTotal}</div>
                 </div>
                 <div style="border-left: 1px solid #ccc;"></div>
                 <div style="text-align: center;">
                     <div style="color: #666; margin-bottom: 2px;">Percentage</div>
-                    <div style="font-size: 12px; font-weight: bold;" contenteditable="true">${exam.percentage || '-'}%</div>
+                    <div style="font-size: 12px; font-weight: bold;" contenteditable="true">${displayPercentage}%</div>
                 </div>
                 <div style="border-left: 1px solid #ccc;"></div>
                 <div style="text-align: center;">
@@ -4933,7 +5733,7 @@ function generateDynamicMarksheet(exam, themeId, config) {
 function getMarksheetHtml(exam, theme, config) {
       const c = config || { color: '#0f172a', font: "'Times New Roman', serif", border: 'solid' };
       const borderVal = c.border === 'none' ? 'none' : `4px ${c.border} ${c.color}`;
-      const photoUrl = exam.studentPhoto || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='%23e2e8f0' viewBox='0 0 24 24'><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>";
+      const photoUrl = getStudentPhotoUri(exam, exam.admissionNo || exam.admNo) || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='%23e2e8f0' viewBox='0 0 24 24'><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>";
 
       let subjectRows = '';
       
@@ -4964,22 +5764,49 @@ function getMarksheetHtml(exam, theme, config) {
     if (!Array.isArray(subs)) subs = [];
 
     const evalStatus = evalStudentResultStatus(subs, exam.className);
-    const safeGrade = (exam.grade && exam.grade !== 'null' && exam.grade !== 'undefined') ? exam.grade : getGrade(exam.percentage);
-    const safeResultStatus = (exam.resultStatus && exam.resultStatus !== 'null' && exam.resultStatus !== 'undefined' && exam.resultStatus !== '') ? exam.resultStatus : evalStatus.resultStatus;
+    const hasExplicitPassOrFail = (exam.resultStatus === 'PASS' || exam.resultStatus === 'FAIL');
+    const isPending = !hasExplicitPassOrFail && (evalStatus.isPending || (evalStatus.resultStatus === 'PENDING') || (exam.resultStatus === 'PENDING'));
+    const safeResultStatus = hasExplicitPassOrFail ? exam.resultStatus : (isPending ? 'PENDING' : evalStatus.resultStatus);
+    const safeGrade = (exam.grade && exam.grade !== 'null' && exam.grade !== 'undefined' && exam.grade !== '---' && exam.grade !== '-') ? exam.grade : getGrade(exam.percentage || evalStatus.overallStats.percentage);
 
-    subs.forEach(sub => {
-        const isMain = isSubjectMain(sub.subject, exam.className, sub);
-        const addlBadge = !isMain ? `<span style="font-size:7pt; font-weight:800; color:#b45309; background:#fef3c7; border:1px solid #fde68a; border-radius:3px; padding:1px 4px; margin-left:5px; vertical-align:middle; display:inline-block;">ADDITIONAL</span>` : '';
+    const completeSubs = prepareCompleteMarksheetSubjects(subs, exam.className, isCBSE, isAnnual);
+    const tableSubs = completeSubs.length > 0 ? completeSubs : subs;
+
+    tableSubs.forEach(sub => {
+        const isDrawing = isDrawingSubject(sub.subject);
+        const isMain = isDrawing ? false : (sub.isMain !== undefined ? sub.isMain : isSubjectMain(sub.subject, exam.className, sub));
+        const addlBadge = !isMain ? `<span style="font-size:7pt; font-weight:800; color:${isDrawing ? '#2563eb' : '#b45309'}; background:${isDrawing ? '#eff6ff' : '#fef3c7'}; border:1px solid ${isDrawing ? '#bfdbfe' : '#fde68a'}; border-radius:3px; padding:1px 4px; margin-left:5px; vertical-align:middle; display:inline-block;">${isDrawing ? 'GRADED' : 'ADDITIONAL'}</span>` : '';
+        const isPendingRow = sub.isPending === true;
+        const isSubAbsent = sub.isAbsent === true || String(sub.total).toUpperCase() === 'AB' || String(sub.theory).toUpperCase() === 'AB';
+        let maxVal = sub.max || 100;
+        let minVal = sub.min !== undefined ? sub.min : 33;
+        let totVal = isPendingRow ? `<span style="color:#94a3b8; font-style:italic;">Pending</span>` : (isSubAbsent ? `<strong style="color:#dc2626;">AB</strong>` : (sub.total !== undefined ? sub.total : 0));
+        let thVal = isPendingRow ? '-' : (isSubAbsent ? `<strong style="color:#dc2626;">AB</strong>` : (sub.theory || 0));
+        let prVal = isPendingRow ? '-' : (sub.practical || 0);
+
+        if (isDrawing) {
+          const drawGrade = resolveDrawingGrade(sub, false);
+          maxVal = '-';
+          minVal = '-';
+          thVal = '-';
+          prVal = '-';
+          totVal = isSubAbsent ? `<strong style="color:#dc2626;">AB</strong>` : `<span style="font-weight:900; color:#2563eb;">${drawGrade}</span>`;
+        }
+
         subjectRows += `
         <tr>
             <td style="padding:12px; border:1px solid rgba(0,0,0,0.15); font-weight:bold;" contenteditable="true">${sub.subject}${addlBadge}</td>
-            <td style="padding:12px; border:1px solid rgba(0,0,0,0.15); text-align:center;" contenteditable="true">${sub.max || 100}</td>
-            <td style="padding:12px; border:1px solid rgba(0,0,0,0.15); text-align:center;" contenteditable="true">${sub.min !== undefined ? sub.min : 33}</td>
-            <td style="padding:12px; border:1px solid rgba(0,0,0,0.15); text-align:center;" contenteditable="true">${sub.theory || 0}</td>
-            <td style="padding:12px; border:1px solid rgba(0,0,0,0.15); text-align:center;" contenteditable="true">${sub.practical || 0}</td>
-            <td style="padding:12px; border:1px solid rgba(0,0,0,0.15); text-align:center; font-weight:bold;" contenteditable="true">${sub.total || 0}</td>
+            <td style="padding:12px; border:1px solid rgba(0,0,0,0.15); text-align:center;" contenteditable="true">${maxVal}</td>
+            <td style="padding:12px; border:1px solid rgba(0,0,0,0.15); text-align:center;" contenteditable="true">${minVal}</td>
+            <td style="padding:12px; border:1px solid rgba(0,0,0,0.15); text-align:center;" contenteditable="true">${thVal}</td>
+            <td style="padding:12px; border:1px solid rgba(0,0,0,0.15); text-align:center;" contenteditable="true">${prVal}</td>
+            <td style="padding:12px; border:1px solid rgba(0,0,0,0.15); text-align:center; font-weight:bold;" contenteditable="true">${totVal}</td>
         </tr>`;
     });
+
+      const displayThemeGrandTotal = (evalStatus && evalStatus.overallStats && evalStatus.overallStats.grandTotal > 0) ? evalStatus.overallStats.grandTotal : (exam.totalMarks || 0);
+      const displayThemePercentage = (evalStatus && evalStatus.overallStats && evalStatus.overallStats.percentage > 0) ? evalStatus.overallStats.percentage : (exam.percentage || 0);
+      const displayThemeGrade = (exam.grade && exam.grade !== 'null' && exam.grade !== 'undefined') ? ((evalStatus.overallStats.grandTotal > 0 && exam.totalMarks != evalStatus.overallStats.grandTotal) ? getGrade(displayThemePercentage) : exam.grade) : getGrade(displayThemePercentage);
 
       const schoolName = "Tapowan Public School";
       const admNo = exam.admissionNo || '-';
@@ -5021,15 +5848,15 @@ function getMarksheetHtml(exam, theme, config) {
               <div style="display: flex; gap: 20px; text-align:center;">
                   <div style="flex:1; border: 1px solid ${c.color}; padding: 15px; border-radius: 8px;">
                       <div style="font-size: 12px; font-weight:bold; color: inherit;">TOTAL MARKS</div>
-                      <div style="font-size: 24px; font-weight:bold; color: ${c.color};" contenteditable="true">${exam.totalMarks}</div>
+                      <div style="font-size: 24px; font-weight:bold; color: ${c.color};" contenteditable="true">${displayThemeGrandTotal}</div>
                   </div>
                   <div style="flex:1; border: 1px solid ${c.color}; padding: 15px; border-radius: 8px;">
                       <div style="font-size: 12px; font-weight:bold; color: inherit;">PERCENTAGE</div>
-                      <div style="font-size: 24px; font-weight:bold; color: ${c.color};" contenteditable="true">${exam.percentage}%</div>
+                      <div style="font-size: 24px; font-weight:bold; color: ${c.color};" contenteditable="true">${displayThemePercentage}%</div>
                   </div>
                   <div style="flex:1; border: 1px solid ${c.color}; padding: 15px; border-radius: 8px;">
                       <div style="font-size: 12px; font-weight:bold; color: inherit;">GRADE</div>
-                      <div style="font-size: 24px; font-weight:bold; color: ${c.color};" contenteditable="true">${exam.grade}</div>
+                      <div style="font-size: 24px; font-weight:bold; color: ${c.color};" contenteditable="true">${displayThemeGrade}</div>
                   </div>
                   <div style="flex:1; border: 1px solid ${c.color}; padding: 15px; border-radius: 8px; background: ${exam.resultStatus === 'PASS' ? '#dcfce7' : '#fee2e2'};">
                       <div style="font-size: 12px; font-weight:bold; color: inherit;">RESULT</div>
@@ -5085,15 +5912,15 @@ function getMarksheetHtml(exam, theme, config) {
               <div style="display: flex; gap: 15px; text-align:center;">
                   <div style="flex:1; border: 2px dashed ${c.color}; padding: 15px; border-radius: 12px; background: transparent;">
                       <div style="font-size: 13px; font-weight:bold; color: inherit;">TOTAL</div>
-                      <div style="font-size: 26px; font-weight:900; color: ${c.color};" contenteditable="true">${exam.totalMarks}</div>
+                      <div style="font-size: 26px; font-weight:900; color: ${c.color};" contenteditable="true">${displayThemeGrandTotal}</div>
                   </div>
                   <div style="flex:1; border: 2px dashed ${c.color}; padding: 15px; border-radius: 12px; background: transparent;">
                       <div style="font-size: 13px; font-weight:bold; color: inherit;">PERCENTAGE</div>
-                      <div style="font-size: 26px; font-weight:900; color: ${c.color};" contenteditable="true">${exam.percentage}%</div>
+                      <div style="font-size: 26px; font-weight:900; color: ${c.color};" contenteditable="true">${displayThemePercentage}%</div>
                   </div>
                   <div style="flex:1; border: 2px dashed ${c.color}; padding: 15px; border-radius: 12px; background: transparent;">
                       <div style="font-size: 13px; font-weight:bold; color: inherit;">GRADE</div>
-                      <div style="font-size: 26px; font-weight:900; color: ${c.color};" contenteditable="true">${exam.grade}</div>
+                      <div style="font-size: 26px; font-weight:900; color: ${c.color};" contenteditable="true">${displayThemeGrade}</div>
                   </div>
                   <div style="flex:1; border: 2px dashed ${c.color}; padding: 15px; border-radius: 12px; background: ${exam.resultStatus === 'PASS' ? '#dcfce7' : '#fee2e2'};">
                       <div style="font-size: 13px; font-weight:bold; color: inherit;">RESULT</div>
@@ -5151,9 +5978,9 @@ function getMarksheetHtml(exam, theme, config) {
                       <tbody>${subjectRows}</tbody>
                   </table>
                   <div style="background: transparent; border: 1px solid #e2e8f0; padding: 20px; border-radius: 8px; display: flex; justify-content: space-around; align-items: center; text-align: center;">
-                      <div><p style="margin:0 0 5px 0; color: inherit; font-size: 12px; font-weight:bold;">GRAND TOTAL</p><h2 style="margin:0; color:${c.color};" contenteditable="true">${exam.totalMarks}</h2></div>
-                      <div><p style="margin:0 0 5px 0; color: inherit; font-size: 12px; font-weight:bold;">PERCENTAGE</p><h2 style="margin:0; color:${c.color};" contenteditable="true">${exam.percentage}%</h2></div>
-                      <div><p style="margin:0 0 5px 0; color: inherit; font-size: 12px; font-weight:bold;">OVERALL GRADE</p><h2 style="margin:0; color:${c.color};" contenteditable="true">${exam.grade}</h2></div>
+                      <div><p style="margin:0 0 5px 0; color: inherit; font-size: 12px; font-weight:bold;">GRAND TOTAL</p><h2 style="margin:0; color:${c.color};" contenteditable="true">${displayThemeGrandTotal}</h2></div>
+                      <div><p style="margin:0 0 5px 0; color: inherit; font-size: 12px; font-weight:bold;">PERCENTAGE</p><h2 style="margin:0; color:${c.color};" contenteditable="true">${displayThemePercentage}%</h2></div>
+                      <div><p style="margin:0 0 5px 0; color: inherit; font-size: 12px; font-weight:bold;">OVERALL GRADE</p><h2 style="margin:0; color:${c.color};" contenteditable="true">${displayThemeGrade}</h2></div>
                       <div><p style="margin:0 0 5px 0; color: inherit; font-size: 12px; font-weight:bold;">RESULT</p><h2 style="margin:0; color:${exam.resultStatus === 'PASS' ? '#16a34a' : '#dc2626'};" contenteditable="true">${exam.resultStatus}</h2></div>
                   </div>
                   <div style="margin-top: 50px; display: flex; justify-content: space-between; align-items: flex-end;">
@@ -5476,7 +6303,7 @@ function getMarksheetHtml(exam, theme, config) {
     
     if (theme === 'consolidated_cbse') {
         const reqExams = examName.split(',').map(e => e.trim()).filter(Boolean);
-        const allExams = (store.exams || []).filter(e => (normFunc(e.className) === normFunc(className) || e.className === className) && e.session === session && reqExams.includes(e.examName));
+        const allExams = (store.exams || []).filter(e => (normFunc(e.className) === normFunc(className) || e.className === className) && e.session === session && reqExams.includes(e.examName) && isExamForActiveStudent(e, store.students || []));
         
         if(allExams.length === 0) {
           container.innerHTML = `<div class="empty-state"><h4>No marks data found for these combined exams.</h4><p>Ensure the exam names are spelled correctly.</p></div>`;
@@ -5492,21 +6319,21 @@ function getMarksheetHtml(exam, theme, config) {
             studentMap[ex.studentName].exams.push(ex);
         });
 
+        const sortedStudents = Object.values(studentMap).sort((a, b) => {
+          const parseRoll = (r) => {
+            if (!r && r !== 0) return 999999;
+            const num = parseInt(String(r).replace(/\D/g, ''), 10);
+            return isNaN(num) ? 999999 : num;
+          };
+          const rA = parseRoll(a.rollNo);
+          const rB = parseRoll(b.rollNo);
+          if (rA !== rB) return rA - rB;
+          return (a.studentName || '').localeCompare(b.studentName || '');
+        });
+
         let html = '';
-        Object.values(studentMap).forEach(stdGroup => {
-            const student = (store.students || []).find(s => {
-            const admA = String(s.admissionNo || "").trim().toLowerCase();
-            const admB = String(ex.admissionNo || "").trim().toLowerCase();
-            const matchAdm = admA && admB && admA === admB;
-              const matchClass = (normFunc(s.className || '')).toLowerCase() === (normFunc(stdGroup.className || '')).toLowerCase();
-              const nameA = (s.fullName || '').trim().toLowerCase();
-              const nameB = (stdGroup.studentName || '').trim().toLowerCase();
-              const matchName = nameA && nameB && nameA === nameB;
-              const rollA = String(s.rollNo || '').trim().replace(/^0+/, '');
-              const rollB = String(stdGroup.rollNo || '').trim().replace(/^0+/, '');
-              const matchRoll = rollA && rollB && rollA === rollB;
-            return matchAdm || (matchClass && (matchName || matchRoll));
-            }) || {};
+        sortedStudents.forEach(stdGroup => {
+            const student = findStudentFromStore(store.students || [], stdGroup);
             html += getConsolidatedResultHtml(stdGroup, reqExams, student, config);
         });
         
@@ -5515,7 +6342,7 @@ function getMarksheetHtml(exam, theme, config) {
         
         // Render Charts after DOM injection
         setTimeout(() => {
-            Object.values(studentMap).forEach(stdGroup => {
+            sortedStudents.forEach(stdGroup => {
                 const canvas = document.getElementById(`consolidatedChart_${stdGroup.rollNo}`);
                 if (canvas) renderConsolidatedChart(canvas, stdGroup, reqExams);
             });
@@ -5523,8 +6350,8 @@ function getMarksheetHtml(exam, theme, config) {
         return;
     }
     
-    // Find all exams matching
-    const matchingExams = (store.exams || []).filter(e => (normFunc(e.className) === normFunc(className) || e.className === className) && e.session === session && e.examName === examName);
+    // Find all exams matching (only active students)
+    const matchingExams = (store.exams || []).filter(e => (normFunc(e.className) === normFunc(className) || e.className === className) && e.session === session && e.examName === examName && isExamForActiveStudent(e, store.students || []));
     
     if(matchingExams.length === 0) {
       container.innerHTML = `<div class="empty-state"><h4>No marks data found for this class and exam.</h4><p>Please enter marks first.</p></div>`;
@@ -5561,11 +6388,11 @@ function getMarksheetHtml(exam, theme, config) {
       if (sRoll) classRankMap.set(`roll_${sRoll}`, curClassRank);
     }
 
-    // Auto-calculate School Ranks across all classes for this session & examName
+    // Auto-calculate School Ranks across all classes for this session & examName (only active students)
     const allSchoolExams = (store.exams || []).filter(e => {
       const matchSession = (e.session || '').trim().toLowerCase() === (session || '').trim().toLowerCase();
       const matchExam = (e.examName || '').trim().toLowerCase() === (examName || '').trim().toLowerCase();
-      return matchSession && matchExam;
+      return matchSession && matchExam && isExamForActiveStudent(e, store.students || []);
     });
     const effectiveSchoolExams = allSchoolExams.length > 0 ? allSchoolExams : matchingExams;
 
@@ -5598,6 +6425,25 @@ function getMarksheetHtml(exam, theme, config) {
       schoolRankMap.set(sName, curSchoolRank);
     }
 
+    // Sort all exam records strictly by Roll Number ascending (1, 2, 3 ... 38)
+    const resolveRollNumber = (e) => {
+      let r = e.rollNo;
+      if (!r || r === '' || r === '-' || r === '0' || r === '---') {
+        const std = findStudentFromStore(store.students || [], e);
+        if (std && std.rollNo) r = std.rollNo;
+      }
+      if (!r && r !== 0) return 999999;
+      const num = parseInt(String(r).replace(/\D/g, ''), 10);
+      return isNaN(num) ? 999999 : num;
+    };
+
+    matchingExams.sort((a, b) => {
+      const rA = resolveRollNumber(a);
+      const rB = resolveRollNumber(b);
+      if (rA !== rB) return rA - rB;
+      return (a.studentName || '').localeCompare(b.studentName || '');
+    });
+
     let html = '';
     matchingExams.forEach(ex => {
           const sName = (ex.studentName || '').trim().toLowerCase();
@@ -5606,16 +6452,8 @@ function getMarksheetHtml(exam, theme, config) {
           const cRank = classRankMap.get(`${sName}_${sRoll}`) || classRankMap.get(sName) || (sRoll ? classRankMap.get(`roll_${sRoll}`) : '') || '';
           const sRank = schoolRankMap.get(`${sClass}_${sName}_${sRoll}`) || schoolRankMap.get(`${sName}_${sRoll}`) || schoolRankMap.get(sName) || '';
 
-          const student = (store.students || []).find(s => {
-            const matchClass = (normFunc(s.className || '')).toLowerCase() === (normFunc(ex.className || '')).toLowerCase();
-            const nameA = (s.fullName || '').trim().toLowerCase();
-            const nameB = (ex.studentName || '').trim().toLowerCase();
-            const matchName = nameA && nameB && nameA === nameB;
-            const rollA = String(s.rollNo || '').trim().replace(/^0+/, '');
-            const rollB = String(ex.rollNo || '').trim().replace(/^0+/, '');
-            const matchRoll = rollA && rollB && rollA === rollB;
-            return matchClass && (matchName || matchRoll);
-          }) || {};
+          const student = findStudentFromStore(store.students || [], ex);
+          const studentPhotoUri = getStudentPhotoUri(student, student?.id || student?.admissionNo || ex?.admissionNo || ex?.admNo) || getStudentPhotoUri(ex.studentPhoto, student?.admissionNo || ex?.admissionNo || ex?.admNo) || '';
           const bgStyle = config.bgImage !== 'none' ? `background-image: url('${config.bgImage}'); background-size: cover; background-position: center;` : (config.bgType === 'gradient' ? `background: linear-gradient(135deg, ${config.bgColor}, ${config.bgColor2});` : `background-color: ${config.bgColor};`);
           const fontColorStyle = config.fontColor ? `color: ${config.fontColor} !important;` : '';
           
@@ -5625,7 +6463,7 @@ function getMarksheetHtml(exam, theme, config) {
                 examName: ex.examName, session: ex.session, className: ex.className,
                 studentName: ex.studentName, rollNo: ex.rollNo, admissionNo: student.admissionNo || ex.admissionNo || '',
                 fatherName: formatParentName(student.fatherName), motherName: student.motherName || '',
-                studentPhoto: student.photo || ex.studentPhoto || '', subjectMarks: ex.subjectMarks,
+                studentPhoto: studentPhotoUri, subjectMarks: ex.subjectMarks,
                 totalMarks: ex.totalMarks, percentage: ex.percentage, grade: ex.grade, resultStatus: ex.resultStatus,
                 classRank: cRank, schoolRank: sRank, totalClassStudents: matchingExams.length, totalSchoolStudents: effectiveSchoolExams.length
               }, theme, config);
@@ -5635,7 +6473,7 @@ function getMarksheetHtml(exam, theme, config) {
                 studentName: ex.studentName, rollNo: ex.rollNo, admissionNo: student.admissionNo || ex.admissionNo || '',
                 fatherName: formatParentName(student.fatherName), motherName: student.motherName || '',
                 dob: student.dob || '', address: student.address || '',
-                studentPhoto: student.photo || ex.studentPhoto || '', subjectMarks: ex.subjectMarks,
+                studentPhoto: studentPhotoUri, subjectMarks: ex.subjectMarks,
                 totalMarks: ex.totalMarks, percentage: ex.percentage, grade: ex.grade, resultStatus: ex.resultStatus,
                 classRank: cRank, schoolRank: sRank, totalClassStudents: matchingExams.length, totalSchoolStudents: effectiveSchoolExams.length
               }, theme, config);
@@ -5645,7 +6483,7 @@ function getMarksheetHtml(exam, theme, config) {
                 studentName: ex.studentName, rollNo: ex.rollNo, admissionNo: student.admissionNo || ex.admissionNo || '',
                 fatherName: formatParentName(student.fatherName), motherName: student.motherName || '',
                 dob: student.dob || '', address: student.address || '',
-                studentPhoto: student.photo || ex.studentPhoto || '', subjectMarks: ex.subjectMarks,
+                studentPhoto: studentPhotoUri, subjectMarks: ex.subjectMarks,
                 totalMarks: ex.totalMarks, percentage: ex.percentage, grade: ex.grade, resultStatus: ex.resultStatus,
                 classRank: cRank, schoolRank: sRank, totalClassStudents: matchingExams.length, totalSchoolStudents: effectiveSchoolExams.length
               }, config);
@@ -5656,7 +6494,7 @@ function getMarksheetHtml(exam, theme, config) {
                 fatherName: formatParentName(student.fatherName), motherName: student.motherName || '',
                 dob: student.dob || '', address: student.address || '',
                 phone: student.phone || student.phone1 || student.mobile || student.whatsapp || student.contact || student.phoneNo || ex.phone || ex.mobile || '',
-                studentPhoto: student.photo || ex.studentPhoto || '', subjectMarks: ex.subjectMarks,
+                studentPhoto: studentPhotoUri, subjectMarks: ex.subjectMarks,
                 totalMarks: ex.totalMarks, percentage: ex.percentage, grade: ex.grade, resultStatus: ex.resultStatus,
                 classRank: cRank,
                 schoolRank: sRank,
@@ -5667,14 +6505,14 @@ function getMarksheetHtml(exam, theme, config) {
               cardHtml = generateDynamicMarksheet({
                 examName: ex.examName, session: ex.session, studentName: ex.studentName,
                 className: ex.className, rollNo: ex.rollNo, admissionNo: student.admissionNo || ex.admissionNo || '',
-                studentPhoto: student.photo || ex.studentPhoto || '', subjectMarks: ex.subjectMarks,
+                studentPhoto: studentPhotoUri, subjectMarks: ex.subjectMarks,
                 totalMarks: ex.totalMarks, percentage: ex.percentage, grade: ex.grade, resultStatus: ex.resultStatus
               }, theme, config);
           } else {
               cardHtml = getMarksheetHtml({
                 examName: ex.examName, session: ex.session, className: ex.className,
                 studentName: ex.studentName, rollNo: ex.rollNo, admissionNo: student.admissionNo || ex.admissionNo || '',
-                studentPhoto: student.photo || ex.studentPhoto || '', subjectMarks: ex.subjectMarks,
+                studentPhoto: studentPhotoUri, subjectMarks: ex.subjectMarks,
                 totalMarks: ex.totalMarks, percentage: ex.percentage, grade: ex.grade, resultStatus: ex.resultStatus
               }, theme, config);
           }
@@ -5771,6 +6609,12 @@ function getMarksheetHtml(exam, theme, config) {
         });
     }
   }
+
+  window.getTpsOfficialResultHtml = getTpsOfficialResultHtml;
+  window.getJacBoardResultHtml = getJacBoardResultHtml;
+  window.getMarksheetHtml = getMarksheetHtml;
+  window.getDetailedGraphResultHtml = getDetailedGraphResultHtml;
+  window.generateMarksheets = generateMarksheets;
 
   // Utils
   function populateClassSelect(elementId) {
@@ -6703,7 +7547,7 @@ function getThoAdmitCardHtml(student, examName, config) {
     const store = typeof getStore !== 'undefined' ? getStore() : {};
     const schoolName = store.schoolName || "TALENT HUNT OLYMPIAD";
     const admNo = student.admissionNo || '-';
-    const photoUrl = student.photo || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='%23e2e8f0' viewBox='0 0 24 24'><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>";
+    const photoUrl = getStudentPhotoUri(student, student.id || student.admissionNo) || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='%23e2e8f0' viewBox='0 0 24 24'><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>";
     
     // Exact layout from the screenshot (3 columns)
     return `
@@ -6788,7 +7632,7 @@ function getThoAdmitCardHtml(student, examName, config) {
 function getConsolidatedResultHtml(stdGroup, reqExams, student, config) {
     const c = config || { color: '#0f172a', font: "'Times New Roman', serif", border: 'solid' };
     const borderVal = c.border === 'none' ? 'none' : `4px ${c.border} ${c.color}`;
-    const photoUrl = student.photo || stdGroup.exams[0]?.studentPhoto || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='%23e2e8f0' viewBox='0 0 24 24'><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>";
+    const photoUrl = getStudentPhotoUri(student, student?.id || student?.admissionNo) || getStudentPhotoUri(stdGroup.exams[0]?.studentPhoto, stdGroup.exams[0]?.admissionNo) || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='%23e2e8f0' viewBox='0 0 24 24'><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>";
     const schoolName = "Tapowan Public School";
     const bgStyle = config.bgImage !== 'none' ? `background-image: url('${config.bgImage}'); background-size: cover; background-position: center;` : (config.bgType === 'gradient' ? `background: linear-gradient(135deg, ${config.bgColor}, ${config.bgColor2});` : `background-color: ${config.bgColor};`);
     const fontColorStyle = config.fontColor ? `color: ${config.fontColor} !important;` : '';
