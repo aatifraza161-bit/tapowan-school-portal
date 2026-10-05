@@ -6682,12 +6682,33 @@ function getMarksheetHtml(exam, theme, config) {
       return;
     }
 
-    // Auto-calculate Class Ranks (sorted by percentage/totalMarks descending)
+    // Auto-calculate Class Ranks (Drawing strictly excluded for all classes)
+    const getExamScholasticStats = (ex) => {
+      if (ex && ex.subjectMarks) {
+        try {
+          const sm = typeof ex.subjectMarks === 'string' ? JSON.parse(ex.subjectMarks) : ex.subjectMarks;
+          if (Array.isArray(sm) && sm.length > 0) {
+            const ev = evalStudentResultStatus(sm, ex.className);
+            if (ev && ev.overallStats && ev.overallStats.maxTotal > 0) {
+              return {
+                totalMarks: ev.overallStats.grandTotal,
+                percentage: ev.overallStats.percentage
+              };
+            }
+          }
+        } catch (e) {}
+      }
+      return {
+        totalMarks: parseFloat(ex.totalMarks) || 0,
+        percentage: parseFloat(ex.percentage) || 0
+      };
+    };
+
     const sortedClassExams = [...matchingExams].sort((a, b) => {
-      const pctA = parseFloat(a.percentage) || 0;
-      const pctB = parseFloat(b.percentage) || 0;
-      if (pctB !== pctA) return pctB - pctA;
-      return (parseFloat(b.totalMarks) || 0) - (parseFloat(a.totalMarks) || 0);
+      const sA = getExamScholasticStats(a);
+      const sB = getExamScholasticStats(b);
+      if (sB.percentage !== sA.percentage) return sB.percentage - sA.percentage;
+      return sB.totalMarks - sA.totalMarks;
     });
 
     const classRankMap = new Map();
@@ -6696,11 +6717,9 @@ function getMarksheetHtml(exam, theme, config) {
       const cur = sortedClassExams[i];
       if (i > 0) {
         const prev = sortedClassExams[i - 1];
-        const pA = parseFloat(prev.percentage) || 0;
-        const cA = parseFloat(cur.percentage) || 0;
-        const tA = parseFloat(prev.totalMarks) || 0;
-        const tB = parseFloat(cur.totalMarks) || 0;
-        if (cA < pA || (cA === pA && tB < tA)) {
+        const sPrev = getExamScholasticStats(prev);
+        const sCur = getExamScholasticStats(cur);
+        if (sCur.percentage < sPrev.percentage || (sCur.percentage === sPrev.percentage && sCur.totalMarks < sPrev.totalMarks)) {
           curClassRank = i + 1;
         }
       }
@@ -6720,10 +6739,10 @@ function getMarksheetHtml(exam, theme, config) {
     const effectiveSchoolExams = allSchoolExams.length > 0 ? allSchoolExams : matchingExams;
 
     const sortedSchoolExams = [...effectiveSchoolExams].sort((a, b) => {
-      const pctA = parseFloat(a.percentage) || 0;
-      const pctB = parseFloat(b.percentage) || 0;
-      if (pctB !== pctA) return pctB - pctA;
-      return (parseFloat(b.totalMarks) || 0) - (parseFloat(a.totalMarks) || 0);
+      const sA = getExamScholasticStats(a);
+      const sB = getExamScholasticStats(b);
+      if (sB.percentage !== sA.percentage) return sB.percentage - sA.percentage;
+      return sB.totalMarks - sA.totalMarks;
     });
 
     const schoolRankMap = new Map();
@@ -6732,11 +6751,9 @@ function getMarksheetHtml(exam, theme, config) {
       const cur = sortedSchoolExams[i];
       if (i > 0) {
         const prev = sortedSchoolExams[i - 1];
-        const pA = parseFloat(prev.percentage) || 0;
-        const cA = parseFloat(cur.percentage) || 0;
-        const tA = parseFloat(prev.totalMarks) || 0;
-        const tB = parseFloat(cur.totalMarks) || 0;
-        if (cA < pA || (cA === pA && tB < tA)) {
+        const sPrev = getExamScholasticStats(prev);
+        const sCur = getExamScholasticStats(cur);
+        if (sCur.percentage < sPrev.percentage || (sCur.percentage === sPrev.percentage && sCur.totalMarks < sPrev.totalMarks)) {
           curSchoolRank = i + 1;
         }
       }
