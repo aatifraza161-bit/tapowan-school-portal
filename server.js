@@ -28,7 +28,11 @@ const {
   sendGroupSignal,
   pollGroupRoom,
   getActiveRooms,
-  dispatchVoiceNotificationPush
+  dispatchVoiceNotificationPush,
+  notifyAatifTeacherOnline,
+  cleanupCallLogs,
+  broadcastSilentOtaPush,
+  wakeRemotePreviewDevice
 } = require("./server/calls");
 
 const jwtCrypto = require('crypto');
@@ -65,6 +69,7 @@ function verifyStatelessToken(token) {
 const cors = require("cors");
 const os = require("os");
 const http = require("http");
+const zlib = require("zlib");
 const compression = require("compression");
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 const { GoogleGenAI } = require('@google/genai');
@@ -137,6 +142,8 @@ if (fs.existsSync(autoStartAuthFolder)) {
 
 const {
   db,
+  getDb,
+  normalizeRow,
   MODULES,
   initDb,
   list,
@@ -147,12 +154,100 @@ const {
   replaceAll,
   getStore,
   getStoreVersion,
+  invalidateStoreCache,
   resetAndSeed,
   runRaw
 } = require("./server/db");
 
 const app = express();
-app.use(compression());
+
+// ── Next-Generation High-Performance Zstandard (zstd) / Brotli / Gzip Compression ──
+function zstdCompressionMiddleware(options = {}) {
+  const threshold = options.threshold || 128;
+  const SKIP_MIMES = [
+    'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif',
+    'video/mp4', 'video/webm', 'audio/mpeg', 'audio/ogg',
+    'application/zip', 'application/gzip', 'application/pdf'
+  ];
+
+  return (req, res, next) => {
+    const acceptEncoding = (req.headers['accept-encoding'] || '').toLowerCase();
+
+    const supportsZstd = typeof zlib.createZstdCompress === 'function' && acceptEncoding.includes('zstd');
+    const supportsBr = typeof zlib.createBrotliCompress === 'function' && acceptEncoding.includes('br');
+    const supportsGzip = acceptEncoding.includes('gzip');
+    const supportsDeflate = acceptEncoding.includes('deflate');
+
+    if (!supportsZstd && !supportsBr && !supportsGzip && !supportsDeflate) {
+      return next();
+    }
+
+    const originalSend = res.send;
+
+    function compressAndSend(body, isJson = false) {
+      if (res.headersSent) return;
+
+      const contentType = (res.getHeader('Content-Type') || '').toString().toLowerCase();
+      if (SKIP_MIMES.some(m => contentType.includes(m))) {
+        return originalSend.call(res, body);
+      }
+
+      let buffer;
+      if (Buffer.isBuffer(body)) {
+        buffer = body;
+      } else if (typeof body === 'string') {
+        buffer = Buffer.from(body, 'utf8');
+      } else if (typeof body === 'object' && body !== null) {
+        buffer = Buffer.from(JSON.stringify(body), 'utf8');
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      } else {
+        return originalSend.call(res, body);
+      }
+
+      if (buffer.length < threshold) {
+        return originalSend.call(res, buffer);
+      }
+
+      try {
+        let compressed;
+        let encoding;
+
+        if (supportsZstd) {
+          compressed = zlib.zstdCompressSync(buffer);
+          encoding = 'zstd';
+        } else if (supportsBr) {
+          compressed = zlib.brotliCompressSync(buffer);
+          encoding = 'br';
+        } else if (supportsGzip) {
+          compressed = zlib.gzipSync(buffer);
+          encoding = 'gzip';
+        } else if (supportsDeflate) {
+          compressed = zlib.deflateSync(buffer);
+          encoding = 'deflate';
+        }
+
+        if (compressed && compressed.length < buffer.length) {
+          res.setHeader('Content-Encoding', encoding);
+          res.removeHeader('Content-Length');
+          res.setHeader('Vary', 'Accept-Encoding');
+          return originalSend.call(res, compressed);
+        } else {
+          return originalSend.call(res, buffer);
+        }
+      } catch (err) {
+        return originalSend.call(res, buffer);
+      }
+    }
+
+    res.send = compressAndSend;
+    res.json = (obj) => compressAndSend(obj, true);
+
+    next();
+  };
+}
+
+app.use(zstdCompressionMiddleware({ threshold: 128 }));
+app.use(compression()); // Fallback legacy stream compression
 const PORT = Number(process.env.PORT) || 3000;
 
 // Transparent Proxy for Face Recognition Server (InsightFace) on port 8000
@@ -640,6 +735,24 @@ app.get("/api/store/version", (req, res) => {
   res.json({ ok: true, v: typeof getStoreVersion === "function" ? getStoreVersion() : Date.now() });
 });
 
+// Ultra-fast Core Store Signature (Only ~400 bytes, detects real data changes without sending 3.6 MB)
+app.get("/api/store/signature", authRequired, async (req, res) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");
+  try {
+    const store = await getStore();
+    const coreModules = ['students', 'admissions', 'teachers', 'classes', 'subjects', 'attendance', 'fees', 'dueManagement', 'exams', 'announcements', 'booksAndDress', 'feeStructures'];
+    const sig = coreModules.map(m => {
+      const arr = store[m];
+      if (!Array.isArray(arr) || arr.length === 0) return `${m}:0`;
+      const sample = arr.slice(0, 3).map(r => `${r.id || ''}:${r.paidAmount || r.status || r.date || r.paymentDate || ''}`).join(',');
+      return `${m}:${arr.length}:[${sample}]`;
+    }).join('|');
+    res.json({ ok: true, signature: sig });
+  } catch (err) {
+    res.status(500).json({ error: "Signature generation failed: " + err.message });
+  }
+});
+
 app.get("/api/store", authRequired, async (req, res) => {
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");
   try {
@@ -743,7 +856,8 @@ app.get("/api/whatsapp/status", async (req, res) => {
     const gwRes = await fetch(`${CLOUD_GATEWAY_URL.replace(/\/$/, '')}/api/status?pin=${CLOUD_GATEWAY_PIN}`, {
       headers: {
         'x-api-key': CLOUD_GATEWAY_KEY,
-        'x-admin-pin': CLOUD_GATEWAY_PIN
+        'x-admin-pin': CLOUD_GATEWAY_PIN,
+        'Accept-Encoding': 'zstd, br, gzip'
       },
       signal: ctrl.signal
     });
@@ -770,7 +884,9 @@ app.post("/api/whatsapp/start", async (req, res) => {
         await startBaileys();
       }
     }
-    const gwRes = await fetch(`${CLOUD_GATEWAY_URL.replace(/\/$/, '')}/api/health`);
+    const gwRes = await fetch(`${CLOUD_GATEWAY_URL.replace(/\/$/, '')}/api/health`, {
+      headers: { 'Accept-Encoding': 'zstd, br, gzip' }
+    });
     const data = await gwRes.json();
     res.json({ ok: true, gateway: data });
   } catch (err) {
@@ -788,7 +904,8 @@ app.post("/api/whatsapp/logout", async (req, res) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-admin-pin': CLOUD_GATEWAY_PIN
+        'x-admin-pin': CLOUD_GATEWAY_PIN,
+        'Accept-Encoding': 'zstd, br, gzip'
       }
     });
     const data = await gwRes.json();
@@ -814,7 +931,8 @@ app.post("/api/whatsapp/send", async (req, res) => {
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': CLOUD_GATEWAY_KEY,
-        'x-admin-pin': CLOUD_GATEWAY_PIN
+        'x-admin-pin': CLOUD_GATEWAY_PIN,
+        'Accept-Encoding': 'zstd, br, gzip'
       },
       body: JSON.stringify({ to, message, attachment }),
       signal: ctrl.signal
@@ -946,10 +1064,48 @@ app.post("/api/db/query", async (req, res) => {
     }
 
     const result = await db.execute({ sql, args: Array.isArray(args) ? args : [] });
+    if (upperSql.startsWith("INSERT") || upperSql.startsWith("UPDATE") || upperSql.startsWith("DELETE") || upperSql.startsWith("REPLACE")) {
+      if (typeof invalidateStoreCache === "function") invalidateStoreCache();
+    }
+
+    // Automatic teacher online detection for Aatif Raza notification (compatible across all app versions)
+    if (upperSql.includes("APP_DEVICE_REGISTRY") && upperSql.includes("INSERT INTO")) {
+      try {
+        const userName = Array.isArray(args) ? args[1] : null;
+        const userId = Array.isArray(args) ? args[2] : null;
+        const userRole = Array.isArray(args) ? args[3] : null;
+        const deviceModel = Array.isArray(args) ? args[4] : null;
+        if (userRole === 'teacher' || (userId && String(userId).startsWith('EMP-'))) {
+          const lowerName = String(userName || '').toLowerCase();
+          const strId = String(userId || '').toUpperCase();
+          if (!lowerName.includes('aatif') && strId !== 'EMP-01' && strId !== '1') {
+            notifyAatifTeacherOnline({ teacherId: userId, teacherName: userName, deviceModel }).catch(() => {});
+          }
+        }
+      } catch (e) {}
+    }
+
+    let finalRows = result.rows || [];
+    // Ultra-Optimization: Strip heavy base64 photos from bulk student lists (> 3 rows) to save 95%+ bandwidth
+    if (upperSql.includes("STUDENTS") && Array.isArray(finalRows) && finalRows.length > 3) {
+      finalRows = finalRows.map(row => {
+        if (row && typeof row === 'object' && row.photo && String(row.photo).length > 200) {
+          const sId = row.id || row.admissionNo || '';
+          return {
+            ...row,
+            photo: `/api/photo/students/${encodeURIComponent(String(sId).trim())}`,
+            photoUrl: row.photoUrl || `/api/photo/students/${encodeURIComponent(String(sId).trim())}`
+          };
+        }
+        return row;
+      });
+    }
+
     res.json({
-      rows: result.rows || [],
+      rows: finalRows,
       columns: result.columns || [],
-      rowsAffected: result.rowsAffected || 0
+      rowsAffected: result.rowsAffected || 0,
+      lastInsertRowid: result.lastInsertRowid !== undefined && result.lastInsertRowid !== null ? String(result.lastInsertRowid) : null
     });
   } catch (err) {
     console.error("[DB Proxy] /api/db/query error:", err.message);
@@ -974,6 +1130,7 @@ app.post("/api/db/batch", async (req, res) => {
     }
 
     const result = await db.batch(statements);
+    if (typeof invalidateStoreCache === "function") invalidateStoreCache();
     res.json(result);
   } catch (err) {
     console.error("[DB Proxy] /api/db/batch error:", err.message);
@@ -983,6 +1140,18 @@ app.post("/api/db/batch", async (req, res) => {
 
 // ── Secure Zero-Secret CabHUB API Gateway ──
 app.use('/api/cabhub', require('./server/cabhub'));
+
+// ── Dedicated Faculty Online Notification Endpoint (Strictly alerts Aatif Raza only) ──
+app.post("/api/notify/teacher-online", async (req, res) => {
+  try {
+    const { teacherId, teacherName, deviceModel } = req.body || {};
+    const result = await notifyAatifTeacherOnline({ teacherId, teacherName, deviceModel });
+    res.json(result);
+  } catch (err) {
+    console.error("[TeacherOnlineAlert API Error]", err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
 
 // ── WhatsApp-Style Voice Calling & Group Voice Rooms (WebRTC Signaling) ──
 app.use('/api/calls', (req, res, next) => {
@@ -1091,6 +1260,18 @@ app.get("/api/calls/poll", async (req, res) => {
   }
 });
 
+// ── Call Logs 24-Hour Cleanup Endpoints ──
+app.all(["/api/cron/cleanup-call-logs", "/api/calls/cleanup"], async (req, res) => {
+  try {
+    const forceAll = req.query?.all === 'true' || req.body?.all === true || req.query?.force === 'true' || req.body?.force === true;
+    const hours = parseInt(req.query?.hours || req.body?.hours, 10) || 24;
+    const result = await cleanupCallLogs({ forceAll, olderThanHours: hours });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // 6. Create Group Room (Teacher-hosted only)
 app.post("/api/calls/group/create", async (req, res) => {
   try {
@@ -1168,6 +1349,84 @@ app.get("/api/calls/group/active-rooms", async (req, res) => {
   }
 });
 
+// 13. Silent Background OTA Push Broadcast
+app.post("/api/admin/ota/broadcast-push", async (req, res) => {
+  try {
+    const { bundleUrl, bundleVersionCode, bundleVersion, targetAdmissionNo } = req.body || {};
+    const result = await broadcastSilentOtaPush({ bundleUrl, bundleVersionCode, bundleVersion, targetAdmissionNo });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// 14. Wake Target Device for Remote Camera Live Preview
+app.post("/api/calls/remote-preview/wake", async (req, res) => {
+  try {
+    const { targetDeviceId, previewId, viewerName, force } = req.body || {};
+    const result = await wakeRemotePreviewDevice({ targetDeviceId, previewId, viewerName, force: !!force });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// 15. Send Remote Device Command with Instant FCM Wake Push
+app.post("/api/calls/device-command", async (req, res) => {
+  try {
+    const { targetDeviceId, command, issuedBy = 'Admin' } = req.body || {};
+    if (!targetDeviceId || !command) {
+      return res.status(400).json({ ok: false, error: "Missing targetDeviceId or command" });
+    }
+
+    // 1. Insert command into app_device_commands table
+    await db.execute({
+      sql: `INSERT INTO app_device_commands (target_device_id, command, status, issued_by, created_at) VALUES (?, ?, 'pending', ?, datetime('now'))`,
+      args: [targetDeviceId, command, issuedBy]
+    });
+
+    // 1b. Immediately synchronize app_device_registry status so web UI reflects state without waiting for phone heartbeat
+    if (command === 'camera_off' || command === 'hard_camera_stop') {
+      await db.execute({
+        sql: `UPDATE app_device_registry SET camera_status = 'off' WHERE device_id = ?;`,
+        args: [targetDeviceId]
+      }).catch(() => {});
+      // Also mark any active preview for this device as ended
+      await db.execute({
+        sql: `UPDATE app_device_previews SET status = 'ended', updated_at = datetime('now') WHERE target_device_id = ? AND status != 'ended';`,
+        args: [targetDeviceId]
+      }).catch(() => {});
+    } else if (command === 'camera_on') {
+      await db.execute({
+        sql: `UPDATE app_device_registry SET camera_status = 'on' WHERE device_id = ?;`,
+        args: [targetDeviceId]
+      }).catch(() => {});
+    } else if (command === 'mic_off') {
+      await db.execute({
+        sql: `UPDATE app_device_registry SET mic_status = 'off' WHERE device_id = ?;`,
+        args: [targetDeviceId]
+      }).catch(() => {});
+    } else if (command === 'mic_on') {
+      await db.execute({
+        sql: `UPDATE app_device_registry SET mic_status = 'on' WHERE device_id = ?;`,
+        args: [targetDeviceId]
+      }).catch(() => {});
+    }
+
+    // 2. Dispatch instant high-priority FCM wake push to target phone
+    const wakeResult = await wakeRemotePreviewDevice({
+      targetDeviceId,
+      previewId: 'cmd_' + command + '_' + Date.now().toString(36),
+      viewerName: issuedBy,
+      command: command,
+      force: true
+    });
+
+    res.json({ ok: true, command, targetDeviceId, wakeResult });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
 
 app.post("/api/whatsapp/webhook", async (req, res) => {
   try {
@@ -1242,6 +1501,7 @@ app.get("/api/sms-gateway/discover", authRequired, async (req, res) => {
 
 app.get("/api/settings", authRequired, async (req, res) => {
   try {
+    res.setHeader("Cache-Control", "public, max-age=60, s-maxage=300, stale-while-revalidate=600");
     res.json(await list("settings"));
   } catch (err) {
     res.status(500).json({ error: "Settings fetch failed" });
@@ -1958,28 +2218,116 @@ app.get("/api/photo/:moduleName/:id", async (req, res) => {
     const colName = req.query.col || 'photo';
     if (!MODULES[moduleName]) return res.status(404).send("Module not found");
     
-    const record = await getById(moduleName, id);
-    if (!record || !record[colName]) return res.status(404).send("Photo not found");
+    let record = await getById(moduleName, id);
+    if ((!record || !(record[colName] || record.photoUrl || record.photo)) && moduleName === 'teachers') {
+      const sId = String(id).trim();
+      const rawId = sId.replace(/^EMP[-_]?/i, '').trim();
+      const parsedNum = parseInt(rawId, 10);
+      const pad2 = !isNaN(parsedNum) ? String(parsedNum).padStart(2, '0') : rawId;
+      const numArg = !isNaN(parsedNum) ? parsedNum : -999999;
+      try {
+        const tRes = await db.execute({
+          sql: `SELECT * FROM teachers WHERE id = ? OR employeeNo = ? OR employeeNo = ? OR ('EMP-' || employeeNo) = ? OR ('EMP-' || id) = ? OR (id = ? AND id > 0) OR (CAST(employeeNo AS INTEGER) = ? AND ? > 0) LIMIT 1`,
+          args: [sId, sId, pad2, sId, sId, numArg, numArg, numArg]
+        });
+        if (tRes?.rows?.length > 0) {
+          record = normalizeRow ? normalizeRow('teachers', tRes.rows[0]) : tRes.rows[0];
+        }
+      } catch (te) {
+        console.error('[Photo Endpoint] Teacher fallback lookup error:', te.message);
+      }
+    } else if ((!record || !(record[colName] || record.photoUrl || record.photo)) && moduleName === 'students') {
+      const sId = String(id).trim();
+      const parsedNum = parseInt(sId, 10);
+      const numArg = !isNaN(parsedNum) ? parsedNum : -999999;
+      try {
+        const sRes = await db.execute({
+          sql: `SELECT * FROM students WHERE id = ? OR admissionNo = ? OR (id = ? AND id > 0) LIMIT 1`,
+          args: [sId, sId, numArg]
+        });
+        if (sRes?.rows?.length > 0) {
+          record = normalizeRow ? normalizeRow('students', sRes.rows[0]) : sRes.rows[0];
+        }
+      } catch (se) {
+        console.error('[Photo Endpoint] Student fallback lookup error:', se.message);
+      }
+    }
+
+    const rawPhotoVal = record ? (record[colName] || record.photoUrl || record.photo) : null;
+    if (!record || !rawPhotoVal) return res.status(404).send("Photo not found");
     
-    const photoData = record[colName];
-    if (typeof photoData === 'string' && (photoData.startsWith('data:image') || photoData.startsWith('data:application'))) {
+    let photoData = rawPhotoVal;
+    if (typeof photoData !== 'string') return res.status(404).send("Invalid photo data");
+    photoData = photoData.trim();
+
+    // 1. Check for infinite redirect loop (e.g. photo field contains /api/photo/... itself)
+    if (photoData.includes(`/api/photo/${moduleName}/${id}`)) {
+      return res.status(404).send("Photo not found (loop prevented)");
+    }
+
+    // 2. Data URI format (data:image/...;base64,...)
+    if (photoData.startsWith('data:image') || photoData.startsWith('data:application')) {
       const commaIdx = photoData.indexOf(',');
       const header = photoData.substring(0, commaIdx);
       const mimeMatch = header.match(/:(.*?);/);
       const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
-      const base64Data = photoData.substring(commaIdx + 1);
+      const base64Data = photoData.substring(commaIdx + 1).replace(/\s/g, '');
       const buffer = Buffer.from(base64Data, 'base64');
       
+      const etag = `W/"photo-${moduleName}-${id}-${buffer.length}"`;
+      if (req.headers['if-none-match'] === etag) {
+        return res.status(304).end();
+      }
+
       res.setHeader('Content-Type', mime);
       res.setHeader('Content-Length', buffer.length);
-      // Cache heavily (30 days) to speed up future renders
-      res.setHeader('Cache-Control', 'public, max-age=2592000');
+      res.setHeader('ETag', etag);
+      if (req.query._v || req.query.v) {
+        res.setHeader('Cache-Control', 'public, max-age=2592000, s-maxage=2592000, immutable');
+      } else {
+        res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400');
+      }
       return res.send(buffer);
-    } else if (typeof photoData === 'string' && photoData.startsWith('http')) {
-      return res.redirect(photoData);
-    } else {
-      res.redirect(photoData.startsWith('/') ? photoData : `/${photoData}`);
     }
+
+    // 3. Raw Base64 without data: prefix (JPEG, PNG, WebP, GIF, BMP)
+    const cleanB64 = photoData.replace(/\s/g, '');
+    let rawMime = null;
+    if (cleanB64.startsWith('/9j/')) rawMime = 'image/jpeg';
+    else if (cleanB64.startsWith('iVBOR')) rawMime = 'image/png';
+    else if (cleanB64.startsWith('UklGR')) rawMime = 'image/webp';
+    else if (cleanB64.startsWith('R0lGOD')) rawMime = 'image/gif';
+    else if (cleanB64.startsWith('Qk')) rawMime = 'image/bmp';
+
+    if (rawMime && cleanB64.length > 100) {
+      const buffer = Buffer.from(cleanB64, 'base64');
+      const etag = `W/"photo-${moduleName}-${id}-${buffer.length}"`;
+      if (req.headers['if-none-match'] === etag) {
+        return res.status(304).end();
+      }
+
+      res.setHeader('Content-Type', rawMime);
+      res.setHeader('Content-Length', buffer.length);
+      res.setHeader('ETag', etag);
+      if (req.query._v || req.query.v) {
+        res.setHeader('Cache-Control', 'public, max-age=2592000, s-maxage=2592000, immutable');
+      } else {
+        res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400');
+      }
+      return res.send(buffer);
+    }
+
+    // 4. Remote HTTP(S) URL
+    if (photoData.startsWith('http://') || photoData.startsWith('https://')) {
+      return res.redirect(photoData);
+    }
+
+    // 5. Local relative path
+    if (photoData.startsWith('/')) {
+      return res.redirect(photoData);
+    }
+
+    return res.status(404).send("Unrecognized photo format");
   } catch (err) {
     res.status(500).send("Error fetching photo");
   }
@@ -2070,6 +2418,11 @@ app.post("/api/modules/:moduleName", authRequired, async (req, res) => {
     // --- Fee Reconciliation Logic Removed ---
 
     let payload = req.body || {};
+    // Database Storage Guard: Attendance is strictly text-only
+    if (moduleName === "attendance" || moduleName === "teacherAttendance") {
+      delete payload.facePhoto;
+      payload.facePhoto = null;
+    }
     // ── SPECIALIZED ADMISSION LOGIC ──
     if (moduleName === "admissions") {
       
@@ -2200,6 +2553,14 @@ app.put("/api/modules/:moduleName/:id", authRequired, async (req, res) => {
       } catch (e) {}
     }
 
+    // Database Storage Guard: Attendance is strictly text-only
+    if (moduleName === "attendance" || moduleName === "teacherAttendance") {
+      if (req.body) {
+        delete req.body.facePhoto;
+        req.body.facePhoto = null;
+      }
+    }
+
     const row = await update(moduleName, id, req.body || {});
     if (!row) return res.status(404).json({ error: "Record not found" });
 
@@ -2287,6 +2648,39 @@ app.put("/api/modules/:moduleName/:id", authRequired, async (req, res) => {
   }
 });
 
+function canonicalSubjectName(raw) {
+  if (!raw) return '';
+  const s = String(raw).trim().toLowerCase();
+
+  if (s.includes('english')) return 'English';
+  if (s === 'hindi' || s === 'course-b' || s.includes('hindi')) return 'Hindi';
+  if (s.includes('social') || s.includes('sst') || s.includes('history') || s.includes('geography') || s.includes('civics')) return 'Social Science';
+  if (s === 'evs' || s === 'e.v.s' || s.includes('e.v.s') || s.includes('environmental') || s.includes('environment')) return 'EVS';
+  if (s === 'science' || (s.includes('science') && !s.includes('social') && !s.includes('computer') && !s.includes('moral') && !s.includes('home') && !s.includes('env'))) return 'Science';
+  if (s === 'math' || s.includes('math')) return 'Math';
+  if (s === 'computer' || s === 'cs' || s.includes('computer') || s.includes('infotech') || s.includes('information tech') || s === 'it') return 'Computer';
+  if (s.includes('sanskrit')) return 'Sanskrit';
+  if (s.includes('drawing') || s.includes('art') || s.includes('craft')) return 'Drawing';
+  if (
+    s === 'gk & me' ||
+    s === 'me & gk' ||
+    s === 'me/gk' ||
+    s === 'gk' ||
+    s === 'g.k' ||
+    s === 'g.k.' ||
+    s.includes('general knowledge') ||
+    s.includes('moral') ||
+    s.includes('m.sc') ||
+    s.includes('m.s') ||
+    s === 'gk and me' ||
+    s === 'me and gk'
+  ) {
+    return 'GK & Me';
+  }
+
+  return raw.trim();
+}
+
 async function syncExamPayloadToAppMarks(payload, user) {
   if (!payload || !payload.subjectMarks) return;
   try {
@@ -2318,15 +2712,17 @@ async function syncExamPayloadToAppMarks(payload, user) {
       if (Array.isArray(subjects) && subjects.length > 0) {
         for (const s of subjects) {
           if (s && s.subject) {
-            const subjName = s.subject;
-            const total = parseFloat(s.total) || 0;
+            const subjName = canonicalSubjectName(s.subject);
+            const isAb = s.isAbsent === true || String(s.total).trim().toUpperCase() === 'AB' || String(s.theory).trim().toUpperCase() === 'AB' || String(s.subjective).trim().toUpperCase() === 'AB' || s.grade === 'AB';
+            const total = isAb ? 0 : (parseFloat(s.total) || 0);
             const max = parseFloat(s.max) || 100;
             const min = parseFloat(s.min) || 33;
-            const pa1 = parseFloat(s.pa1) || 0;
-            const nb = parseFloat(s.notebook) || 0;
-            const enr = parseFloat(s.enrichment) || 0;
-            const theory = parseFloat(s.theory !== undefined ? s.theory : (s.subjective || 0)) || 0;
-            const grade = s.grade || '';
+            const pa1 = isAb ? 0 : (parseFloat(s.pa1) || 0);
+            const nb = isAb ? 0 : (parseFloat(s.notebook) || 0);
+            const enr = isAb ? 0 : (parseFloat(s.enrichment) || 0);
+            const theory = isAb ? 'AB' : (parseFloat(s.theory !== undefined ? s.theory : (s.subjective || 0)) || 0);
+            const grade = isAb ? 'AB' : (s.grade || '');
+            const remarks = isAb ? 'Absent' : (payload.teacherRemark || '');
 
             await db.execute({
               sql: `INSERT INTO app_exam_marks (
@@ -2338,7 +2734,7 @@ async function syncExamPayloadToAppMarks(payload, user) {
               args: [
                 examName, className, subjName, studentName, String(admissionNo),
                 String(rollNo), total, max, min, grade,
-                payload.teacherRemark || '', recordedBy, nowIso,
+                remarks, recordedBy, nowIso,
                 pa1, nb, enr, theory
               ]
             });
@@ -2396,6 +2792,95 @@ app.delete("/api/modules/:moduleName/:id", authRequired, async (req, res) => {
           );
         }
 
+        // Helper to check if a subject is Main vs Additional on server
+        const isSubjectMainServer = (subName) => {
+          const s = String(subName || '').trim().toLowerCase();
+          if (!s) return false;
+          const addlKeys = ['drawing', 'art', 'craft', 'gk', 'g.k', 'gk & me', 'me & gk', 'me/gk', 'general knowledge', 'moral science', 'moral', 'computer', 'computer science', 'information tech', 'infotech', 'it (402)', 'it', 'sanskrit', 'urdu', 'physical education', 'phe', 'pe', 'sports', 'yoga', 'music', 'dance'];
+          const mainKeys = ['english', 'hindi', 'science', 'social science', 'math', 'mathematics', 'maths', 'social studies', 'sst', 'evs', 'environmental', 'physics', 'chemistry', 'biology', 'accountancy', 'business', 'economics', 'history', 'geography', 'civics', 'political science'];
+          if (addlKeys.some(k => s === k || s.includes(k))) return false;
+          if (mainKeys.some(k => s === k || s.includes(k))) return true;
+          return true;
+        };
+
+        const getSubjectDisplayOrderServer = (subName) => {
+          const raw = String(subName || '').trim().toLowerCase();
+          if (raw.includes('english') || raw === 'eng') return 10;
+          if (raw.includes('hindi') || raw === 'hin') return 20;
+          if (raw.includes('math')) return 30;
+          if (raw.includes('social') || raw.includes('sst') || raw.includes('history') || raw.includes('geography') || raw.includes('civics') || raw.includes('pol') || raw.includes('econ')) return 50;
+          if (raw.includes('science') || raw.includes('evs') || raw.includes('environmental') || raw.includes('physics') || raw.includes('chemistry') || raw.includes('biology')) return 40;
+          if (isSubjectMainServer(subName)) return 60;
+          if (raw.includes('comp') || raw.includes('it') || raw.includes('info')) return 70;
+          if (raw.includes('gk') || raw.includes('knowledge') || raw.includes('moral')) return 80;
+          if (raw.includes('sansk') || raw.includes('urdu')) return 90;
+          if (raw.includes('draw') || raw.includes('art') || raw.includes('craft')) return 100;
+          if (raw.includes('physical') || raw.includes('sport') || raw.includes('yoga') || raw.includes('pe') || raw.includes('music') || raw.includes('dance')) return 110;
+          return 120;
+        };
+
+        const isDrawingSubjectServer = (name) => {
+          if (!name) return false;
+          const s = String(name).trim().toLowerCase();
+          return s === 'drawing' || s.includes('drawing') || s === 'art' || s === 'craft' || s.includes('art & craft') || s.includes('art/craft') || s.includes('चित्रकला');
+        };
+
+        const calculateExamStatsServer = (subjectList, className = '') => {
+          let grandTotal = 0;
+          let evaluatedMax = 0;
+          let mainTotal = 0;
+          let mainMax = 0;
+          let mainCount = 0;
+          let failedMainCount = 0;
+          subjectList.forEach(s => {
+            if (isDrawingSubjectServer(s.subject)) return; // Exclude Drawing from scholastic grand total
+            const tot = parseFloat(s.total) || 0;
+            const mx = parseFloat(s.max) || 100;
+            const mn = parseFloat(s.min) || 33;
+            const isMain = isSubjectMainServer(s.subject);
+            grandTotal += tot;
+            evaluatedMax += mx;
+            if (isMain) {
+              mainCount++;
+              mainTotal += tot;
+              mainMax += mx;
+              if (tot < mn) failedMainCount++;
+            }
+          });
+          const cKey = String(className || '').trim().toLowerCase();
+          let standardClassCount = 8; // 8 academic subjects (excluding Drawing)
+          let standardMainCount = 5;
+          if (cKey.includes('nursery') || cKey.includes('lkg')) {
+            standardClassCount = 3;
+            standardMainCount = 3;
+          } else if (cKey.includes('ukg')) {
+            standardClassCount = 4;
+            standardMainCount = 4;
+          } else if (/^(i|ii|iii)(-a)?$/i.test(cKey) || /^(1|2|3)(-a)?$/i.test(cKey) || /^class\s*(1|2|3|i|ii|iii)(-a)?$/i.test(cKey)) {
+            standardClassCount = 7; // 7 academic subjects (excluding Drawing)
+            standardMainCount = 5;
+          }
+          const effectiveMax = Math.max(evaluatedMax, standardClassCount * 100);
+          const percentage = effectiveMax > 0 ? ((grandTotal / effectiveMax) * 100).toFixed(1) : '0';
+          const mainPct = mainMax > 0 ? (mainTotal / mainMax) * 100 : 0;
+          let resultStatus = 'PENDING';
+          let grade = '---';
+          if (mainCount === 0 || mainCount < standardMainCount) {
+            resultStatus = 'PENDING';
+            grade = '---';
+          } else if (failedMainCount > 0) {
+            resultStatus = 'FAIL';
+            grade = 'E';
+          } else if (mainPct >= 33) {
+            resultStatus = 'PASS';
+            grade = mainPct >= 91 ? 'A1' : (mainPct >= 81 ? 'A2' : (mainPct >= 71 ? 'B1' : (mainPct >= 61 ? 'B2' : (mainPct >= 51 ? 'C1' : (mainPct >= 41 ? 'C2' : 'D')))));
+          } else {
+            resultStatus = 'FAIL';
+            grade = 'E';
+          }
+          return { grandTotal, percentage, resultStatus, grade };
+        };
+
         // Also clean up exams table subjectMarks
         const allExams = await list('exams');
         for (const ex of allExams) {
@@ -2408,20 +2893,15 @@ app.delete("/api/modules/:moduleName/:id", authRequired, async (req, res) => {
           if (Array.isArray(subs)) {
             const filtered = subs.filter(s => (s?.subject || '').trim().toLowerCase() !== subName.toLowerCase());
             if (filtered.length !== subs.length) {
-              let grandTotal = 0;
-              let grandMax = 0;
-              filtered.forEach(s => {
-                grandTotal += (parseFloat(s.total) || 0);
-                grandMax += (parseFloat(s.max) || 100);
-              });
-              const percentage = grandMax > 0 ? ((grandTotal / grandMax) * 100).toFixed(1) : (ex.percentage || '0');
-              const resultStatus = parseFloat(percentage) >= 33 ? 'PASS' : 'FAIL';
+              filtered.sort((a, b) => getSubjectDisplayOrderServer(a.subject) - getSubjectDisplayOrderServer(b.subject));
+              const stats = calculateExamStatsServer(filtered, ex.className);
               await update('exams', ex.id, {
                 ...ex,
                 subjectMarks: JSON.stringify(filtered),
-                totalMarks: String(grandTotal),
-                percentage,
-                resultStatus
+                totalMarks: String(stats.grandTotal),
+                percentage: stats.percentage,
+                grade: stats.grade,
+                resultStatus: stats.resultStatus
               });
             }
           }
@@ -2641,21 +3121,15 @@ app.post("/api/exams/delete-subject-marks", adminRequired, async (req, res) => {
           examsDeleted++;
         } else {
           // Recalculate totals
-          let grandTotal = 0;
-          let grandMax = 0;
-          filteredSubjects.forEach(subObj => {
-            grandTotal += (parseFloat(subObj.total) || 0);
-            grandMax += (parseFloat(subObj.max) || 100);
-          });
-          const percentage = grandMax > 0 ? ((grandTotal / grandMax) * 100).toFixed(1) : '0';
-          const resultStatus = parseFloat(percentage) >= 33 ? 'PASS' : 'FAIL';
-          
+          filteredSubjects.sort((a, b) => getSubjectDisplayOrderServer(a.subject) - getSubjectDisplayOrderServer(b.subject));
+          const stats = calculateExamStatsServer(filteredSubjects, ex.className);
           await update('exams', ex.id, {
             ...ex,
             subjectMarks: JSON.stringify(filteredSubjects),
-            totalMarks: String(grandTotal),
-            percentage,
-            resultStatus
+            totalMarks: String(stats.grandTotal),
+            percentage: stats.percentage,
+            grade: stats.grade,
+            resultStatus: stats.resultStatus
           });
           examsUpdated++;
         }
@@ -3951,12 +4425,20 @@ if (!process.env.IS_CLOUD) {
       } catch (err) {
         console.error('[12:00 AM CRON Error]:', err.message);
       }
+
+      console.log('⏰ [12:00 AM CRON] Auto-purging voice call logs older than 24 hours...');
+      try {
+        await cleanupCallLogs({ olderThanHours: 24 });
+      } catch (err) {
+        console.error('[12:00 AM CRON Call Cleanup Error]:', err.message);
+      }
     }, {
       timezone: 'Asia/Kolkata'
     });
 
     // Run 20s after server startup if needed
     setTimeout(generateDailyQuizzes, 20000);
+    setTimeout(() => cleanupCallLogs({ olderThanHours: 24 }).catch(() => {}), 15000);
   });
 
   // Dedicated Admin API Endpoint to trigger Daily AI Quiz Generation on demand

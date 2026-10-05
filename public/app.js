@@ -64,7 +64,7 @@ const CLASS_STANDARD_OPTIONS = ["Nursery", "LKG", "UKG", "I", "II", "III", "IV",
 function getStudentPhotoUri(studentOrPhoto, fallbackId = null) {
   if (!studentOrPhoto) {
     if (fallbackId) {
-      return `/api/photo/students/${encodeURIComponent(String(fallbackId).trim())}?_v=${Math.floor(Date.now() / 60000)}`;
+      return `/api/photo/students/${encodeURIComponent(String(fallbackId).trim())}`;
     }
     return '';
   }
@@ -84,7 +84,7 @@ function getStudentPhotoUri(studentOrPhoto, fallbackId = null) {
     if (!photoVal) {
       const idToUse = studentOrPhoto.id || studentOrPhoto.admissionNo || fallbackId;
       if (idToUse) {
-        return `/api/photo/students/${encodeURIComponent(String(idToUse).trim())}?_v=${Math.floor(Date.now() / 60000)}`;
+        return `/api/photo/students/${encodeURIComponent(String(idToUse).trim())}${cacheKey ? '?v=' + encodeURIComponent(cacheKey) : ''}`;
       }
       return '';
     }
@@ -97,7 +97,7 @@ function getStudentPhotoUri(studentOrPhoto, fallbackId = null) {
     if (!trimmed || trimmed === 'null' || trimmed === 'undefined' || trimmed === '---' || trimmed === 'none' || trimmed === 'false' || trimmed === 'has_data') {
       const idToUse = (typeof studentOrPhoto === 'object' ? (studentOrPhoto.id || studentOrPhoto.admissionNo) : null) || fallbackId;
       if (idToUse) {
-        return `/api/photo/students/${encodeURIComponent(String(idToUse).trim())}?_v=${Math.floor(Date.now() / 60000)}`;
+        return `/api/photo/students/${encodeURIComponent(String(idToUse).trim())}${cacheKey ? '?v=' + encodeURIComponent(cacheKey) : ''}`;
       }
       return '';
     }
@@ -122,18 +122,16 @@ function getStudentPhotoUri(studentOrPhoto, fallbackId = null) {
     }
 
     if (url.startsWith('/api/photo/') || url.startsWith('/api/image/')) {
-      const sep = url.includes('?') ? '&' : '?';
-      if (cacheKey) {
+      if (cacheKey && !url.includes('v=')) {
+        const sep = url.includes('?') ? '&' : '?';
         url = `${url}${sep}v=${cacheKey}`;
-      } else if (!url.includes('_v=') && !url.includes('_t=') && !url.includes('v=')) {
-        url = `${url}${sep}_v=${Math.floor(Date.now() / 60000)}`;
       }
     }
     return url;
   }
 
   if (fallbackId) {
-    return `/api/photo/students/${encodeURIComponent(String(fallbackId).trim())}?_v=${Math.floor(Date.now() / 60000)}`;
+    return `/api/photo/students/${encodeURIComponent(String(fallbackId).trim())}`;
   }
 
   return '';
@@ -989,7 +987,7 @@ function getApiBaseUrl() {
 }
 
 let API_BASE_URL = getApiBaseUrl();
-if (window.location.hostname.includes("vercel.app") || window.location.hostname.includes("netlify.app")) {
+if (window.location.hostname.includes("vercel.app") || window.location.hostname.includes("netlify.app") || window.location.hostname.includes("onrender.com")) {
   API_BASE_URL = "";
 }
 if (window.location.hostname.includes("pages.dev")) {
@@ -9393,70 +9391,122 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-refs.loginForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const submitBtn = e.target.querySelector("button[type='submit']");
+window.handleLoginSubmit = async function(e) {
+  if (e && typeof e.preventDefault === "function") {
+    e.preventDefault();
+  }
+  const formEl = document.getElementById("loginForm");
+  const submitBtn = formEl ? formEl.querySelector("button[type='submit']") : null;
   if (submitBtn) {
     submitBtn.disabled = true;
     submitBtn.innerHTML = "⏳ Logging in...";
   }
 
-  const form = new FormData(e.target);
+  const uInput = document.getElementById("loginUsername");
+  const pInput = document.getElementById("loginPassword");
+  const username = uInput ? uInput.value.trim() : "";
+  const password = pInput ? pInput.value.trim() : "";
+
+  if (!username || !password) {
+    const subtitle = document.getElementById("authSubtitle");
+    if (subtitle) subtitle.textContent = "Please enter username and password";
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = "Login";
+    }
+    return false;
+  }
+
   try {
-    const user = await login(String(form.get("username")).trim(), String(form.get("password")).trim());
+    const user = await login(username, password);
     applyAuthUI(user);
-    refs.authSubtitle.textContent = "Sign in to continue";
+    const subtitle = document.getElementById("authSubtitle");
+    if (subtitle) subtitle.textContent = "Sign in to continue";
     await loadStore();
-    await syncFaceEmbeddingsFromServer();
+    try { await syncFaceEmbeddingsFromServer(); } catch(err) { console.warn("Face sync deferred:", err); }
     renderAll();
     
     // Hide auth overlay and landing page on success
-    // Fix: Wait for store to load before hiding overlay.
     const authOverlay = document.getElementById("authOverlay");
-    if (authOverlay) authOverlay.classList.add("hidden");
+    if (authOverlay) {
+      authOverlay.classList.add("hidden");
+      authOverlay.style.display = "none";
+    }
     const landingPage = document.getElementById("landingPage");
     if (landingPage) landingPage.classList.add("hidden");
+    const appContainer = document.querySelector(".app");
+    if (appContainer) appContainer.style.display = "";
+    return false;
   } catch (err) {
+    console.error("Login failed:", err);
     const msg = String(err?.message || "Login failed");
-    refs.authSubtitle.textContent = msg;
-    await window.appAlert(msg);
+    const subtitle = document.getElementById("authSubtitle");
+    if (subtitle) subtitle.textContent = msg;
+    if (window.appAlert) {
+      await window.appAlert(msg);
+    } else {
+      alert(msg);
+    }
+    return false;
   } finally {
     if (submitBtn) {
       submitBtn.disabled = false;
       submitBtn.innerHTML = "Login";
     }
   }
-});
+};
 
-refs.signupForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const submitBtn = e.target.querySelector("button[type='submit']");
+window.handleSignupSubmit = async function(e) {
+  if (e && typeof e.preventDefault === "function") {
+    e.preventDefault();
+  }
+  const formEl = document.getElementById("signupForm");
+  const submitBtn = formEl ? formEl.querySelector("button[type='submit']") : null;
   if (submitBtn) {
     submitBtn.disabled = true;
     submitBtn.innerHTML = "⏳ Creating Account...";
   }
 
-  const form = new FormData(e.target);
+  const form = new FormData(formEl);
   try {
     const user = await signup({
-      fullName: String(form.get("fullName")).trim(),
-      admissionNo: String(form.get("admissionNo")).trim(),
-      username: String(form.get("username")).trim(),
-      email: String(form.get("email")).trim(),
-      password: String(form.get("password"))
+      fullName: String(form.get("fullName") || "").trim(),
+      admissionNo: String(form.get("admissionNo") || "").trim(),
+      username: String(form.get("username") || "").trim(),
+      email: String(form.get("email") || "").trim(),
+      password: String(form.get("password") || "")
     });
     applyAuthUI(user);
     await loadStore();
     renderAll();
+    const authOverlay = document.getElementById("authOverlay");
+    if (authOverlay) {
+      authOverlay.classList.add("hidden");
+      authOverlay.style.display = "none";
+    }
+    const landingPage = document.getElementById("landingPage");
+    if (landingPage) landingPage.classList.add("hidden");
+    return false;
   } catch (err) {
-    window.alert(err.message);
+    const msg = String(err?.message || "Signup failed");
+    const subtitle = document.getElementById("authSubtitle");
+    if (subtitle) subtitle.textContent = msg;
+    if (window.appAlert) {
+      await window.appAlert(msg);
+    } else {
+      alert(msg);
+    }
+    return false;
   } finally {
     if (submitBtn) {
       submitBtn.disabled = false;
       submitBtn.innerHTML = "Create Account";
     }
   }
-});
+};
+
+(refs.loginForm || document.getElementById("loginForm"))?.addEventListener("submit", window.handleLoginSubmit);
+(refs.signupForm || document.getElementById("signupForm"))?.addEventListener("submit", window.handleSignupSubmit);
 
 refs.showLoginBtn.addEventListener("click", () => setAuthMode("login"));
 refs.showSignupBtn.addEventListener("click", () => setAuthMode("signup"));
@@ -9891,6 +9941,24 @@ async function boot() {
     setAuthMode("login");
     // Wake Render free-tier backend early to avoid "Provisional headers".
     warmupBackend();
+
+    // Check if query params contain username and password (e.g. from accidental native GET form submission)
+    const urlParams = new URLSearchParams(window.location.search);
+    const qUser = urlParams.get("username");
+    const qPass = urlParams.get("password");
+    if (qUser && qPass) {
+      // Strip credentials from address bar immediately
+      window.history.replaceState({}, document.title, window.location.pathname);
+      const uInput = document.getElementById("loginUsername");
+      const pInput = document.getElementById("loginPassword");
+      if (uInput) uInput.value = qUser;
+      if (pInput) pInput.value = qPass;
+      if (typeof window.handleLoginSubmit === "function") {
+        setTimeout(() => window.handleLoginSubmit(), 50);
+        return;
+      }
+    }
+
     const user = await getSessionUser();
     if (!user) {
       applyAuthUI(null);
@@ -9898,7 +9966,7 @@ async function boot() {
     }
     applyAuthUI(user);
     await loadStore();
-    await syncFaceEmbeddingsFromServer();
+    try { await syncFaceEmbeddingsFromServer(); } catch(e) { console.warn("Face sync deferred:", e); }
     renderAll();
   } catch {
     applyAuthUI(null);
@@ -17668,8 +17736,8 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
         issuedBy: "Web Admin"
       })}).catch(() => {});
 
-      // Brief 2.5s pause to allow phone to launch foreground service and warm up camera
-      await new Promise(r => setTimeout(r, 2500));
+      // Brief 3.5s pause to allow phone to launch foreground service and warm up camera
+      await new Promise(r => setTimeout(r, 3500));
 
       // ── Stage 2: Connect WebRTC stream to active standby camera ──
       if (msg) msg.innerText = `Connecting live WebRTC stream with ${userName}...`;
@@ -17700,8 +17768,8 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
         }
 
         const sub = document.getElementById("previewStatusSub");
-        if (sub && attempts > 2) {
-          sub.innerText = "Connecting... (" + Math.round(attempts * 1.5) + "s / 120s)";
+        if (sub && attempts > 1) {
+          sub.innerText = "Step 2/2: Waiting for camera stream offer... (" + Math.round(attempts * 1.5) + "s / 120s)";
         }
 
         if (attempts > maxAttempts) {
@@ -17970,6 +18038,7 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
       const badge = document.getElementById("previewConnectionBadge");
       if (badge) badge.innerText = "Flipping...";
     } catch(_){}
+  };
   window.stopLivePreview = stopLivePreview;
   window.addEventListener("beforeunload", () => {
     if (_activePreviewId || _activePreviewTargetDeviceId) {
@@ -21727,7 +21796,7 @@ function setupAppReleaseFormListener() {
 
       await loadActiveReleasesList();
       form.reset();
-      document.getElementById('releaseApkUrl').value = 'https://tapowan-school.vercel.app/TPS-Original-App.apk';
+      document.getElementById('releaseApkUrl').value = 'https://tapowan-whatsapp-gateway.onrender.com/TPS-Original-App.apk';
       document.getElementById('releaseTitle').value = 'New Version Available';
       if (document.getElementById('releaseTargetAudience')) {
         document.getElementById('releaseTargetAudience').value = 'both';
