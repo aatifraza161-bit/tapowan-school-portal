@@ -6034,6 +6034,12 @@ function getMarksheetHtml(exam, theme, config) {
           <label>Exam Name</label>
           <select id="resultExamName"></select>
         </div>
+        <div class="exam-field">
+          <label>Filter Student (Optional)</label>
+          <select id="resultStudentPreSelect">
+            <option value="">-- All Students in Class --</option>
+          </select>
+        </div>
           <div class="exam-field">
             <label>Layout Theme</label>
             <div style="display:flex; gap:10px;">
@@ -6103,8 +6109,25 @@ function getMarksheetHtml(exam, theme, config) {
           <button id="resultGenerateBtn" class="exam-btn exam-btn-primary" style="width:100%;">Generate Marksheets</button>
         </div>
       </div>
-      <div id="resultPrintActions" style="margin-bottom: 20px; display:none; gap:15px; justify-content:flex-end;">
-        <button id="resultPrintBtn" class="exam-btn exam-btn-secondary">🖨️ Print Results</button>
+      <div id="resultPrintActions" class="exam-print-hide" style="margin-bottom: 20px; display:none; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; background:#fff; padding:12px 18px; border-radius:12px; border:1px solid #cbd5e1; box-shadow:0 2px 6px rgba(0,0,0,0.05);">
+        <div style="display:flex; align-items:center; flex-wrap:wrap; gap:10px; flex:1; min-width:280px;">
+          <div style="position:relative; flex:1; min-width:220px; max-width:420px;">
+            <span style="position:absolute; left:12px; top:50%; transform:translateY(-50%); font-size:15px; color:#64748b; pointer-events:none;">🔍</span>
+            <input type="text" id="resultStudentSearch" placeholder="Search student by Name, Roll, or Adm No..." style="width:100%; height:40px; padding:8px 34px 8px 36px; border-radius:8px; border:1.5px solid #cbd5e1; font-size:13.5px; outline:none; background:#f8fafc; box-sizing:border-box;" />
+            <button id="resultClearSearchBtn" type="button" title="Clear Search" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:none; color:#94a3b8; cursor:pointer; font-size:16px; display:none; padding:4px;">✕</button>
+          </div>
+          <select id="resultStudentFilterSelect" style="height:40px; padding:0 12px; border-radius:8px; border:1.5px solid #cbd5e1; font-size:13px; outline:none; background:#f8fafc; font-weight:500; cursor:pointer;">
+            <option value="">-- All Students --</option>
+          </select>
+        </div>
+        <div style="display:flex; align-items:center; gap:12px;">
+          <span id="resultStudentCountBadge" style="font-size:13px; font-weight:600; color:#334155; background:#f1f5f9; padding:6px 14px; border-radius:20px; border:1px solid #e2e8f0; white-space:nowrap;">
+            Showing all students
+          </span>
+          <button id="resultPrintBtn" class="exam-btn exam-btn-secondary" style="height:40px; display:inline-flex; align-items:center; gap:6px; font-weight:700; white-space:nowrap; padding:0 16px;">
+            🖨️ Print Results
+          </button>
+        </div>
       </div>
       <div id="resultPreviewContainer" contenteditable="true" style="outline:none; background:#e2e8f0; padding:40px 20px; border-radius:12px; min-height:300px; display:flex; flex-direction:column; align-items:center; gap:40px;">
          <div class="empty-state">
@@ -6117,6 +6140,26 @@ function getMarksheetHtml(exam, theme, config) {
 
     populateClassSelect("resultClassSelect");
     
+    const refreshResultStudents = () => {
+        const cls = document.getElementById("resultClassSelect") ? document.getElementById("resultClassSelect").value : '';
+        const studentPreSelect = document.getElementById("resultStudentPreSelect");
+        if (!studentPreSelect) return;
+        
+        const store = typeof getStore !== 'undefined' ? getStore() : {};
+        const normFunc = typeof normalizeCanonicalClass === 'function' ? normalizeCanonicalClass : (x => x);
+        const classStudents = (store.students || []).filter(s => normFunc(s.className) === normFunc(cls) || s.className === cls);
+        
+        classStudents.sort((a, b) => {
+          const rA = parseInt(String(a.rollNo || '').replace(/\D/g, ''), 10) || 9999;
+          const rB = parseInt(String(b.rollNo || '').replace(/\D/g, ''), 10) || 9999;
+          if (rA !== rB) return rA - rB;
+          return (a.fullName || '').localeCompare(b.fullName || '');
+        });
+        
+        studentPreSelect.innerHTML = `<option value="">-- All Students in Class (${classStudents.length}) --</option>` +
+          classStudents.map(s => `<option value="${s.admissionNo || s.fullName}">Roll ${s.rollNo || '-'} - ${s.fullName || s.studentName} (${s.admissionNo || ''})</option>`).join('');
+    };
+
     const refreshResultExamNames = () => {
         const cls = document.getElementById("resultClassSelect").value;
         const examNameSelect = document.getElementById("resultExamName");
@@ -6146,7 +6189,14 @@ function getMarksheetHtml(exam, theme, config) {
         }
     };
 
-    document.getElementById("resultClassSelect").addEventListener("change", refreshResultExamNames);
+    document.getElementById("resultClassSelect").addEventListener("change", () => {
+      refreshResultExamNames();
+      refreshResultStudents();
+    });
+    setTimeout(() => {
+      refreshResultExamNames();
+      refreshResultStudents();
+    }, 60);
     setTimeout(refreshResultExamNames, 50);
 
     if (savedClass) {
@@ -6249,6 +6299,7 @@ function getMarksheetHtml(exam, theme, config) {
       const session = document.getElementById("resultSession").value;
       const examName = document.getElementById("resultExamName").value;
       const theme = document.getElementById("resultThemeSelect").value;
+      const preSelectedStudent = document.getElementById("resultStudentPreSelect") ? document.getElementById("resultStudentPreSelect").value : '';
       const config = {
           color: document.getElementById("resultColor").value,
           font: document.getElementById("resultFont").value,
@@ -6258,7 +6309,8 @@ function getMarksheetHtml(exam, theme, config) {
           bgType: document.getElementById("resultBgType").value,
           fontColor: document.getElementById("resultFontColor").value,
           bgOpacity: document.getElementById("resultBgOpacity").value,
-          bgImage: document.getElementById("resultBgImage").value
+          bgImage: document.getElementById("resultBgImage").value,
+          filterStudent: preSelectedStudent
         };
       if(!cls || !examName) return window.showToast ? showToast("Select class and exam", "warning") : alert("Select class and exam");
       generateMarksheets(cls, session, examName, theme, config);
@@ -6293,6 +6345,141 @@ function getMarksheetHtml(exam, theme, config) {
       if (wasEditable) container.setAttribute("contenteditable", "true");
       editables.forEach(el => el.setAttribute("contenteditable", "true"));
     };
+
+    function setupResultStudentSearch(students, defaultFilter) {
+      const searchInput = document.getElementById("resultStudentSearch");
+      const filterSelect = document.getElementById("resultStudentFilterSelect");
+      const clearBtn = document.getElementById("resultClearSearchBtn");
+      const countBadge = document.getElementById("resultStudentCountBadge");
+      const printBtn = document.getElementById("resultPrintBtn");
+      const container = document.getElementById("resultPreviewContainer");
+
+      if (!container) return;
+
+      const studentList = students || [];
+      if (filterSelect) {
+        filterSelect.innerHTML = `<option value="">-- All Students (${studentList.length}) --</option>` +
+          studentList.map(s => `<option value="${s.key}">Roll ${s.rollNo} - ${s.name}${s.admNo ? ` (${s.admNo})` : ''}</option>`).join('');
+      }
+
+      if (searchInput) searchInput.value = '';
+      if (clearBtn) clearBtn.style.display = 'none';
+      if (countBadge) {
+        countBadge.textContent = `Showing all ${studentList.length} students`;
+        countBadge.style.color = '#334155';
+        countBadge.style.background = '#f1f5f9';
+      }
+      if (printBtn) printBtn.innerHTML = `🖨️ Print Results (${studentList.length})`;
+
+      function doFilter(query, exactKey) {
+        const q = (query || '').trim().toLowerCase();
+        const cards = container.querySelectorAll(".marksheet-card-wrapper");
+        let visibleCount = 0;
+
+        cards.forEach(card => {
+          const name = (card.getAttribute("data-student-name") || '').toLowerCase();
+          const roll = (card.getAttribute("data-roll-no") || '').toLowerCase();
+          const adm = (card.getAttribute("data-admission-no") || '').toLowerCase();
+          const key = card.getAttribute("data-student-key") || '';
+
+          let match = false;
+          if (exactKey) {
+            match = key === exactKey;
+          } else if (!q) {
+            match = true;
+          } else {
+            const cleanRoll = roll.replace(/^0+/, '');
+            const cleanQ = q.replace(/^0+/, '');
+            match = name.includes(q) || roll === q || (cleanQ.length > 0 && cleanRoll === cleanQ) || adm.includes(q);
+          }
+
+          if (match) {
+            card.style.display = '';
+            card.classList.remove('marksheet-card-hidden');
+            visibleCount++;
+          } else {
+            card.style.display = 'none';
+            card.classList.add('marksheet-card-hidden');
+          }
+        });
+
+        if (clearBtn) clearBtn.style.display = (q || exactKey) ? 'block' : 'none';
+        if (countBadge) {
+          if (visibleCount === cards.length) {
+            countBadge.textContent = `Showing all ${visibleCount} students`;
+            countBadge.style.color = '#334155';
+            countBadge.style.background = '#f1f5f9';
+          } else if (visibleCount > 0) {
+            countBadge.textContent = `Showing ${visibleCount} of ${cards.length} students`;
+            countBadge.style.color = '#1e40af';
+            countBadge.style.background = '#dbeafe';
+          } else {
+            countBadge.textContent = `No student matches "${query || ''}"`;
+            countBadge.style.color = '#b91c1c';
+            countBadge.style.background = '#fee2e2';
+          }
+        }
+
+        if (printBtn) {
+          if (visibleCount === 1) {
+            printBtn.innerHTML = `🖨️ Print Result (1 Student)`;
+          } else if (visibleCount > 0) {
+            printBtn.innerHTML = `🖨️ Print Results (${visibleCount} Students)`;
+          } else {
+            printBtn.innerHTML = `🖨️ Print Results`;
+          }
+        }
+      }
+
+      if (searchInput) {
+        searchInput.oninput = (e) => {
+          if (filterSelect) filterSelect.value = '';
+          doFilter(e.target.value, null);
+        };
+      }
+
+      if (filterSelect) {
+        filterSelect.onchange = (e) => {
+          const val = e.target.value;
+          if (!val) {
+            if (searchInput) searchInput.value = '';
+            doFilter('', null);
+          } else {
+            const s = studentList.find(x => x.key === val);
+            if (searchInput) searchInput.value = s ? s.name : '';
+            doFilter(s ? s.name : '', val);
+          }
+        };
+      }
+
+      if (clearBtn) {
+        clearBtn.onclick = () => {
+          if (searchInput) searchInput.value = '';
+          if (filterSelect) filterSelect.value = '';
+          doFilter('', null);
+          if (searchInput) searchInput.focus();
+        };
+      }
+
+      if (defaultFilter) {
+        const dfStr = String(defaultFilter).trim().toLowerCase();
+        const matched = studentList.find(s => 
+          (s.admNo && s.admNo.toLowerCase() === dfStr) ||
+          (s.name && s.name.toLowerCase() === dfStr) ||
+          (s.key && s.key.toLowerCase() === dfStr) ||
+          (s.rollNo && String(s.rollNo).toLowerCase() === dfStr)
+        );
+        if (matched) {
+          if (filterSelect) filterSelect.value = matched.key;
+          if (searchInput) searchInput.value = matched.name;
+          doFilter(matched.name, matched.key);
+        } else {
+          if (searchInput) searchInput.value = defaultFilter;
+          doFilter(defaultFilter, null);
+        }
+      }
+    }
+    window.setupResultStudentSearch = setupResultStudentSearch;
   }
 
   function generateMarksheets(className, session, examName, theme, config) {
@@ -6333,11 +6520,26 @@ function getMarksheetHtml(exam, theme, config) {
         let html = '';
         sortedStudents.forEach(stdGroup => {
             const student = findStudentFromStore(store.students || [], stdGroup);
-            html += getConsolidatedResultHtml(stdGroup, reqExams, student, config);
+            const stdKey = `std_${stdGroup.rollNo || ''}_${stdGroup.studentName || ''}`;
+            const admNo = student?.admissionNo || '';
+            html += `<div class="marksheet-card-wrapper" data-student-name="${(stdGroup.studentName || '').toLowerCase()}" data-roll-no="${String(stdGroup.rollNo || '').toLowerCase()}" data-admission-no="${admNo.toLowerCase()}" data-student-key="${stdKey}" style="width: 100%; display: flex; flex-direction: column; align-items: center;">
+              ${getConsolidatedResultHtml(stdGroup, reqExams, student, config)}
+            </div>`;
         });
         
         container.innerHTML = html;
         document.getElementById("resultPrintActions").style.display = "flex";
+
+        const studentList = sortedStudents.map(stdGroup => {
+          const student = findStudentFromStore(store.students || [], stdGroup);
+          return {
+            key: `std_${stdGroup.rollNo || ''}_${stdGroup.studentName || ''}`,
+            rollNo: stdGroup.rollNo || '-',
+            name: stdGroup.studentName || '',
+            admNo: student?.admissionNo || ''
+          };
+        });
+        setupResultStudentSearch(studentList, config?.filterStudent);
         
         // Render Charts after DOM injection
         setTimeout(() => {
@@ -6516,9 +6718,14 @@ function getMarksheetHtml(exam, theme, config) {
               }, theme, config);
           }
 
+          const stdKey = `ex_${ex.rollNo || ''}_${ex.studentName || ''}`;
+          const admNo = (student?.admissionNo || ex.admissionNo || '').toLowerCase();
+          const sNameLower = (ex.studentName || '').toLowerCase();
+          const sRollLower = String(ex.rollNo || '').toLowerCase();
+
           if (theme === 'tps_official_2026' || theme === 'jac_board_tps') {
               // Wrap in full A4 container with exact stretch
-              html += `<div style="width: 210mm; height: 297mm; min-height: 297mm; max-height: 297mm; page-break-after: always; padding: 10mm; box-sizing: border-box; position: relative; overflow: hidden; background: #fff; margin: 0 auto; margin-bottom: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
+              html += `<div class="marksheet-card-wrapper" data-student-name="${sNameLower}" data-roll-no="${sRollLower}" data-admission-no="${admNo}" data-student-key="${stdKey}" style="width: 210mm; height: 297mm; min-height: 297mm; max-height: 297mm; page-break-after: always; padding: 10mm; box-sizing: border-box; position: relative; overflow: hidden; background: #fff; margin: 0 auto; margin-bottom: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
                          <div style="display: flex; align-items: stretch; justify-content: center; width: 100%; height: 100%;">
                            ${cardHtml}
                          </div>
@@ -6530,7 +6737,7 @@ function getMarksheetHtml(exam, theme, config) {
               cardHtml = cardHtml.replace('">', `">${overlayHtml}`) + '</div>';
 
               // Wrap it in a clean A4 container (white background)
-              html += `<div style="width: 210mm; min-height: 297mm; page-break-after: always; padding: 10mm; box-sizing: border-box; position: relative; overflow: hidden; background: #fff; margin: 0 auto; margin-bottom: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
+              html += `<div class="marksheet-card-wrapper" data-student-name="${sNameLower}" data-roll-no="${sRollLower}" data-admission-no="${admNo}" data-student-key="${stdKey}" style="width: 210mm; min-height: 297mm; page-break-after: always; padding: 10mm; box-sizing: border-box; position: relative; overflow: hidden; background: #fff; margin: 0 auto; margin-bottom: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
                          <div style="display: flex; align-items: center; justify-content: center;">
                            ${cardHtml}
                          </div>
@@ -6540,6 +6747,17 @@ function getMarksheetHtml(exam, theme, config) {
 
     container.innerHTML = html;
     document.getElementById("resultPrintActions").style.display = "flex";
+
+    const studentList = matchingExams.map((ex, idx) => {
+      const student = findStudentFromStore(store.students || [], ex);
+      return {
+        key: `ex_${ex.rollNo || ''}_${ex.studentName || ''}`,
+        rollNo: ex.rollNo || '-',
+        name: ex.studentName || '',
+        admNo: student?.admissionNo || ex.admissionNo || ''
+      };
+    });
+    setupResultStudentSearch(studentList, config?.filterStudent);
       
     // Initialize Charts
     if (theme === 'detailed_graph') {

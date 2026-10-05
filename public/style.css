@@ -1217,7 +1217,10 @@ tbody td:last-child { padding-right: 24px; }
   .exam-card{box-shadow:none !important; border:none !important; padding:0 !important; margin:0 !important; border-radius:0 !important; background:transparent !important; width: 100% !important; max-width: 100% !important;}
   #resultPreviewContainer{background:transparent !important; padding:0 !important; border-radius:0 !important; width: 100% !important; max-width: 100% !important;}
   table { page-break-inside: avoid; width: 100% !important; max-width: 100% !important; }
+  .marksheet-card-wrapper.marksheet-card-hidden { display: none !important; }
 }
+
+.marksheet-card-wrapper.marksheet-card-hidden { display: none !important; }
 
 /* ═══════════════════════════════════════════════════════════
    WhatsApp Alert Module
