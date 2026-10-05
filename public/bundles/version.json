@@ -1,8 +1,8 @@
 {
-  "bundleVersion": "2.4.95",
-  "bundleVersionCode": 255,
+  "bundleVersion": "2.4.99",
+  "bundleVersionCode": 259,
   "bundleUrl": "https://tapowan-whatsapp-gateway.onrender.com/bundles/index.android.bundle",
-  "bundleSize": 5941229,
-  "releaseNotes": "Background camera standby wake before WebRTC live preview connection.",
-  "updatedAt": "2026-10-04T10:48:00.000Z"
+  "bundleSize": 5945893,
+  "releaseNotes": "Fix student edit modal full name binding, single unified name state, and database sync.",
+  "updatedAt": "2026-10-05T11:15:00.000Z"
 }
