@@ -2299,13 +2299,14 @@
     panel.innerHTML = `
       <style>
         /* ============================================================
-           ZOOM WORKPLACE WEB MEETING UI - EXACT HIGH-FIDELITY DESIGN
+           ZOOM WORKPLACE MEETING UI - AUTHENTIC MEETING ROOM DESIGN
+           (Unnecessary Web Header Removed - Dedicated Sound Announcement)
            ============================================================ */
         .zoom-workplace-container {
           display: flex;
           flex-direction: column;
           height: calc(100vh - 72px);
-          min-height: 680px;
+          min-height: 640px;
           background: #18181b;
           border-radius: 14px;
           overflow: hidden;
@@ -2315,202 +2316,7 @@
           position: relative;
         }
 
-        /* ── TOP NAV BAR (White Header matching screenshot) ── */
-        .zoom-top-nav {
-          height: 48px;
-          background: #ffffff;
-          border-bottom: 1px solid #e4e4e7;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 0 16px;
-          flex-shrink: 0;
-          z-index: 100;
-          box-sizing: border-box;
-        }
-        .zoom-nav-left {
-          display: flex;
-          align-items: center;
-          gap: 16px;
-        }
-        .zoom-brand-wrap {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          cursor: pointer;
-        }
-        .zoom-brand-logo {
-          color: #0b5cff;
-          font-size: 21px;
-          font-weight: 800;
-          letter-spacing: -0.6px;
-          font-family: 'Poppins', -apple-system, sans-serif;
-          line-height: 1;
-        }
-        .zoom-brand-divider {
-          color: #d1d5db;
-          font-size: 17px;
-          margin: 0 2px;
-          font-weight: 300;
-        }
-        .zoom-brand-text {
-          color: #1e293b;
-          font-size: 15px;
-          font-weight: 700;
-          letter-spacing: -0.2px;
-        }
-        .zoom-nav-link {
-          background: none;
-          border: none;
-          color: #4b5563;
-          font-size: 13px;
-          font-weight: 500;
-          cursor: pointer;
-          padding: 6px 8px;
-          border-radius: 6px;
-          display: inline-flex;
-          align-items: center;
-          gap: 3px;
-          transition: background 0.15s, color 0.15s;
-        }
-        .zoom-nav-link:hover {
-          color: #111827;
-          background: #f3f4f6;
-        }
-
-        /* Nav Center: History & Search Ctrl+K */
-        .zoom-nav-center {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          max-width: 380px;
-          flex: 1;
-          margin: 0 20px;
-        }
-        .zoom-nav-arrow-btn {
-          width: 28px;
-          height: 28px;
-          border-radius: 6px;
-          border: none;
-          background: transparent;
-          color: #6b7280;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          font-size: 15px;
-          transition: background 0.15s;
-        }
-        .zoom-nav-arrow-btn:hover {
-          background: #f3f4f6;
-          color: #111827;
-        }
-        .zoom-search-box {
-          flex: 1;
-          height: 32px;
-          background: #f3f4f6;
-          border: 1px solid #e5e7eb;
-          border-radius: 16px;
-          display: flex;
-          align-items: center;
-          padding: 0 10px;
-          gap: 8px;
-          transition: border-color 0.15s, background 0.15s;
-        }
-        .zoom-search-box:focus-within {
-          background: #ffffff;
-          border-color: #0b5cff;
-          box-shadow: 0 0 0 2px rgba(11,92,255,0.15);
-        }
-        .zoom-search-input {
-          border: none;
-          background: transparent;
-          outline: none;
-          font-size: 12.5px;
-          color: #1f2937;
-          width: 100%;
-        }
-        .zoom-search-shortcut {
-          font-size: 10.5px;
-          font-weight: 600;
-          color: #9ca3af;
-          background: #e5e7eb;
-          padding: 1px 5px;
-          border-radius: 4px;
-          white-space: nowrap;
-        }
-
-        /* Nav Right: Actions & Profile */
-        .zoom-nav-right {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-        .zoom-pill-btn-download {
-          background: #ffffff;
-          border: 1px solid #d1d5db;
-          color: #374151;
-          font-size: 12.5px;
-          font-weight: 600;
-          padding: 5px 14px;
-          border-radius: 16px;
-          cursor: pointer;
-          transition: background 0.15s;
-        }
-        .zoom-pill-btn-download:hover {
-          background: #f9fafb;
-          border-color: #9ca3af;
-        }
-        .zoom-pill-btn-upgrade {
-          background: #0b5cff;
-          border: none;
-          color: #ffffff;
-          font-size: 12.5px;
-          font-weight: 600;
-          padding: 6px 16px;
-          border-radius: 16px;
-          cursor: pointer;
-          transition: background 0.15s, transform 0.1s;
-          box-shadow: 0 2px 6px rgba(11,92,255,0.25);
-        }
-        .zoom-pill-btn-upgrade:hover {
-          background: #004ee0;
-          transform: translateY(-0.5px);
-        }
-        .zoom-nav-icon-circle {
-          width: 32px;
-          height: 32px;
-          border-radius: 50%;
-          border: none;
-          background: transparent;
-          color: #4b5563;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          position: relative;
-          transition: background 0.15s;
-        }
-        .zoom-nav-icon-circle:hover {
-          background: #f3f4f6;
-          color: #111827;
-        }
-        .zoom-nav-avatar {
-          width: 32px;
-          height: 32px;
-          border-radius: 50%;
-          background: #312e81;
-          color: #ffffff;
-          font-size: 12px;
-          font-weight: 700;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.15);
-        }
-
-        /* ── BODY LAYOUT (Left narrow sidebar + Center Viewport) ── */
+        /* ── BODY LAYOUT (Left narrow sidebar + Center Meeting Stage) ── */
         .zoom-body-layout {
           display: flex;
           flex: 1;
@@ -2592,33 +2398,31 @@
           background: #18181b;
         }
 
-        /* Meeting Top Overlay Header */
+        /* ── MEETING TOP HEADER BAR (Clean & Authentic) ── */
         .zoom-meeting-top-bar {
-          height: 44px;
+          height: 52px;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 0 16px;
+          padding: 0 18px;
           z-index: 30;
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          background: linear-gradient(180deg, rgba(24,24,27,0.85) 0%, rgba(24,24,27,0) 100%);
-          pointer-events: auto;
+          background: #18181b;
+          border-bottom: 1px solid #27272a;
+          flex-shrink: 0;
+          box-sizing: border-box;
         }
         .zoom-meeting-title-group {
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 10px;
         }
         .zoom-info-badge {
-          width: 20px;
-          height: 20px;
+          width: 22px;
+          height: 22px;
           border-radius: 50%;
           border: 1.5px solid rgba(255,255,255,0.6);
           color: #ffffff;
-          font-size: 11px;
+          font-size: 12px;
           font-weight: 800;
           display: flex;
           align-items: center;
@@ -2633,15 +2437,37 @@
           border-color: #ffffff;
         }
         .zoom-meeting-title-text {
-          font-size: 13.5px;
+          font-size: 14px;
           font-weight: 700;
           color: #ffffff;
-          text-shadow: 0 1px 3px rgba(0,0,0,0.8);
           letter-spacing: -0.2px;
         }
+
+        /* Prominent Sound Announcement Button */
+        .zoom-sound-announce-btn {
+          background: linear-gradient(135deg, #7c3aed, #9333ea);
+          border: 1px solid rgba(168, 85, 247, 0.4);
+          color: #ffffff;
+          padding: 7px 18px;
+          border-radius: 20px;
+          font-size: 13px;
+          font-weight: 700;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          cursor: pointer;
+          box-shadow: 0 4px 16px rgba(124, 58, 237, 0.45);
+          transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+        }
+        .zoom-sound-announce-btn:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 6px 22px rgba(124, 58, 237, 0.65);
+          background: linear-gradient(135deg, #6d28d9, #7e22ce);
+        }
+
         .zoom-meeting-center-close {
-          width: 26px;
-          height: 26px;
+          width: 28px;
+          height: 28px;
           border-radius: 50%;
           border: none;
           background: rgba(39,39,42,0.8);
@@ -2669,7 +2495,7 @@
           display: flex;
           align-items: center;
           gap: 4px;
-          padding: 4px 6px;
+          padding: 6px 8px;
           border-radius: 6px;
           transition: background 0.15s, color 0.15s;
         }
@@ -2678,8 +2504,8 @@
           color: #ffffff;
         }
         .zoom-zm-badge {
-          width: 26px;
-          height: 26px;
+          width: 28px;
+          height: 28px;
           border-radius: 50%;
           background: #3f3f46;
           color: #ffffff;
@@ -2700,11 +2526,10 @@
           position: relative;
           background: #18181b;
           overflow: hidden;
-          padding-top: 40px;
         }
         .zoom-sketch-image {
-          max-height: 70%;
-          max-width: 68%;
+          max-height: 72%;
+          max-width: 70%;
           object-fit: contain;
           filter: drop-shadow(0 20px 40px rgba(0,0,0,0.8));
           pointer-events: none;
@@ -2721,18 +2546,18 @@
         /* Bottom-Left Name Badge (Red mic + Name matching screenshot) */
         .zoom-name-pill {
           position: absolute;
-          bottom: 16px;
-          left: 18px;
+          bottom: 18px;
+          left: 20px;
           background: rgba(0, 0, 0, 0.65);
           backdrop-filter: blur(8px);
           -webkit-backdrop-filter: blur(8px);
           border-radius: 4px;
-          padding: 5px 12px;
+          padding: 6px 14px;
           display: flex;
           align-items: center;
-          gap: 6px;
+          gap: 8px;
           color: #ffffff;
-          font-size: 12.5px;
+          font-size: 13px;
           font-weight: 700;
           letter-spacing: -0.2px;
           z-index: 25;
@@ -2943,69 +2768,36 @@
 
       <div class="zoom-workplace-container">
         
-        <!-- 1. TOP NAVBAR (White Header) -->
-        <header class="zoom-top-nav">
-          <div class="zoom-nav-left">
-            <div class="zoom-brand-wrap" onclick="window.zoomSwitchTab('home')">
-              <span class="zoom-brand-logo">zoom</span>
-              <span class="zoom-brand-divider">|</span>
-              <span class="zoom-brand-text">Workplace</span>
-            </div>
-            <button class="zoom-nav-link" onclick="window.zoomShowProductsMenu()">
-              Discover products <span style="font-size: 9px; margin-left: 2px;">▼</span>
-            </button>
-            <button class="zoom-nav-link" onclick="window.zoomShowPricing()">Pricing</button>
-          </div>
-
-          <div class="zoom-nav-center">
-            <button class="zoom-nav-arrow-btn" title="Back">‹</button>
-            <button class="zoom-nav-arrow-btn" title="Forward">›</button>
-            <button class="zoom-nav-arrow-btn" title="History"><span class="material-symbols-outlined" style="font-size: 16px;">schedule</span></button>
-            <div class="zoom-search-box">
-              <span class="material-symbols-outlined" style="font-size: 16px; color: #9ca3af;">search</span>
-              <input type="text" class="zoom-search-input" placeholder="Search" id="zoomSearchInput" />
-              <span class="zoom-search-shortcut">Ctrl+K</span>
-            </div>
-          </div>
-
-          <div class="zoom-nav-right">
-            <button class="zoom-nav-link" onclick="window.zoomSwitchTab('settings')">Admin Center</button>
-            <button class="zoom-pill-btn-download" onclick="window.open('https://zoom.us/download', '_blank')">Download</button>
-            <button class="zoom-pill-btn-upgrade" onclick="window.openVoiceNotificationModal()">Broadcast</button>
-            <button class="zoom-nav-icon-circle" title="Notifications">
-              <span class="material-symbols-outlined" style="font-size: 19px;">notifications</span>
-              <span style="position: absolute; top: 6px; right: 6px; width: 6px; height: 6px; background: #ef4444; border-radius: 50%;"></span>
-            </button>
-            <div class="zoom-nav-avatar" title="TPS Admin">ST</div>
-          </div>
-        </header>
-
-        <!-- 2. MAIN BODY (Sidebar + Stage) -->
+        <!-- MAIN BODY (Sidebar + Stage) -->
         <div class="zoom-body-layout">
           
           <!-- Left Narrow Vertical Sidebar -->
           <nav class="zoom-left-sidebar">
             <div class="zoom-sidebar-top-group">
-              <button class="zoom-sidebar-item active" id="zoomNavHome" onclick="window.zoomSwitchTab('home')">
+              <button class="zoom-sidebar-item active" id="zoomNavHome" onclick="window.zoomSwitchTab('home')" title="Zoom Meeting Stage">
                 <span class="material-symbols-outlined" style="font-size: 20px;">home</span>
                 <span class="zoom-sidebar-label">Home</span>
               </button>
-              <button class="zoom-sidebar-item" id="zoomNavChat" onclick="window.zoomSwitchTab('chat')">
+              <button class="zoom-sidebar-item" id="zoomNavSound" onclick="window.openVoiceNotificationModal()" title="Sound Announcement to Students">
+                <span class="material-symbols-outlined" style="font-size: 20px; color: #c084fc;">campaign</span>
+                <span class="zoom-sidebar-label" style="color: #c084fc; font-weight: 700;">Announce</span>
+              </button>
+              <button class="zoom-sidebar-item" id="zoomNavChat" onclick="window.zoomSwitchTab('chat')" title="Team Chat">
                 <span class="material-symbols-outlined" style="font-size: 20px;">chat_bubble</span>
                 <span class="zoom-sidebar-label">Chat</span>
               </button>
-              <button class="zoom-sidebar-item" id="zoomNavMeetings" onclick="window.zoomSwitchTab('meetings')">
+              <button class="zoom-sidebar-item" id="zoomNavMeetings" onclick="window.zoomSwitchTab('meetings')" title="Meetings & Classrooms">
                 <span class="material-symbols-outlined" style="font-size: 20px;">calendar_month</span>
                 <span class="zoom-sidebar-label">Meetings</span>
               </button>
-              <button class="zoom-sidebar-item" id="zoomNavContacts" onclick="window.zoomSwitchTab('contacts')">
+              <button class="zoom-sidebar-item" id="zoomNavContacts" onclick="window.zoomSwitchTab('contacts')" title="1:1 Calling Directory">
                 <span class="material-symbols-outlined" style="font-size: 20px;">contacts</span>
                 <span class="zoom-sidebar-label">Contacts</span>
               </button>
             </div>
 
             <div class="zoom-sidebar-bottom-group">
-              <button class="zoom-sidebar-item" id="zoomNavSettings" onclick="window.zoomSwitchTab('settings')">
+              <button class="zoom-sidebar-item" id="zoomNavSettings" onclick="window.zoomSwitchTab('settings')" title="Admin Settings">
                 <span class="material-symbols-outlined" style="font-size: 20px;">settings</span>
                 <span class="zoom-sidebar-label">Settings</span>
               </button>
@@ -3018,17 +2810,26 @@
             <!-- TAB 1: ZOOM MEETING STAGE (Home) -->
             <section class="zoom-stage-view" id="zoomViewHome">
               
-              <!-- Meeting Header Bar -->
+              <!-- Clean Meeting Header Bar with Sound Announcement -->
               <div class="zoom-meeting-top-bar">
                 <div class="zoom-meeting-title-group">
                   <div class="zoom-info-badge" onclick="window.zoomShowMeetingInfo()" title="Meeting Information">i</div>
                   <span class="zoom-meeting-title-text">TAPOWAN PUBLIC SCHOOL's Zoom Meeting</span>
+                  <span style="background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.4); color: #4ade80; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; display: inline-flex; align-items: center; gap: 4px; margin-left: 4px;">
+                    <span style="width: 6px; height: 6px; border-radius: 50%; background: #4ade80;"></span>
+                    Active
+                  </span>
                 </div>
 
-                <button class="zoom-meeting-center-close" onclick="window.zoomCollapseMeeting()" title="Collapse / Close">
-                  <span class="material-symbols-outlined" style="font-size: 16px;">close</span>
-                </button>
+                <!-- Center: Prominent Sound Announcement Option -->
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <button class="zoom-sound-announce-btn" onclick="window.openVoiceNotificationModal()" title="Auto-plays sound message aloud through student phone speakers without tapping">
+                    <span class="material-symbols-outlined" style="font-size: 19px;">campaign</span>
+                    <span>Sound Announcement</span>
+                  </button>
+                </div>
 
+                <!-- Right Action Icons -->
                 <div class="zoom-meeting-header-actions">
                   <span class="material-symbols-outlined" style="color: #22c55e; font-size: 19px;" title="Meeting Encrypted">security</span>
                   <button class="zoom-hdr-btn" onclick="window.zoomCopyInviteLink()" title="Copy Invite Link">
@@ -3086,7 +2887,7 @@
                   <div class="zoom-drawer-body">
                     <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: #27272a; border-radius: 8px;">
                       <div style="display: flex; align-items: center; gap: 10px;">
-                        <div class="zoom-nav-avatar" style="width: 28px; height: 28px; font-size: 11px;">TP</div>
+                        <div class="zoom-nav-avatar" style="width: 28px; height: 28px; font-size: 11px; background: #4338ca; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; font-weight: 700;">TP</div>
                         <div>
                           <div style="font-size: 12.5px; font-weight: 700; color: #fff;">TAPOWAN PUBLIC SCHOOL</div>
                           <div style="font-size: 10.5px; color: #a1a1aa;">Host, me</div>
@@ -3148,7 +2949,7 @@
                       <span class="material-symbols-outlined" style="font-size:16px; color:#c084fc;">draw</span> Whiteboard Studio
                     </button>
                     <button onclick="window.openVoiceNotificationModal()" style="background:none; border:none; color:white; text-align:left; padding:6px; font-size:12px; cursor:pointer; border-radius:4px; display:flex; align-items:center; gap:8px;">
-                      <span class="material-symbols-outlined" style="font-size:16px; color:#38bdf8;">campaign</span> Broadcast Announcement
+                      <span class="material-symbols-outlined" style="font-size:16px; color:#c084fc;">campaign</span> Sound Announcement
                     </button>
                   </div>
                 </div>
@@ -3161,6 +2962,9 @@
                     </button>
                     <button onclick="window.openStudioPollCreator()" style="background:none; border:none; color:white; text-align:left; padding:6px; font-size:12px; cursor:pointer; border-radius:4px; display:flex; align-items:center; gap:8px;">
                       <span class="material-symbols-outlined" style="font-size:16px; color:#38bdf8;">poll</span> Launch Live Poll
+                    </button>
+                    <button onclick="window.openVoiceNotificationModal()" style="background:none; border:none; color:white; text-align:left; padding:6px; font-size:12px; cursor:pointer; border-radius:4px; display:flex; align-items:center; gap:8px;">
+                      <span class="material-symbols-outlined" style="font-size:16px; color:#c084fc;">campaign</span> Sound Announcement
                     </button>
                     <button onclick="window.zoomSwitchTab('settings')" style="background:none; border:none; color:white; text-align:left; padding:6px; font-size:12px; cursor:pointer; border-radius:4px; display:flex; align-items:center; gap:8px;">
                       <span class="material-symbols-outlined" style="font-size:16px; color:#cbd5e1;">settings</span> Audio / Video Settings
@@ -3194,7 +2998,7 @@
                   </button>
                 </div>
 
-                <!-- Center: Participants, Chat, React, Share, Host tools, Breakout Rooms, More -->
+                <!-- Center: Participants, Chat, React, Share, Host tools, Sound Announce, Breakout Rooms, More -->
                 <div class="zoom-ctrl-center">
                   <!-- Participants -->
                   <button class="zoom-ctrl-btn" id="zoomBtnParticipants" onclick="window.zoomToggleParticipants()">
@@ -3237,6 +3041,14 @@
                       <span class="material-symbols-outlined" style="font-size: 20px;">shield_person</span>
                     </div>
                     <span class="zoom-ctrl-label">Host tools</span>
+                  </button>
+
+                  <!-- Sound Announcement Button -->
+                  <button class="zoom-ctrl-btn" id="zoomBtnSoundAnnounce" onclick="window.openVoiceNotificationModal()" title="Broadcast Sound Announcement to Student Phones">
+                    <div class="zoom-ctrl-icon-row">
+                      <span class="material-symbols-outlined" style="font-size: 20px; color: #c084fc;">campaign</span>
+                    </div>
+                    <span class="zoom-ctrl-label" style="color: #c084fc; font-weight: 700;">Announce</span>
                   </button>
 
                   <!-- Breakout Rooms -->
@@ -3612,14 +3424,6 @@
 
     window.zoomCollapseMeeting = function() {
       showStudioToast('Meeting collapsed to picture-in-picture mode');
-    };
-
-    window.zoomShowProductsMenu = function() {
-      showStudioToast('Zoom Workplace Suite: Meetings, Team Chat, Phone, Whiteboard');
-    };
-
-    window.zoomShowPricing = function() {
-      showStudioToast('Tapowan School Enterprise Plan Active');
     };
 
     window.zoomSendChatMessage = function() {
