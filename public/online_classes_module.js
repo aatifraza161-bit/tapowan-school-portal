@@ -2462,6 +2462,43 @@
           box-shadow: 0 6px 22px rgba(124, 58, 237, 0.65);
           background: linear-gradient(135deg, #6d28d9, #7e22ce);
         }
+        .zoom-class-badge-btn {
+          background: rgba(56, 189, 248, 0.12);
+          border: 1px solid rgba(56, 189, 248, 0.35);
+          color: #38bdf8;
+          font-size: 12px;
+          font-weight: 700;
+          padding: 4px 10px;
+          border-radius: 12px;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          transition: background 0.15s, border-color 0.15s;
+        }
+        .zoom-class-badge-btn:hover {
+          background: rgba(56, 189, 248, 0.22);
+          border-color: #38bdf8;
+        }
+        .zoom-start-class-btn {
+          background: linear-gradient(135deg, #0b5cff, #2563eb);
+          border: 1px solid rgba(59, 130, 246, 0.4);
+          color: #ffffff;
+          padding: 7px 16px;
+          border-radius: 20px;
+          font-size: 13px;
+          font-weight: 700;
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          cursor: pointer;
+          box-shadow: 0 4px 15px rgba(11, 92, 255, 0.35);
+          transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .zoom-start-class-btn:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 6px 20px rgba(11, 92, 255, 0.55);
+        }
 
         .zoom-meeting-center-close {
           width: 28px;
@@ -2838,15 +2875,23 @@
               <div class="zoom-meeting-top-bar">
                 <div class="zoom-meeting-title-group">
                   <div class="zoom-info-badge" onclick="window.zoomShowMeetingInfo()" title="Meeting Information">i</div>
-                  <span class="zoom-meeting-title-text">TAPOWAN PUBLIC SCHOOL's Zoom Meeting</span>
-                  <span style="background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.4); color: #4ade80; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; display: inline-flex; align-items: center; gap: 4px; margin-left: 4px;">
+                  <span class="zoom-meeting-title-text" id="zoomMeetingTitleText">TAPOWAN PUBLIC SCHOOL's Zoom Meeting</span>
+                  <button class="zoom-class-badge-btn" onclick="window.zoomOpenStartClassModal()" title="Select or Change Target Class">
+                    <span class="material-symbols-outlined" style="font-size: 15px; color: #38bdf8;">school</span>
+                    <span id="zoomTargetClassBadge">Class: All School ▾</span>
+                  </button>
+                  <span style="background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.4); color: #4ade80; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; display: inline-flex; align-items: center; gap: 4px; margin-left: 2px;">
                     <span style="width: 6px; height: 6px; border-radius: 50%; background: #4ade80;"></span>
                     Active
                   </span>
                 </div>
 
-                <!-- Center: Prominent Sound Announcement Option -->
+                <!-- Center: Start Class Meeting & Sound Announcement Options -->
                 <div style="display: flex; align-items: center; gap: 10px;">
+                  <button class="zoom-start-class-btn" onclick="window.zoomOpenStartClassModal()" title="Start Meeting for a Specific Class">
+                    <span class="material-symbols-outlined" style="font-size: 18px;">video_call</span>
+                    <span>Start Class Meeting</span>
+                  </button>
                   <button class="zoom-sound-announce-btn" onclick="window.openVoiceNotificationModal()" title="Auto-plays sound message aloud through student phone speakers without tapping">
                     <span class="material-symbols-outlined" style="font-size: 19px;">campaign</span>
                     <span>Sound Announcement</span>
@@ -3137,7 +3182,13 @@
                     <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: #fff;">Scheduled Meetings & Classrooms</h2>
                     <p style="margin: 4px 0 0; font-size: 13px; color: #a1a1aa;">Active rooms, recorded lectures and timetable schedules</p>
                   </div>
-                  <button onclick="window.zoomSwitchTab('home')" style="background: #27272a; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer;">← Return to Meeting</button>
+                  <div style="display: flex; gap: 10px;">
+                    <button onclick="window.zoomOpenStartClassModal()" style="background: linear-gradient(135deg, #0b5cff, #2563eb); color: white; border: none; padding: 8px 18px; border-radius: 8px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(11,92,255,0.35);">
+                      <span class="material-symbols-outlined" style="font-size: 18px;">video_call</span>
+                      Start Meeting for Class
+                    </button>
+                    <button onclick="window.zoomSwitchTab('home')" style="background: #27272a; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer;">← Return to Stage</button>
+                  </div>
                 </div>
                 <div>
                   ${renderRoomsLogContent()}
@@ -3581,6 +3632,110 @@
         container.scrollTop = container.scrollHeight;
       }
       if (input) input.value = '';
+    };
+
+    window.zoomOpenStartClassModal = function() {
+      let modal = document.getElementById('zoomStartClassModal');
+      if (modal) modal.remove();
+
+      const store = typeof window.getStore === 'function' ? window.getStore() : (window.serverStore || {});
+      const CANONICAL_CLASSES = ['All Classes', 'Nursery-A', 'LKG-A', 'UKG-A', 'I-A', 'II-A', 'III-A', 'IV-A', 'V-A', 'VI-A', 'VII-A', 'VIII-A', 'IX-A', 'X-A'];
+      const storeClasses = (store.classes || []).map(c => [c?.className, c?.section].filter(Boolean).join('-') || c?.className).filter(Boolean);
+      const allClasses = Array.from(new Set([...CANONICAL_CLASSES, ...storeClasses]));
+
+      modal = document.createElement('div');
+      modal.id = 'zoomStartClassModal';
+      modal.style.cssText = 'position: fixed; inset: 0; background: rgba(0, 0, 0, 0.78); backdrop-filter: blur(8px); z-index: 99999; display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif;';
+
+      modal.innerHTML = `
+        <div style="background: #1e1e24; border: 1px solid #3f3f46; border-radius: 16px; width: 100%; max-width: 500px; padding: 24px; box-shadow: 0 25px 50px rgba(0,0,0,0.85); color: #f4f4f5; box-sizing: border-box;">
+          
+          <!-- Modal Header -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #27272a; padding-bottom: 14px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="width: 42px; height: 42px; border-radius: 12px; background: linear-gradient(135deg, #0b5cff, #2563eb); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(11,92,255,0.4);">
+                <span class="material-symbols-outlined" style="font-size: 24px; color: white;">school</span>
+              </div>
+              <div>
+                <h3 style="margin: 0; font-size: 17.5px; font-weight: 800; color: #fff;">Start Meeting with Class</h3>
+                <p style="margin: 3px 0 0; font-size: 12px; color: #a1a1aa;">Broadcast live classroom lecture to student mobile apps</p>
+              </div>
+            </div>
+            <button onclick="document.getElementById('zoomStartClassModal')?.remove()" style="background: transparent; border: none; color: #a1a1aa; font-size: 22px; cursor: pointer; line-height: 1;">✕</button>
+          </div>
+
+          <!-- Form Inputs -->
+          <div style="display: flex; flex-direction: column; gap: 16px;">
+            
+            <!-- 1. Target Class -->
+            <div>
+              <label style="display: block; font-size: 13px; font-weight: 700; color: #cbd5e1; margin-bottom: 6px;">
+                Select Target Class <span style="color: #ef4444;">*</span>
+              </label>
+              <select id="zoomModalSelectClass" style="width: 100%; box-sizing: border-box; background: #27272a; border: 1px solid #3f3f46; color: white; padding: 11px 14px; border-radius: 10px; font-size: 14px; outline: none;">
+                ${allClasses.map(c => `<option value="${c}" ${c === 'VI-A' ? 'selected' : ''}>${c === 'All Classes' ? '🌐 All School (Broadcast to Everyone)' : 'Class ' + c}` + '</option>').join('')}
+              </select>
+              <p style="margin: 5px 0 0; font-size: 11.5px; color: #94a3b8;">Students of this class receive an instant heads-up notification and auto-join.</p>
+            </div>
+
+            <!-- 2. Lecture Topic -->
+            <div>
+              <label style="display: block; font-size: 13px; font-weight: 700; color: #cbd5e1; margin-bottom: 6px;">
+                Meeting / Lecture Topic
+              </label>
+              <input id="zoomModalInputTitle" type="text" placeholder="e.g. Science Chapter 4 - Live Discussion" style="width: 100%; box-sizing: border-box; background: #27272a; border: 1px solid #3f3f46; color: white; padding: 11px 14px; border-radius: 10px; font-size: 14px; outline: none;" />
+            </div>
+
+            <!-- 3. Quality -->
+            <div>
+              <label style="display: block; font-size: 13px; font-weight: 700; color: #cbd5e1; margin-bottom: 6px;">
+                Stream Quality
+              </label>
+              <select id="zoomModalSelectQuality" style="width: 100%; box-sizing: border-box; background: #27272a; border: 1px solid #3f3f46; color: white; padding: 10px 14px; border-radius: 10px; font-size: 13.5px; outline: none;">
+                <option value="1080p" selected>Full HD 1080p (60 fps)</option>
+                <option value="720p">HD 720p (30 fps)</option>
+                <option value="480p">SD 480p (Data Saver)</option>
+              </select>
+            </div>
+
+            <!-- Actions -->
+            <div style="display: flex; gap: 10px; margin-top: 8px;">
+              <button onclick="document.getElementById('zoomStartClassModal')?.remove()" style="flex: 1; padding: 11px; background: #27272a; border: 1px solid #3f3f46; color: #d4d4d8; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer;">Cancel</button>
+              <button id="zoomModalBtnLaunch" style="flex: 2; padding: 11px; background: linear-gradient(135deg, #0b5cff, #2563eb); border: none; color: white; border-radius: 10px; font-size: 13.5px; font-weight: 800; cursor: pointer; box-shadow: 0 4px 14px rgba(11,92,255,0.4);">
+                🚀 Start Meeting Now
+              </button>
+            </div>
+
+          </div>
+
+        </div>
+      `;
+
+      document.body.appendChild(modal);
+
+      document.getElementById('zoomModalBtnLaunch').onclick = async () => {
+        const selectedClass = document.getElementById('zoomModalSelectClass')?.value || 'ALL';
+        const topic = document.getElementById('zoomModalInputTitle')?.value?.trim() || `${selectedClass} Live Class`;
+        const quality = document.getElementById('zoomModalSelectQuality')?.value || '1080p';
+
+        modal.remove();
+
+        // Update UI Badges immediately
+        const badge = document.getElementById('zoomTargetClassBadge');
+        if (badge) badge.innerText = `Class: ${selectedClass} ▾`;
+        const titleEl = document.getElementById('zoomMeetingTitleText');
+        if (titleEl) titleEl.innerText = `${selectedClass} - ${topic}`;
+
+        showStudioToast(`🚀 Initializing live meeting for ${selectedClass}...`);
+
+        if (typeof startClassroomStudio === 'function') {
+          await startClassroomStudio({
+            title: topic,
+            targetClass: selectedClass === 'All Classes' ? 'ALL' : selectedClass,
+            quality
+          });
+        }
+      };
     };
 
     // Initialize default directory & rooms in background
