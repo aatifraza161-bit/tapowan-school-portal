@@ -2514,6 +2514,26 @@
           justify-content: center;
           border: 1px solid rgba(255,255,255,0.15);
         }
+        .zoom-top-end-btn {
+          background: #e11d48;
+          border: 1px solid #f43f5e;
+          color: #ffffff;
+          padding: 6px 14px;
+          border-radius: 8px;
+          font-size: 12.5px;
+          font-weight: 700;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          transition: background 0.15s, transform 0.1s;
+          box-shadow: 0 2px 8px rgba(225,29,72,0.4);
+          margin-left: 8px;
+        }
+        .zoom-top-end-btn:hover {
+          background: #be123c;
+          transform: translateY(-0.5px);
+        }
 
         /* Meeting Canvas Area */
         .zoom-stage-canvas {
@@ -2577,10 +2597,16 @@
           box-sizing: border-box;
           position: relative;
         }
-        .zoom-ctrl-left, .zoom-ctrl-center, .zoom-ctrl-right {
+        .zoom-ctrl-left, .zoom-ctrl-center {
           display: flex;
           align-items: center;
           gap: 4px;
+        }
+        .zoom-ctrl-right {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          padding-right: 90px;
         }
 
         /* Control Buttons (Stacked icon + chevron + label) */
@@ -2841,6 +2867,10 @@
                     <span style="font-size: 12px; font-weight: 500;">View</span>
                   </button>
                   <div class="zoom-zm-badge">zm</div>
+                  <button class="zoom-top-end-btn" onclick="window.zoomEndMeeting()" title="End or Leave Meeting">
+                    <span class="material-symbols-outlined" style="font-size: 16px;">call_end</span>
+                    <span>End</span>
+                  </button>
                 </div>
               </div>
 
