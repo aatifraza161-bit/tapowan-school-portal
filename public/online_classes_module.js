@@ -67,6 +67,11 @@
       .replace(/\r/g, '\\r');
   }
 
+  // Professional Animated Lordicon & Material Symbol Hybrid Icon Helper
+  function lordIcon(id, fallbackMaterial, size = 22, colors = 'primary:#ffffff,secondary:#38bdf8') {
+    return `<span class="lord-icon-wrapper" style="display:inline-flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;flex-shrink:0;vertical-align:middle;line-height:1;"><lord-icon src="https://cdn.lordicon.com/${id}.json" trigger="loop-on-hover" colors="${colors}" style="width:${size}px;height:${size}px;"><span class="material-symbols-outlined" style="font-size:${size}px;line-height:1;vertical-align:middle;">${fallbackMaterial}</span></lord-icon></span>`;
+  }
+
 
 
   // ─────────────────────────────────────────────────────────────
@@ -2207,19 +2212,22 @@
     const tabRooms = document.getElementById('tabContentRooms');
 
     if (btnStudio) {
-      btnStudio.style.borderColor = tabName === 'studio' ? '#3b82f6' : '#334155';
-      btnStudio.style.background = tabName === 'studio' ? 'linear-gradient(135deg, #2563eb, #1d4ed8)' : '#1e293b';
-      btnStudio.style.boxShadow = tabName === 'studio' ? '0 4px 12px rgba(37,99,235,0.35)' : 'none';
+      btnStudio.style.borderColor = tabName === 'studio' ? '#38bdf8' : 'rgba(148, 163, 184, 0.15)';
+      btnStudio.style.background = tabName === 'studio' ? 'linear-gradient(135deg, #1d4ed8, #2563eb)' : 'rgba(30, 41, 59, 0.6)';
+      btnStudio.style.boxShadow = tabName === 'studio' ? '0 8px 20px rgba(37,99,235,0.4), inset 0 1px 0 rgba(255,255,255,0.2)' : 'none';
+      btnStudio.style.color = tabName === 'studio' ? '#ffffff' : '#94a3b8';
     }
     if (btnCalling) {
-      btnCalling.style.borderColor = tabName === 'calling' ? '#22c55e' : '#334155';
-      btnCalling.style.background = tabName === 'calling' ? 'linear-gradient(135deg, #16a34a, #15803d)' : '#1e293b';
-      btnCalling.style.boxShadow = tabName === 'calling' ? '0 4px 12px rgba(34,197,94,0.35)' : 'none';
+      btnCalling.style.borderColor = tabName === 'calling' ? '#4ade80' : 'rgba(148, 163, 184, 0.15)';
+      btnCalling.style.background = tabName === 'calling' ? 'linear-gradient(135deg, #15803d, #16a34a)' : 'rgba(30, 41, 59, 0.6)';
+      btnCalling.style.boxShadow = tabName === 'calling' ? '0 8px 20px rgba(34,197,94,0.4), inset 0 1px 0 rgba(255,255,255,0.2)' : 'none';
+      btnCalling.style.color = tabName === 'calling' ? '#ffffff' : '#94a3b8';
     }
     if (btnRooms) {
-      btnRooms.style.borderColor = tabName === 'rooms' ? '#6366f1' : '#334155';
-      btnRooms.style.background = tabName === 'rooms' ? 'linear-gradient(135deg, #4f46e5, #4338ca)' : '#1e293b';
-      btnRooms.style.boxShadow = tabName === 'rooms' ? '0 4px 12px rgba(99,102,241,0.35)' : 'none';
+      btnRooms.style.borderColor = tabName === 'rooms' ? '#a78bfa' : 'rgba(148, 163, 184, 0.15)';
+      btnRooms.style.background = tabName === 'rooms' ? 'linear-gradient(135deg, #4338ca, #4f46e5)' : 'rgba(30, 41, 59, 0.6)';
+      btnRooms.style.boxShadow = tabName === 'rooms' ? '0 8px 20px rgba(99,102,241,0.4), inset 0 1px 0 rgba(255,255,255,0.2)' : 'none';
+      btnRooms.style.color = tabName === 'rooms' ? '#ffffff' : '#94a3b8';
     }
 
     if (tabStudio) tabStudio.style.display = tabName === 'studio' ? 'block' : 'none';
@@ -2297,24 +2305,26 @@
           box-sizing: border-box;
         }
         .oc-header-banner {
-          background: linear-gradient(135deg, #1e293b, #0f172a);
-          border: 1px solid #334155;
-          border-radius: 16px;
-          padding: 16px 20px;
-          margin-bottom: 18px;
+          background: linear-gradient(135deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.95));
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          border: 1px solid rgba(148, 163, 184, 0.15);
+          border-radius: 20px;
+          padding: 18px 24px;
+          margin-bottom: 20px;
           display: flex;
           justify-content: space-between;
           align-items: center;
           flex-wrap: wrap;
-          gap: 12px;
-          box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);
+          gap: 14px;
+          box-shadow: 0 10px 25px -5px rgba(0,0,0,0.4), inset 0 1px 0 0 rgba(255,255,255,0.06);
         }
         .oc-subtabs {
           display: flex;
-          gap: 8px;
-          border-bottom: 2px solid #334155;
-          padding-bottom: 12px;
-          margin-bottom: 20px;
+          gap: 10px;
+          border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+          padding-bottom: 14px;
+          margin-bottom: 24px;
           overflow-x: auto;
           -webkit-overflow-scrolling: touch;
           scrollbar-width: none;
@@ -2323,19 +2333,27 @@
           display: none;
         }
         .oc-subtab-btn {
-          padding: 10px 18px;
-          border-radius: 10px;
-          font-weight: 800;
+          padding: 10px 20px;
+          border-radius: 12px;
+          font-weight: 700;
           font-size: 13.5px;
           cursor: pointer;
-          border: 1px solid #334155;
+          border: 1px solid rgba(148, 163, 184, 0.15);
           display: inline-flex;
           align-items: center;
-          gap: 8px;
+          gap: 10px;
           white-space: nowrap;
           flex-shrink: 0;
-          color: white;
-          transition: all 0.2s;
+          color: #94a3b8;
+          background: rgba(30, 41, 59, 0.6);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .oc-subtab-btn:hover {
+          color: #f8fafc;
+          border-color: rgba(148, 163, 184, 0.3);
+          transform: translateY(-1px);
         }
         .oc-studio-grid {
           display: grid;
@@ -2344,14 +2362,14 @@
           align-items: start;
         }
         .oc-studio-controls-bar {
-          background: #1e293b;
+          background: rgba(30, 41, 59, 0.95);
           padding: 14px 18px;
           display: flex;
           justify-content: space-between;
           align-items: center;
           flex-wrap: wrap;
           gap: 10px;
-          border-top: 1px solid #334155;
+          border-top: 1px solid rgba(148, 163, 184, 0.15);
         }
         .oc-controls-group {
           display: flex;
@@ -2359,23 +2377,108 @@
           flex-wrap: wrap;
         }
         .oc-start-card {
-          max-width: 720px;
+          max-width: 680px;
           width: 100%;
           margin: 0 auto;
-          background: #1e293b;
-          border: 1px solid #334155;
-          border-radius: 16px;
-          padding: 24px;
+          background: linear-gradient(180deg, rgba(30, 41, 59, 0.85) 0%, rgba(15, 23, 42, 0.95) 100%);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+          border: 1px solid rgba(148, 163, 184, 0.18);
+          border-radius: 24px;
+          padding: 32px 30px;
           box-sizing: border-box;
-          box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);
+          box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6), inset 0 1px 1px 0 rgba(255,255,255,0.08);
+          position: relative;
+          overflow: hidden;
+        }
+        .oc-start-card::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 10%;
+          right: 10%;
+          height: 1px;
+          background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.5), transparent);
+        }
+        .oc-input-label {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 13px;
+          font-weight: 700;
+          color: #cbd5e1;
+          margin-bottom: 8px;
+        }
+        .oc-custom-select, .oc-custom-input {
+          width: 100%;
+          min-height: 48px;
+          padding: 12px 16px;
+          background: rgba(15, 23, 42, 0.85);
+          border: 1px solid rgba(148, 163, 184, 0.2);
+          border-radius: 12px;
+          color: #f8fafc;
+          font-size: 14.5px;
+          box-sizing: border-box;
+          outline: none;
+          transition: all 0.2s ease;
+        }
+        .oc-custom-select:focus, .oc-custom-input:focus {
+          border-color: #38bdf8;
+          box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+          background: rgba(15, 23, 42, 1);
+        }
+        .oc-custom-select option {
+          background: #0f172a;
+          color: #f8fafc;
+          padding: 10px;
+        }
+        .oc-btn-start-broadcast {
+          width: 100%;
+          min-height: 52px;
+          padding: 14px 24px;
+          background: linear-gradient(135deg, #059669 0%, #10b981 50%, #22c55e 100%);
+          color: white;
+          border: none;
+          border-radius: 14px;
+          font-size: 15.5px;
+          font-weight: 800;
+          letter-spacing: 0.3px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          box-shadow: 0 12px 24px -6px rgba(16, 185, 129, 0.45);
+          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .oc-btn-start-broadcast:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 16px 30px -6px rgba(16, 185, 129, 0.6);
+        }
+        .oc-btn-start-broadcast:active {
+          transform: translateY(0);
+        }
+        .oc-pulse-dot {
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          background: #ffffff;
+          box-shadow: 0 0 12px #ffffff;
+          animation: pulseDot 1.6s infinite;
+        }
+        @keyframes pulseDot {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.4; transform: scale(0.85); }
         }
         .oc-dir-card {
-          background: #1e293b;
-          border: 1px solid #334155;
-          border-radius: 16px;
-          padding: 20px;
+          background: linear-gradient(180deg, rgba(30, 41, 59, 0.75) 0%, rgba(15, 23, 42, 0.9) 100%);
+          backdrop-filter: blur(14px);
+          -webkit-backdrop-filter: blur(14px);
+          border: 1px solid rgba(148, 163, 184, 0.16);
+          border-radius: 20px;
+          padding: 24px;
           box-sizing: border-box;
-          box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);
+          box-shadow: 0 15px 30px -5px rgba(0,0,0,0.35);
         }
         .oc-dir-header {
           display: flex;
@@ -2915,38 +3018,46 @@
         
         <!-- Module Header Banner -->
         <div class="oc-header-banner">
-          <div style="display: flex; align-items: center; gap: 14px;">
-            <div style="width: 46px; height: 46px; border-radius: 12px; background: linear-gradient(135deg, #2563eb, #1d4ed8); display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 4px 12px rgba(37,99,235,0.4); flex-shrink: 0;">
-              🎙️
+          <div style="display: flex; align-items: center; gap: 16px;">
+            <div style="width: 52px; height: 52px; border-radius: 16px; background: linear-gradient(135deg, #2563eb, #1d4ed8); display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(37,99,235,0.45); flex-shrink: 0;">
+              ${lordIcon('qhgmphtg', 'videocam', 32, 'primary:#ffffff,secondary:#93c5fd')}
             </div>
             <div>
-              <h2 style="margin: 0; font-size: 18px; font-weight: 800; color: #f8fafc; letter-spacing: -0.3px;">Live Video Classes & 1:1 Voice Calling</h2>
-              <p style="margin: 3px 0 0; font-size: 12.5px; color: #94a3b8;">Host live video classes, screen cast lectures & place direct 1:1 voice calls</p>
+              <h2 style="margin: 0; font-size: 19px; font-weight: 800; color: #f8fafc; letter-spacing: -0.3px;">Live Video Classes & 1:1 Voice Calling</h2>
+              <p style="margin: 4px 0 0; font-size: 12.8px; color: #94a3b8;">Host live video classes, screen cast lectures & place direct 1:1 voice calls</p>
             </div>
           </div>
-          <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-            <span style="background: #0284c7; color: white; padding: 5px 12px; border-radius: 9999px; font-size: 11.5px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
-              ⚡ WebRTC VoIP Active
+          <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+            <span style="background: rgba(14, 165, 233, 0.15); border: 1px solid rgba(56, 189, 248, 0.4); color: #38bdf8; padding: 7px 14px; border-radius: 9999px; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px;">
+              <span style="width: 8px; height: 8px; border-radius: 50%; background: #38bdf8; box-shadow: 0 0 8px #38bdf8;"></span>
+              <span class="material-symbols-outlined" style="font-size: 16px;">wifi_tethering</span>
+              WebRTC VoIP Active
             </span>
-            <button id="btnHeaderVoiceBroadcast" onclick="window.openVoiceNotificationModal()" style="background: linear-gradient(135deg, #7c3aed, #9333ea); color: white; border: none; padding: 7px 14px; border-radius: 8px; font-size: 12.5px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(124,58,237,0.4);">
-              📢 Send Voice Notification
+            <button id="btnHeaderVoiceBroadcast" onclick="window.openVoiceNotificationModal()" style="background: linear-gradient(135deg, #7c3aed, #9333ea); color: white; border: none; padding: 9px 18px; border-radius: 12px; font-size: 13px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 6px 18px rgba(124,58,237,0.4); transition: transform 0.2s;">
+              ${lordIcon('kthelypq', 'campaign', 18, 'primary:#ffffff,secondary:#fbcfe8')}
+              Send Voice Notification
             </button>
           </div>
         </div>
 
         <!-- Module Top Subtabs -->
         <div class="oc-subtabs">
-          <button id="subtabStudio" class="oc-subtab-btn" style="border-color: ${state.currentTab === 'studio' ? '#3b82f6' : '#334155'}; background: ${state.currentTab === 'studio' ? 'linear-gradient(135deg, #2563eb, #1d4ed8)' : '#1e293b'}; box-shadow: ${state.currentTab === 'studio' ? '0 4px 12px rgba(37,99,235,0.35)' : 'none'};">
-            📹 Live Classroom Studio ${state.activeRoom ? '<span style="background:#ef4444; color:white; font-size:10px; padding:2px 6px; border-radius:9999px; margin-left:4px;">LIVE</span>' : ''}
+          <button id="subtabStudio" class="oc-subtab-btn" style="border-color: ${state.currentTab === 'studio' ? '#38bdf8' : 'rgba(148, 163, 184, 0.15)'}; background: ${state.currentTab === 'studio' ? 'linear-gradient(135deg, #1d4ed8, #2563eb)' : 'rgba(30, 41, 59, 0.6)'}; box-shadow: ${state.currentTab === 'studio' ? '0 8px 20px rgba(37,99,235,0.4), inset 0 1px 0 rgba(255,255,255,0.2)' : 'none'}; color: ${state.currentTab === 'studio' ? '#ffffff' : '#94a3b8'};">
+            ${lordIcon('qhgmphtg', 'videocam', 20, state.currentTab === 'studio' ? 'primary:#ffffff,secondary:#93c5fd' : 'primary:#94a3b8,secondary:#64748b')}
+            <span>Live Classroom Studio</span>
+            ${state.activeRoom ? '<span style="background:#ef4444; color:white; font-size:10px; font-weight:800; padding:2px 8px; border-radius:9999px; margin-left:2px; box-shadow:0 0 8px #ef4444;">LIVE</span>' : ''}
           </button>
-          <button id="subtabCalling" class="oc-subtab-btn" style="border-color: ${state.currentTab === 'calling' ? '#22c55e' : '#334155'}; background: ${state.currentTab === 'calling' ? 'linear-gradient(135deg, #16a34a, #15803d)' : '#1e293b'}; box-shadow: ${state.currentTab === 'calling' ? '0 4px 12px rgba(34,197,94,0.35)' : 'none'};">
-            📞 1:1 Direct Voice Calling Directory
+          <button id="subtabCalling" class="oc-subtab-btn" style="border-color: ${state.currentTab === 'calling' ? '#4ade80' : 'rgba(148, 163, 184, 0.15)'}; background: ${state.currentTab === 'calling' ? 'linear-gradient(135deg, #15803d, #16a34a)' : 'rgba(30, 41, 59, 0.6)'}; box-shadow: ${state.currentTab === 'calling' ? '0 8px 20px rgba(34,197,94,0.4), inset 0 1px 0 rgba(255,255,255,0.2)' : 'none'}; color: ${state.currentTab === 'calling' ? '#ffffff' : '#94a3b8'};">
+            ${lordIcon('tftaqjwp', 'call', 20, state.currentTab === 'calling' ? 'primary:#ffffff,secondary:#bbf7d0' : 'primary:#94a3b8,secondary:#64748b')}
+            <span>1:1 Direct Voice Calling Directory</span>
           </button>
-          <button id="subtabRooms" class="oc-subtab-btn" style="border-color: ${state.currentTab === 'rooms' ? '#6366f1' : '#334155'}; background: ${state.currentTab === 'rooms' ? 'linear-gradient(135deg, #4f46e5, #4338ca)' : '#1e293b'}; box-shadow: ${state.currentTab === 'rooms' ? '0 4px 12px rgba(99,102,241,0.35)' : 'none'};">
-            📋 Active Rooms & Logs
+          <button id="subtabRooms" class="oc-subtab-btn" style="border-color: ${state.currentTab === 'rooms' ? '#a78bfa' : 'rgba(148, 163, 184, 0.15)'}; background: ${state.currentTab === 'rooms' ? 'linear-gradient(135deg, #4338ca, #4f46e5)' : 'rgba(30, 41, 59, 0.6)'}; box-shadow: ${state.currentTab === 'rooms' ? '0 8px 20px rgba(99,102,241,0.4), inset 0 1px 0 rgba(255,255,255,0.2)' : 'none'}; color: ${state.currentTab === 'rooms' ? '#ffffff' : '#94a3b8'};">
+            ${lordIcon('wxnxiano', 'meeting_room', 20, state.currentTab === 'rooms' ? 'primary:#ffffff,secondary:#ddd6fe' : 'primary:#94a3b8,secondary:#64748b')}
+            <span>Active Rooms & Logs</span>
           </button>
-          <button id="subtabVoiceBroadcast" onclick="window.openVoiceNotificationModal()" class="oc-subtab-btn" style="border-color: #8b5cf6; background: linear-gradient(135deg, #7c3aed, #6d28d9); box-shadow: 0 4px 12px rgba(124,58,237,0.35);">
-            🎙️ Send Voice Notification (Auto-Speaks Aloud)
+          <button id="subtabVoiceBroadcast" onclick="window.openVoiceNotificationModal()" class="oc-subtab-btn" style="border-color: rgba(168, 85, 247, 0.4); background: linear-gradient(135deg, #6b21a8, #7c3aed); box-shadow: 0 6px 18px rgba(124,58,237,0.3); color: #ffffff;">
+            ${lordIcon('kthelypq', 'campaign', 20, 'primary:#ffffff,secondary:#fbcfe8')}
+            <span>Send Voice Notification</span>
           </button>
         </div>
 
@@ -3994,34 +4105,34 @@
 
             <!-- 4. CONTROL ACTION TOOLBAR -->
             <div style="display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px;">
-              <button id="btnStudioMic" style="flex: 1; min-width: 80px; height: 60px; background: ${state.isMuted ? 'rgba(239,68,68,0.15)' : '#0f172a'}; border: 1px solid ${state.isMuted ? '#ef4444' : '#1e293b'}; border-radius: 12px; color: white; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
-                <span style="font-size: 16px;">${state.isMuted ? '🔇' : '🎙️'}</span>
+              <button id="btnStudioMic" style="flex: 1; min-width: 80px; height: 60px; background: ${state.isMuted ? 'rgba(239,68,68,0.15)' : 'rgba(15,23,42,0.8)'}; border: 1px solid ${state.isMuted ? '#ef4444' : 'rgba(148,163,184,0.2)'}; border-radius: 12px; color: white; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
+                <span class="material-symbols-outlined" style="font-size: 22px; color: ${state.isMuted ? '#f87171' : '#4ade80'};">${state.isMuted ? 'mic_off' : 'mic'}</span>
                 <span style="font-size: 10.5px; font-weight: 700; color: ${state.isMuted ? '#f87171' : '#94a3b8'};">${state.isMuted ? 'Unmute' : 'Mute'}</span>
               </button>
 
-              <button id="btnStudioCamera" style="flex: 1; min-width: 80px; height: 60px; background: ${!state.isVideoEnabled ? 'rgba(239,68,68,0.15)' : '#0f172a'}; border: 1px solid ${!state.isVideoEnabled ? '#ef4444' : '#1e293b'}; border-radius: 12px; color: white; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
-                <span style="font-size: 16px;">${!state.isVideoEnabled ? '🚫' : '📹'}</span>
+              <button id="btnStudioCamera" style="flex: 1; min-width: 80px; height: 60px; background: ${!state.isVideoEnabled ? 'rgba(239,68,68,0.15)' : 'rgba(15,23,42,0.8)'}; border: 1px solid ${!state.isVideoEnabled ? '#ef4444' : 'rgba(148,163,184,0.2)'}; border-radius: 12px; color: white; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
+                <span class="material-symbols-outlined" style="font-size: 22px; color: ${!state.isVideoEnabled ? '#f87171' : '#38bdf8'};">${!state.isVideoEnabled ? 'videocam_off' : 'videocam'}</span>
                 <span style="font-size: 10.5px; font-weight: 700; color: ${!state.isVideoEnabled ? '#f87171' : '#94a3b8'};">${!state.isVideoEnabled ? 'Start Video' : 'Stop Video'}</span>
               </button>
 
-              <button id="btnStudioScreenShare" style="flex: 1; min-width: 80px; height: 60px; background: ${state.isScreenSharing ? '#0284c7' : '#0f172a'}; border: 1px solid ${state.isScreenSharing ? '#38bdf8' : '#1e293b'}; border-radius: 12px; color: white; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
-                <span style="font-size: 16px;">🖥️</span>
+              <button id="btnStudioScreenShare" style="flex: 1; min-width: 80px; height: 60px; background: ${state.isScreenSharing ? '#0284c7' : 'rgba(15,23,42,0.8)'}; border: 1px solid ${state.isScreenSharing ? '#38bdf8' : 'rgba(148,163,184,0.2)'}; border-radius: 12px; color: white; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
+                <span class="material-symbols-outlined" style="font-size: 22px; color: #38bdf8;">screen_share</span>
                 <span style="font-size: 10.5px; font-weight: 700; color: #94a3b8;">Share</span>
               </button>
 
-              <button onclick="window.switchStudioTab('participants')" style="flex: 1; min-width: 80px; height: 60px; background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; color: white; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
-                <span style="font-size: 16px;">👥</span>
+              <button onclick="window.switchStudioTab('participants')" style="flex: 1; min-width: 80px; height: 60px; background: rgba(15,23,42,0.8); border: 1px solid rgba(148,163,184,0.2); border-radius: 12px; color: white; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
+                <span class="material-symbols-outlined" style="font-size: 22px; color: #a78bfa;">groups</span>
                 <span style="font-size: 10.5px; font-weight: 700; color: #94a3b8;">Students (${participants.length})</span>
               </button>
 
-              <button onclick="window.switchStudioTab('chat')" style="flex: 1; min-width: 80px; height: 60px; background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; color: white; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
-                <span style="font-size: 16px;">💬</span>
+              <button onclick="window.switchStudioTab('chat')" style="flex: 1; min-width: 80px; height: 60px; background: rgba(15,23,42,0.8); border: 1px solid rgba(148,163,184,0.2); border-radius: 12px; color: white; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
+                <span class="material-symbols-outlined" style="font-size: 22px; color: #f59e0b;">chat</span>
                 <span style="font-size: 10.5px; font-weight: 700; color: #94a3b8;">Chat</span>
               </button>
 
               <div style="position: relative; flex: 1; min-width: 80px;">
-                <button id="btnStudioReactions" style="width: 100%; height: 60px; background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; color: white; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
-                  <span style="font-size: 16px;">😊</span>
+                <button id="btnStudioReactions" style="width: 100%; height: 60px; background: rgba(15,23,42,0.8); border: 1px solid rgba(148,163,184,0.2); border-radius: 12px; color: white; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
+                  <span class="material-symbols-outlined" style="font-size: 22px; color: #ec4899;">mood</span>
                   <span style="font-size: 10.5px; font-weight: 700; color: #94a3b8;">Reactions</span>
                 </button>
                 <div id="studioReactionPicker" style="display: none; position: absolute; bottom: 68px; left: 50%; transform: translateX(-50%); background: #1e293b; border: 1px solid #334155; border-radius: 24px; padding: 6px 12px; gap: 10px; z-index: 100; box-shadow: 0 4px 16px rgba(0,0,0,0.5);">
@@ -4033,18 +4144,18 @@
                 </div>
               </div>
 
-              <button id="btnStudioMuteAll" style="flex: 1; min-width: 80px; height: 60px; background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; color: white; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
-                <span style="font-size: 16px;">✋</span>
+              <button id="btnStudioMuteAll" style="flex: 1; min-width: 80px; height: 60px; background: rgba(15,23,42,0.8); border: 1px solid rgba(148,163,184,0.2); border-radius: 12px; color: white; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
+                <span class="material-symbols-outlined" style="font-size: 22px; color: #f87171;">volume_off</span>
                 <span style="font-size: 10.5px; font-weight: 700; color: #94a3b8;">Mute All</span>
               </button>
 
-              <button id="btnStudioWhiteboard" style="flex: 1; min-width: 80px; height: 60px; background: ${state.isWhiteboardActive ? '#8b5cf6' : '#0f172a'}; border: 1px solid ${state.isWhiteboardActive ? '#a855f7' : '#1e293b'}; border-radius: 12px; color: white; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
-                <span style="font-size: 16px;">✏️</span>
+              <button id="btnStudioWhiteboard" style="flex: 1; min-width: 80px; height: 60px; background: ${state.isWhiteboardActive ? '#8b5cf6' : 'rgba(15,23,42,0.8)'}; border: 1px solid ${state.isWhiteboardActive ? '#a855f7' : 'rgba(148,163,184,0.2)'}; border-radius: 12px; color: white; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
+                <span class="material-symbols-outlined" style="font-size: 22px; color: #a855f7;">draw</span>
                 <span style="font-size: 10.5px; font-weight: 700; color: #94a3b8;">Whiteboard</span>
               </button>
 
-              <button id="btnStudioFlipCam" style="flex: 1; min-width: 80px; height: 60px; background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; color: white; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
-                <span style="font-size: 16px;">🔄</span>
+              <button id="btnStudioFlipCam" style="flex: 1; min-width: 80px; height: 60px; background: rgba(15,23,42,0.8); border: 1px solid rgba(148,163,184,0.2); border-radius: 12px; color: white; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
+                <span class="material-symbols-outlined" style="font-size: 22px; color: #94a3b8;">flip_camera_ios</span>
                 <span style="font-size: 10.5px; font-weight: 700; color: #94a3b8;">Flip Cam</span>
               </button>
             </div>
@@ -4138,13 +4249,13 @@
     if (state.currentActiveSchoolRoom && state.currentActiveSchoolRoom.status === 'active') {
       const r = state.currentActiveSchoolRoom;
       activeClassBannerHtml = `
-        <div style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95)); border: 1.5px solid #8b5cf6; border-radius: 14px; padding: 18px 20px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; box-shadow: 0 10px 25px rgba(139, 92, 246, 0.25);">
+        <div style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95)); border: 1.5px solid rgba(139, 92, 246, 0.5); border-radius: 16px; padding: 18px 22px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; box-shadow: 0 10px 25px rgba(139, 92, 246, 0.25); backdrop-filter: blur(12px);">
           <div style="display: flex; align-items: center; gap: 14px;">
-            <span style="width: 14px; height: 14px; border-radius: 50%; background: #ef4444; display: inline-block; box-shadow: 0 0 12px #ef4444; animation: pulseLive 1.5s infinite;"></span>
+            <span style="width: 12px; height: 12px; border-radius: 50%; background: #ef4444; display: inline-block; box-shadow: 0 0 12px #ef4444; animation: pulseDot 1.5s infinite;"></span>
             <div>
               <div style="font-weight: 800; color: #f8fafc; font-size: 16px; display: flex; align-items: center; gap: 8px;">
-                🔴 Live Classroom Session In Progress
-                <span style="background: #22c55e; color: white; font-size: 11px; padding: 2px 8px; border-radius: 9999px; font-weight: 700;">ACTIVE NOW</span>
+                <span>Live Classroom Session In Progress</span>
+                <span style="background: #22c55e; color: white; font-size: 10.5px; padding: 2px 8px; border-radius: 9999px; font-weight: 800;">ACTIVE NOW</span>
               </div>
               <div style="font-size: 13.5px; color: #cbd5e1; margin-top: 4px;">
                 <strong style="color: #f1f5f9;">${r.title || 'Live Class'}</strong> • Host: <strong style="color: #38bdf8;">${r.host_name || 'Teacher'}</strong> • Class: <strong style="color: #a78bfa;">${r.target_class || 'All'}</strong>
@@ -4152,14 +4263,14 @@
             </div>
           </div>
           <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <button onclick="window.joinRoomAsAdmin('${r.room_id}', true)" style="background: linear-gradient(135deg, #7c3aed, #9333ea); color: white; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 800; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4);">
-              🕵️ Join in Stealth Mode (Identity Hidden)
+            <button onclick="window.joinRoomAsAdmin('${r.room_id}', true)" style="background: linear-gradient(135deg, #7c3aed, #9333ea); color: white; border: none; padding: 10px 18px; border-radius: 10px; font-weight: 800; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4);">
+              <span class="material-symbols-outlined" style="font-size: 18px;">visibility_off</span> Join in Stealth Mode
             </button>
-            <button onclick="window.joinRoomAsAdmin('${r.room_id}', false)" style="background: #334155; color: #f8fafc; border: 1px solid #475569; padding: 10px 14px; border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer;">
-              👁️ Join Visible
+            <button onclick="window.joinRoomAsAdmin('${r.room_id}', false)" style="background: rgba(51, 65, 85, 0.8); color: #f8fafc; border: 1px solid rgba(148, 163, 184, 0.2); padding: 10px 16px; border-radius: 10px; font-weight: 700; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+              <span class="material-symbols-outlined" style="font-size: 18px;">visibility</span> Join Visible
             </button>
-            <button onclick="window.terminateRoomAdmin('${r.room_id}')" style="background: #ef4444; color: white; border: none; padding: 10px 14px; border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer;">
-              🛑 End Room
+            <button onclick="window.terminateRoomAdmin('${r.room_id}')" style="background: #ef4444; color: white; border: none; padding: 10px 16px; border-radius: 10px; font-weight: 700; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+              <span class="material-symbols-outlined" style="font-size: 18px;">stop_circle</span> End Room
             </button>
           </div>
         </div>
@@ -4193,41 +4304,52 @@
     return `
       ${activeClassBannerHtml}
       <div class="oc-start-card">
-        <div style="text-align: center; margin-bottom: 22px;">
-          <div style="width: 52px; height: 52px; border-radius: 50%; background: #2563eb; color: white; display: flex; align-items: center; justify-content: center; font-size: 26px; margin: 0 auto 10px;">
-            📹
+        <div style="text-align: center; margin-bottom: 26px;">
+          <div style="width: 64px; height: 64px; border-radius: 18px; background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; display: flex; align-items: center; justify-content: center; margin: 0 auto 14px; box-shadow: 0 10px 25px -4px rgba(37,99,235,0.5);">
+            ${lordIcon('wzrwaorf', 'podium', 36, 'primary:#ffffff,secondary:#93c5fd')}
           </div>
-          <h2 style="margin: 0; font-size: 20px; color: #f8fafc; font-weight: 800;">Start Live Classroom Video Session</h2>
+          <h2 style="margin: 0; font-size: 21px; color: #f8fafc; font-weight: 800; letter-spacing: -0.3px;">Start Live Classroom Video Session</h2>
           <p style="margin: 6px 0 0; font-size: 13.5px; color: #94a3b8;">Broadcast high-definition lecture video, share screen slides & interact with students in real time</p>
         </div>
 
-        <div style="display: flex; flex-direction: column; gap: 16px;">
+        <div style="display: flex; flex-direction: column; gap: 18px;">
           
           <div>
-            <label style="display: block; font-size: 13px; font-weight: 700; color: #cbd5e1; margin-bottom: 6px;">Select Target Class</label>
-            <select id="studioClassSelect" style="width: 100%; min-height: 46px; padding: 10px 14px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: white; font-size: 14.5px; box-sizing: border-box;">
-              <option value="ALL">📢 All Classes (School Broadcast)</option>
+            <label class="oc-input-label">
+              <span class="material-symbols-outlined" style="font-size: 17px; color: #38bdf8;">school</span>
+              Select Target Class
+            </label>
+            <select id="studioClassSelect" class="oc-custom-select">
+              <option value="ALL">All Classes (School-Wide Live Broadcast)</option>
               ${classOptions.map(cls => `<option value="${cls}">Class ${cls}</option>`).join('')}
             </select>
           </div>
 
           <div>
-            <label style="display: block; font-size: 13px; font-weight: 700; color: #cbd5e1; margin-bottom: 6px;">Session Title / Topic</label>
-            <input id="studioTitleInput" type="text" placeholder="E.g., Class 6 Science: Chapter 4 Balanced Diet" style="width: 100%; min-height: 46px; padding: 10px 14px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: white; font-size: 14.5px; box-sizing: border-box;" />
+            <label class="oc-input-label">
+              <span class="material-symbols-outlined" style="font-size: 17px; color: #38bdf8;">edit_note</span>
+              Session Title / Topic
+            </label>
+            <input id="studioTitleInput" type="text" class="oc-custom-input" placeholder="E.g., Class 6 Science: Chapter 4 Balanced Diet" />
           </div>
 
           <div>
-            <label style="display: block; font-size: 13px; font-weight: 700; color: #cbd5e1; margin-bottom: 6px;">Video Resolution Quality</label>
-            <select id="studioQualitySelect" style="width: 100%; min-height: 46px; padding: 10px 14px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: white; font-size: 14.5px; box-sizing: border-box;">
-              <option value="1080p" selected>🌟 1080p Full HD (Crystal-Clear Whiteboard & Slides)</option>
-              <option value="720p">⚡ 720p HD (Balanced Speed & Quality)</option>
-              <option value="480p">🚀 480p SD (Ultra-Lightweight / Slow Internet)</option>
+            <label class="oc-input-label">
+              <span class="material-symbols-outlined" style="font-size: 17px; color: #38bdf8;">hd</span>
+              Video Resolution Quality
+            </label>
+            <select id="studioQualitySelect" class="oc-custom-select">
+              <option value="1080p" selected>1080p Full HD (Crystal-Clear Whiteboard & Slides)</option>
+              <option value="720p">720p HD (Balanced Speed & Quality)</option>
+              <option value="480p">480p SD (Data Saver / Ultra-Lightweight)</option>
             </select>
           </div>
 
-          <div style="margin-top: 8px;">
-            <button id="btnStartLiveClass" style="width: 100%; min-height: 48px; padding: 14px; background: linear-gradient(135deg, #16a34a, #22c55e); color: white; border: none; border-radius: 10px; font-size: 15.5px; font-weight: 800; cursor: pointer; box-shadow: 0 10px 15px -3px rgba(34,197,94,0.4); display: flex; align-items: center; justify-content: center; gap: 10px;">
-              🔴 Start Live Classroom Session
+          <div style="margin-top: 10px;">
+            <button id="btnStartLiveClass" class="oc-btn-start-broadcast">
+              <span class="oc-pulse-dot"></span>
+              <span class="material-symbols-outlined" style="font-size: 22px;">podium</span>
+              Start Live Classroom Session
             </button>
           </div>
         </div>
@@ -4396,10 +4518,10 @@
       <div class="oc-dir-card">
 
         <!-- Quick Direct Dial Bar -->
-        <div style="background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95)); border: 1.5px solid #3b82f6; border-radius: 14px; padding: 16px 20px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; box-shadow: 0 4px 16px rgba(37,99,235,0.2);">
-          <div style="display: flex; align-items: center; gap: 12px;">
-            <div style="width: 42px; height: 42px; border-radius: 10px; background: linear-gradient(135deg, #2563eb, #1d4ed8); display: flex; align-items: center; justify-content: center; font-size: 22px; color: white; box-shadow: 0 4px 10px rgba(37,99,235,0.4); flex-shrink: 0;">
-              ⚡
+        <div style="background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95)); border: 1.5px solid rgba(59, 130, 246, 0.4); border-radius: 16px; padding: 18px 22px; margin-bottom: 22px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; box-shadow: 0 4px 20px rgba(37,99,235,0.25);">
+          <div style="display: flex; align-items: center; gap: 14px;">
+            <div style="width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg, #2563eb, #1d4ed8); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(37,99,235,0.4); flex-shrink: 0;">
+              ${lordIcon('tftaqjwp', 'call', 24, 'primary:#ffffff,secondary:#93c5fd')}
             </div>
             <div>
               <div style="font-weight: 800; color: #f8fafc; font-size: 15.5px; letter-spacing: -0.2px;">Quick Direct Dial</div>
@@ -4407,13 +4529,13 @@
             </div>
           </div>
           <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center; flex: 1 1 340px; justify-content: flex-end;">
-            <input id="quickDialInput" type="text" placeholder="Enter Admission No (e.g. 584/24) or Phone..." style="min-height: 42px; padding: 8px 14px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: white; font-size: 13.5px; flex: 1 1 200px; min-width: 170px; box-sizing: border-box;" />
-            <select id="quickDialRole" style="min-height: 42px; padding: 8px 12px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: white; font-size: 13px; box-sizing: border-box;">
-              <option value="student">🎓 Student</option>
-              <option value="teacher">👨‍🏫 Teacher</option>
+            <input id="quickDialInput" type="text" placeholder="Enter Admission No (e.g. 584/24) or Phone..." style="min-height: 42px; padding: 8px 14px; background: #0f172a; border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 10px; color: white; font-size: 13.5px; flex: 1 1 200px; min-width: 170px; box-sizing: border-box;" />
+            <select id="quickDialRole" style="min-height: 42px; padding: 8px 12px; background: #0f172a; border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 10px; color: white; font-size: 13px; box-sizing: border-box;">
+              <option value="student">Student</option>
+              <option value="teacher">Teacher</option>
             </select>
-            <button id="btnQuickDial" style="min-height: 42px; padding: 8px 18px; background: linear-gradient(135deg, #16a34a, #22c55e); color: white; border: none; border-radius: 8px; font-weight: 800; font-size: 13.5px; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(34,197,94,0.35); flex-shrink: 0;">
-              📞 Call Now
+            <button id="btnQuickDial" style="min-height: 42px; padding: 8px 20px; background: linear-gradient(135deg, #16a34a, #22c55e); color: white; border: none; border-radius: 10px; font-weight: 800; font-size: 13.5px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 14px rgba(34,197,94,0.35); flex-shrink: 0;">
+              <span class="material-symbols-outlined" style="font-size: 18px;">call</span> Call Now
             </button>
           </div>
         </div>
@@ -4422,16 +4544,19 @@
         <div class="oc-dir-header">
           <div>
             <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-              <h3 style="margin: 0; font-size: 18px; color: #f8fafc; font-weight: 800;">📞 Direct 1:1 Voice Calling Directory</h3>
-              <span style="background: rgba(56, 189, 248, 0.15); border: 1px solid #0284c7; color: #38bdf8; font-size: 11.5px; font-weight: 700; padding: 3px 10px; border-radius: 9999px;">
-                👨‍🏫 ${teachers.length} Faculty
+              <h3 style="margin: 0; font-size: 18px; color: #f8fafc; font-weight: 800; display: inline-flex; align-items: center; gap: 8px;">
+                <span class="material-symbols-outlined" style="color: #38bdf8;">perm_phone_msg</span>
+                1:1 Voice Calling Directory
+              </h3>
+              <span style="background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.35); color: #38bdf8; font-size: 11.5px; font-weight: 700; padding: 4px 12px; border-radius: 9999px; display: inline-flex; align-items: center; gap: 4px;">
+                <span class="material-symbols-outlined" style="font-size: 14px;">school</span> ${teachers.length} Faculty
               </span>
-              <span style="background: rgba(74, 222, 128, 0.15); border: 1px solid #16a34a; color: #4ade80; font-size: 11.5px; font-weight: 700; padding: 3px 10px; border-radius: 9999px;">
-                🎓 ${students.length} Students
+              <span style="background: rgba(74, 222, 128, 0.15); border: 1px solid rgba(74, 222, 128, 0.35); color: #4ade80; font-size: 11.5px; font-weight: 700; padding: 4px 12px; border-radius: 9999px; display: inline-flex; align-items: center; gap: 4px;">
+                <span class="material-symbols-outlined" style="font-size: 14px;">person</span> ${students.length} Students
               </span>
               ${(q || state.dirClassFilter !== 'ALL' || state.dirRoleFilter !== 'ALL') ? `
-                <span style="background: #334155; color: #f1f5f9; font-size: 11.5px; font-weight: 700; padding: 3px 10px; border-radius: 9999px;">
-                  🔍 ${totalVisible} Filtered
+                <span style="background: #334155; color: #f1f5f9; font-size: 11.5px; font-weight: 700; padding: 4px 12px; border-radius: 9999px; display: inline-flex; align-items: center; gap: 4px;">
+                  <span class="material-symbols-outlined" style="font-size: 14px;">search</span> ${totalVisible} Filtered
                 </span>
               ` : ''}
             </div>
@@ -4439,17 +4564,17 @@
           </div>
 
           <div class="oc-dir-filters">
-            <button id="btnRefreshDirectory" title="Sync directory with database" style="min-height: 42px; padding: 8px 14px; background: #1e293b; border: 1px solid #334155; border-radius: 8px; color: #cbd5e1; font-size: 13px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
-              🔄 Refresh
+            <button id="btnRefreshDirectory" title="Sync directory with database" style="min-height: 42px; padding: 8px 16px; background: rgba(30, 41, 59, 0.8); border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 10px; color: #cbd5e1; font-size: 13px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
+              <span class="material-symbols-outlined" style="font-size: 16px;">refresh</span> Refresh
             </button>
-            <input id="dirSearchInput" type="text" value="${escapeHtml(state.dirSearchQuery)}" placeholder="Search name, roll, adm no..." style="min-height: 42px; padding: 8px 14px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: white; font-size: 13.5px; box-sizing: border-box; flex: 1 1 180px;" />
+            <input id="dirSearchInput" type="text" value="${escapeHtml(state.dirSearchQuery)}" placeholder="Search name, roll, adm no..." style="min-height: 42px; padding: 8px 14px; background: #0f172a; border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 10px; color: white; font-size: 13.5px; box-sizing: border-box; flex: 1 1 180px;" />
             
-            <select id="dirClassSelect" style="min-height: 42px; padding: 8px 12px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: white; font-size: 13.5px; box-sizing: border-box; flex: 1 1 130px;">
+            <select id="dirClassSelect" style="min-height: 42px; padding: 8px 12px; background: #0f172a; border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 10px; color: white; font-size: 13.5px; box-sizing: border-box; flex: 1 1 130px;">
               <option value="ALL">All Classes</option>
               ${classOptions.map(cls => `<option value="${escapeHtml(cls)}" ${state.dirClassFilter === cls ? 'selected' : ''}>Class ${escapeHtml(cls)}</option>`).join('')}
             </select>
 
-            <select id="dirRoleSelect" style="min-height: 42px; padding: 8px 12px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: white; font-size: 13.5px; box-sizing: border-box; flex: 1 1 120px;">
+            <select id="dirRoleSelect" style="min-height: 42px; padding: 8px 12px; background: #0f172a; border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 10px; color: white; font-size: 13.5px; box-sizing: border-box; flex: 1 1 120px;">
               <option value="ALL" ${state.dirRoleFilter === 'ALL' ? 'selected' : ''}>All Roles</option>
               <option value="STUDENT" ${state.dirRoleFilter === 'STUDENT' ? 'selected' : ''}>Students Only</option>
               <option value="TEACHER" ${state.dirRoleFilter === 'TEACHER' ? 'selected' : ''}>Teachers Only</option>
@@ -4459,8 +4584,10 @@
 
         <!-- Directory Grid -->
         ${totalVisible === 0 ? `
-          <div style="text-align: center; padding: 50px 20px; background: #0f172a; border-radius: 12px; border: 1px dashed #334155; margin-top: 10px;">
-            <div style="font-size: 40px; margin-bottom: 12px;">🔍</div>
+          <div style="text-align: center; padding: 50px 20px; background: rgba(15, 23, 42, 0.6); border-radius: 16px; border: 1px dashed rgba(148, 163, 184, 0.2); margin-top: 10px;">
+            <div style="width: 54px; height: 54px; border-radius: 16px; background: rgba(56, 189, 248, 0.1); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; color: #38bdf8;">
+              <span class="material-symbols-outlined" style="font-size: 28px;">search_off</span>
+            </div>
             <h4 style="color: #f8fafc; font-size: 16px; margin: 0 0 6px 0; font-weight: 700;">No matching contacts found</h4>
             <p style="color: #94a3b8; font-size: 13.5px; margin: 0 0 16px 0;">
               ${(students.length === 0 && teachers.length === 0) 
@@ -4468,11 +4595,11 @@
                 : 'No contacts match the current search or filters.'}
             </p>
             <div style="display: flex; justify-content: center; gap: 10px;">
-              <button id="btnResetFilters" style="padding: 9px 18px; background: #2563eb; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;">
-                ✕ Reset Filters
+              <button id="btnResetFilters" style="padding: 9px 18px; background: #2563eb; color: white; border: none; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer;">
+                Reset Filters
               </button>
-              <button onclick="window.refreshOnlineClassesData ? window.refreshOnlineClassesData() : null" style="padding: 9px 18px; background: #334155; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;">
-                🔄 Reload Database
+              <button onclick="window.refreshOnlineClassesData ? window.refreshOnlineClassesData() : null" style="padding: 9px 18px; background: #334155; color: white; border: none; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                <span class="material-symbols-outlined" style="font-size: 16px;">refresh</span> Reload Database
               </button>
             </div>
           </div>
@@ -4489,19 +4616,19 @@
               const tPhone = escapeHtml(t.phone || '');
               const hasPhoto = t.photo && (t.photo.startsWith('http') || (t.photo.startsWith('data:image') && t.photo.length < 200000));
               return `
-                <div style="background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2);">
-                  <div style="display: flex; gap: 12px; align-items: center;">
-                    <div style="width: 46px; height: 46px; border-radius: 50%; background: #0284c7; color: white; display: flex; align-items: center; justify-content: center; font-size: 22px; border: 1px solid #38bdf8; flex-shrink: 0; overflow: hidden;">
-                      ${hasPhoto ? `<img src="${escapeHtml(t.photo)}" style="width:100%; height:100%; object-fit:cover;" />` : '👨‍🏫'}
+                <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(148, 163, 184, 0.16); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; justify-content: space-between; gap: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); transition: transform 0.2s;">
+                  <div style="display: flex; gap: 14px; align-items: center;">
+                    <div style="width: 48px; height: 48px; border-radius: 14px; background: linear-gradient(135deg, #0284c7, #0369a1); color: white; display: flex; align-items: center; justify-content: center; border: 1.5px solid rgba(56, 189, 248, 0.4); flex-shrink: 0; overflow: hidden; box-shadow: 0 4px 10px rgba(2,132,199,0.3);">
+                      ${hasPhoto ? `<img src="${escapeHtml(t.photo)}" style="width:100%; height:100%; object-fit:cover;" />` : lordIcon('bhfjfgqz', 'school', 24, 'primary:#ffffff,secondary:#38bdf8')}
                     </div>
                     <div style="min-width: 0; flex: 1;">
-                      <div style="font-weight: 700; color: #f8fafc; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${tDispName}">${tDispName}</div>
-                      <div style="font-size: 12px; color: #38bdf8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Faculty • ${tDept}</div>
-                      <div style="font-size: 11px; color: #64748b;">ID: ${tEmp} ${tPhone ? '• ' + tPhone : ''}</div>
+                      <div style="font-weight: 800; color: #f8fafc; font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${tDispName}">${tDispName}</div>
+                      <div style="font-size: 12px; color: #38bdf8; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Faculty • ${tDept}</div>
+                      <div style="font-size: 11px; color: #94a3b8;">ID: ${tEmp} ${tPhone ? '• ' + tPhone : ''}</div>
                     </div>
                   </div>
-                  <button onclick="window.initiateWebCall('${tId}', '${tName}', 'teacher', '', '')" style="width: 100%; min-height: 42px; padding: 9px; background: linear-gradient(135deg, #16a34a, #22c55e); color: white; border: none; border-radius: 8px; font-weight: 700; font-size: 13.5px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-sizing: border-box; box-shadow: 0 4px 10px rgba(34,197,94,0.3);">
-                    📞 Call Teacher
+                  <button onclick="window.initiateWebCall('${tId}', '${tName}', 'teacher', '', '')" style="width: 100%; min-height: 42px; padding: 10px; background: linear-gradient(135deg, #16a34a, #22c55e); color: white; border: none; border-radius: 10px; font-weight: 800; font-size: 13.5px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-sizing: border-box; box-shadow: 0 4px 12px rgba(34,197,94,0.35);">
+                    <span class="material-symbols-outlined" style="font-size: 18px;">call</span> Call Teacher
                   </button>
                 </div>
               `;
@@ -4520,19 +4647,19 @@
               const photoSrc = s.photoUrl || s.photo;
               const hasPhoto = photoSrc && (photoSrc.startsWith('http') || (photoSrc.startsWith('data:image') && photoSrc.length < 200000));
               return `
-                <div style="background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2);">
-                  <div style="display: flex; gap: 12px; align-items: center;">
-                    <div style="width: 46px; height: 46px; border-radius: 50%; background: #2563eb; color: white; display: flex; align-items: center; justify-content: center; font-size: 22px; border: 1px solid #60a5fa; flex-shrink: 0; overflow: hidden;">
-                      ${hasPhoto ? `<img src="${escapeHtml(photoSrc)}" style="width:100%; height:100%; object-fit:cover;" />` : '🎓'}
+                <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(148, 163, 184, 0.16); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; justify-content: space-between; gap: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); transition: transform 0.2s;">
+                  <div style="display: flex; gap: 14px; align-items: center;">
+                    <div style="width: 48px; height: 48px; border-radius: 14px; background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; display: flex; align-items: center; justify-content: center; border: 1.5px solid rgba(96, 165, 250, 0.4); flex-shrink: 0; overflow: hidden; box-shadow: 0 4px 10px rgba(37,99,235,0.3);">
+                      ${hasPhoto ? `<img src="${escapeHtml(photoSrc)}" style="width:100%; height:100%; object-fit:cover;" />` : lordIcon('dxjqoygy', 'person', 24, 'primary:#ffffff,secondary:#60a5fa')}
                     </div>
                     <div style="min-width: 0; flex: 1;">
-                      <div style="font-weight: 700; color: #f8fafc; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${sDispName}">${sDispName}</div>
-                      <div style="font-size: 12px; color: #4ade80; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Class: ${sClass} (Roll: ${sRoll})</div>
-                      <div style="font-size: 11px; color: #64748b;">Adm: ${sAdm} ${sPhone ? '• ' + sPhone : ''}</div>
+                      <div style="font-weight: 800; color: #f8fafc; font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${sDispName}">${sDispName}</div>
+                      <div style="font-size: 12px; color: #4ade80; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Class: ${sClass} (Roll: ${sRoll})</div>
+                      <div style="font-size: 11px; color: #94a3b8;">Adm: ${sAdm} ${sPhone ? '• ' + sPhone : ''}</div>
                     </div>
                   </div>
-                  <button onclick="window.initiateWebCall('${sId}', '${sName}', 'student', '', '${sClassJs}')" style="width: 100%; min-height: 42px; padding: 9px; background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; border: none; border-radius: 8px; font-weight: 700; font-size: 13.5px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-sizing: border-box; box-shadow: 0 4px 10px rgba(37,99,235,0.3);">
-                    📞 Call Student
+                  <button onclick="window.initiateWebCall('${sId}', '${sName}', 'student', '', '${sClassJs}')" style="width: 100%; min-height: 42px; padding: 10px; background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; border: none; border-radius: 10px; font-weight: 800; font-size: 13.5px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-sizing: border-box; box-shadow: 0 4px 12px rgba(37,99,235,0.35);">
+                    <span class="material-symbols-outlined" style="font-size: 18px;">call</span> Call Student
                   </button>
                 </div>
               `;
@@ -4666,13 +4793,18 @@
   function renderRoomsLogContent() {
     return `
       <div class="oc-dir-card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid #334155; padding-bottom: 16px;">
-          <div>
-            <h3 style="margin: 0; font-size: 18px; color: #f8fafc; font-weight: 800;">📋 Active Live Rooms & Calling History</h3>
-            <p style="margin: 4px 0 0; font-size: 13px; color: #94a3b8;">Monitor active class rooms and calling metrics across the institution</p>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid rgba(148, 163, 184, 0.15); padding-bottom: 16px;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg, #4f46e5, #4338ca); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(79,70,229,0.4); flex-shrink: 0;">
+              ${lordIcon('wxnxiano', 'meeting_room', 24, 'primary:#ffffff,secondary:#ddd6fe')}
+            </div>
+            <div>
+              <h3 style="margin: 0; font-size: 18px; color: #f8fafc; font-weight: 800;">Active Live Rooms & Calling History</h3>
+              <p style="margin: 4px 0 0; font-size: 13px; color: #94a3b8;">Monitor active class rooms and calling metrics across the institution</p>
+            </div>
           </div>
-          <button id="btnRefreshRooms" style="min-height: 40px; padding: 8px 18px; background: #334155; color: white; border: none; border-radius: 8px; font-weight: 700; font-size: 12.5px; cursor: pointer;">
-            🔄 Refresh List
+          <button id="btnRefreshRooms" style="min-height: 40px; padding: 8px 18px; background: rgba(30, 41, 59, 0.8); border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 10px; color: white; font-weight: 700; font-size: 12.5px; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+            <span class="material-symbols-outlined" style="font-size: 16px;">refresh</span> Refresh List
           </button>
         </div>
 
@@ -4713,9 +4845,9 @@
       let roomHtml = '';
       if (rooms.length > 0) {
         roomHtml = rooms.map(r => `
-          <div class="oc-room-item-card" style="display: flex; justify-content: space-between; align-items: center; background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 16px 20px; margin-bottom: 12px; flex-wrap: wrap; gap: 14px;">
+          <div class="oc-room-item-card" style="display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(148, 163, 184, 0.16); border-radius: 14px; padding: 18px 22px; margin-bottom: 14px; flex-wrap: wrap; gap: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
             <div>
-              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
                 <span style="background: #22c55e; color: white; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 9999px;">ACTIVE NOW</span>
                 <span style="font-weight: 800; color: #f8fafc; font-size: 16px;">${r.title || 'Live Class'}</span>
               </div>
@@ -4724,14 +4856,14 @@
               </div>
             </div>
             <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-              <button onclick="window.joinRoomAsAdmin('${r.room_id}', true)" style="background: linear-gradient(135deg, #7c3aed, #9333ea); color: white; border: none; min-height: 40px; padding: 8px 18px; border-radius: 8px; font-weight: 800; font-size: 12.5px; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4);">
-                🕵️ Join Stealth (Ghost Mode)
+              <button onclick="window.joinRoomAsAdmin('${r.room_id}', true)" style="background: linear-gradient(135deg, #7c3aed, #9333ea); color: white; border: none; min-height: 40px; padding: 8px 18px; border-radius: 10px; font-weight: 800; font-size: 12.5px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4);">
+                <span class="material-symbols-outlined" style="font-size: 18px;">visibility_off</span> Join Stealth (Ghost Mode)
               </button>
-              <button onclick="window.joinRoomAsAdmin('${r.room_id}', false)" style="background: #334155; color: white; border: 1px solid #475569; min-height: 40px; padding: 8px 16px; border-radius: 8px; font-weight: 700; font-size: 12.5px; cursor: pointer;">
-                👁️ Join Visible
+              <button onclick="window.joinRoomAsAdmin('${r.room_id}', false)" style="background: rgba(51, 65, 85, 0.8); color: white; border: 1px solid rgba(148, 163, 184, 0.2); min-height: 40px; padding: 8px 16px; border-radius: 10px; font-weight: 700; font-size: 12.5px; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                <span class="material-symbols-outlined" style="font-size: 18px;">visibility</span> Join Visible
               </button>
-              <button onclick="window.terminateRoomAdmin('${r.room_id}')" style="background: #ef4444; color: white; border: none; min-height: 40px; padding: 8px 16px; border-radius: 8px; font-weight: 700; font-size: 12.5px; cursor: pointer;">
-                🛑 End Room
+              <button onclick="window.terminateRoomAdmin('${r.room_id}')" style="background: #ef4444; color: white; border: none; min-height: 40px; padding: 8px 16px; border-radius: 10px; font-weight: 700; font-size: 12.5px; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                <span class="material-symbols-outlined" style="font-size: 18px;">stop_circle</span> End Room
               </button>
             </div>
           </div>
@@ -4811,92 +4943,104 @@
       <div style="background: #1e293b; border: 1.5px solid #8b5cf6; border-radius: 18px; width: 100%; max-width: 580px; max-height: 90vh; overflow-y: auto; padding: 24px; box-shadow: 0 25px 50px -12px rgba(139, 92, 246, 0.35); box-sizing: border-box; color: #f8fafc;">
         
         <!-- Header -->
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 1px solid #334155; padding-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 22px; border-bottom: 1px solid rgba(148, 163, 184, 0.15); padding-bottom: 16px;">
           <div style="display: flex; gap: 14px; align-items: center;">
-            <div style="width: 48px; height: 48px; border-radius: 14px; background: linear-gradient(135deg, #7c3aed, #a855f7); display: flex; align-items: center; justify-content: center; font-size: 26px; box-shadow: 0 4px 14px rgba(124, 58, 237, 0.4);">
-              🎙️
+            <div style="width: 52px; height: 52px; border-radius: 16px; background: linear-gradient(135deg, #7c3aed, #9333ea); display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(124, 58, 237, 0.45); flex-shrink: 0;">
+              ${lordIcon('kthelypq', 'campaign', 30, 'primary:#ffffff,secondary:#fbcfe8')}
             </div>
             <div>
               <h3 style="margin: 0; font-size: 19px; font-weight: 800; color: #f8fafc;">Send Voice Notification</h3>
-              <p style="margin: 4px 0 0; font-size: 13px; color: #cbd5e1;">Auto-plays aloud through students phone speakers without tapping</p>
+              <p style="margin: 4px 0 0; font-size: 13px; color: #94a3b8;">Auto-plays aloud through student phone speakers without tapping</p>
             </div>
           </div>
-          <button id="btnVnClose" style="background: transparent; border: none; color: #94a3b8; font-size: 24px; cursor: pointer; line-height: 1; padding: 4px;">✕</button>
+          <button id="btnVnClose" style="background: transparent; border: none; color: #94a3b8; font-size: 22px; cursor: pointer; line-height: 1; padding: 4px; display: flex; align-items: center; justify-content: center;">
+            <span class="material-symbols-outlined">close</span>
+          </button>
         </div>
 
         <!-- Feature Highlight Badge -->
-        <div style="background: rgba(34, 197, 94, 0.12); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 10px; padding: 10px 14px; margin-bottom: 18px; display: flex; align-items: center; gap: 10px;">
-          <span style="font-size: 20px;">🔊</span>
-          <span style="font-size: 12.5px; color: #4ade80; font-weight: 600;">
+        <div style="background: rgba(34, 197, 94, 0.12); border: 1px solid rgba(34, 197, 94, 0.25); border-radius: 12px; padding: 12px 16px; margin-bottom: 20px; display: flex; align-items: center; gap: 12px;">
+          <span class="material-symbols-outlined" style="font-size: 22px; color: #4ade80;">volume_up</span>
+          <span style="font-size: 12.5px; color: #4ade80; font-weight: 600; line-height: 1.4;">
             <strong>Hands-Free Auto-Speech:</strong> Student phones will turn the screen ON and broadcast this voice recording through the loudspeaker automatically without touching their phones!
           </span>
         </div>
 
         <!-- Form Inputs -->
-        <div style="display: flex; flex-direction: column; gap: 16px;">
+        <div style="display: flex; flex-direction: column; gap: 18px;">
           
           <!-- 1. Title -->
           <div>
-            <label style="display: block; font-size: 13px; font-weight: 700; color: #cbd5e1; margin-bottom: 6px;">
+            <label style="display: block; font-size: 13px; font-weight: 700; color: #cbd5e1; margin-bottom: 8px;">
               Announcement Title / Heading <span style="color: #ef4444;">*</span>
             </label>
-            <input id="vnInputTitle" type="text" placeholder="E.g., School Closed Tomorrow Due to Rain / Urgent Fee Alert" style="width: 100%; min-height: 44px; padding: 10px 14px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: white; font-size: 14px; box-sizing: border-box;" />
+            <input id="vnInputTitle" type="text" class="oc-custom-input" placeholder="E.g., School Closed Tomorrow Due to Rain / Urgent Fee Alert" />
           </div>
 
           <!-- 2. Target Audience Selector -->
           <div>
-            <label style="display: block; font-size: 13px; font-weight: 700; color: #cbd5e1; margin-bottom: 6px;">Target Audience</label>
+            <label style="display: block; font-size: 13px; font-weight: 700; color: #cbd5e1; margin-bottom: 8px;">Target Audience</label>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-              <label style="background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 10px 12px; display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px;">
-                <input type="radio" name="vnTargetType" value="all" checked /> 📢 All School
+              <label style="background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px; font-weight: 600; color: #f8fafc;">
+                <input type="radio" name="vnTargetType" value="all" checked />
+                <span class="material-symbols-outlined" style="font-size: 17px; color: #38bdf8;">campaign</span>
+                All School
               </label>
-              <label style="background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 10px 12px; display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px;">
-                <input type="radio" name="vnTargetType" value="class" /> 🏫 Specific Class
+              <label style="background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px; font-weight: 600; color: #f8fafc;">
+                <input type="radio" name="vnTargetType" value="class" />
+                <span class="material-symbols-outlined" style="font-size: 17px; color: #a78bfa;">school</span>
+                Specific Class
               </label>
-              <label style="background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 10px 12px; display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px;">
-                <input type="radio" name="vnTargetType" value="student" /> 👤 Specific Student
+              <label style="background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px; font-weight: 600; color: #f8fafc;">
+                <input type="radio" name="vnTargetType" value="student" />
+                <span class="material-symbols-outlined" style="font-size: 17px; color: #4ade80;">person</span>
+                Specific Student
               </label>
-              <label style="background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 10px 12px; display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px;">
-                <input type="radio" name="vnTargetType" value="teachers" /> 👨‍🏫 All Teachers
+              <label style="background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px; font-weight: 600; color: #f8fafc;">
+                <input type="radio" name="vnTargetType" value="teachers" />
+                <span class="material-symbols-outlined" style="font-size: 17px; color: #f59e0b;">badge</span>
+                All Teachers
               </label>
             </div>
 
             <!-- Class Dropdown (Conditional) -->
             <div id="vnClassContainer" style="display: none; margin-top: 8px;">
-              <label style="display: block; font-size: 12px; color: #94a3b8; margin-bottom: 4px;">Select Target Class</label>
-              <select id="vnSelectClass" style="width: 100%; min-height: 42px; padding: 8px 12px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: white; font-size: 14px; box-sizing: border-box;">
+              <label style="display: block; font-size: 12px; color: #94a3b8; margin-bottom: 6px;">Select Target Class</label>
+              <select id="vnSelectClass" class="oc-custom-select">
                 ${classOptions.map(c => `<option value="${c}">Class ${c}</option>`).join('')}
               </select>
             </div>
 
             <!-- Student Selector (Conditional) -->
             <div id="vnStudentContainer" style="display: none; margin-top: 8px;">
-              <label style="display: block; font-size: 12px; color: #94a3b8; margin-bottom: 4px;">Search & Select Student by Name or Admission No</label>
+              <label style="display: block; font-size: 12px; color: #94a3b8; margin-bottom: 6px;">Search & Select Student by Name or Admission No</label>
               <div style="display: flex; gap: 8px; margin-bottom: 6px;">
-                <input id="vnInputStudent" type="text" placeholder="Type Admission No (e.g. 053/18) or Name..." style="flex: 1; min-height: 42px; padding: 8px 12px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: white; font-size: 14px; box-sizing: border-box;" />
+                <input id="vnInputStudent" type="text" class="oc-custom-input" placeholder="Type Admission No (e.g. 053/18) or Name..." />
               </div>
-              <div id="vnStudentMatchBox" style="display: none; background: rgba(56, 189, 248, 0.1); border: 1px solid #0284c7; border-radius: 8px; padding: 8px 12px; font-size: 12.5px; color: #38bdf8;"></div>
-              <div id="vnStudentSuggestions" style="max-height: 140px; overflow-y: auto; background: #0f172a; border: 1px solid #334155; border-radius: 8px; display: none; margin-top: 4px;"></div>
+              <div id="vnStudentMatchBox" style="display: none; background: rgba(56, 189, 248, 0.1); border: 1px solid #0284c7; border-radius: 10px; padding: 10px 14px; font-size: 12.5px; color: #38bdf8;"></div>
+              <div id="vnStudentSuggestions" style="max-height: 140px; overflow-y: auto; background: #0f172a; border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 10px; display: none; margin-top: 4px;"></div>
             </div>
           </div>
 
           <!-- 3. Pre-Recorded Audio File Upload -->
           <div>
-            <label style="display: block; font-size: 13px; font-weight: 700; color: #cbd5e1; margin-bottom: 6px;">
-              📁 Upload Pre-Recorded Voice Audio (MP3, WAV, M4A, OGG, AAC)
+            <label style="display: block; font-size: 13px; font-weight: 700; color: #cbd5e1; margin-bottom: 8px;">
+              Upload Pre-Recorded Voice Audio (MP3, WAV, M4A, OGG, AAC)
             </label>
-            <div id="vnDropArea" style="border: 2px dashed #8b5cf6; border-radius: 12px; padding: 20px 16px; text-align: center; background: rgba(139, 92, 246, 0.06); cursor: pointer; transition: all 0.2s;">
-              <div style="font-size: 32px; margin-bottom: 6px;">🎙️</div>
+            <div id="vnDropArea" style="border: 2px dashed rgba(139, 92, 246, 0.5); border-radius: 14px; padding: 22px 18px; text-align: center; background: rgba(139, 92, 246, 0.05); cursor: pointer; transition: all 0.2s;">
+              <div style="margin-bottom: 8px;">
+                ${lordIcon('kthelypq', 'cloud_upload', 36, 'primary:#a78bfa,secondary:#ffffff')}
+              </div>
               <div style="font-weight: 700; font-size: 14px; color: #f8fafc;">Click to Browse or Drag & Drop Voice Audio File</div>
               <div style="font-size: 12px; color: #94a3b8; margin-top: 4px;">Supports MP3, WAV, M4A, OGG, AAC up to 15MB</div>
               <input id="vnFileInput" type="file" accept="audio/*,.mp3,.wav,.m4a,.ogg,.aac" style="display: none;" />
             </div>
 
             <!-- Audio Preview Player -->
-            <div id="vnAudioPreviewBox" style="display: none; margin-top: 12px; background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 12px;">
+            <div id="vnAudioPreviewBox" style="display: none; margin-top: 12px; background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 12px; padding: 12px 16px;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <span id="vnAudioFileName" style="font-size: 12.5px; font-weight: 700; color: #38bdf8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 320px;"></span>
-                <span id="vnAudioFileSize" style="font-size: 11px; background: #334155; color: #cbd5e1; padding: 2px 6px; border-radius: 4px;"></span>
+                <span id="vnAudioFileSize" style="font-size: 11px; background: #334155; color: #cbd5e1; padding: 2px 8px; border-radius: 4px;"></span>
               </div>
               <audio id="vnAudioElement" controls style="width: 100%; height: 36px;"></audio>
             </div>
@@ -4904,16 +5048,17 @@
 
           <!-- 4. Text Transcript / Message -->
           <div>
-            <label style="display: block; font-size: 13px; font-weight: 700; color: #cbd5e1; margin-bottom: 6px;">
+            <label style="display: block; font-size: 13px; font-weight: 700; color: #cbd5e1; margin-bottom: 8px;">
               Message Transcript (Optional Text Fallback)
             </label>
-            <textarea id="vnInputMessage" rows="3" placeholder="Type announcement transcript or notes. (If audio file is not uploaded, the students phone will speak this text aloud automatically)." style="width: 100%; padding: 10px 14px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: white; font-size: 13.5px; box-sizing: border-box; resize: vertical;"></textarea>
+            <textarea id="vnInputMessage" rows="3" class="oc-custom-input" style="min-height: 80px; resize: vertical;" placeholder="Type announcement transcript or notes. (If audio file is not uploaded, the students phone will speak this text aloud automatically)."></textarea>
           </div>
 
           <!-- 5. Send Button & Status -->
           <div style="margin-top: 8px;">
-            <button id="btnSubmitVoiceBroadcast" style="width: 100%; min-height: 48px; background: linear-gradient(135deg, #7c3aed, #9333ea); color: white; border: none; border-radius: 10px; font-size: 15.5px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 10px 20px -3px rgba(124,58,237,0.4);">
-              🚀 Broadcast Voice Notification Aloud Now
+            <button id="btnSubmitVoiceBroadcast" style="width: 100%; min-height: 50px; background: linear-gradient(135deg, #7c3aed, #9333ea); color: white; border: none; border-radius: 12px; font-size: 15.5px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 10px 20px -3px rgba(124,58,237,0.45); transition: transform 0.2s;">
+              <span class="material-symbols-outlined" style="font-size: 20px;">send</span>
+              Broadcast Voice Notification Aloud Now
             </button>
             <div id="vnStatusMsg" style="margin-top: 10px; font-size: 13px; text-align: center; display: none;"></div>
           </div>
