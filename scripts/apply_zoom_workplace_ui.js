@@ -287,19 +287,24 @@ const replacementCode = `function renderOnlineClassesWorkspace() {
           gap: 10px;
         }
         .zoom-hdr-btn {
-          background: none;
-          border: none;
+          background: rgba(255, 255, 255, 0.06);
+          border: 1px solid rgba(255, 255, 255, 0.12);
           color: #d4d4d8;
           cursor: pointer;
-          display: flex;
+          display: inline-flex;
           align-items: center;
-          gap: 4px;
-          padding: 6px 8px;
+          gap: 5px;
+          padding: 5px 9px;
           border-radius: 6px;
-          transition: background 0.15s, color 0.15s;
+          font-size: 12px;
+          font-weight: 500;
+          height: 30px;
+          box-sizing: border-box;
+          transition: background 0.15s, color 0.15s, border-color 0.15s;
         }
         .zoom-hdr-btn:hover {
-          background: rgba(255,255,255,0.1);
+          background: rgba(255, 255, 255, 0.14);
+          border-color: rgba(255, 255, 255, 0.25);
           color: #ffffff;
         }
         .zoom-zm-badge {
@@ -635,40 +640,32 @@ const replacementCode = `function renderOnlineClassesWorkspace() {
             <!-- TAB 1: ZOOM MEETING STAGE (Home) -->
             <section class="zoom-stage-view" id="zoomViewHome">
               
-              <!-- Clean Meeting Header Bar with Sound Announcement -->
+              <!-- Clean Meeting Header Bar with Native Controls -->
               <div class="zoom-meeting-top-bar">
                 <div class="zoom-meeting-title-group">
                   <div class="zoom-info-badge" onclick="window.zoomShowMeetingInfo()" title="Meeting Information">i</div>
                   <span class="zoom-meeting-title-text" id="zoomMeetingTitleText">TAPOWAN PUBLIC SCHOOL's Zoom Meeting</span>
-                  <button class="zoom-class-badge-btn" onclick="window.zoomOpenStartClassModal()" title="Select or Change Target Class">
-                    <span class="material-symbols-outlined" style="font-size: 15px; color: #38bdf8;">school</span>
-                    <span id="zoomTargetClassBadge">Class: All School ▾</span>
-                  </button>
                   <span style="background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.4); color: #4ade80; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; display: inline-flex; align-items: center; gap: 4px; margin-left: 2px;">
                     <span style="width: 6px; height: 6px; border-radius: 50%; background: #4ade80;"></span>
                     Active
                   </span>
                 </div>
 
-                <!-- Center: Start Class Meeting & Sound Announcement Options -->
-                <div style="display: flex; align-items: center; gap: 10px;">
-                  <button class="zoom-start-class-btn" onclick="window.zoomOpenStartClassModal()" title="Start Meeting for a Specific Class">
-                    <span class="material-symbols-outlined" style="font-size: 18px;">video_call</span>
-                    <span>Start Class Meeting</span>
-                  </button>
-                  <button class="zoom-sound-announce-btn" onclick="window.openVoiceNotificationModal()" title="Auto-plays sound message aloud through student phone speakers without tapping">
-                    <span class="material-symbols-outlined" style="font-size: 19px;">campaign</span>
-                    <span>Sound Announcement</span>
-                  </button>
-                </div>
-
-                <!-- Right Action Icons -->
+                <!-- Right Action Icons (All Native Zoom Styling) -->
                 <div class="zoom-meeting-header-actions">
-                  <span class="material-symbols-outlined" style="color: #22c55e; font-size: 19px;" title="Meeting Encrypted">security</span>
-                  <button class="zoom-hdr-btn" onclick="window.zoomCopyInviteLink()" title="Copy Invite Link">
+                  <button class="zoom-hdr-btn" onclick="window.zoomOpenStartClassModal()" title="Select Class & Start Live Meeting">
+                    <span class="material-symbols-outlined" style="font-size: 17px; color: #38bdf8;">school</span>
+                    <span id="zoomTargetClassBadge">Class Meeting ▾</span>
+                  </button>
+                  <button class="zoom-hdr-btn" onclick="window.openVoiceNotificationModal()" title="Broadcast Sound Announcement to Students">
+                    <span class="material-symbols-outlined" style="font-size: 17px; color: #c084fc;">campaign</span>
+                    <span>Announcement</span>
+                  </button>
+                  <span class="material-symbols-outlined" style="color: #22c55e; font-size: 19px; padding: 0 2px;" title="Meeting Encrypted">security</span>
+                  <button class="zoom-hdr-btn" style="padding: 5px 7px;" onclick="window.zoomCopyInviteLink()" title="Copy Invite Link">
                     <span class="material-symbols-outlined" style="font-size: 18px;">link</span>
                   </button>
-                  <button class="zoom-hdr-btn" onclick="window.zoomShowAiCompanion()" title="AI Companion">
+                  <button class="zoom-hdr-btn" style="padding: 5px 7px;" onclick="window.zoomShowAiCompanion()" title="AI Companion">
                     <span class="material-symbols-outlined" style="font-size: 18px; color: #c084fc;">auto_awesome</span>
                   </button>
                   <button class="zoom-hdr-btn" onclick="window.zoomToggleViewLayout()" title="Switch Layout">
