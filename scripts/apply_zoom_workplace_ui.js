@@ -21,6 +21,13 @@ const replacementCode = `function renderOnlineClassesWorkspace() {
     const teachers = state.directoryTeachers || store.teachers || [];
     const classes = state.directoryClasses || store.classes || [];
 
+    const isInspecting = Boolean(state.isInspecting && state.inspectRoom);
+    const inspectRoom = state.inspectRoom || {};
+    const isStealth = Boolean(state.isStealthInspector);
+    const safeTitle = typeof escapeHtml === 'function' ? escapeHtml(inspectRoom.title || 'Live Classroom') : (inspectRoom.title || 'Live Classroom');
+    const safeClass = typeof escapeHtml === 'function' ? escapeHtml(inspectRoom.target_class || 'All Classes') : (inspectRoom.target_class || 'All Classes');
+    const safeHost = typeof escapeHtml === 'function' ? escapeHtml(inspectRoom.host_name || 'Teacher') : (inspectRoom.host_name || 'Teacher');
+
     // 1. Hide default dashboard grids, hero, statsCards
     const analyticsGrid = document.querySelector('.analytics-grid');
     if (analyticsGrid) analyticsGrid.style.display = 'none';
@@ -62,7 +69,7 @@ const replacementCode = `function renderOnlineClassesWorkspace() {
       <style>
         /* ============================================================
            ZOOM WORKPLACE MEETING UI - AUTHENTIC MEETING ROOM DESIGN
-           (Unnecessary Web Header Removed - Dedicated Sound Announcement)
+           (Supports Live Stage + Stealth Spy & Visible Inspection Modes)
            ============================================================ */
         .zoom-workplace-container {
           display: flex;
@@ -150,17 +157,17 @@ const replacementCode = `function renderOnlineClassesWorkspace() {
           overflow: hidden;
         }
 
-        /* Meeting Stage View (#zoomViewHome) */
+        /* Stage View (Home) */
         .zoom-stage-view {
           flex: 1;
           display: flex;
           flex-direction: column;
           position: relative;
-          min-height: 0;
+          overflow: hidden;
           background: #18181b;
         }
 
-        /* ── MEETING TOP HEADER BAR (Clean & Authentic) ── */
+        /* Meeting Top Bar */
         .zoom-meeting-top-bar {
           height: 52px;
           display: flex;
@@ -177,6 +184,7 @@ const replacementCode = `function renderOnlineClassesWorkspace() {
           display: flex;
           align-items: center;
           gap: 10px;
+          min-width: 0;
         }
         .zoom-info-badge {
           width: 22px;
@@ -193,6 +201,7 @@ const replacementCode = `function renderOnlineClassesWorkspace() {
           font-style: italic;
           font-family: serif;
           transition: background 0.15s, border-color 0.15s;
+          flex-shrink: 0;
         }
         .zoom-info-badge:hover {
           background: rgba(255,255,255,0.2);
@@ -203,88 +212,15 @@ const replacementCode = `function renderOnlineClassesWorkspace() {
           font-weight: 700;
           color: #ffffff;
           letter-spacing: -0.2px;
-        }
-
-        /* Prominent Sound Announcement Button */
-        .zoom-sound-announce-btn {
-          background: linear-gradient(135deg, #7c3aed, #9333ea);
-          border: 1px solid rgba(168, 85, 247, 0.4);
-          color: #ffffff;
-          padding: 7px 18px;
-          border-radius: 20px;
-          font-size: 13px;
-          font-weight: 700;
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          cursor: pointer;
-          box-shadow: 0 4px 16px rgba(124, 58, 237, 0.45);
-          transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
-        }
-        .zoom-sound-announce-btn:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 6px 22px rgba(124, 58, 237, 0.65);
-          background: linear-gradient(135deg, #6d28d9, #7e22ce);
-        }
-        .zoom-class-badge-btn {
-          background: rgba(56, 189, 248, 0.12);
-          border: 1px solid rgba(56, 189, 248, 0.35);
-          color: #38bdf8;
-          font-size: 12px;
-          font-weight: 700;
-          padding: 4px 10px;
-          border-radius: 12px;
-          cursor: pointer;
-          display: inline-flex;
-          align-items: center;
-          gap: 5px;
-          transition: background 0.15s, border-color 0.15s;
-        }
-        .zoom-class-badge-btn:hover {
-          background: rgba(56, 189, 248, 0.22);
-          border-color: #38bdf8;
-        }
-        .zoom-start-class-btn {
-          background: linear-gradient(135deg, #0b5cff, #2563eb);
-          border: 1px solid rgba(59, 130, 246, 0.4);
-          color: #ffffff;
-          padding: 7px 16px;
-          border-radius: 20px;
-          font-size: 13px;
-          font-weight: 700;
-          display: inline-flex;
-          align-items: center;
-          gap: 7px;
-          cursor: pointer;
-          box-shadow: 0 4px 15px rgba(11, 92, 255, 0.35);
-          transition: transform 0.15s, box-shadow 0.15s;
-        }
-        .zoom-start-class-btn:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 6px 20px rgba(11, 92, 255, 0.55);
-        }
-
-        .zoom-meeting-center-close {
-          width: 28px;
-          height: 28px;
-          border-radius: 50%;
-          border: none;
-          background: rgba(39,39,42,0.8);
-          color: #d4d4d8;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          transition: background 0.15s;
-        }
-        .zoom-meeting-center-close:hover {
-          background: #3f3f46;
-          color: #ffffff;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         .zoom-meeting-header-actions {
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: 8px;
+          flex-shrink: 0;
         }
         .zoom-hdr-btn {
           background: rgba(255, 255, 255, 0.06);
@@ -334,7 +270,7 @@ const replacementCode = `function renderOnlineClassesWorkspace() {
           gap: 6px;
           transition: background 0.15s, transform 0.1s;
           box-shadow: 0 2px 8px rgba(225,29,72,0.4);
-          margin-left: 8px;
+          margin-left: 6px;
         }
         .zoom-top-end-btn:hover {
           background: #be123c;
@@ -362,12 +298,11 @@ const replacementCode = `function renderOnlineClassesWorkspace() {
         .zoom-live-video-element {
           width: 100%;
           height: 100%;
-          object-fit: cover;
-          display: none;
+          object-fit: contain;
           background: #000;
         }
 
-        /* Bottom-Left Name Badge (Red mic + Name matching screenshot) */
+        /* Bottom-Left Name Badge */
         .zoom-name-pill {
           position: absolute;
           bottom: 18px;
@@ -415,7 +350,7 @@ const replacementCode = `function renderOnlineClassesWorkspace() {
           padding-right: 90px;
         }
 
-        /* Control Buttons (Stacked icon + chevron + label) */
+        /* Control Buttons */
         .zoom-ctrl-btn {
           height: 54px;
           min-width: 60px;
@@ -449,50 +384,42 @@ const replacementCode = `function renderOnlineClassesWorkspace() {
         .zoom-ctrl-label {
           font-size: 10.5px;
           font-weight: 500;
-          white-space: nowrap;
-          letter-spacing: -0.2px;
+          letter-spacing: -0.1px;
         }
         .zoom-ctrl-chevron {
-          font-size: 12px !important;
+          font-size: 13px;
           color: #a1a1aa;
         }
 
-        /* Share Button (Green Accent) */
-        .zoom-share-icon {
-          color: #22c55e !important;
-        }
-
-        /* End Button (Red Square + Red Label) */
+        /* Red End Meeting Button bottom */
         .zoom-end-btn-wrap {
+          height: 54px;
+          min-width: 58px;
+          padding: 4px 8px;
+          border-radius: 8px;
+          border: none;
+          background: transparent;
+          cursor: pointer;
           display: flex;
           flex-direction: column;
           align-items: center;
+          justify-content: center;
           gap: 3px;
-          cursor: pointer;
-          background: none;
-          border: none;
-          padding: 4px 8px;
-          border-radius: 8px;
           transition: background 0.15s;
         }
         .zoom-end-btn-wrap:hover {
-          background: rgba(239,68,68,0.12);
+          background: rgba(225, 29, 72, 0.12);
         }
         .zoom-end-square {
-          width: 28px;
-          height: 28px;
+          width: 22px;
+          height: 22px;
           background: #e11d48;
-          border-radius: 6px;
+          border-radius: 5px;
           display: flex;
           align-items: center;
           justify-content: center;
           color: #ffffff;
-          box-shadow: 0 2px 6px rgba(225,29,72,0.35);
-          transition: transform 0.1s, background 0.15s;
-        }
-        .zoom-end-btn-wrap:hover .zoom-end-square {
-          background: #be123c;
-          transform: scale(1.05);
+          box-shadow: 0 2px 6px rgba(225, 29, 72, 0.4);
         }
         .zoom-end-label {
           font-size: 10.5px;
@@ -616,7 +543,7 @@ const replacementCode = `function renderOnlineClassesWorkspace() {
                 <span class="material-symbols-outlined" style="font-size: 20px;">chat_bubble</span>
                 <span class="zoom-sidebar-label">Chat</span>
               </button>
-              <button class="zoom-sidebar-item" id="zoomNavMeetings" onclick="window.zoomSwitchTab('meetings')" title="Meetings & Classrooms">
+              <button class="zoom-sidebar-item" id="zoomNavMeetings" onclick="window.zoomSwitchTab('meetings')" title="Meetings & Classrooms (Spy / Join other classes)">
                 <span class="material-symbols-outlined" style="font-size: 20px;">calendar_month</span>
                 <span class="zoom-sidebar-label">Meetings</span>
               </button>
@@ -644,49 +571,101 @@ const replacementCode = `function renderOnlineClassesWorkspace() {
               <div class="zoom-meeting-top-bar">
                 <div class="zoom-meeting-title-group">
                   <div class="zoom-info-badge" onclick="window.zoomShowMeetingInfo()" title="Meeting Information">i</div>
-                  <span class="zoom-meeting-title-text" id="zoomMeetingTitleText">TAPOWAN PUBLIC SCHOOL's Zoom Meeting</span>
-                  <span style="background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.4); color: #4ade80; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; display: inline-flex; align-items: center; gap: 4px; margin-left: 2px;">
-                    <span style="width: 6px; height: 6px; border-radius: 50%; background: #4ade80;"></span>
-                    Active
+                  <span class="zoom-meeting-title-text" id="zoomMeetingTitleText">
+                    \${isInspecting 
+                      ? (isStealth ? '🕵️ Stealth Spy: ' : '👁️ Admin Observing: ') + safeTitle + ' (' + safeClass + ')' 
+                      : 'TAPOWAN PUBLIC SCHOOL\\'s Zoom Meeting'}
                   </span>
+                  
+                  \${isInspecting ? \`
+                    <span style="background: \${isStealth ? 'rgba(168,85,247,0.22)' : 'rgba(56,189,248,0.22)'}; border: 1px solid \${isStealth ? '#c084fc' : '#38bdf8'}; color: \${isStealth ? '#d8b4fe' : '#7dd3fc'}; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 12px; display: inline-flex; align-items: center; gap: 4px;">
+                      \${isStealth ? '🕵️ INVISIBLE SPY' : '👁️ VISIBLE ADMIN'}
+                    </span>
+                    <span id="inspectDurationTimer" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: #cbd5e1; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px;">
+                      \${typeof formatDuration === 'function' ? formatDuration(state.inspectDurationSec || 0) : '00:00'}
+                    </span>
+                  \` : \`
+                    <span style="background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.4); color: #4ade80; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; display: inline-flex; align-items: center; gap: 4px; margin-left: 2px;">
+                      <span style="width: 6px; height: 6px; border-radius: 50%; background: #4ade80;"></span>
+                      Active
+                    </span>
+                    <!-- Quick Detector Banner for other teacher classes in progress -->
+                    <div id="zoomOtherClassesBanner" style="display: inline-flex; align-items: center; gap: 6px; margin-left: 6px;"></div>
+                  \`}
                 </div>
 
-                <!-- Right Action Icons (All Native Zoom Styling) -->
+                <!-- Right Action Icons -->
                 <div class="zoom-meeting-header-actions">
-                  <button class="zoom-hdr-btn" onclick="window.zoomOpenStartClassModal()" title="Select Class & Start Live Meeting">
-                    <span class="material-symbols-outlined" style="font-size: 17px; color: #38bdf8;">school</span>
-                    <span id="zoomTargetClassBadge">Class Meeting ▾</span>
-                  </button>
-                  <button class="zoom-hdr-btn" onclick="window.openVoiceNotificationModal()" title="Broadcast Sound Announcement to Students">
-                    <span class="material-symbols-outlined" style="font-size: 17px; color: #c084fc;">campaign</span>
-                    <span>Announcement</span>
-                  </button>
-                  <span class="material-symbols-outlined" style="color: #22c55e; font-size: 19px; padding: 0 2px;" title="Meeting Encrypted">security</span>
-                  <button class="zoom-hdr-btn" style="padding: 5px 7px;" onclick="window.zoomCopyInviteLink()" title="Copy Invite Link">
-                    <span class="material-symbols-outlined" style="font-size: 18px;">link</span>
-                  </button>
-                  <button class="zoom-hdr-btn" style="padding: 5px 7px;" onclick="window.zoomShowAiCompanion()" title="AI Companion">
-                    <span class="material-symbols-outlined" style="font-size: 18px; color: #c084fc;">auto_awesome</span>
-                  </button>
-                  <button class="zoom-hdr-btn" onclick="window.zoomToggleViewLayout()" title="Switch Layout">
-                    <span class="material-symbols-outlined" style="font-size: 18px;">grid_view</span>
-                    <span style="font-size: 12px; font-weight: 500;">View</span>
-                  </button>
-                  <div class="zoom-zm-badge">zm</div>
-                  <button class="zoom-top-end-btn" onclick="window.zoomEndMeeting()" title="End or Leave Meeting">
-                    <span class="material-symbols-outlined" style="font-size: 16px;">call_end</span>
-                    <span>End</span>
-                  </button>
+                  \${isInspecting ? \`
+                    <button class="zoom-hdr-btn" id="zoomBtnInspectAudio" onclick="window.toggleInspectAudio()" title="Mute/Unmute hearing teacher audio">
+                      <span class="material-symbols-outlined" style="font-size: 17px; color: \${state.isInspectAudioMuted ? '#ef4444' : '#22c55e'};">\${state.isInspectAudioMuted ? 'volume_off' : 'volume_up'}</span>
+                      <span>\${state.isInspectAudioMuted ? 'Unmute Audio' : 'Audio ON'}</span>
+                    </button>
+                    <button class="zoom-hdr-btn" onclick="window.takeInspectSnapshot()" title="Capture High-Res Photo of Live Classroom">
+                      <span class="material-symbols-outlined" style="font-size: 17px; color: #38bdf8;">photo_camera</span>
+                      <span>Snap</span>
+                    </button>
+                    <button class="zoom-hdr-btn" onclick="window.toggleInspectFullscreen()" title="Fullscreen Stage">
+                      <span class="material-symbols-outlined" style="font-size: 17px;">fullscreen</span>
+                    </button>
+                    <button class="zoom-top-end-btn" onclick="window.stopInspectionStudio(true)" title="Exit inspection and return to main room">
+                      <span class="material-symbols-outlined" style="font-size: 16px;">logout</span>
+                      <span>Leave Inspection</span>
+                    </button>
+                  \` : \`
+                    <button class="zoom-hdr-btn" onclick="window.zoomOpenStartClassModal()" title="Select Class & Start Live Meeting">
+                      <span class="material-symbols-outlined" style="font-size: 17px; color: #38bdf8;">school</span>
+                      <span id="zoomTargetClassBadge">Class Meeting ▾</span>
+                    </button>
+                    <button class="zoom-hdr-btn" onclick="window.openVoiceNotificationModal()" title="Broadcast Sound Announcement to Students">
+                      <span class="material-symbols-outlined" style="font-size: 17px; color: #c084fc;">campaign</span>
+                      <span>Announcement</span>
+                    </button>
+                    <span class="material-symbols-outlined" style="color: #22c55e; font-size: 19px; padding: 0 2px;" title="Meeting Encrypted">security</span>
+                    <button class="zoom-hdr-btn" style="padding: 5px 7px;" onclick="window.zoomCopyInviteLink()" title="Copy Invite Link">
+                      <span class="material-symbols-outlined" style="font-size: 18px;">link</span>
+                    </button>
+                    <button class="zoom-hdr-btn" style="padding: 5px 7px;" onclick="window.zoomShowAiCompanion()" title="AI Companion">
+                      <span class="material-symbols-outlined" style="font-size: 18px; color: #c084fc;">auto_awesome</span>
+                    </button>
+                    <button class="zoom-hdr-btn" onclick="window.zoomToggleViewLayout()" title="Switch Layout">
+                      <span class="material-symbols-outlined" style="font-size: 18px;">grid_view</span>
+                      <span style="font-size: 12px; font-weight: 500;">View</span>
+                    </button>
+                    <div class="zoom-zm-badge">zm</div>
+                    <button class="zoom-top-end-btn" onclick="window.zoomEndMeeting()" title="End or Leave Meeting">
+                      <span class="material-symbols-outlined" style="font-size: 16px;">call_end</span>
+                      <span>End</span>
+                    </button>
+                  \`}
                 </div>
               </div>
 
               <!-- Meeting Canvas -->
               <div class="zoom-stage-canvas" id="zoomStageCanvas">
-                <!-- Pencil Sketch Centered Image -->
-                <img id="zoomSketchPortrait" class="zoom-sketch-image" src="/zoom_sample_sketch.png" alt="TAPOWAN PUBLIC SCHOOL" />
+                <!-- Pencil Sketch Centered Image (Hidden when inspecting) -->
+                <img id="zoomSketchPortrait" class="zoom-sketch-image" src="/zoom_sample_sketch.png" alt="TAPOWAN PUBLIC SCHOOL" style="display: \${isInspecting ? 'none' : 'block'};" />
                 
                 <!-- Live Video Element (Turns on when camera starts) -->
-                <video id="liveClassMainVideo" class="zoom-live-video-element" autoplay playsinline muted></video>
+                <video id="liveClassMainVideo" class="zoom-live-video-element" autoplay playsinline muted style="display: none;"></video>
+
+                <!-- Live Inspect Video Element (Plays teacher stream when observing other classes) -->
+                <video id="liveClassInspectVideo" class="zoom-live-video-element" autoplay playsinline style="display: \${isInspecting ? 'block' : 'none'}; width: 100%; height: 100%; object-fit: contain; background: #000;"></video>
+
+                \${isInspecting ? \`
+                  <!-- Floating Connection Status -->
+                  <div id="inspectStreamStatus" style="position: absolute; top: 16px; left: 16px; z-index: 30; background: rgba(0,0,0,0.75); backdrop-filter: blur(8px); padding: 5px 12px; border-radius: 8px; font-size: 11.5px; font-weight: 700; color: #fff; border: 1px solid rgba(255,255,255,0.12);">
+                    ⏳ Connecting to Teacher Live Stream...
+                  </div>
+
+                  \${isStealth ? \`
+                    <!-- Stealth Spy Badge Overlay -->
+                    <div style="position: absolute; top: 16px; right: 16px; z-index: 30; background: rgba(124,58,237,0.75); backdrop-filter: blur(8px); padding: 5px 12px; border-radius: 8px; font-size: 11.5px; font-weight: 800; color: #fff; border: 1px solid rgba(168,85,247,0.4); display: flex; align-items: center; gap: 6px;">
+                      <span>🕵️ INVISIBLE SPY</span>
+                      <span style="font-size: 10px; color: #e9d5ff; font-weight: 500;">(Teacher & students cannot see you)</span>
+                    </div>
+                  \` : ''}
+                \` : ''}
 
                 <!-- Whiteboard Overlay -->
                 <div id="whiteboardContainer" style="display: none; position: absolute; inset: 0; background: #ffffff; z-index: 28; flex-direction: column;">
@@ -705,8 +684,13 @@ const replacementCode = `function renderOnlineClassesWorkspace() {
 
                 <!-- Bottom-Left Name Badge matching screenshot -->
                 <div class="zoom-name-pill" id="zoomNamePill">
-                  <span class="material-symbols-outlined" id="zoomNameMicIcon" style="font-size: 15px; color: #ef4444;">mic_off</span>
-                  <span>TAPOWAN PUBLIC SCHOOL</span>
+                  \${isInspecting ? \`
+                    <span class="material-symbols-outlined" style="font-size: 15px; color: #38bdf8;">school</span>
+                    <span>👨‍🏫 Host: \${safeHost} (\${safeClass})</span>
+                  \` : \`
+                    <span class="material-symbols-outlined" id="zoomNameMicIcon" style="font-size: 15px; color: #ef4444;">mic_off</span>
+                    <span>TAPOWAN PUBLIC SCHOOL</span>
+                  \`}
                 </div>
 
                 <!-- Floating Reactions Spawner -->
@@ -715,7 +699,7 @@ const replacementCode = `function renderOnlineClassesWorkspace() {
                 <!-- Slide-Out Participants Drawer -->
                 <aside class="zoom-side-drawer" id="zoomParticipantsDrawer">
                   <div class="zoom-drawer-header">
-                    <span class="zoom-drawer-title">Participants (<span id="zoomDrawerCount">1</span>)</span>
+                    <span class="zoom-drawer-title">Participants (<span id="zoomDrawerCount">\${isInspecting ? (inspectRoom.participants || []).length : '1'}</span>)</span>
                     <button class="zoom-nav-arrow-btn" onclick="window.zoomToggleParticipants()"><span class="material-symbols-outlined" style="font-size: 18px;">close</span></button>
                   </div>
                   <div class="zoom-drawer-body">
@@ -724,7 +708,7 @@ const replacementCode = `function renderOnlineClassesWorkspace() {
                         <div class="zoom-nav-avatar" style="width: 28px; height: 28px; font-size: 11px; background: #4338ca; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; font-weight: 700;">TP</div>
                         <div>
                           <div style="font-size: 12.5px; font-weight: 700; color: #fff;">TAPOWAN PUBLIC SCHOOL</div>
-                          <div style="font-size: 10.5px; color: #a1a1aa;">Host, me</div>
+                          <div style="font-size: 10.5px; color: #a1a1aa;">\${isInspecting ? (isStealth ? 'Incognito Spy' : 'Admin Observer') : 'Host, me'}</div>
                         </div>
                       </div>
                       <div style="display: flex; gap: 6px; color: #a1a1aa;">
@@ -810,108 +794,163 @@ const replacementCode = `function renderOnlineClassesWorkspace() {
 
               <!-- ── BOTTOM TOOLBAR (EXACT ZOOM CONTROLS) ── -->
               <footer class="zoom-bottom-bar">
-                
-                <!-- Left: Audio & Video -->
-                <div class="zoom-ctrl-left">
-                  <!-- Audio Button -->
-                  <button class="zoom-ctrl-btn" id="zoomBtnAudio" onclick="window.zoomToggleAudio()">
-                    <div class="zoom-ctrl-icon-row">
-                      <span class="material-symbols-outlined" id="zoomIconAudio" style="font-size: 20px; color: #ef4444;">mic_off</span>
-                      <span class="material-symbols-outlined zoom-ctrl-chevron">expand_less</span>
-                    </div>
-                    <span class="zoom-ctrl-label" id="zoomLabelAudio">Audio</span>
-                  </button>
+                \${isInspecting ? \`
+                  <!-- Left: Inspect Audio Listen & Snapshot -->
+                  <div class="zoom-ctrl-left">
+                    <button class="zoom-ctrl-btn" onclick="window.toggleInspectAudio()" title="Mute/Unmute audio">
+                      <div class="zoom-ctrl-icon-row">
+                        <span class="material-symbols-outlined" style="font-size: 20px; color: \${state.isInspectAudioMuted ? '#ef4444' : '#22c55e'};">\${state.isInspectAudioMuted ? 'volume_off' : 'volume_up'}</span>
+                      </div>
+                      <span class="zoom-ctrl-label">\${state.isInspectAudioMuted ? 'Listen Off' : 'Listen ON'}</span>
+                    </button>
+                    <button class="zoom-ctrl-btn" onclick="window.takeInspectSnapshot()" title="Capture High-Res Photo">
+                      <div class="zoom-ctrl-icon-row">
+                        <span class="material-symbols-outlined" style="font-size: 20px; color: #38bdf8;">photo_camera</span>
+                      </div>
+                      <span class="zoom-ctrl-label">Snapshot</span>
+                    </button>
+                  </div>
 
-                  <!-- Video Button -->
-                  <button class="zoom-ctrl-btn" id="zoomBtnVideo" onclick="window.zoomToggleVideo()">
-                    <div class="zoom-ctrl-icon-row">
-                      <span class="material-symbols-outlined" id="zoomIconVideo" style="font-size: 20px; color: #ef4444;">videocam_off</span>
-                      <span class="material-symbols-outlined zoom-ctrl-chevron">expand_less</span>
-                    </div>
-                    <span class="zoom-ctrl-label" id="zoomLabelVideo">Video</span>
-                  </button>
-                </div>
+                  <!-- Center: Participants, Chat, Sound Announcement, End Class Room -->
+                  <div class="zoom-ctrl-center">
+                    <button class="zoom-ctrl-btn" id="zoomBtnParticipants" onclick="window.zoomToggleParticipants()">
+                      <div class="zoom-ctrl-icon-row">
+                        <span class="material-symbols-outlined" style="font-size: 20px;">group</span>
+                        <span class="zoom-ctrl-chevron">\${(inspectRoom.participants || []).length}</span>
+                      </div>
+                      <span class="zoom-ctrl-label">Attendees</span>
+                    </button>
+                    <button class="zoom-ctrl-btn" id="zoomBtnChat" onclick="window.zoomToggleChat()">
+                      <div class="zoom-ctrl-icon-row">
+                        <span class="material-symbols-outlined" style="font-size: 20px;">chat_bubble</span>
+                      </div>
+                      <span class="zoom-ctrl-label">Chat</span>
+                    </button>
+                    <button class="zoom-ctrl-btn" onclick="window.openVoiceNotificationModal()" title="Sound Alert to Class">
+                      <div class="zoom-ctrl-icon-row">
+                        <span class="material-symbols-outlined" style="font-size: 20px; color: #c084fc;">campaign</span>
+                      </div>
+                      <span class="zoom-ctrl-label" style="color: #c084fc; font-weight: 700;">Announce</span>
+                    </button>
+                    <button class="zoom-ctrl-btn" onclick="window.terminateRoomAdmin('\${inspectRoom.room_id}')" title="End this class room">
+                      <div class="zoom-ctrl-icon-row">
+                        <span class="material-symbols-outlined" style="font-size: 20px; color: #ef4444;">stop_circle</span>
+                      </div>
+                      <span class="zoom-ctrl-label" style="color: #ef4444;">End Room</span>
+                    </button>
+                  </div>
 
-                <!-- Center: Participants, Chat, React, Share, Host tools, Sound Announce, Breakout Rooms, More -->
-                <div class="zoom-ctrl-center">
-                  <!-- Participants -->
-                  <button class="zoom-ctrl-btn" id="zoomBtnParticipants" onclick="window.zoomToggleParticipants()">
-                    <div class="zoom-ctrl-icon-row">
-                      <span class="material-symbols-outlined" style="font-size: 20px;">group</span>
-                      <span class="zoom-ctrl-chevron">1</span>
-                      <span class="material-symbols-outlined zoom-ctrl-chevron">expand_less</span>
-                    </div>
-                    <span class="zoom-ctrl-label">Participants</span>
-                  </button>
+                  <!-- Right: Leave Inspection Button -->
+                  <div class="zoom-ctrl-right">
+                    <button class="zoom-end-btn-wrap" onclick="window.stopInspectionStudio(true)" title="Exit inspection">
+                      <div class="zoom-end-square">
+                        <span class="material-symbols-outlined" style="font-size: 16px; font-weight: 800;">logout</span>
+                      </div>
+                      <span class="zoom-end-label">Leave</span>
+                    </button>
+                  </div>
+                \` : \`
+                  <!-- Left: Audio & Video -->
+                  <div class="zoom-ctrl-left">
+                    <!-- Audio Button -->
+                    <button class="zoom-ctrl-btn" id="zoomBtnAudio" onclick="window.zoomToggleAudio()">
+                      <div class="zoom-ctrl-icon-row">
+                        <span class="material-symbols-outlined" id="zoomIconAudio" style="font-size: 20px; color: #ef4444;">mic_off</span>
+                        <span class="material-symbols-outlined zoom-ctrl-chevron">expand_less</span>
+                      </div>
+                      <span class="zoom-ctrl-label" id="zoomLabelAudio">Audio</span>
+                    </button>
 
-                  <!-- Chat -->
-                  <button class="zoom-ctrl-btn" id="zoomBtnChat" onclick="window.zoomToggleChat()">
-                    <div class="zoom-ctrl-icon-row">
-                      <span class="material-symbols-outlined" style="font-size: 20px;">chat_bubble</span>
-                    </div>
-                    <span class="zoom-ctrl-label">Chat</span>
-                  </button>
+                    <!-- Video Button -->
+                    <button class="zoom-ctrl-btn" id="zoomBtnVideo" onclick="window.zoomToggleVideo()">
+                      <div class="zoom-ctrl-icon-row">
+                        <span class="material-symbols-outlined" id="zoomIconVideo" style="font-size: 20px; color: #ef4444;">videocam_off</span>
+                        <span class="material-symbols-outlined zoom-ctrl-chevron">expand_less</span>
+                      </div>
+                      <span class="zoom-ctrl-label" id="zoomLabelVideo">Video</span>
+                    </button>
+                  </div>
 
-                  <!-- React -->
-                  <button class="zoom-ctrl-btn" id="zoomBtnReact" onclick="window.zoomToggleReactions(event)">
-                    <div class="zoom-ctrl-icon-row">
-                      <span class="material-symbols-outlined" style="font-size: 20px; color: #f43f5e;">favorite</span>
-                    </div>
-                    <span class="zoom-ctrl-label">React</span>
-                  </button>
+                  <!-- Center: Participants, Chat, React, Share, Host tools, Sound Announce, Breakout Rooms, More -->
+                  <div class="zoom-ctrl-center">
+                    <!-- Participants -->
+                    <button class="zoom-ctrl-btn" id="zoomBtnParticipants" onclick="window.zoomToggleParticipants()">
+                      <div class="zoom-ctrl-icon-row">
+                        <span class="material-symbols-outlined" style="font-size: 20px;">group</span>
+                        <span class="zoom-ctrl-chevron">1</span>
+                        <span class="material-symbols-outlined zoom-ctrl-chevron">expand_less</span>
+                      </div>
+                      <span class="zoom-ctrl-label">Participants</span>
+                    </button>
 
-                  <!-- Share Screen (Green Accent) -->
-                  <button class="zoom-ctrl-btn" id="zoomBtnShare" onclick="window.zoomToggleShare()">
-                    <div class="zoom-ctrl-icon-row">
-                      <span class="material-symbols-outlined zoom-share-icon" style="font-size: 20px;">present_to_all</span>
-                      <span class="material-symbols-outlined zoom-ctrl-chevron">expand_less</span>
-                    </div>
-                    <span class="zoom-ctrl-label">Share</span>
-                  </button>
+                    <!-- Chat -->
+                    <button class="zoom-ctrl-btn" id="zoomBtnChat" onclick="window.zoomToggleChat()">
+                      <div class="zoom-ctrl-icon-row">
+                        <span class="material-symbols-outlined" style="font-size: 20px;">chat_bubble</span>
+                      </div>
+                      <span class="zoom-ctrl-label">Chat</span>
+                    </button>
 
-                  <!-- Host Tools -->
-                  <button class="zoom-ctrl-btn" id="zoomBtnHostTools" onclick="window.zoomToggleHostTools(event)">
-                    <div class="zoom-ctrl-icon-row">
-                      <span class="material-symbols-outlined" style="font-size: 20px;">shield_person</span>
-                    </div>
-                    <span class="zoom-ctrl-label">Host tools</span>
-                  </button>
+                    <!-- Reactions -->
+                    <button class="zoom-ctrl-btn" id="zoomBtnReact" onclick="window.zoomToggleReactions(event)">
+                      <div class="zoom-ctrl-icon-row">
+                        <span class="material-symbols-outlined" style="font-size: 20px;">mood</span>
+                      </div>
+                      <span class="zoom-ctrl-label">Reactions</span>
+                    </button>
 
-                  <!-- Sound Announcement Button -->
-                  <button class="zoom-ctrl-btn" id="zoomBtnSoundAnnounce" onclick="window.openVoiceNotificationModal()" title="Broadcast Sound Announcement to Student Phones">
-                    <div class="zoom-ctrl-icon-row">
-                      <span class="material-symbols-outlined" style="font-size: 20px; color: #c084fc;">campaign</span>
-                    </div>
-                    <span class="zoom-ctrl-label" style="color: #c084fc; font-weight: 700;">Announce</span>
-                  </button>
+                    <!-- Share Screen -->
+                    <button class="zoom-ctrl-btn" id="zoomBtnShare" onclick="window.zoomToggleShare()" title="Cast or share screen">
+                      <div class="zoom-ctrl-icon-row">
+                        <span class="material-symbols-outlined" style="font-size: 20px; color: #22c55e;">present_to_all</span>
+                        <span class="material-symbols-outlined zoom-ctrl-chevron">expand_less</span>
+                      </div>
+                      <span class="zoom-ctrl-label">Share</span>
+                    </button>
 
-                  <!-- Breakout Rooms -->
-                  <button class="zoom-ctrl-btn" id="zoomBtnBreakout" onclick="window.zoomTriggerBreakout()">
-                    <div class="zoom-ctrl-icon-row">
-                      <span class="material-symbols-outlined" style="font-size: 20px;">grid_view</span>
-                    </div>
-                    <span class="zoom-ctrl-label">Breakout Rooms</span>
-                  </button>
+                    <!-- Host Tools -->
+                    <button class="zoom-ctrl-btn" id="zoomBtnHostTools" onclick="window.zoomToggleHostTools(event)">
+                      <div class="zoom-ctrl-icon-row">
+                        <span class="material-symbols-outlined" style="font-size: 20px; color: #38bdf8;">security</span>
+                      </div>
+                      <span class="zoom-ctrl-label">Host Tools</span>
+                    </button>
 
-                  <!-- More -->
-                  <button class="zoom-ctrl-btn" id="zoomBtnMore" onclick="window.zoomToggleMore(event)">
-                    <div class="zoom-ctrl-icon-row">
-                      <span class="material-symbols-outlined" style="font-size: 20px;">more_horiz</span>
-                    </div>
-                    <span class="zoom-ctrl-label">More</span>
-                  </button>
-                </div>
+                    <!-- Sound Announcement Button -->
+                    <button class="zoom-ctrl-btn" id="zoomBtnSoundAnnounce" onclick="window.openVoiceNotificationModal()" title="Broadcast Sound Announcement to Student Phones">
+                      <div class="zoom-ctrl-icon-row">
+                        <span class="material-symbols-outlined" style="font-size: 20px; color: #c084fc;">campaign</span>
+                      </div>
+                      <span class="zoom-ctrl-label" style="color: #c084fc; font-weight: 700;">Announce</span>
+                    </button>
 
-                <!-- Right: End Meeting -->
-                <div class="zoom-ctrl-right">
-                  <button class="zoom-end-btn-wrap" onclick="window.zoomEndMeeting()" title="End or Leave Meeting">
-                    <div class="zoom-end-square">
-                      <span class="material-symbols-outlined" style="font-size: 16px; font-weight: 800;">close</span>
-                    </div>
-                    <span class="zoom-end-label">End</span>
-                  </button>
-                </div>
+                    <!-- Breakout Rooms -->
+                    <button class="zoom-ctrl-btn" id="zoomBtnBreakout" onclick="window.zoomTriggerBreakout()">
+                      <div class="zoom-ctrl-icon-row">
+                        <span class="material-symbols-outlined" style="font-size: 20px;">grid_view</span>
+                      </div>
+                      <span class="zoom-ctrl-label">Breakout Rooms</span>
+                    </button>
 
+                    <!-- More -->
+                    <button class="zoom-ctrl-btn" id="zoomBtnMore" onclick="window.zoomToggleMore(event)">
+                      <div class="zoom-ctrl-icon-row">
+                        <span class="material-symbols-outlined" style="font-size: 20px;">more_horiz</span>
+                      </div>
+                      <span class="zoom-ctrl-label">More</span>
+                    </button>
+                  </div>
+
+                  <!-- Right: End Meeting -->
+                  <div class="zoom-ctrl-right">
+                    <button class="zoom-end-btn-wrap" onclick="window.zoomEndMeeting()" title="End or Leave Meeting">
+                      <div class="zoom-end-square">
+                        <span class="material-symbols-outlined" style="font-size: 16px; font-weight: 800;">close</span>
+                      </div>
+                      <span class="zoom-end-label">End</span>
+                    </button>
+                  </div>
+                \`}
               </footer>
 
             </section>
@@ -935,13 +974,13 @@ const replacementCode = `function renderOnlineClassesWorkspace() {
               </div>
             </section>
 
-            <!-- TAB 3: MEETINGS & ROOMS VIEW -->
+            <!-- TAB 3: MEETINGS & ROOMS VIEW (Join other classes / Spy / History) -->
             <section class="zoom-tab-view" id="zoomViewMeetings">
               <div style="max-width: 1000px; margin: 0 auto; width: 100%;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #27272a; padding-bottom: 12px;">
                   <div>
-                    <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: #fff;">Scheduled Meetings & Classrooms</h2>
-                    <p style="margin: 4px 0 0; font-size: 13px; color: #a1a1aa;">Active rooms, recorded lectures and timetable schedules</p>
+                    <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: #fff;">Live Meetings & Classrooms (Observe / Spy)</h2>
+                    <p style="margin: 4px 0 0; font-size: 13px; color: #a1a1aa;">Monitor ongoing teacher classes in real-time or join stealthily as invisible spy</p>
                   </div>
                   <div style="display: flex; gap: 10px;">
                     <button onclick="window.zoomOpenStartClassModal()" style="background: linear-gradient(135deg, #0b5cff, #2563eb); color: white; border: none; padding: 8px 18px; border-radius: 8px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(11,92,255,0.35);">
@@ -1019,6 +1058,98 @@ const replacementCode = `function renderOnlineClassesWorkspace() {
     let isCameraActive = false;
     let activeCameraStream = null;
 
+    // Attach inspect remote stream if already acquired
+    if (isInspecting && state.inspectRemoteStream) {
+      const inspectVid = document.getElementById('liveClassInspectVideo');
+      if (inspectVid) {
+        if (inspectVid.srcObject !== state.inspectRemoteStream) {
+          inspectVid.srcObject = state.inspectRemoteStream;
+        }
+        inspectVid.muted = Boolean(state.isInspectAudioMuted);
+        inspectVid.volume = state.inspectAudioVolume !== undefined ? state.inspectAudioVolume : 1;
+        inspectVid.play().catch(() => {});
+      }
+    }
+
+    // Inspection Controls Helpers
+    window.toggleInspectAudio = function() {
+      state.isInspectAudioMuted = !state.isInspectAudioMuted;
+      const vid = document.getElementById('liveClassInspectVideo');
+      if (vid) vid.muted = state.isInspectAudioMuted;
+      const btn = document.getElementById('zoomBtnInspectAudio');
+      if (btn) {
+        btn.innerHTML = state.isInspectAudioMuted
+          ? '<span class="material-symbols-outlined" style="font-size:17px; color:#ef4444;">volume_off</span><span>Unmute Audio</span>'
+          : '<span class="material-symbols-outlined" style="font-size:17px; color:#22c55e;">volume_up</span><span>Audio ON</span>';
+      }
+      showStudioToast(state.isInspectAudioMuted ? '🔇 Audio muted' : '🔊 Listening to teacher live audio');
+    };
+
+    window.takeInspectSnapshot = function() {
+      const vid = document.getElementById('liveClassInspectVideo');
+      if (!vid || !vid.videoWidth) {
+        alert('Live video stream not yet available to capture a snapshot.');
+        return;
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = vid.videoWidth;
+      canvas.height = vid.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(vid, 0, 0, canvas.width, canvas.height);
+      const a = document.createElement('a');
+      a.download = \`TPS_LiveClass_Inspect_\${Date.now()}.png\`;
+      a.href = canvas.toDataURL('image/png');
+      a.click();
+      showStudioToast('📸 Snapshot captured and saved');
+    };
+
+    window.toggleInspectFullscreen = function() {
+      const canvas = document.getElementById('zoomStageCanvas');
+      if (!canvas) return;
+      if (!document.fullscreenElement) {
+        canvas.requestFullscreen?.().catch(() => {});
+      } else {
+        document.exitFullscreen?.().catch(() => {});
+      }
+    };
+
+    // Quick active rooms detector for the header bar
+    window.checkOtherActiveRooms = async function() {
+      const banner = document.getElementById('zoomOtherClassesBanner');
+      if (!banner || isInspecting) return;
+      try {
+        const res = await fetch('/api/calls/group/active-rooms');
+        if (!res.ok) return;
+        const data = await res.json();
+        const rooms = Array.isArray(data.rooms) ? data.rooms : [];
+        if (rooms.length > 0) {
+          const first = rooms[0];
+          banner.innerHTML = \`
+            <span style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #f87171; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 10px; display: inline-flex; align-items: center; gap: 4px;">
+              <span style="width: 6px; height: 6px; border-radius: 50%; background: #ef4444;"></span>
+              Class \${first.target_class || 'Live'} Live
+            </span>
+            <button class="zoom-hdr-btn" onclick="window.joinRoomAsAdmin('\${first.room_id}', true)" title="Watch invisibly in 100% ghost spy mode" style="background: #7c3aed; color: #fff; border-color: #9333ea; font-weight: 700; height: 26px; padding: 0 8px;">
+              🕵️ Spy
+            </button>
+            <button class="zoom-hdr-btn" onclick="window.joinRoomAsAdmin('\${first.room_id}', false)" title="Join visibly as admin" style="background: #2563eb; color: #fff; border-color: #3b82f6; font-weight: 700; height: 26px; padding: 0 8px;">
+              👁️ Join
+            </button>
+            \${rooms.length > 1 ? \`<span style="color:#a1a1aa; font-size:11px; cursor:pointer;" onclick="window.zoomSwitchTab('meetings')">(+\${rooms.length - 1} more)</span>\` : ''}
+          \`;
+        } else {
+          banner.innerHTML = '';
+        }
+      } catch (e) {}
+    };
+
+    if (!isInspecting) {
+      window.checkOtherActiveRooms();
+      if (!window.__activeRoomsInterval) {
+        window.__activeRoomsInterval = setInterval(window.checkOtherActiveRooms, 8000);
+      }
+    }
+
     window.zoomSwitchTab = function(tabName) {
       const views = ['home', 'chat', 'meetings', 'contacts', 'settings'];
       views.forEach(v => {
@@ -1031,7 +1162,11 @@ const replacementCode = `function renderOnlineClassesWorkspace() {
         wireCallingTabEvents();
         ensureDirectoryData();
       } else if (tabName === 'meetings') {
-        loadActiveRoomsData();
+        if (typeof window.loadActiveRoomsData === 'function') {
+          window.loadActiveRoomsData();
+        } else if (typeof loadActiveRoomsData === 'function') {
+          loadActiveRoomsData();
+        }
       }
     };
 
@@ -1211,7 +1346,6 @@ const replacementCode = `function renderOnlineClassesWorkspace() {
           state.screenStream = stream;
           state.isScreenSharing = true;
 
-          // Display screen stream immediately in the meeting stage
           if (videoEl) {
             videoEl.srcObject = stream;
             videoEl.style.display = 'block';
@@ -1219,7 +1353,6 @@ const replacementCode = `function renderOnlineClassesWorkspace() {
           }
           if (sketchImg) sketchImg.style.display = 'none';
 
-          // Update Share Button UI to active state
           if (shareBtn) shareBtn.classList.add('active');
           if (shareIcon) {
             shareIcon.style.color = '#ef4444';
@@ -1235,7 +1368,6 @@ const replacementCode = `function renderOnlineClassesWorkspace() {
               window.zoomToggleShare();
             };
 
-            // Hot-swap video track across all active WebRTC student peers
             if (state.peers && state.peers.size > 0) {
               for (const [, peer] of state.peers.entries()) {
                 if (peer.pc && typeof peer.pc.getSenders === 'function') {
@@ -1255,7 +1387,6 @@ const replacementCode = `function renderOnlineClassesWorkspace() {
           }
         }
       } else {
-        // Stop Screen Sharing
         if (state.screenStream) {
           try {
             state.screenStream.getTracks().forEach(t => t.stop());
@@ -1264,7 +1395,6 @@ const replacementCode = `function renderOnlineClassesWorkspace() {
         }
         state.isScreenSharing = false;
 
-        // Revert display: if camera was active, revert to camera. Else revert to sketch image.
         if (isCameraActive && activeCameraStream) {
           if (videoEl) {
             videoEl.srcObject = activeCameraStream;
@@ -1292,7 +1422,6 @@ const replacementCode = `function renderOnlineClassesWorkspace() {
           if (sketchImg) sketchImg.style.display = 'block';
         }
 
-        // Reset Share Button UI
         if (shareBtn) shareBtn.classList.remove('active');
         if (shareIcon) {
           shareIcon.style.color = '#22c55e';
@@ -1374,10 +1503,6 @@ const replacementCode = `function renderOnlineClassesWorkspace() {
 
     window.zoomToggleViewLayout = function() {
       showStudioToast('⊞ Switched layout view');
-    };
-
-    window.zoomCollapseMeeting = function() {
-      showStudioToast('Meeting collapsed to picture-in-picture mode');
     };
 
     window.zoomSendChatMessage = function() {
@@ -1481,7 +1606,6 @@ const replacementCode = `function renderOnlineClassesWorkspace() {
 
         modal.remove();
 
-        // Update UI Badges immediately
         const badge = document.getElementById('zoomTargetClassBadge');
         if (badge) badge.innerText = \`Class: \${selectedClass} ▾\`;
         const titleEl = document.getElementById('zoomMeetingTitleText');
@@ -1509,4 +1633,4 @@ const replacementCode = `function renderOnlineClassesWorkspace() {
 const updatedContent = content.slice(0, startIndex) + replacementCode + '\n  ' + content.slice(endIndex);
 
 fs.writeFileSync(targetFile, updatedContent, 'utf8');
-console.log('Successfully updated Zoom Workplace UI: removed white top navbar and added dedicated Sound Announcement options.');
+console.log('Successfully updated Zoom Workplace UI with live inspection stage and stealth spy support.');
