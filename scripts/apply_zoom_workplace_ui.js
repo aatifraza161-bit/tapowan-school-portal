@@ -1104,11 +1104,125 @@ const replacementCode = `function renderOnlineClassesWorkspace() {
       }
     });
 
-    window.zoomToggleShare = function() {
-      if (typeof toggleScreenShare === 'function') {
-        toggleScreenShare();
+    window.zoomToggleShare = async function() {
+      const videoEl = document.getElementById('liveClassMainVideo');
+      const sketchImg = document.getElementById('zoomSketchPortrait');
+      const shareBtn = document.getElementById('zoomBtnShare');
+      const shareIcon = shareBtn ? shareBtn.querySelector('.material-symbols-outlined') : null;
+      const shareLabel = shareBtn ? shareBtn.querySelector('.zoom-ctrl-label') : null;
+
+      if (!state.isScreenSharing) {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+          alert('Screen sharing (screen cast) is restricted by your browser. Please use Google Chrome, Microsoft Edge, or Firefox on desktop/laptop, or launch the Live Whiteboard.');
+          return;
+        }
+
+        try {
+          let stream = null;
+          try {
+            stream = await navigator.mediaDevices.getDisplayMedia({
+              video: { cursor: 'always', frameRate: { ideal: 30 } },
+              audio: true
+            });
+          } catch (e) {
+            stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+          }
+
+          if (!stream) return;
+
+          state.screenStream = stream;
+          state.isScreenSharing = true;
+
+          // Display screen stream immediately in the meeting stage
+          if (videoEl) {
+            videoEl.srcObject = stream;
+            videoEl.style.display = 'block';
+            videoEl.play().catch(() => {});
+          }
+          if (sketchImg) sketchImg.style.display = 'none';
+
+          // Update Share Button UI to active state
+          if (shareBtn) shareBtn.classList.add('active');
+          if (shareIcon) {
+            shareIcon.style.color = '#ef4444';
+            shareIcon.innerText = 'stop_screen_share';
+          }
+          if (shareLabel) shareLabel.innerText = 'Stop Share';
+
+          showStudioToast('🖥️ Screen cast active: Sharing screen to live meeting');
+
+          const screenVideoTrack = stream.getVideoTracks()[0];
+          if (screenVideoTrack) {
+            screenVideoTrack.onended = () => {
+              window.zoomToggleShare();
+            };
+
+            // Hot-swap video track across all active WebRTC student peers
+            if (state.peers && state.peers.size > 0) {
+              for (const [, peer] of state.peers.entries()) {
+                if (peer.pc && typeof peer.pc.getSenders === 'function') {
+                  const senders = peer.pc.getSenders();
+                  const videoSender = senders.find(s => s?.track?.kind === 'video');
+                  if (videoSender && typeof videoSender.replaceTrack === 'function') {
+                    videoSender.replaceTrack(screenVideoTrack).catch(() => {});
+                  }
+                }
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('Screen share canceled or denied:', err);
+          if (err.name !== 'NotAllowedError' && err.name !== 'AbortError') {
+            showStudioToast('⚠️ Screen cast notice: ' + err.message);
+          }
+        }
       } else {
-        alert('Starting screen share...');
+        // Stop Screen Sharing
+        if (state.screenStream) {
+          try {
+            state.screenStream.getTracks().forEach(t => t.stop());
+          } catch (e) {}
+          state.screenStream = null;
+        }
+        state.isScreenSharing = false;
+
+        // Revert display: if camera was active, revert to camera. Else revert to sketch image.
+        if (isCameraActive && activeCameraStream) {
+          if (videoEl) {
+            videoEl.srcObject = activeCameraStream;
+            videoEl.style.display = 'block';
+          }
+          if (sketchImg) sketchImg.style.display = 'none';
+
+          const camTrack = activeCameraStream.getVideoTracks()[0];
+          if (camTrack && state.peers) {
+            for (const [, peer] of state.peers.entries()) {
+              if (peer.pc && typeof peer.pc.getSenders === 'function') {
+                const senders = peer.pc.getSenders();
+                const videoSender = senders.find(s => s?.track?.kind === 'video');
+                if (videoSender && typeof videoSender.replaceTrack === 'function') {
+                  videoSender.replaceTrack(camTrack).catch(() => {});
+                }
+              }
+            }
+          }
+        } else {
+          if (videoEl) {
+            videoEl.srcObject = null;
+            videoEl.style.display = 'none';
+          }
+          if (sketchImg) sketchImg.style.display = 'block';
+        }
+
+        // Reset Share Button UI
+        if (shareBtn) shareBtn.classList.remove('active');
+        if (shareIcon) {
+          shareIcon.style.color = '#22c55e';
+          shareIcon.innerText = 'present_to_all';
+        }
+        if (shareLabel) shareLabel.innerText = 'Share';
+
+        showStudioToast('⏹️ Screen cast stopped');
       }
     };
 
