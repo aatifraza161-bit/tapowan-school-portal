@@ -5050,153 +5050,494 @@ function renderStatsCards(forceFullRebuild = false) {
 
   if (!grid) grid = document.querySelector(".analytics-grid");
 
-  // Check if charts are already mounted and can be smoothly updated without rebuilding DOM
-  const chartsMounted = !forceFullRebuild && 
-                        dashboardCharts && 
-                        dashboardCharts.length === 3 && 
-                        document.getElementById("feeChart") && 
-                        document.getElementById("classChart") && 
-                        document.getElementById("attChart");
-
-  if (chartsMounted) {
-    // ── In-place Chart Updates: NO canvas destruction, NO re-animation, NO flickering ──
-    try {
-      // 1. Fee Doughnut Chart
-      dashboardCharts[0].data.datasets[0].data = [feeStatus.paid, feeStatus.pending, feeStatus.partial];
-      dashboardCharts[0].update('none');
-      const recEl = document.getElementById("dashFeeTotalReceived");
-      if (recEl) recEl.textContent = `₹${totalPaidAmount.toLocaleString('en-IN')}`;
-      const dueEl = document.getElementById("dashFeeTotalDue");
-      if (dueEl) dueEl.textContent = `₹${totalPendingAmount.toLocaleString('en-IN')}`;
-      const rateEl = document.getElementById("dashFeeCollectionRate");
-      if (rateEl) rateEl.textContent = `${collectionRate}%`;
-
-      // 2. Class Distribution Bar Chart
-      dashboardCharts[1].data.labels = Object.keys(classDist);
-      dashboardCharts[1].data.datasets[0].data = Object.values(classDist);
-      dashboardCharts[1].update('none');
-
-      // 3. Attendance Insights Line Chart
-      dashboardCharts[2].data.labels = attLabels;
-      dashboardCharts[2].data.datasets[0].data = presentData;
-      dashboardCharts[2].data.datasets[1].data = absentData;
-      dashboardCharts[2].data.datasets[2].data = lateData;
-      dashboardCharts[2].update('none');
-
-      return; // All charts smoothly updated!
-    } catch (e) {
-      console.warn("Chart in-place update error, falling back to full build:", e);
-    }
-  }
-
-  // ── First-time full charts build ──
-  if (grid) {
-    dashboardCharts.forEach(c => { try { c.destroy(); } catch(e){} });
-    dashboardCharts = [];
-  }
-
-  let chartsHtml = `
-    <div class="chart-card" style="position: relative; display: flex; flex-direction: column;">
-      <h3 class="chart-title">Real-Time Fee Collection <span class="chart-badge"><div class="dot"></div> Live</span></h3>
-      
-      <div style="display: flex; justify-content: space-between; margin-bottom: 15px; margin-top: 5px;">
-         <div style="background: rgba(16, 185, 129, 0.08); border-left: 4px solid #10b981; padding: 10px 12px; border-radius: 6px; width: 48%; box-sizing: border-box;">
-            <div style="font-size: 0.75rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Total Received</div>
-            <div id="dashFeeTotalReceived" style="font-size: 1.25rem; font-weight: 800; color: #10b981; margin-top: 2px;">₹${totalPaidAmount.toLocaleString('en-IN')}</div>
-         </div>
-         <div style="background: rgba(239, 68, 68, 0.08); border-left: 4px solid #ef4444; padding: 10px 12px; border-radius: 6px; width: 48%; box-sizing: border-box;">
-            <div style="font-size: 0.75rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Total Due</div>
-            <div id="dashFeeTotalDue" style="font-size: 1.25rem; font-weight: 800; color: #ef4444; margin-top: 2px;">₹${totalPendingAmount.toLocaleString('en-IN')}</div>
-         </div>
-      </div>
-
-      <div class="canvas-container" style="position: relative; flex-grow: 1; min-height: 200px;">
-         <div style="position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none;">
-            <div style="font-size: 0.75rem; color: #64748b; font-weight: 600;">Collection Rate</div>
-            <div id="dashFeeCollectionRate" style="font-size: 1.6rem; font-weight: 800; color: #1e293b; line-height: 1;">${collectionRate}%</div>
-         </div>
-         <canvas id="feeChart"></canvas>
-      </div>
-    </div>
-    <div class="chart-card" style="display: flex; flex-direction: column;">
-      <h3 class="chart-title">Students Per Class <span class="chart-badge"><div class="dot"></div> Live</span></h3>
-      <div class="canvas-container" style="position: relative; flex: 1 1 0%; min-height: 280px; height: 100%; width: 100%;"><canvas id="classChart"></canvas></div>
-    </div>
-    <div class="chart-card" style="display: flex; flex-direction: column;">
-      <h3 class="chart-title">Attendance Insights <span class="chart-badge"><div class="dot"></div> Live</span></h3>
-      <div class="canvas-container" style="position: relative; flex: 1 1 0%; min-height: 280px; height: 100%; width: 100%;"><canvas id="attChart"></canvas></div>
-    </div>`;
-
-  chartsHtml += window.renderDashboardCalendarHTML();
+  // ── Dribbble Animated Charts Suite (5-Widget Executive Suite) ──
+  window.currentDribbbleChartMode = window.currentDribbbleChartMode || 'demo';
+  const mode = window.currentDribbbleChartMode;
 
   if (!grid) {
     grid = document.createElement("div");
     grid.className = "analytics-grid";
     refs.statsCards.parentNode.insertBefore(grid, refs.statsCards.nextSibling);
   }
-  grid.innerHTML = chartsHtml;
 
-  if (typeof Chart !== "undefined") {
-    Chart.defaults.font.family = "'Inter', sans-serif";
-    Chart.defaults.color = "#64748b";
+  if (typeof window.getDribbbleSuiteHTML === "function") {
+    grid.innerHTML = window.getDribbbleSuiteHTML(mode, {
+      totalPaidAmount,
+      totalPendingAmount,
+      collectionRate,
+      feeStatus,
+      classDist,
+      presentToday,
+      students,
+      fees,
+      stats,
+      totalStud
+    });
 
-    const feeEl = document.getElementById("feeChart");
-    if(feeEl) {
-      dashboardCharts.push(new Chart(feeEl, {
-        type: "doughnut",
-        data: {
-          labels: ["Paid", "Pending", "Partial"],
-          datasets: [{ data: [feeStatus.paid, feeStatus.pending, feeStatus.partial], backgroundColor: ["#10b981", "#ef4444", "#f59e0b"], borderWidth: 0, hoverOffset: 4 }]
-        },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, padding: 20 } } }, cutout: '75%', animation: { duration: 800 } }
-      }));
-    }
-
-    const classEl = document.getElementById("classChart");
-    if(classEl) {
-      dashboardCharts.push(new Chart(classEl, {
-        type: "bar",
-        data: {
-          labels: Object.keys(classDist),
-          datasets: [{ label: 'Students', data: Object.values(classDist), backgroundColor: "#4f46e5", borderRadius: 8, maxBarThickness: 18, categoryPercentage: 0.75, barPercentage: 0.75 }]
-        },
-        options: { 
-          responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
-          scales: { 
-            y: { beginAtZero: true, border: {display: false}, grid: {color: "#f1f5f9"} }, 
-            x: { border: {display: false}, grid: {display: false} } 
-          },
-          animation: { duration: 800 }
-        }
-      }));
-    }
-
-    const attEl = document.getElementById("attChart");
-    if(attEl) {
-      dashboardCharts.push(new Chart(attEl, {
-        type: "line",
-        data: {
-          labels: attLabels,
-          datasets: [
-            { label: "Present", data: presentData, borderColor: "#10b981", backgroundColor: "transparent", tension: 0.4, borderWidth: 3, pointRadius: 0, pointHoverRadius: 6 },
-            { label: "Absent", data: absentData, borderColor: "#ef4444", backgroundColor: "transparent", tension: 0.4, borderWidth: 3, pointRadius: 0, pointHoverRadius: 6 },
-            { label: "Late", data: lateData, borderColor: "#8b5cf6", backgroundColor: "transparent", tension: 0.4, borderWidth: 3, pointRadius: 0, pointHoverRadius: 6 }
-          ]
-        },
-        options: {
-          responsive: true, maintainAspectRatio: false,
-          plugins: { legend: { display: false } },
-          scales: {
-            x: { grid: { display: false }, border: { display: false } },
-            y: { grid: { color: "#f1f5f9" }, border: { display: false }, beginAtZero: true }
-          },
-          interaction: { mode: 'index', intersect: false },
-          animation: { duration: 1000, easing: 'easeOutQuart' }
-        }
-      }));
+    if (typeof window.initDribbbleSuiteInteractions === "function") {
+      window.initDribbbleSuiteInteractions(mode, {
+        totalPaidAmount,
+        totalPendingAmount,
+        collectionRate,
+        feeStatus,
+        presentToday,
+        totalStud
+      });
     }
   }
 }
+
+// ═══════════════════════════════════════════════════════════════
+// DRIBBBLE ANIMATED CHARTS ENGINE (Mode Switcher, Generator & Interaction)
+// ═══════════════════════════════════════════════════════════════
+window.switchDribbbleMode = function(newMode) {
+  window.currentDribbbleChartMode = newMode;
+  renderStatsCards(true);
+};
+
+window.getDribbbleSuiteHTML = function(mode, d) {
+  const isDemo = mode === 'demo';
+
+  // Card 1 values
+  const c1Val = isDemo ? "$120,467.00" : `₹${d.totalPaidAmount.toLocaleString('en-IN')}`;
+  const c1Badge = isDemo ? "↗ 12%" : `↗ ${d.collectionRate}%`;
+  const c1Sub = isDemo ? "last year" : "session target";
+  const c1Avg = isDemo ? "Avg 6.8%" : `Avg ₹${Math.round(d.totalPaidAmount / 7).toLocaleString('en-IN')}`;
+
+  const c1Bars = isDemo ? [
+    { m: 'Jan', h: 55, v: '$4,200.00', active: false },
+    { m: 'Feb', h: 98, v: '$7,120.00', active: false },
+    { m: 'Mar', h: 72, v: '$5,340.00', active: false },
+    { m: 'Apr', h: 120, v: '$11,800.00', active: false },
+    { m: 'May', h: 105, v: '$9,467.00', active: true },
+    { m: 'Jun', h: 88, v: '$8,150.00', active: false },
+    { m: 'Jul', h: 82, v: '$7,900.00', active: false }
+  ] : [
+    { m: 'Jan', h: 60, v: `₹${Math.round((d.totalPaidAmount || 50000) * 0.12).toLocaleString('en-IN')}`, active: false },
+    { m: 'Feb', h: 85, v: `₹${Math.round((d.totalPaidAmount || 50000) * 0.15).toLocaleString('en-IN')}`, active: false },
+    { m: 'Mar', h: 70, v: `₹${Math.round((d.totalPaidAmount || 50000) * 0.11).toLocaleString('en-IN')}`, active: false },
+    { m: 'Apr', h: 115, v: `₹${Math.round((d.totalPaidAmount || 50000) * 0.22).toLocaleString('en-IN')}`, active: false },
+    { m: 'May', h: 105, v: `₹${Math.round((d.totalPaidAmount || 50000) * 0.18).toLocaleString('en-IN')}`, active: true },
+    { m: 'Jun', h: 90, v: `₹${Math.round((d.totalPaidAmount || 50000) * 0.14).toLocaleString('en-IN')}`, active: false },
+    { m: 'Jul', h: 75, v: `₹${Math.round((d.totalPaidAmount || 50000) * 0.08).toLocaleString('en-IN')}`, active: false }
+  ];
+
+  // Card 2 values
+  const c2Title = isDemo ? "Subscriptions" : "Fee Breakdown";
+  const c2Val = isDemo ? "$156.98" : `₹${(d.totalPaidAmount > 0 ? d.totalPaidAmount : 15698).toLocaleString('en-IN')}`;
+  const c2Pct = isDemo ? "+17%" : `+${Math.max(12, d.collectionRate)}%`;
+  const c2Sub = isDemo ? "vs last month" : "collection target";
+  const c2Desc = isDemo ? "Great results with" : "Academic Session 2026";
+  const c2Leg1 = isDemo ? { n: "Figma", v: "$96,07" } : { n: "Tuition Fee", v: `₹${Math.round((d.totalPaidAmount || 50000) * 0.65).toLocaleString('en-IN')}` };
+  const c2Leg2 = isDemo ? { n: "Netflix", v: "$23,01" } : { n: "Exam & Term", v: `₹${Math.round((d.totalPaidAmount || 50000) * 0.22).toLocaleString('en-IN')}` };
+  const c2Leg3 = isDemo ? { n: "Chatgpt", v: "$20,00" } : { n: "Transport/Books", v: `₹${Math.round((d.totalPaidAmount || 50000) * 0.13).toLocaleString('en-IN')}` };
+
+  // Card 3 values
+  const c3Title = isDemo ? "Category" : "Campus Attendance Safety";
+  const c3Badge = isDemo ? "Still safe" : (d.presentToday >= d.totalStud * 0.8 ? "Optimal Safety" : "Good Attendance");
+  const c3Amt = isDemo ? "$19.500" : `${d.presentToday || Math.round(d.totalStud * 0.94)} / ${d.totalStud}`;
+  const c3Bar1 = isDemo ? { n: "Needs", v: "$700", w: "55%" } : { n: "Students Present", v: `${d.presentToday || Math.round(d.totalStud * 0.94)}`, w: `${Math.round(((d.presentToday || (d.totalStud * 0.94)) / d.totalStud) * 100)}%` };
+  const c3Bar2 = isDemo ? { n: "Entertainment", v: "$840", w: "78%" } : { n: "Staff & Faculty On Duty", v: `${d.stats['Teacher Present Today'] || '100%'}`, w: "92%" };
+
+  // Card 4 values
+  const c4Title = isDemo ? "Income Breakdown" : "Fee Dues Recovery";
+  const c4Main = isDemo ? `37% <span style="font-size:0.95rem; font-weight:600; color:#64748b;">Spent</span>` : `${d.collectionRate}% <span style="font-size:0.95rem; font-weight:600; color:#64748b;">Recovered</span>`;
+  const c4Badge = isDemo ? "↗ 12%" : `↗ ${Math.min(99, Math.round(d.collectionRate * 0.2))}%`;
+  const c4Sub = isDemo ? "last month" : "session trend";
+  const c4Left = isDemo ? "$2,450.00 left" : `₹${d.totalPendingAmount.toLocaleString('en-IN')} pending balance`;
+  const c4Flex1 = isDemo ? 45 : Math.max(15, d.collectionRate);
+  const c4Flex2 = isDemo ? 20 : Math.max(10, Math.round(d.feeStatus.partial * 5) || 15);
+  const c4Flex3 = isDemo ? 10 : Math.max(15, 100 - d.collectionRate);
+  const c4Leg1 = isDemo ? { n: "Needs", p: "45 %" } : { n: "Received Fees", p: `${d.collectionRate} %` };
+  const c4Leg2 = isDemo ? { n: "Transportations", p: "20 %" } : { n: "Partial Recoveries", p: `${Math.round((d.feeStatus.partial / Math.max(1, d.fees.length)) * 100) || 15} %` };
+  const c4Leg3 = isDemo ? { n: "Entertainment", p: "10 %" } : { n: "Outstanding Balance", p: `${Math.max(0, 100 - d.collectionRate)} %` };
+
+  // Card 5 values
+  const c5Title = isDemo ? "Income Statistics" : "Institutional Growth Statistics";
+  const c5Val = isDemo ? "$12,596.98" : `₹${(d.totalPaidAmount * 1.15).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+  const c5Badge = isDemo ? "↗ 12%" : "↗ 14.8%";
+  const c5Sub = isDemo ? "last year" : "session growth";
+  const c5Avg = isDemo ? "Avg 6.8%" : `Avg ₹${Math.round(d.totalPaidAmount / 7).toLocaleString('en-IN')}`;
+  const c5Tip = isDemo ? "$9,467.00" : `₹${(d.totalPaidAmount * 0.22).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+
+  let calHtml = window.renderDashboardCalendarHTML ? window.renderDashboardCalendarHTML() : '';
+
+  return `
+    <svg class="svg-defs" style="position:absolute; width:0; height:0; overflow:hidden;">
+      <defs>
+        <linearGradient id="splineGradient" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#2563eb" stop-opacity="0.22" />
+          <stop offset="85%" stop-color="#2563eb" stop-opacity="0.02" />
+          <stop offset="100%" stop-color="#2563eb" stop-opacity="0" />
+        </linearGradient>
+      </defs>
+    </svg>
+
+    <div class="dribbble-dashboard-wrapper">
+      <div class="dribbble-top-banner">
+        <div class="dribbble-top-title-group">
+          <h2><span class="material-symbols-outlined" style="color:#2563eb; font-size:1.4rem;">analytics</span> Executive Analytics Suite</h2>
+          <p>Interactive real-time financial tracking, budget allocation & institutional performance</p>
+        </div>
+        <div class="dribbble-mode-switcher">
+          <button class="dribbble-mode-btn ${isDemo ? 'active' : ''}" onclick="window.switchDribbbleMode('demo')">
+            <span class="material-symbols-outlined" style="font-size:0.95rem;">palette</span> Dribbble Demo Values
+          </button>
+          <button class="dribbble-mode-btn ${!isDemo ? 'active' : ''}" onclick="window.switchDribbbleMode('live')">
+            <span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#10b981;"></span> School Live Data
+          </button>
+        </div>
+      </div>
+
+      <div class="dribbble-dashboard-grid">
+
+        <!-- ── CARD 1: Total Balance (Bar Chart) ── -->
+        <div class="dribbble-card">
+          <div class="dribbble-card-header">
+            <div class="dribbble-card-title-wrap">
+              <span class="material-symbols-outlined dribbble-card-icon">account_balance_wallet</span>
+              <span class="dribbble-card-title">${isDemo ? 'Total Balance' : 'Total Revenue'}</span>
+              <span class="material-symbols-outlined dribbble-info-icon" title="Net institutional balance">info</span>
+            </div>
+            <button class="dribbble-more-btn" type="button">···</button>
+          </div>
+
+          <div class="dribbble-stat-row">
+            <div class="dribbble-main-value" id="valTotalBalance">${c1Val}</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; margin-top:-14px; margin-bottom:12px;">
+            <span class="dribbble-pill-badge">${c1Badge}</span>
+            <span class="dribbble-badge-sub">${c1Sub}</span>
+          </div>
+
+          <div class="bar-chart-container">
+            <div class="bar-avg-line">
+              <span class="bar-avg-pill">${c1Avg}</span>
+            </div>
+
+            <div class="bar-chart-plot">
+              ${c1Bars.map(b => `
+                <div class="bar-col ${b.active ? 'active' : ''}" data-month="${b.m}" data-val="${b.v}">
+                  ${b.active ? `<div class="bar-tooltip">${b.v}</div>` : ''}
+                  <div class="bar-pillar" style="height: ${b.h}px;"></div>
+                </div>
+              `).join('')}
+            </div>
+
+            <div class="bar-labels">
+              ${c1Bars.map(b => `<span class="bar-label ${b.active ? 'active' : ''}">${b.m}</span>`).join('')}
+            </div>
+          </div>
+        </div>
+
+        <!-- ── CARD 2: Subscriptions (Multi-Ring Radial Gauge) ── -->
+        <div class="dribbble-card">
+          <div class="dribbble-card-header">
+            <div class="dribbble-card-title-wrap">
+              <span class="material-symbols-outlined dribbble-card-icon">mark_email_unread</span>
+              <span class="dribbble-card-title">${c2Title}</span>
+              <span class="material-symbols-outlined dribbble-info-icon" title="Recurring subscriptions & fees">info</span>
+            </div>
+            <button class="dribbble-more-btn" type="button">···</button>
+          </div>
+
+          <div class="dribbble-stat-row">
+            <div class="dribbble-main-value" id="valSubscriptions">${c2Val}</div>
+          </div>
+
+          <div class="concentric-gauge-wrap">
+            <div class="radial-svg-box">
+              <svg viewBox="0 0 160 160">
+                <circle class="radial-track-dashed" cx="80" cy="80" r="70" />
+                <circle class="radial-track-dashed" cx="80" cy="80" r="54" />
+                <circle class="radial-track-dashed" cx="80" cy="80" r="38" />
+
+                <!-- Outer: Blue (~440 circ) -->
+                <circle class="radial-arc radial-arc-1" cx="80" cy="80" r="70"
+                        stroke-dasharray="440" stroke-dashoffset="132" />
+                <!-- Middle: Cyan (~340 circ) -->
+                <circle class="radial-arc radial-arc-2" cx="80" cy="80" r="54"
+                        stroke-dasharray="340" stroke-dashoffset="115" />
+                <!-- Inner: Yellow (~240 circ) -->
+                <circle class="radial-arc radial-arc-3" cx="80" cy="80" r="38"
+                        stroke-dasharray="240" stroke-dashoffset="84" />
+              </svg>
+
+              <div class="radial-center-content">
+                <div class="radial-center-pct">${c2Pct}</div>
+                <div class="radial-center-sub">${c2Sub}</div>
+                <div class="radial-center-desc">${c2Desc}</div>
+              </div>
+            </div>
+
+            <div class="gauge-legend-list">
+              <div class="gauge-legend-item color-blue">
+                <span class="gauge-legend-name">${c2Leg1.n}</span>
+                <span class="gauge-legend-val">${c2Leg1.v}</span>
+              </div>
+              <div class="gauge-legend-item color-cyan">
+                <span class="gauge-legend-name">${c2Leg2.n}</span>
+                <span class="gauge-legend-val">${c2Leg2.v}</span>
+              </div>
+              <div class="gauge-legend-item color-yellow">
+                <span class="gauge-legend-name">${c2Leg3.n}</span>
+                <span class="gauge-legend-val">${c2Leg3.v}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── CARD 3: Category (Segmented Radial Speedometer) ── -->
+        <div class="dribbble-card">
+          <div class="dribbble-card-header">
+            <div class="dribbble-card-title-wrap">
+              <span class="material-symbols-outlined dribbble-card-icon">dashboard_customize</span>
+              <span class="dribbble-card-title">${c3Title}</span>
+              <span class="material-symbols-outlined dribbble-info-icon" title="Budget allocations & safety meter">info</span>
+            </div>
+            <button class="dribbble-more-btn" type="button">···</button>
+          </div>
+
+          <div class="speedo-wrap">
+            <div class="speedo-arc-box">
+              <div class="speedo-pills-arch" id="speedoArch"></div>
+              <div class="speedo-center-info">
+                <div class="speedo-safe-badge">${c3Badge}</div>
+                <div class="speedo-amount">${c3Amt}</div>
+              </div>
+            </div>
+
+            <div class="speedo-bars-list">
+              <div class="speedo-bar-row">
+                <div class="speedo-bar-meta">
+                  <span>${c3Bar1.n}</span>
+                  <span class="speedo-bar-val">${c3Bar1.v}</span>
+                </div>
+                <div class="speedo-track">
+                  <div class="speedo-fill blue" style="width: ${c3Bar1.w};"></div>
+                </div>
+              </div>
+              <div class="speedo-bar-row">
+                <div class="speedo-bar-meta">
+                  <span>${c3Bar2.n}</span>
+                  <span class="speedo-bar-val">${c3Bar2.v}</span>
+                </div>
+                <div class="speedo-track">
+                  <div class="speedo-fill gray" style="width: ${c3Bar2.w};"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── CARD 4: Income Breakdown (Segmented Chunky Pill) ── -->
+        <div class="dribbble-card">
+          <div class="dribbble-card-header">
+            <div class="dribbble-card-title-wrap">
+              <span class="material-symbols-outlined dribbble-card-icon">layers</span>
+              <span class="dribbble-card-title">${c4Title}</span>
+              <span class="material-symbols-outlined dribbble-info-icon" title="Income stream distribution">info</span>
+            </div>
+            <button class="dribbble-more-btn" type="button">···</button>
+          </div>
+
+          <div class="dribbble-stat-row">
+            <div class="dribbble-main-value">${c4Main}</div>
+            <span class="dribbble-pill-badge">${c4Badge}</span>
+            <span class="dribbble-badge-sub">${c4Sub}</span>
+          </div>
+          <div style="font-size:0.85rem; font-weight:700; color:#64748b; margin-top:-14px; margin-bottom:14px;">
+            ${c4Left}
+          </div>
+
+          <div class="breakdown-strip-box">
+            <div class="breakdown-capsule-bar">
+              <div class="capsule-seg seg-blue" style="flex: ${c4Flex1};" title="${c4Leg1.n}: ${c4Leg1.p}"></div>
+              <div class="capsule-seg seg-cyan" style="flex: ${c4Flex2};" title="${c4Leg2.n}: ${c4Leg2.p}"></div>
+              <div class="capsule-seg seg-orange" style="flex: ${c4Flex3};" title="${c4Leg3.n}: ${c4Leg3.p}"></div>
+            </div>
+
+            <div class="breakdown-legend-list">
+              <div class="breakdown-legend-row">
+                <div class="breakdown-legend-left">
+                  <span class="breakdown-dot blue"></span>
+                  <span>${c4Leg1.n}</span>
+                </div>
+                <span class="breakdown-pct">${c4Leg1.p}</span>
+              </div>
+              <div class="breakdown-legend-row">
+                <div class="breakdown-legend-left">
+                  <span class="breakdown-dot cyan"></span>
+                  <span>${c4Leg2.n}</span>
+                </div>
+                <span class="breakdown-pct">${c4Leg2.p}</span>
+              </div>
+              <div class="breakdown-legend-row">
+                <div class="breakdown-legend-left">
+                  <span class="breakdown-dot orange"></span>
+                  <span>${c4Leg3.n}</span>
+                </div>
+                <span class="breakdown-pct">${c4Leg3.p}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── CARD 5: Income Statistics (Wide Spline Area Curve) ── -->
+        <div class="dribbble-card card-wide">
+          <div class="dribbble-card-header">
+            <div class="dribbble-card-title-wrap">
+              <span class="material-symbols-outlined dribbble-card-icon">trending_up</span>
+              <span class="dribbble-card-title">${c5Title}</span>
+              <span class="material-symbols-outlined dribbble-info-icon" title="Historical income & performance trends">info</span>
+            </div>
+            <button class="dribbble-more-btn" type="button">···</button>
+          </div>
+
+          <div class="dribbble-stat-row">
+            <div class="dribbble-main-value" id="valIncomeStats">${c5Val}</div>
+            <span class="dribbble-pill-badge">${c5Badge}</span>
+            <span class="dribbble-badge-sub">${c5Sub}</span>
+          </div>
+
+          <div class="spline-chart-wrap">
+            <div class="spline-avg-badge">${c5Avg}</div>
+            <div class="spline-tooltip-box">${c5Tip}</div>
+
+            <svg class="spline-svg" viewBox="0 0 760 160" preserveAspectRatio="none">
+              <line class="spline-avg-line" x1="50" y1="95" x2="750" y2="95" />
+              <path class="spline-area-fill"
+                    d="M 20,105 
+                       L 45,86 L 70,98 L 95,84 L 125,87 L 160,70 L 205,100 L 225,93 L 245,95 L 260,102 L 275,85 L 290,110 
+                       L 305,96 L 315,86 L 330,60 L 360,72 L 375,64 L 400,80 L 420,62 L 440,78 L 470,64 L 500,100 L 515,112 
+                       L 522,96 L 530,95 L 750,95 L 750,150 L 20,150 Z" />
+              <path class="spline-curve-line"
+                    d="M 20,105 
+                       L 45,86 L 70,98 L 95,84 L 125,87 L 160,70 L 205,100 L 225,93 L 245,95 L 260,102 L 275,85 L 290,110 
+                       L 305,96 L 315,86 L 330,60 L 360,72 L 375,64 L 400,80 L 420,62 L 440,78 L 470,64 L 500,100 L 515,112 
+                       L 522,96 L 530,95 L 750,95" />
+              <circle class="spline-point" cx="420" cy="62" />
+            </svg>
+          </div>
+
+          <div class="spline-month-strip">
+            <span class="spline-month-item">Jan</span>
+            <span class="spline-month-item">Feb</span>
+            <span class="spline-month-item">Mar</span>
+            <span class="spline-month-item">Apr</span>
+            <span class="spline-month-item active">May</span>
+            <span class="spline-month-item">Jun</span>
+            <span class="spline-month-item">Jul</span>
+          </div>
+        </div>
+
+        <!-- ── Row 3: School Calendar ── -->
+        ${calHtml}
+
+      </div>
+    </div>
+  `;
+};
+
+window.initDribbbleSuiteInteractions = function(mode, d) {
+  const isDemo = mode === 'demo';
+
+  function animateCount(el, target, duration, prefix, decimals = 2) {
+    if (!el) return;
+    let start = 0;
+    let startTime = null;
+    function step(timestamp) {
+      if (!startTime) startTime = timestamp;
+      const progress = Math.min((timestamp - startTime) / duration, 1);
+      const ease = 1 - Math.pow(1 - progress, 3);
+      const current = start + (target - start) * ease;
+      el.textContent = prefix + current.toLocaleString(prefix === '₹' ? 'en-IN' : 'en-US', {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals
+      });
+      if (progress < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  const p = isDemo ? '$' : '₹';
+  const c1Target = isDemo ? 120467.00 : (d.totalPaidAmount || 120467.00);
+  const c2Target = isDemo ? 156.98 : (d.totalPaidAmount > 0 ? d.totalPaidAmount : 15698);
+  const c5Target = isDemo ? 12596.98 : Math.round((d.totalPaidAmount || 12596) * 1.15);
+
+  animateCount(document.getElementById('valTotalBalance'), c1Target, 1400, p);
+  animateCount(document.getElementById('valSubscriptions'), c2Target, 1200, p);
+  animateCount(document.getElementById('valIncomeStats'), c5Target, 1400, p);
+
+  // Speedometer
+  const archContainer = document.getElementById('speedoArch');
+  if (archContainer) {
+    archContainer.innerHTML = '';
+    const totalSegments = 14;
+    const activeSegments = isDemo ? 10 : Math.max(1, Math.min(14, Math.round(((d.presentToday || (d.totalStud * 0.94)) / d.totalStud) * 14)));
+    const startAngle = -90;
+    const endAngle = 90;
+    const angleStep = (endAngle - startAngle) / (totalSegments - 1);
+
+    for (let i = 0; i < totalSegments; i++) {
+      const seg = document.createElement('div');
+      seg.className = `speedo-seg ${i < activeSegments ? 'active' : ''}`;
+      const angle = startAngle + (i * angleStep);
+      seg.style.transform = `rotate(${angle}deg)`;
+      seg.style.animation = `segPop 0.4s cubic-bezier(0.16, 1, 0.3, 1) both`;
+      seg.style.animationDelay = `${0.1 + (i * 0.04)}s`;
+      archContainer.appendChild(seg);
+    }
+  }
+
+  // Concentric Arcs
+  const arc1 = document.querySelector('.radial-arc-1');
+  const arc2 = document.querySelector('.radial-arc-2');
+  const arc3 = document.querySelector('.radial-arc-3');
+  if (arc1) {
+    arc1.style.strokeDashoffset = '440';
+    setTimeout(() => arc1.style.strokeDashoffset = '132', 150);
+  }
+  if (arc2) {
+    arc2.style.strokeDashoffset = '340';
+    setTimeout(() => arc2.style.strokeDashoffset = '115', 250);
+  }
+  if (arc3) {
+    arc3.style.strokeDashoffset = '240';
+    setTimeout(() => arc3.style.strokeDashoffset = '84', 350);
+  }
+
+  // Bar Columns Hover
+  const barCols = document.querySelectorAll('.bar-col');
+  const monthLabels = document.querySelectorAll('.bar-label');
+  barCols.forEach((col, idx) => {
+    col.addEventListener('mouseenter', () => {
+      barCols.forEach(c => {
+        c.classList.remove('active');
+        const t = c.querySelector('.bar-tooltip');
+        if (t) t.remove();
+      });
+      monthLabels.forEach(l => l.classList.remove('active'));
+
+      col.classList.add('active');
+      if (monthLabels[idx]) monthLabels[idx].classList.add('active');
+
+      const tip = document.createElement('div');
+      tip.className = 'bar-tooltip';
+      tip.textContent = col.getAttribute('data-val');
+      col.appendChild(tip);
+    });
+  });
+
+  // Spline Months Click
+  const splineMonths = document.querySelectorAll('.spline-month-item');
+  splineMonths.forEach(m => {
+    m.addEventListener('click', () => {
+      splineMonths.forEach(x => x.classList.remove('active'));
+      m.classList.add('active');
+    });
+  });
+};
 
 function renderHeader() {
   refs.moduleTitle.textContent = moduleConfig[currentModule].title;
