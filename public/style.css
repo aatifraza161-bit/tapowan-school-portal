@@ -18,7 +18,7 @@
   --accent3:     #8B5CF6;
   --danger:      #EF4444;
   --danger-dark: #b91c1c;
-  --sidebar-bg:  #FFFFFF;
+  --sidebar-bg:  #000000;
   --sidebar-w:   260px;
   --sidebar-w-collapsed: 72px;
   --card-bg:     #FFFFFF;
@@ -727,18 +727,19 @@ body{
 
 /* ─── SIDEBAR ─── */
 .sidebar {
-  background: #0B1120;
+  background: #000000 !important;
   color: #F8FAFC;
   position: sticky; top: 0; height: 100vh;
   width: 100%;
   overflow-y: auto; overflow-x: hidden;
-  scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.1) transparent;
-  z-index: 100; border-right: 1px solid rgba(255,255,255,0.05);
+  scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.12) #000000;
+  z-index: 100; border-right: 1px solid rgba(255,255,255,0.08);
   animation: slideInLeft 0.5s ease both;
   transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .sidebar::-webkit-scrollbar { width: 4px; }
-.sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+.sidebar::-webkit-scrollbar-track { background: #000000; }
+.sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
 
 .brand { padding: 22px 18px 16px; margin-bottom: 8px; position: relative; transition: padding 0.25s ease; }
 .brand-inner { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
@@ -883,7 +884,7 @@ body{
   padding: 0;
   border-radius: 50%;
   font-size: 0;
-  border: 2px solid #0B1120;
+  border: 2px solid #000000;
 }
 /* Floating Tooltip when Hovering Collapsed Navigation Items */
 .sidebar.collapsed #moduleNav button:hover::after {
@@ -1705,7 +1706,7 @@ tbody td:last-child { padding-right: 24px; }
 /* ─── RESPONSIVE ─── */
 @media(max-width:900px){
   .app{grid-template-columns:1fr !important;}
-  .sidebar{position:fixed;left:-290px;top:0;bottom:0;width:280px !important;z-index:100;transition:left var(--transition);}
+  .sidebar{position:fixed;left:-290px;top:0;bottom:0;width:280px !important;z-index:100;background:#000000 !important;transition:left var(--transition);}
   .sidebar.collapsed{width:280px !important;}
   .sidebar.mobile-open{left:0;box-shadow:8px 0 40px rgba(0,0,0,0.3);}
   .topbar-sidebar-toggle-btn{display:none !important;}

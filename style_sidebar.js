@@ -2,16 +2,17 @@ const fs = require('fs');
 let code = fs.readFileSync('public/style.css', 'utf8');
 
 const replacement = `.sidebar{
-  background: #0B1120;
+  background: #000000 !important;
   color: #F8FAFC;
   position: sticky; top: 0; height: 100vh;
   overflow-y: auto; overflow-x: hidden;
-  scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.1) transparent;
-  z-index: 100; border-right: 1px solid rgba(255,255,255,0.05);
+  scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.12) #000000;
+  z-index: 100; border-right: 1px solid rgba(255,255,255,0.08);
   animation: slideInLeft 0.5s ease both;
 }
 .sidebar::-webkit-scrollbar { width: 4px; }
-.sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+.sidebar::-webkit-scrollbar-track { background: #000000; }
+.sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
 
 .brand { padding: 26px 20px 18px; margin-bottom: 8px; position: relative; }
 .brand-inner { display: flex; align-items: center; gap: 12px; }
