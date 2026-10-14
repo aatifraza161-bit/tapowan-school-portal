@@ -1285,13 +1285,35 @@ async function logout() {
   await api("/api/auth/logout", { method: "POST" });
 }
 
+window.toggleAuthPasswordVisibility = function(inputId, btn) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  const icon = btn.querySelector('.material-symbols-outlined');
+  if (input.type === 'password') {
+    input.type = 'text';
+    if (icon) icon.textContent = 'visibility_off';
+  } else {
+    input.type = 'password';
+    if (icon) icon.textContent = 'visibility';
+  }
+};
+
 function setAuthMode(mode) {
   const isLogin = mode === "login";
-  refs.loginForm.classList.toggle("hidden", !isLogin);
-  refs.signupForm.classList.toggle("hidden", isLogin);
-  refs.showLoginBtn.classList.toggle("active", isLogin);
-  refs.showSignupBtn.classList.toggle("active", !isLogin);
-  refs.authSubtitle.textContent = isLogin ? "Sign in to continue" : "Create account to continue";
+  if (refs.loginForm) refs.loginForm.classList.toggle("hidden", !isLogin);
+  if (refs.signupForm) refs.signupForm.classList.toggle("hidden", isLogin);
+  if (refs.showLoginBtn) refs.showLoginBtn.classList.toggle("active", isLogin);
+  if (refs.showSignupBtn) refs.showSignupBtn.classList.toggle("active", !isLogin);
+  if (refs.authSubtitle) refs.authSubtitle.textContent = isLogin ? "Sign in to continue to Tapowan Public School" : "Create an account to join Tapowan Public School";
+
+  const mainTitle = document.getElementById("authMainTitle");
+  if (mainTitle) mainTitle.textContent = isLogin ? "Sign in" : "Sign up";
+
+  const switchPrompt = document.getElementById("authTopSwitchPrompt");
+  if (switchPrompt) switchPrompt.textContent = isLogin ? "Not a member yet?" : "Already a member?";
+
+  const switchBtn = document.getElementById("authTopSwitchBtn");
+  if (switchBtn) switchBtn.textContent = isLogin ? "Sign Up" : "Sign in";
 }
 
 function getSaasEnabledModulesSet() {
@@ -10160,6 +10182,10 @@ window.handleSignupSubmit = async function(e) {
 
 refs.showLoginBtn.addEventListener("click", () => setAuthMode("login"));
 refs.showSignupBtn.addEventListener("click", () => setAuthMode("signup"));
+document.getElementById("authTopSwitchBtn")?.addEventListener("click", () => {
+  const isCurrentlyLogin = refs.loginForm && !refs.loginForm.classList.contains("hidden");
+  setAuthMode(isCurrentlyLogin ? "signup" : "login");
+});
 
 refs.mobileMenuBtn?.addEventListener("click", () => {
   const opening = !refs.sidebar?.classList.contains("mobile-open");

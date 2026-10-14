@@ -71,57 +71,141 @@
 </head>
 <body>
   <div id="authOverlay" class="auth-overlay">
-    <button id="closeAuthBtn" style="position:absolute; top:20px; right:20px; background:rgba(255,255,255,0.1); border:none; color:#fff; font-size:1.5rem; cursor:pointer; z-index:10; width:40px; height:40px; border-radius:50%; display:grid; place-items:center;">✕</button>
+    <button id="closeAuthBtn" class="auth-close-btn" title="Close" type="button">✕</button>
     <div class="auth-dots"></div>
+
     <div class="auth-card">
-      <div class="auth-logo">
-        <div class="auth-logo-icon" style="background:transparent; box-shadow:none; width:64px; height:64px;"><img src="tps_logo_new.png" alt="Tapowan Public School Logo" style="width:100%; height:100%; object-fit:contain;" /></div>
+      <!-- Left Column: Form -->
+      <div class="auth-form-column">
         <div>
-          <h1>Tapowan Public School</h1>
-          <p>School Management</p>
-        </div>
-      </div>
-      <p id="authSubtitle">Sign in to continue</p>
-      <div class="auth-switch">
-        <button id="showLoginBtn" class="dark" type="button">Login</button>
-        <button id="showSignupBtn" class="dark" type="button">Sign Up</button>
-      </div>
-      <form id="loginForm" class="auth-form" onsubmit="event.preventDefault(); return (window.handleLoginSubmit ? window.handleLoginSubmit(event) : false);">
-        <div class="field">
-          <label for="loginUsername">Username</label>
-          <input id="loginUsername" name="username" placeholder="Enter username" required autocomplete="username" />
+          <!-- Top bar: Logo + Member status switch -->
+          <div class="auth-header-row">
+            <div class="auth-logo-badge">
+              <div class="auth-logo-icon-box">
+                <img src="tps_logo_new.png" alt="Tapowan Public School Logo" />
+              </div>
+              <div class="auth-school-names">
+                <h2>Tapowan Public School</h2>
+                <p>School Management</p>
+              </div>
+            </div>
+            <div class="auth-top-switch">
+              <span id="authTopSwitchPrompt">Not a member yet?</span>
+              <button id="authTopSwitchBtn" type="button">Sign Up</button>
+            </div>
+          </div>
+
+          <!-- Title Section -->
+          <div class="auth-title-section">
+            <h1 id="authMainTitle" class="auth-main-title">Sign in</h1>
+            <p id="authSubtitle" class="auth-subtitle">Sign in to continue to Tapowan Public School</p>
+          </div>
+
+          <!-- Tab Switcher (Login / Sign Up) -->
+          <div class="auth-switch-pills">
+            <button id="showLoginBtn" class="auth-switch-pill active" type="button">
+              <span class="material-symbols-outlined">login</span>
+              Login
+            </button>
+            <button id="showSignupBtn" class="auth-switch-pill" type="button">
+              <span class="material-symbols-outlined">person_add</span>
+              Sign Up
+            </button>
+          </div>
+
+          <!-- Divider -->
+          <div class="auth-divider">
+            <span>Or continue with credentials</span>
+          </div>
+
+          <!-- Login Form -->
+          <form id="loginForm" class="auth-form-wrap" onsubmit="event.preventDefault(); return (window.handleLoginSubmit ? window.handleLoginSubmit(event) : false);">
+            <div class="auth-input-group">
+              <span class="material-symbols-outlined auth-input-icon">person</span>
+              <input id="loginUsername" class="auth-input-field" name="username" placeholder="Enter username or admission no" required autocomplete="username" />
+            </div>
+
+            <div class="auth-input-group">
+              <span class="material-symbols-outlined auth-input-icon">lock</span>
+              <input id="loginPassword" class="auth-input-field" name="password" type="password" placeholder="Enter your password" required autocomplete="current-password" />
+              <button type="button" class="auth-eye-btn" onclick="window.toggleAuthPasswordVisibility && window.toggleAuthPasswordVisibility('loginPassword', this)" title="Show/Hide password">
+                <span class="material-symbols-outlined">visibility</span>
+              </button>
+            </div>
+
+            <button type="submit" class="auth-submit-btn" onclick="if(window.handleLoginSubmit){ event.preventDefault(); window.handleLoginSubmit(event); }">
+              <span>Continue</span>
+              <span class="material-symbols-outlined" style="font-size:1.15rem;">arrow_forward</span>
+            </button>
+          </form>
+
+          <!-- Sign Up Form (Initially hidden) -->
+          <form id="signupForm" class="auth-form-wrap hidden" onsubmit="event.preventDefault(); return (window.handleSignupSubmit ? window.handleSignupSubmit(event) : false);">
+            <div class="auth-input-group">
+              <span class="material-symbols-outlined auth-input-icon">badge</span>
+              <input id="signupFullName" class="auth-input-field" name="fullName" placeholder="Full Name (e.g. Aatif Khan)" required />
+            </div>
+
+            <div class="auth-input-group">
+              <span class="material-symbols-outlined auth-input-icon">pin</span>
+              <input id="signupAdmissionNo" class="auth-input-field" name="admissionNo" placeholder="Admission Number (e.g. TPS-1024)" required />
+            </div>
+
+            <div class="auth-input-group">
+              <span class="material-symbols-outlined auth-input-icon">account_circle</span>
+              <input id="signupUsername" class="auth-input-field" name="username" placeholder="Choose a username" required />
+            </div>
+
+            <div class="auth-input-group">
+              <span class="material-symbols-outlined auth-input-icon">mail</span>
+              <input id="signupEmail" class="auth-input-field" name="email" type="email" placeholder="Email address" required />
+            </div>
+
+            <div class="auth-input-group">
+              <span class="material-symbols-outlined auth-input-icon">lock</span>
+              <input id="signupPassword" class="auth-input-field" name="password" type="password" placeholder="Create strong password" required />
+              <button type="button" class="auth-eye-btn" onclick="window.toggleAuthPasswordVisibility && window.toggleAuthPasswordVisibility('signupPassword', this)" title="Show/Hide password">
+                <span class="material-symbols-outlined">visibility</span>
+              </button>
+            </div>
+
+            <button type="submit" class="auth-submit-btn" onclick="if(window.handleSignupSubmit){ event.preventDefault(); window.handleSignupSubmit(event); }">
+              <span>Create Account</span>
+              <span class="material-symbols-outlined" style="font-size:1.15rem;">arrow_forward</span>
+            </button>
+          </form>
         </div>
 
-        <div class="field">
-          <label for="loginPassword">Password</label>
-          <input id="loginPassword" name="password" type="password" placeholder="Enter password" required autocomplete="current-password" />
+        <!-- Footer note -->
+        <div class="auth-footer-notice">
+          This portal is protected by Tapowan Cloud Biometric & Security System.
         </div>
+      </div>
 
-        <button type="submit" onclick="if(window.handleLoginSubmit){ event.preventDefault(); window.handleLoginSubmit(event); }">Login</button>
-      </form>
-      <form id="signupForm" class="auth-form hidden" onsubmit="event.preventDefault(); return (window.handleSignupSubmit ? window.handleSignupSubmit(event) : false);">
-        <div class="field">
-          <label for="signupFullName">Full Name</label>
-          <input id="signupFullName" name="fullName" placeholder="Aatif Khan" required />
+      <!-- Right Column: 3D Mascot Showcase -->
+      <div class="auth-mascot-column">
+        <video
+          id="mascotVideo"
+          src="login_robot_clean.mp4"
+          poster="login_robot_poster.jpg"
+          autoplay
+          loop
+          muted
+          playsinline
+          class="auth-robot-video"
+        ></video>
+
+        <div class="auth-mascot-badge">
+          <div class="auth-mascot-badge-info">
+            <h4>Tapowan AI Mascot</h4>
+            <p>School Security & Guidance</p>
+          </div>
+          <div class="auth-mascot-badge-status">
+            <span></span>
+            Active
+          </div>
         </div>
-        <div class="field">
-          <label for="signupAdmissionNo">Admission Number</label>
-          <input id="signupAdmissionNo" name="admissionNo" placeholder="E.g. TPS-1024" required />
-        </div>
-        <div class="field">
-          <label for="signupUsername">Username</label>
-          <input id="signupUsername" name="username" placeholder="aatif_user" required />
-        </div>
-        <div class="field">
-          <label for="signupEmail">Email</label>
-          <input id="signupEmail" name="email" type="email" placeholder="name@example.com" required />
-        </div>
-        <div class="field">
-          <label for="signupPassword">Password</label>
-          <input id="signupPassword" name="password" type="password" placeholder="StrongPass@123" required />
-        </div>
-        <button type="submit" onclick="if(window.handleSignupSubmit){ event.preventDefault(); window.handleSignupSubmit(event); }">Create Account</button>
-      </form>
+      </div>
     </div>
   </div>
 
