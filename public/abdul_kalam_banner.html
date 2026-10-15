@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dr. APJ Abdul Kalam Birthday Tribute Banner</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;800;900&family=Playfair+Display:ital,wght@0,700;1,600&display=swap');
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      width: 1200px;
+      height: 675px;
+      overflow: hidden;
+      font-family: 'Poppins', -apple-system, sans-serif;
+      background: radial-gradient(circle at 80% 20%, #1e1b4b 0%, #0f172a 50%, #030712 100%);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      position: relative;
+    }
+
+    /* Ambient Tricolor & Gold Glows */
+    .glow-saffron {
+      position: absolute;
+      top: -120px;
+      left: 100px;
+      width: 450px;
+      height: 450px;
+      background: radial-gradient(circle, rgba(255, 153, 51, 0.22) 0%, transparent 70%);
+      filter: blur(50px);
+      pointer-events: none;
+    }
+
+    .glow-green {
+      position: absolute;
+      bottom: -100px;
+      right: 150px;
+      width: 450px;
+      height: 450px;
+      background: radial-gradient(circle, rgba(18, 136, 7, 0.22) 0%, transparent 70%);
+      filter: blur(50px);
+      pointer-events: none;
+    }
+
+    .glow-gold {
+      position: absolute;
+      top: 50%;
+      left: 180px;
+      transform: translateY(-50%);
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, rgba(250, 204, 21, 0.18) 0%, transparent 70%);
+      filter: blur(40px);
+      pointer-events: none;
+    }
+
+    /* Top Tricolor Strip */
+    .tricolor-strip {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 6px;
+      background: linear-gradient(90deg, #ff9933 0%, #ffffff 50%, #138808 100%);
+    }
+
+    /* Banner Container */
+    .banner-container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      padding: 0 60px;
+      gap: 50px;
+      z-index: 10;
+    }
+
+    /* Portrait Section */
+    .portrait-wrapper {
+      position: relative;
+      flex-shrink: 0;
+      width: 380px;
+      height: 480px;
+      border-radius: 28px;
+      padding: 8px;
+      background: linear-gradient(135deg, rgba(250, 204, 21, 0.9) 0%, rgba(255, 153, 51, 0.6) 40%, rgba(255, 255, 255, 0.3) 70%, rgba(19, 136, 8, 0.8) 100%);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 35px rgba(250, 204, 21, 0.3);
+    }
+
+    .portrait-img-box {
+      width: 100%;
+      height: 100%;
+      border-radius: 22px;
+      overflow: hidden;
+      position: relative;
+      background: #0f172a;
+    }
+
+    .portrait-img-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: 50% 18%;
+      filter: contrast(1.08) brightness(1.02);
+    }
+
+    .portrait-overlay-gradient {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 40%;
+      background: linear-gradient(to top, rgba(3, 7, 18, 0.92) 0%, transparent 100%);
+    }
+
+    .portrait-badge {
+      position: absolute;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.88);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(250, 204, 21, 0.5);
+      border-radius: 30px;
+      padding: 6px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #fde047;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      white-space: nowrap;
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+    }
+
+    /* Content Section */
+    .content-box {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 16px;
+    }
+
+    /* Top Occasion Pill */
+    .occasion-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      align-self: flex-start;
+      background: rgba(250, 204, 21, 0.12);
+      border: 1px solid rgba(250, 204, 21, 0.4);
+      padding: 7px 18px;
+      border-radius: 30px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #fde047;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+    }
+
+    .occasion-tag span.flag {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #ff9933;
+      box-shadow: 0 0 10px #ff9933;
+    }
+
+    /* Main Title & Subtitle */
+    .main-title {
+      font-size: 40px;
+      font-weight: 900;
+      line-height: 1.15;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #ffffff 30%, #e2e8f0 70%, #fde047 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .person-name {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 42px;
+      font-weight: 700;
+      color: #fde047;
+      text-shadow: 0 2px 20px rgba(250, 204, 21, 0.35);
+      line-height: 1.1;
+      margin-top: -4px;
+    }
+
+    .designation {
+      font-size: 15px;
+      font-weight: 600;
+      color: #94a3b8;
+      letter-spacing: 0.5px;
+    }
+
+    .designation span.highlight {
+      color: #38bdf8;
+    }
+
+    /* Quote Card */
+    .quote-card {
+      background: rgba(15, 23, 42, 0.7);
+      backdrop-filter: blur(12px);
+      border-left: 4px solid #fde047;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      border-right: 1px solid rgba(255, 255, 255, 0.08);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 0 16px 16px 0;
+      padding: 16px 22px;
+      margin-top: 4px;
+    }
+
+    .quote-text {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-style: italic;
+      font-size: 18px;
+      line-height: 1.45;
+      color: #f1f5f9;
+    }
+
+    .quote-sub {
+      font-size: 12.5px;
+      color: #cbd5e1;
+      margin-top: 8px;
+      font-weight: 400;
+      font-style: normal;
+    }
+
+    /* Footer Info */
+    .banner-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 6px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .school-branding {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .school-logo-badge {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #2563eb;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 14px;
+      color: #ffffff;
+      box-shadow: 0 4px 10px rgba(37, 99, 235, 0.4);
+    }
+
+    .school-text {
+      font-size: 14px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: 0.3px;
+    }
+
+    .school-tagline {
+      font-size: 11px;
+      color: #94a3b8;
+    }
+
+    .date-badge {
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      padding: 6px 14px;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+  </style>
+</head>
+<body>
+  <div class="tricolor-strip"></div>
+  <div class="glow-saffron"></div>
+  <div class="glow-green"></div>
+  <div class="glow-gold"></div>
+
+  <div class="banner-container">
+    <!-- Left: Dignified Portrait -->
+    <div class="portrait-wrapper">
+      <div class="portrait-img-box">
+        <img src="abdul_kalam_portrait.jpg" alt="Dr. A.P.J. Abdul Kalam">
+        <div class="portrait-overlay-gradient"></div>
+        <div class="portrait-badge">1931 — 2015</div>
+      </div>
+    </div>
+
+    <!-- Right: Tribute Content & Quotes -->
+    <div class="content-box">
+      <div class="occasion-tag">
+        <span class="flag"></span>
+        15th October • World Students' Day
+      </div>
+
+      <div>
+        <h1 class="main-title">Happy Birth Anniversary</h1>
+        <h2 class="person-name">Dr. A.P.J. Abdul Kalam</h2>
+        <p class="designation">The <span class="highlight">Missile Man</span> & 11th President of India • Bharat Ratna</p>
+      </div>
+
+      <div class="quote-card">
+        <p class="quote-text">
+          &ldquo;Dream is not that which you see while sleeping, it is something that does not let you sleep.&rdquo;
+        </p>
+        <p class="quote-sub">
+          &ldquo;If you want to shine like a sun, first burn like a sun.&rdquo;
+        </p>
+      </div>
+
+      <div class="banner-footer">
+        <div class="school-branding">
+          <div class="school-logo-badge">TPS</div>
+          <div>
+            <div class="school-text">Tapowan Public School</div>
+            <div class="school-tagline">Prem Nagar Campus • Inspiring Future Leaders</div>
+          </div>
+        </div>
+        <div class="date-badge">
+          📅 15 October 2026
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
