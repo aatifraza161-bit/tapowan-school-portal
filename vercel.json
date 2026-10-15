@@ -20,11 +20,6 @@
   ],
   "redirects": [
     {
-      "source": "/TPS-Original-App.apk",
-      "destination": "https://tapowan-whatsapp-gateway.onrender.com/TPS-Original-App.apk",
-      "permanent": false
-    },
-    {
       "source": "/Karz-e-Hasan.apk",
       "destination": "https://tapowan-whatsapp-gateway.onrender.com/Karz-e-Hasan.apk",
       "permanent": false
@@ -33,6 +28,16 @@
       "source": "/CabHUB.apk",
       "destination": "https://tapowan-whatsapp-gateway.onrender.com/CabHUB.apk",
       "permanent": false
+    },
+    {
+      "source": "/super-admin",
+      "destination": "https://tps-erp-saas.vercel.app/super-admin",
+      "permanent": false
+    },
+    {
+      "source": "/super-admin/:path*",
+      "destination": "https://tps-erp-saas.vercel.app/super-admin/:path*",
+      "permanent": false
     }
   ],
   "rewrites": [
@@ -40,11 +45,19 @@
   ],
   "headers": [
     {
-      "source": "/(index\\.html|sw\\.js)",
+      "source": "/(.*)\\.apk",
       "headers": [
         {
+          "key": "Content-Type",
+          "value": "application/vnd.android.package-archive"
+        },
+        {
+          "key": "Content-Disposition",
+          "value": "attachment; filename=TPS-Original-App.apk"
+        },
+        {
           "key": "Cache-Control",
-          "value": "public, max-age=0, must-revalidate"
+          "value": "public, max-age=3600, stale-while-revalidate=86400"
         }
       ]
     },
@@ -54,6 +67,15 @@
         {
           "key": "Cache-Control",
           "value": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400"
+        }
+      ]
+    },
+    {
+      "source": "/(index\\.html|sw\\.js|app\\.js|reports_module\\.js|exam_module\\.js|online_classes_module\\.js|slip-templates\\.js|style\\.css)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
         }
       ]
     },

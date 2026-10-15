@@ -1,4 +1,4 @@
-const CACHE_NAME = 'educore-tps-v202610051625';
+const CACHE_NAME = 'tps-cache-v20261011';
 
 self.addEventListener('install', event => {
   self.skipWaiting();
@@ -11,9 +11,9 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Network-First: Always fetch latest JS, HTML, and API requests directly
+// Network-First: Always fetch latest JS, CSS, HTML, and API requests directly
 self.addEventListener('fetch', event => {
-  if (event.request.url.includes('/api/') || event.request.url.includes('.js') || event.request.url.includes('.html')) {
+  if (event.request.url.includes('/api/') || event.request.url.includes('.js') || event.request.url.includes('.css') || event.request.url.includes('.html')) {
     return;
   }
   event.respondWith(

@@ -447,17 +447,89 @@
   }
   window.getSubjectDisplayOrder = getSubjectDisplayOrder;
 
-  function getCurriculumSubjectsForClass(className, existingSubjects) {
+  function getTouchedSubjectsForClass(className, examName, existingSubjects) {
+    const store = typeof getStore !== 'undefined' ? getStore() : (typeof window !== 'undefined' && window.store ? window.store : {});
+    const exams = (store && store.exams) ? store.exams : [];
+    const normFunc = typeof normalizeCanonicalClass === 'function' ? normalizeCanonicalClass : (x => (x || '').trim());
+    const targetNormClass = normFunc(className || '').toLowerCase();
+    const targetNormExam = (examName || '').trim().toLowerCase();
+
+    const touchedSubs = new Set();
+
+    const isTouchedEntry = (s) => {
+      if (!s || !s.subject) return false;
+      if (s.isAbsent === true) return true;
+      const tot = String(s.total !== undefined ? s.total : '').trim();
+      const th = String(s.theory !== undefined ? s.theory : (s.subjective !== undefined ? s.subjective : '')).trim();
+      const pr = String(s.practical !== undefined ? s.practical : '').trim();
+      const mk = String(s.marks !== undefined ? s.marks : '').trim();
+      const gr = String(s.grade !== undefined ? s.grade : '').trim();
+      if (tot.toUpperCase() === 'AB' || th.toUpperCase() === 'AB' || gr.toUpperCase() === 'AB') return true;
+      if (tot !== '' && tot !== '-' && !isNaN(parseFloat(tot))) return true;
+      if (th !== '' && th !== '-' && !isNaN(parseFloat(th))) return true;
+      if (pr !== '' && pr !== '-' && !isNaN(parseFloat(pr))) return true;
+      if (mk !== '' && mk !== '-' && !isNaN(parseFloat(mk))) return true;
+      if (gr !== '' && gr !== '-' && gr !== 'Pending' && gr !== 'null' && gr !== 'undefined') return true;
+      const pa = parseFloat(s.pa1 !== undefined ? s.pa1 : s.pa2);
+      const nb = parseFloat(s.notebook);
+      const enr = parseFloat(s.enrichment);
+      if (!isNaN(pa) || !isNaN(nb) || !isNaN(enr)) return true;
+      return false;
+    };
+
+    // 1. Check all classmate exam records in store.exams for this class (and examName if available)
+    exams.forEach(e => {
+      const eClass = normFunc(e.className || '').toLowerCase();
+      if (eClass !== targetNormClass) return;
+      if (targetNormExam && (e.examName || '').trim().toLowerCase() !== targetNormExam) return;
+
+      try {
+        const list = typeof e.subjectMarks === 'string' ? JSON.parse(e.subjectMarks) : e.subjectMarks;
+        if (Array.isArray(list)) {
+          list.forEach(s => {
+            if (isTouchedEntry(s)) {
+              const canonical = canonicalSubjectName(s.subject) || String(s.subject).trim();
+              if (canonical) touchedSubs.add(canonical.toLowerCase());
+            }
+          });
+        }
+      } catch (err) {}
+    });
+
+    // 2. Also check existingSubjects passed in for the current student
+    if (Array.isArray(existingSubjects)) {
+      existingSubjects.forEach(s => {
+        if (isTouchedEntry(s)) {
+          const canonical = canonicalSubjectName(s.subject) || String(s.subject).trim();
+          if (canonical) touchedSubs.add(canonical.toLowerCase());
+        }
+      });
+    }
+
+    return touchedSubs;
+  }
+  window.getTouchedSubjectsForClass = getTouchedSubjectsForClass;
+
+  function getCurriculumSubjectsForClass(className, existingSubjects, examName) {
     const defaultSubs = typeof getSubjectsForClass === 'function' ? getSubjectsForClass(className) : [...CANONICAL_9_SUBJECTS];
+    const touchedSubs = getTouchedSubjectsForClass(className, examName, existingSubjects);
+
     const resultSubs = [];
     const seen = new Set();
+
+    // RULE: "IF ANY NOT EVEN TOUCH FOR ANY CLASSMATE DON'T SHOW ON RESULT"
+    // If at least one subject was touched for this class/exam, ONLY include subjects that were touched
+    // for at least one classmate (or this student)!
+    const hasAnyClassmateTouched = touchedSubs.size > 0;
 
     (defaultSubs || []).forEach(subName => {
       const canonical = canonicalSubjectName(subName) || String(subName).trim();
       const normKey = canonical.toLowerCase();
       if (normKey && !seen.has(normKey)) {
-        seen.add(normKey);
-        resultSubs.push(canonical);
+        if (!hasAnyClassmateTouched || touchedSubs.has(normKey)) {
+          seen.add(normKey);
+          resultSubs.push(canonical);
+        }
       }
     });
 
@@ -467,8 +539,10 @@
         const canonical = canonicalSubjectName(s.subject) || String(s.subject).trim();
         const normKey = canonical.toLowerCase();
         if (normKey && !seen.has(normKey)) {
-          seen.add(normKey);
-          resultSubs.push(canonical);
+          if (!hasAnyClassmateTouched || touchedSubs.has(normKey)) {
+            seen.add(normKey);
+            resultSubs.push(canonical);
+          }
         }
       });
     }
@@ -526,8 +600,8 @@
   }
   window.resolveDrawingGrade = resolveDrawingGrade;
 
-  function evalStudentResultStatus(subjects, className) {
-    const classCurriculum = getCurriculumSubjectsForClass(className, subjects);
+  function evalStudentResultStatus(subjects, className, examName) {
+    const classCurriculum = getCurriculumSubjectsForClass(className, subjects, examName);
     const expectedMainSubjects = classCurriculum.filter(sName => isSubjectMain(sName, className));
     const expectedMainCount = expectedMainSubjects.length;
     // Exclude Drawing / Graded subjects from academic curriculum denominator count
@@ -667,7 +741,7 @@
     };
   }
 
-  function prepareCompleteMarksheetSubjects(rawSubs, className, isCBSE, isAnnual) {
+  function prepareCompleteMarksheetSubjects(rawSubs, className, isCBSE, isAnnual, examName) {
     let subs = [];
     if (typeof rawSubs === 'string') {
       try { subs = JSON.parse(rawSubs); } catch(e) { subs = []; }
@@ -676,7 +750,10 @@
     }
     if (!Array.isArray(subs)) subs = [];
 
-    const classCurriculum = getCurriculumSubjectsForClass(className, subs);
+    const classCurriculum = getCurriculumSubjectsForClass(className, subs, examName);
+    const touchedSubs = getTouchedSubjectsForClass(className, examName, subs);
+    const hasAnyClassmateTouched = touchedSubs.size > 0;
+
     const completeList = [];
     const usedIndices = new Set();
 
@@ -706,22 +783,26 @@
           min: parseFloat(found.min) > 0 ? parseFloat(found.min) : defMaxMin.min
         });
       } else {
-        // Pending subject for this student in this exam
-        completeList.push({
-          subject: canonical,
-          isMain,
-          isPending: true,
-          max: defMaxMin.max,
-          min: defMaxMin.min,
-          pa1: '-',
-          pa2: '-',
-          notebook: '-',
-          enrichment: '-',
-          theory: '-',
-          subjective: '-',
-          practical: '-',
-          total: '-'
-        });
+        // Pending subject for this student in this exam:
+        // STRICT RULE: ONLY add as a pending subject if it was actually touched for at least one classmate!
+        // If not even touched for ANY classmate, DO NOT SHOW ON RESULT!
+        if (!hasAnyClassmateTouched || touchedSubs.has(normName)) {
+          completeList.push({
+            subject: canonical,
+            isMain,
+            isPending: true,
+            max: defMaxMin.max,
+            min: defMaxMin.min,
+            pa1: '-',
+            pa2: '-',
+            notebook: '-',
+            enrichment: '-',
+            theory: '-',
+            subjective: '-',
+            practical: '-',
+            total: '-'
+          });
+        }
       }
     });
 
@@ -729,23 +810,40 @@
     subs.forEach((s, idx) => {
       if (!usedIndices.has(idx) && s && s.subject) {
         const canonical = canonicalSubjectName(s.subject) || String(s.subject).trim();
-        const isMain = isSubjectMain(canonical, className, s);
-        completeList.push({
-          ...s,
-          subject: canonical,
-          isMain,
-        });
+        const normName = canonical.toLowerCase();
+        const hasMarks = (s.total !== undefined && s.total !== '' && s.total !== '-') ||
+                         (s.theory !== undefined && s.theory !== '' && s.theory !== '-') ||
+                         s.isAbsent === true || String(s.total).toUpperCase() === 'AB';
+        if (hasMarks || !hasAnyClassmateTouched || touchedSubs.has(normName)) {
+          const isMain = isSubjectMain(canonical, className, s);
+          completeList.push({
+            ...s,
+            subject: canonical,
+            isMain,
+          });
+        }
       }
     });
 
+    // Filter final completeList: Strictly purge any pending row whose subject was never touched for ANY classmate
+    const finalFilteredList = completeList.filter(row => {
+      if (!row || !row.subject) return false;
+      const isPendingRow = row.isPending === true || row.total === '-' || row.total === '' || row.total === undefined;
+      const normKey = (canonicalSubjectName(row.subject) || String(row.subject).trim()).toLowerCase();
+      if (isPendingRow && hasAnyClassmateTouched && !touchedSubs.has(normKey)) {
+        return false; // NOT TOUCHED FOR ANY CLASSMATE -> DO NOT SHOW ON RESULT!
+      }
+      return true;
+    });
+
     // Strictly enforce canonical display order: English, Hindi, Math, Science, SST, then Additional
-    completeList.sort((a, b) => {
+    finalFilteredList.sort((a, b) => {
       const orderA = getSubjectDisplayOrder(a.subject, className, a);
       const orderB = getSubjectDisplayOrder(b.subject, className, b);
       return orderA - orderB;
     });
 
-    return completeList;
+    return finalFilteredList;
   }
 
   window.DEFAULT_SUBJECT_RULES = DEFAULT_SUBJECT_RULES;
@@ -1742,9 +1840,8 @@
 
   function findStudentFromStore(studentList, criteria) {
     if (!studentList || !Array.isArray(studentList) || !criteria) return {};
-    const normFunc = typeof normalizeCanonicalClass === 'function' ? normalizeCanonicalClass : (x => (x || '').trim());
 
-    // 0. Absolute Priority: Match by Student Primary Key ID (only when explicitly studentId/student_id)
+    // 0. Match by Student Primary Key ID when explicitly provided
     const targetId = criteria.studentId || criteria.student_id;
     if (targetId && String(targetId) !== '0' && String(targetId) !== '-1') {
       const byId = studentList.find(s => String(s.id) === String(targetId));
@@ -1752,79 +1849,19 @@
     }
     
     const targetAdm = String(criteria.admissionNo || criteria.admNo || '').trim().toLowerCase();
-    const targetName = (criteria.studentName || criteria.fullName || criteria.name || '').trim().toLowerCase();
-    const targetClass = normFunc(criteria.className || criteria.class || '').toLowerCase();
-    const targetRoll = String(criteria.rollNo || criteria.roll || '').trim().replace(/^0+/, '');
 
-    // 1. Highest Priority: Match by Unique Admission Number (with class/name cross-validation)
+    // 1. Strict Match by Unique Admission Number Only
     if (targetAdm && targetAdm !== '-' && targetAdm !== 'null' && targetAdm !== 'undefined') {
       const matchingAdms = studentList.filter(s => {
         const sAdm = String(s.admissionNo || s.admNo || '').trim().toLowerCase();
-        if (sAdm !== targetAdm) return false;
-        const sClass = normFunc(s.className || '').toLowerCase();
-        const sName = (s.fullName || s.name || '').trim().toLowerCase();
-        const classMatches = !targetClass || sClass === targetClass || sClass.includes(targetClass) || targetClass.includes(sClass);
-        const nameMatches = !targetName || sName === targetName || sName.includes(targetName) || targetName.includes(sName);
-        return classMatches || nameMatches;
+        return sAdm === targetAdm;
       });
       if (matchingAdms.length > 0) {
-        const withPhoto = matchingAdms.find(s => (s.photo && String(s.photo).length > 20) || (s.photoUrl && String(s.photoUrl).length > 5));
-        return withPhoto || matchingAdms[0];
+        const activeMatches = matchingAdms.filter(s => isStudentActive(s));
+        const pool = activeMatches.length > 0 ? activeMatches : matchingAdms;
+        const withPhoto = pool.find(s => (s.photo && String(s.photo).length > 20) || (s.photoUrl && String(s.photoUrl).length > 5));
+        return withPhoto || pool[0];
       }
-    }
-
-    // 2. High Priority: Match by Class AND Exact/Fuzzy Name
-    if (targetClass && targetName) {
-      const matchingClassAndName = studentList.filter(s => {
-        const sClass = normFunc(s.className || '').toLowerCase();
-        const sName = (s.fullName || s.name || '').trim().toLowerCase();
-        if (sClass === targetClass || sClass.includes(targetClass) || targetClass.includes(sClass)) {
-          if (sName === targetName) return true;
-          const partsTarget = targetName.split(/\s+/).filter(Boolean);
-          const partsS = sName.split(/\s+/).filter(Boolean);
-          if (partsTarget.length > 0 && partsS.length > 0) {
-            if (partsTarget[0] === partsS[0]) {
-              if (partsTarget.length === 1 || partsS.length === 1) return true;
-              if (partsTarget[partsTarget.length - 1] === partsS[partsS.length - 1]) return true;
-            }
-          }
-        }
-        return false;
-      });
-      if (matchingClassAndName.length > 0) {
-        const withPhoto = matchingClassAndName.find(s => (s.photo && String(s.photo).length > 20) || (s.photoUrl && String(s.photoUrl).length > 5));
-        return withPhoto || matchingClassAndName[0];
-      }
-    }
-
-    // 3. Medium Priority: Match by Name alone if unique
-    if (targetName) {
-      const byName = studentList.find(s => {
-        const sName = (s.fullName || s.name || '').trim().toLowerCase();
-        return sName === targetName;
-      });
-      if (byName) return byName;
-    }
-
-    // 4. Low Priority Fallback: Match by Class AND Roll ONLY IF student name is NOT completely contradictory
-    if (targetClass && targetRoll) {
-      const byClassAndRoll = studentList.find(s => {
-        const sClass = normFunc(s.className || '').toLowerCase();
-        const sRoll = String(s.rollNo || '').trim().replace(/^0+/, '');
-        const sName = (s.fullName || s.name || '').trim().toLowerCase();
-        if ((sClass === targetClass || sClass.includes(targetClass) || targetClass.includes(sClass)) && sRoll === targetRoll) {
-          if (targetName && sName) {
-            const firstTarget = targetName.split(/\s+/)[0];
-            const firstS = sName.split(/\s+/)[0];
-            if (firstTarget !== firstS && !targetName.includes(firstS) && !sName.includes(firstTarget)) {
-              return false;
-            }
-          }
-          return true;
-        }
-        return false;
-      });
-      if (byClassAndRoll) return byClassAndRoll;
     }
 
     return {};
@@ -1880,39 +1917,14 @@
     `;
 
     students.forEach(s => {
-      const normFunc = typeof normalizeCanonicalClass === 'function' ? normalizeCanonicalClass : (x => (x || '').trim());
       const existingExam = (store.exams || []).find(e => {
-        const matchClass = (normFunc(e.className || '')).toLowerCase() === (normFunc(className || '')).toLowerCase();
         const matchExam = (e.examName || '').trim().toLowerCase() === (examName || '').trim().toLowerCase();
         const matchSession = !session || (e.session || '').trim().toLowerCase() === (session || '').trim().toLowerCase();
-        
-        if (!matchClass || !matchExam || !matchSession) return false;
-
-        const nameA = (e.studentName || '').trim().toLowerCase();
-        const nameB = (s.fullName || '').trim().toLowerCase();
-        const matchName = nameA && nameB && (nameA === nameB || nameA.includes(nameB) || nameB.includes(nameA));
-
-        const rollA = String(e.rollNo || '').trim().replace(/^0+/, '');
-        const rollB = String(s.rollNo || '').trim().replace(/^0+/, '');
-        const matchRoll = rollA && rollB && rollA === rollB;
+        if (!matchExam || !matchSession) return false;
 
         const admA = (e.admissionNo || '').trim().toLowerCase();
         const admB = (s.admissionNo || '').trim().toLowerCase();
-        const matchAdm = admA && admB && admA === admB;
-
-        if (matchAdm) return true;
-        if (matchName) return true;
-        if (matchRoll) {
-          if (nameA && nameB) {
-            const firstA = nameA.split(' ')[0];
-            const firstB = nameB.split(' ')[0];
-            if (firstA !== firstB && !nameA.includes(firstB) && !nameB.includes(firstA)) {
-              return false;
-            }
-          }
-          return true;
-        }
-        return false;
+        return !!(admA && admB && admA === admB);
       });
       const isEntered = !!existingExam;
       const statusHtml = isEntered ? '<span class="status-badge status-entered">Entered</span>' : '<span class="status-badge status-pending">Pending</span>';
@@ -1987,39 +1999,14 @@
     const paLabel = isAnnual ? 'PA2 (10)' : 'PA1 (10)';
     const examLabel = isAnnual ? 'Annual Exam (80)' : 'Half Yearly (80)';
 
-    const normFunc = typeof normalizeCanonicalClass === 'function' ? normalizeCanonicalClass : (x => (x || '').trim());
     let existingExam = (store.exams || []).find(e => {
-      const matchClass = (normFunc(e.className || '')).toLowerCase() === (normFunc(className || '')).toLowerCase();
       const matchExam = (e.examName || '').trim().toLowerCase() === (examName || '').trim().toLowerCase();
       const matchSession = !session || (e.session || '').trim().toLowerCase() === (session || '').trim().toLowerCase();
-      
-      if (!matchClass || !matchExam || !matchSession) return false;
-
-      const nameA = (e.studentName || '').trim().toLowerCase();
-      const nameB = (student.fullName || '').trim().toLowerCase();
-      const matchName = nameA && nameB && (nameA === nameB || nameA.includes(nameB) || nameB.includes(nameA));
-
-      const rollA = String(e.rollNo || '').trim().replace(/^0+/, '');
-      const rollB = String(student.rollNo || '').trim().replace(/^0+/, '');
-      const matchRoll = rollA && rollB && rollA === rollB;
+      if (!matchExam || !matchSession) return false;
 
       const admA = (e.admissionNo || '').trim().toLowerCase();
       const admB = (student.admissionNo || '').trim().toLowerCase();
-      const matchAdm = admA && admB && admA === admB;
-
-      if (matchAdm) return true;
-      if (matchName) return true;
-      if (matchRoll) {
-        if (nameA && nameB) {
-          const firstA = nameA.split(' ')[0];
-          const firstB = nameB.split(' ')[0];
-          if (firstA !== firstB && !nameA.includes(firstB) && !nameB.includes(firstA)) {
-            return false;
-          }
-        }
-        return true;
-      }
-      return false;
+      return !!(admA && admB && admA === admB);
     });
     
     let existingSubjects = [];
@@ -2430,7 +2417,7 @@
 
       const activeEvals = evaluatedForStatus.filter(e => e.hasInput);
       const evalTarget = activeEvals.length > 0 ? activeEvals : evaluatedForStatus;
-      const evalRes = evalStudentResultStatus(evalTarget, className);
+      const evalRes = evalStudentResultStatus(evalTarget, className, examName);
 
       const mainStats = evalRes.mainStats;
       const overallStats = evalRes.overallStats;
@@ -3917,7 +3904,7 @@
     try { subs = typeof exam.subjectMarks === 'string' ? JSON.parse(exam.subjectMarks) : (exam.subjectMarks || []); } catch(e) {}
     if (!Array.isArray(subs)) subs = [];
 
-    const evalStatus = evalStudentResultStatus(subs, exam.className);
+    const evalStatus = evalStudentResultStatus(subs, exam.className, exam.examName);
     const hasExplicitPassOrFail = (exam.resultStatus === 'PASS' || exam.resultStatus === 'FAIL');
     const isPending = !hasExplicitPassOrFail && (evalStatus.isPending || (evalStatus.resultStatus === 'PENDING') || (exam.resultStatus === 'PENDING'));
     const safeResultStatus = hasExplicitPassOrFail ? exam.resultStatus : (isPending ? 'PENDING' : evalStatus.resultStatus);
@@ -3927,7 +3914,7 @@
       : getGrade(displayOverallPct);
 
     // Prepare complete class curriculum subjects so all subjects for the class are displayed
-    const completeSubs = prepareCompleteMarksheetSubjects(subs, exam.className, isCBSE, isAnnual);
+    const completeSubs = prepareCompleteMarksheetSubjects(subs, exam.className, isCBSE, isAnnual, exam.examName);
     const tableSubs = completeSubs.length > 0 ? completeSubs : subs;
 
     const logoSrc = 'tps_logo_new.png';
@@ -4469,11 +4456,13 @@ function generateDynamicMarksheet(exam, themeId, config) {
     try { subs = typeof exam.subjectMarks === 'string' ? JSON.parse(exam.subjectMarks) : (exam.subjectMarks || []); } catch(e) {}
     if (!Array.isArray(subs)) subs = [];
 
-    const evalStatus = evalStudentResultStatus(subs, exam.className);
+    const evalStatus = evalStudentResultStatus(subs, exam.className, exam.examName);
+    const completeSubs = prepareCompleteMarksheetSubjects(subs, exam.className, isCBSE, false, exam.examName);
+    const tableSubs = completeSubs.length > 0 ? completeSubs : subs;
     const safeGrade = (exam.grade && exam.grade !== 'null' && exam.grade !== 'undefined') ? exam.grade : getGrade(exam.percentage);
     const safeResultStatus = (exam.resultStatus && exam.resultStatus !== 'null' && exam.resultStatus !== 'undefined' && exam.resultStatus !== '') ? exam.resultStatus : evalStatus.resultStatus;
 
-    subs.forEach((sub, i) => {
+    tableSubs.forEach((sub, i) => {
         const isDrawing = isDrawingSubject(sub.subject);
         const isMain = isDrawing ? false : isSubjectMain(sub.subject, exam.className, sub);
         const addlBadge = !isMain ? `<span style="font-size:7pt; font-weight:800; color:${isDrawing ? '#2563eb' : '#b45309'}; background:${isDrawing ? '#eff6ff' : '#fef3c7'}; border:1px solid ${isDrawing ? '#bfdbfe' : '#fde68a'}; border-radius:3px; padding:1px 4px; margin-left:5px; vertical-align:middle; display:inline-block;">${isDrawing ? 'GRADED' : 'ADDITIONAL'}</span>` : '';
@@ -4801,10 +4790,10 @@ function generateDynamicMarksheet(exam, themeId, config) {
     }
     if (!Array.isArray(rawSubs)) rawSubs = [];
 
-    const evalStatus = evalStudentResultStatus(rawSubs, exam.className);
+    const evalStatus = evalStudentResultStatus(rawSubs, exam.className, exam.examName);
     const hasExplicitPassOrFail = (exam.resultStatus === 'PASS' || exam.resultStatus === 'FAIL');
     const isPending = !hasExplicitPassOrFail && (evalStatus.isPending || (evalStatus.resultStatus === 'PENDING') || (exam.resultStatus === 'PENDING'));
-    const completeSubs = prepareCompleteMarksheetSubjects(rawSubs, exam.className);
+    const completeSubs = prepareCompleteMarksheetSubjects(rawSubs, exam.className, false, false, exam.examName);
     const subs = completeSubs.length > 0 ? completeSubs : rawSubs;
 
     let grandTotal = 0;
@@ -5380,13 +5369,30 @@ function generateDynamicMarksheet(exam, themeId, config) {
       }
       if (store.customResultTemplate) template = store.customResultTemplate; // Session fallback
       
+      let customSubs = [];
+      try {
+        customSubs = typeof exam.subjectMarks === 'string' ? JSON.parse(exam.subjectMarks) : (exam.subjectMarks || []);
+      } catch(e) {}
+      if (!Array.isArray(customSubs)) customSubs = [];
+      const touchedSubs = getTouchedSubjectsForClass(exam.className, exam.examName, customSubs);
+      const hasAnyClassmateTouched = touchedSubs.size > 0;
+      const displayCustomSubs = customSubs.filter(m => {
+        if (!m || !m.subject) return false;
+        const normKey = (canonicalSubjectName(m.subject) || String(m.subject).trim()).toLowerCase();
+        const hasMarks = (m.total !== undefined && m.total !== '' && m.total !== '-') ||
+                         (m.theory !== undefined && m.theory !== '' && m.theory !== '-') ||
+                         m.isAbsent === true || String(m.total).toUpperCase() === 'AB';
+        if (hasMarks) return true;
+        return !hasAnyClassmateTouched || touchedSubs.has(normKey);
+      });
+
       // Smart Row Duplication for customized standard templates
       // If the user loaded a standard template into the designer, it will have a row with {subject}
       const rowMatch = template.match(/<tr[^>]*>[\s\S]*?{subject}[\s\S]*?<\/tr>/i);
       if (rowMatch) {
           const rowTemplate = rowMatch[0];
           let generatedRows = '';
-          (exam.subjectMarks || []).forEach(m => {
+          displayCustomSubs.forEach(m => {
               let row = rowTemplate;
               row = row.replace(/{subject}/g, m.subject || '');
               row = row.replace(/{max}/g, m.max || '');
@@ -5400,7 +5406,7 @@ function generateDynamicMarksheet(exam, themeId, config) {
       } else {
           // Fallback: If no {subject} row found, use the standard {marksTable} replacement
           let marksRows = '';
-          (exam.subjectMarks || []).forEach(m => {
+          displayCustomSubs.forEach(m => {
               marksRows += `<tr>
                   <td style="border:1px solid #000; padding:5px;">${m.subject}</td>
                   <td style="border:1px solid #000; padding:5px; text-align:center;">${m.max}</td>
@@ -5480,7 +5486,7 @@ function generateDynamicMarksheet(exam, themeId, config) {
         rawTableData = exam.subjectMarks;
     }
     const marksTableData = typeof prepareCompleteMarksheetSubjects === 'function'
-        ? prepareCompleteMarksheetSubjects(rawTableData, exam.className)
+        ? prepareCompleteMarksheetSubjects(rawTableData, exam.className, false, false, exam.examName)
         : rawTableData;
 
     let scale = [
@@ -5496,7 +5502,7 @@ function generateDynamicMarksheet(exam, themeId, config) {
       }
       scale.sort((a, b) => b.min - a.min);
 
-      const evalStatus = evalStudentResultStatus(marksTableData, exam.className);
+      const evalStatus = evalStudentResultStatus(marksTableData, exam.className, exam.examName);
       const displayGrandTotal = (evalStatus && evalStatus.overallStats && evalStatus.overallStats.grandTotal > 0) ? evalStatus.overallStats.grandTotal : (exam.totalMarks || '-');
       const displayPercentage = (evalStatus && evalStatus.overallStats && evalStatus.overallStats.percentage > 0) ? evalStatus.overallStats.percentage : (exam.percentage || '-');
 
@@ -5762,13 +5768,13 @@ function getMarksheetHtml(exam, theme, config) {
     try { subs = typeof exam.subjectMarks === 'string' ? JSON.parse(exam.subjectMarks) : (exam.subjectMarks || []); } catch(e) {}
     if (!Array.isArray(subs)) subs = [];
 
-    const evalStatus = evalStudentResultStatus(subs, exam.className);
+    const evalStatus = evalStudentResultStatus(subs, exam.className, exam.examName);
     const hasExplicitPassOrFail = (exam.resultStatus === 'PASS' || exam.resultStatus === 'FAIL');
     const isPending = !hasExplicitPassOrFail && (evalStatus.isPending || (evalStatus.resultStatus === 'PENDING') || (exam.resultStatus === 'PENDING'));
     const safeResultStatus = hasExplicitPassOrFail ? exam.resultStatus : (isPending ? 'PENDING' : evalStatus.resultStatus);
     const safeGrade = (exam.grade && exam.grade !== 'null' && exam.grade !== 'undefined' && exam.grade !== '---' && exam.grade !== '-') ? exam.grade : getGrade(exam.percentage || evalStatus.overallStats.percentage);
 
-    const completeSubs = prepareCompleteMarksheetSubjects(subs, exam.className, isCBSE, isAnnual);
+    const completeSubs = prepareCompleteMarksheetSubjects(subs, exam.className, isCBSE, isAnnual, exam.examName);
     const tableSubs = completeSubs.length > 0 ? completeSubs : subs;
 
     tableSubs.forEach(sub => {
@@ -6495,7 +6501,17 @@ function getMarksheetHtml(exam, theme, config) {
           } else {
             const cleanRoll = roll.replace(/^0+/, '');
             const cleanQ = q.replace(/^0+/, '');
-            match = name.includes(q) || roll === q || (cleanQ.length > 0 && cleanRoll === cleanQ) || adm.includes(q);
+            const normFuzzy = (s) => (s || '')
+              .toLowerCase()
+              .replace(/[\s\-_.]+/g, '')
+              .replace(/dhaya/g, 'dhya')
+              .replace(/dhiya/g, 'dhya')
+              .replace(/aa/g, 'a')
+              .replace(/ee/g, 'i')
+              .replace(/oo/g, 'u');
+            const fName = normFuzzy(name);
+            const fQ = normFuzzy(q);
+            match = name.includes(q) || (fQ.length >= 3 && fName.includes(fQ)) || roll === q || (cleanQ.length > 0 && cleanRoll === cleanQ) || adm.includes(q);
           }
 
           if (match) {
@@ -6608,10 +6624,14 @@ function getMarksheetHtml(exam, theme, config) {
 
         const studentMap = {};
         allExams.forEach(ex => {
-            if(!studentMap[ex.studentName]) {
-                studentMap[ex.studentName] = { exams: [], studentName: ex.studentName, rollNo: ex.rollNo, className: ex.className, session: ex.session };
+            const student = findStudentFromStore(store.students || [], ex);
+            const adm = (student?.admissionNo || ex.admissionNo || '').trim();
+            const roll = String(ex.rollNo || student?.rollNo || '').trim();
+            const key = adm ? `adm_${adm}` : (roll ? `roll_${roll}_${(ex.studentName || '').trim()}` : (ex.studentName || '').trim());
+            if(!studentMap[key]) {
+                studentMap[key] = { exams: [], studentName: ex.studentName, rollNo: ex.rollNo, admissionNo: adm, className: ex.className, session: ex.session };
             }
-            studentMap[ex.studentName].exams.push(ex);
+            studentMap[key].exams.push(ex);
         });
 
         const sortedStudents = Object.values(studentMap).sort((a, b) => {
@@ -6642,7 +6662,7 @@ function getMarksheetHtml(exam, theme, config) {
         let html = '';
         targetStudents.forEach(stdGroup => {
             const student = findStudentFromStore(store.students || [], stdGroup);
-            const stdKey = `std_${stdGroup.rollNo || ''}_${(stdGroup.studentName || '').trim().replace(/\s+/g, '_')}`;
+            const stdKey = `std_${stdGroup.rollNo || ''}_${(student?.admissionNo || stdGroup.admissionNo || '').trim()}_${(stdGroup.studentName || '').trim().replace(/\s+/g, '_')}`;
             const admNo = student?.admissionNo || '';
             html += `<div class="marksheet-card-wrapper" data-student-name="${(stdGroup.studentName || '').toLowerCase()}" data-roll-no="${String(stdGroup.rollNo || '').toLowerCase()}" data-admission-no="${admNo.toLowerCase()}" data-student-key="${stdKey}" style="width: 100%; display: flex; flex-direction: column; align-items: center;">
               ${getConsolidatedResultHtml(stdGroup, reqExams, student, config)}
@@ -6688,7 +6708,7 @@ function getMarksheetHtml(exam, theme, config) {
         try {
           const sm = typeof ex.subjectMarks === 'string' ? JSON.parse(ex.subjectMarks) : ex.subjectMarks;
           if (Array.isArray(sm) && sm.length > 0) {
-            const ev = evalStudentResultStatus(sm, ex.className);
+            const ev = evalStudentResultStatus(sm, ex.className, ex.examName);
             if (ev && ev.overallStats && ev.overallStats.maxTotal > 0) {
               return {
                 totalMarks: ev.overallStats.grandTotal,
@@ -6870,7 +6890,8 @@ function getMarksheetHtml(exam, theme, config) {
               }, theme, config);
           }
 
-          const stdKey = `ex_${ex.rollNo || ''}_${(ex.studentName || '').trim().replace(/\s+/g, '_')}`;
+          const admStr = (student?.admissionNo || ex.admissionNo || '').trim();
+          const stdKey = `ex_${ex.rollNo || ''}_${admStr ? admStr + '_' : ''}${(ex.studentName || '').trim().replace(/\s+/g, '_')}`;
           const admNo = (student?.admissionNo || ex.admissionNo || '').toLowerCase();
           const sNameLower = (ex.studentName || '').toLowerCase();
           const sRollLower = String(ex.rollNo || '').toLowerCase();
@@ -6902,11 +6923,12 @@ function getMarksheetHtml(exam, theme, config) {
 
     const studentList = targetExams.map((ex, idx) => {
       const student = findStudentFromStore(store.students || [], ex);
+      const admStr = (student?.admissionNo || ex.admissionNo || '').trim();
       return {
-        key: `ex_${ex.rollNo || ''}_${(ex.studentName || '').trim().replace(/\s+/g, '_')}`,
+        key: `ex_${ex.rollNo || ''}_${admStr ? admStr + '_' : ''}${(ex.studentName || '').trim().replace(/\s+/g, '_')}`,
         rollNo: ex.rollNo || '-',
         name: ex.studentName || '',
-        admNo: student?.admissionNo || ex.admissionNo || ''
+        admNo: admStr
       };
     });
     setupResultStudentSearch(studentList, config?.filterStudent);

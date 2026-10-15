@@ -411,7 +411,7 @@
       .sort((a, b) => (a.fullName || '').localeCompare(b.fullName || ''));
 
     if (!selectedStudent && studentsInClass.length > 0) {
-      selectedStudent = studentsInClass[0].fullName;
+      selectedStudent = studentsInClass[0].admissionNo || '';
     }
 
     ctrl.innerHTML = `
@@ -424,7 +424,7 @@
         <label style="font-size:0.85rem; font-weight:700; color:#475569; margin-left:8px;">Student:</label>
         <select id="rptStudentSelect" class="report-select" style="min-width:240px;" ${studentsInClass.length === 0 ? 'disabled' : ''}>
           ${studentsInClass.length === 0 ? '<option value="">No students in class</option>' : 
-            studentsInClass.map(s => `<option value="${s.fullName}" ${selectedStudent === s.fullName ? 'selected' : ''}>${s.fullName} (Roll: ${s.rollNo || '-'}, Adm: ${s.admissionNo || '-'})</option>`).join('')
+            studentsInClass.map(s => `<option value="${s.admissionNo}" ${String(selectedStudent).trim().toLowerCase() === String(s.admissionNo || '').trim().toLowerCase() ? 'selected' : ''}>${s.fullName} (Roll: ${s.rollNo || '-'}, Adm: ${s.admissionNo || '-'})</option>`).join('')
           }
         </select>
       </div>
@@ -441,21 +441,27 @@
       renderActiveTab();
     };
 
-    const targetStudent = studentsInClass.find(s => s.fullName === selectedStudent) || studentsInClass[0];
+    const targetStudent = studentsInClass.find(s => String(s.admissionNo || '').trim().toLowerCase() === String(selectedStudent || '').trim().toLowerCase()) || studentsInClass[0];
 
     if (!targetStudent) {
       body.innerHTML = `<div class="report-empty-state"><i>👤</i><h4>No student selected</h4><p>Select a class and student to view their comprehensive academic report.</p></div>`;
       return;
     }
 
+    const targetAdm = String(targetStudent.admissionNo || '').trim().toLowerCase();
+
     const studentExams = (store.exams || []).filter(e => {
-      const matchName = (e.studentName || '').trim().toLowerCase() === (targetStudent.fullName || '').trim().toLowerCase();
-      const matchAdm = e.admissionNo && targetStudent.admissionNo && (e.admissionNo || '').trim().toLowerCase() === (targetStudent.admissionNo || '').trim().toLowerCase();
-      const matchRoll = e.rollNo && targetStudent.rollNo && String(e.rollNo).trim().replace(/^0+/, '') === String(targetStudent.rollNo).trim().replace(/^0+/, '');
-      return matchName || matchAdm || matchRoll;
+      const eAdm = String(e.admissionNo || '').trim().toLowerCase();
+      return targetAdm && eAdm && eAdm === targetAdm;
     });
-    const studentAtt = (store.attendance || []).filter(a => ((a.studentName || '').trim().toLowerCase() === (targetStudent.fullName || '').trim().toLowerCase() || (a.admissionNo && targetStudent.admissionNo && (a.admissionNo || '').trim().toLowerCase() === (targetStudent.admissionNo || '').trim().toLowerCase())));
-    const studentFees = (store.fees || []).filter(f => ((f.studentName || '').trim().toLowerCase() === (targetStudent.fullName || '').trim().toLowerCase() || (f.admissionNo && targetStudent.admissionNo && (f.admissionNo || '').trim().toLowerCase() === (targetStudent.admissionNo || '').trim().toLowerCase())));
+    const studentAtt = (store.attendance || []).filter(a => {
+      const aAdm = String(a.admissionNo || '').trim().toLowerCase();
+      return targetAdm && aAdm && aAdm === targetAdm;
+    });
+    const studentFees = (store.fees || []).filter(f => {
+      const fAdm = String(f.admissionNo || '').trim().toLowerCase();
+      return targetAdm && fAdm && fAdm === targetAdm;
+    });
 
     let paid = 0, balance = 0;
     studentFees.forEach(f => {
@@ -647,8 +653,32 @@
 
   function drawStudentExamChart(canvas, exams) {
     if (!canvas || !window.Chart) return;
-    const labels = exams.map(e => e.examName || 'Exam');
-    const data = exams.map(e => parseFloat(e.percentage) || 0);
+    let labels = [];
+    let data = [];
+
+    if (exams.length === 1 && exams[0].subjectMarks) {
+      let subs = [];
+      try {
+        subs = typeof exams[0].subjectMarks === 'string' ? JSON.parse(exams[0].subjectMarks) : exams[0].subjectMarks;
+      } catch (e) { subs = []; }
+      if (Array.isArray(subs) && subs.length > 0) {
+        subs.forEach(s => {
+          if (!s || !s.subject) return;
+          const val = parseFloat(s.total !== undefined && !isNaN(parseFloat(s.total)) ? s.total : s.marks);
+          const max = parseFloat(s.max) || 100;
+          const pct = !isNaN(val) && max > 0 ? +((val / max) * 100).toFixed(1) : 0;
+          labels.push(s.subject);
+          data.push(pct);
+        });
+        labels.push(`Overall (${exams[0].examName || 'Exam'})`);
+        data.push(parseFloat(exams[0].percentage) || 0);
+      }
+    }
+
+    if (labels.length === 0) {
+      labels = exams.map(e => e.examName || 'Exam');
+      data = exams.map(e => parseFloat(e.percentage) || 0);
+    }
 
     const ctx = canvas.getContext('2d');
     activeCharts['studentExams'] = new Chart(ctx, {

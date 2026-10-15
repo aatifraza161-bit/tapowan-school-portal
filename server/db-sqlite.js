@@ -189,7 +189,8 @@ const db = {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${tursoAuthToken}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Accept-Encoding': 'zstd, br, gzip'
       },
       body: JSON.stringify(payload)
     });
@@ -245,7 +246,8 @@ const db = {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${tursoAuthToken}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Accept-Encoding': 'zstd, br, gzip'
       },
       body: JSON.stringify({ requests })
     });
@@ -341,7 +343,7 @@ const MODULES = {
   teachers: ["employeeNo", "fullName", "department", "qualification", "phone", "email", "joinDate", "photo"],
   classes: ["className", "section", "classTeacher", "roomNo", "capacity"],
   subjects: ["subjectCode", "subjectName", "className", "teacher", "credits"],
-  attendance: ["date", "className", "studentName", "rollNo", "status", "arrivalTime", "departureTime", "remarks", "facePhoto"],
+  attendance: ["admissionNo", "date", "className", "studentName", "rollNo", "status", "arrivalTime", "departureTime", "remarks", "facePhoto"],
   teacherAttendance: ["date", "department", "teacherName", "status", "arrivalTime", "departureTime", "remarks"],
   exams: ["examName", "className", "section", "studentName", "rollNo", "admissionNo", "studentPhoto", "session", "examDate", "reportingTime", "examCenter", "subjectMarks", "totalMarks", "percentage", "grade", "gpa", "rank", "resultStatus", "teacherRemark"],
   examSchedules: ["className", "examName", "dates"],
@@ -419,10 +421,14 @@ async function seedHolidays() {
   const res = await db.execute("SELECT COUNT(*) AS c FROM holidays");
   if (res.rows[0].c > 0) return;
   const holidays = [
-    { date: "2026-01-26", name: "Republic Day", type: "National", description: "Republic Day of India" },
     { date: "2026-01-14", name: "Makar Sankranti", type: "Festival", description: "Harvest festival" },
-    { date: "2026-02-26", name: "Maha Shivaratri", type: "Religious", description: "Lord Shiva festival" },
-    { date: "2026-03-17", name: "Holi", type: "Festival", description: "Festival of colors" },
+    { date: "2026-01-26", name: "Republic Day", type: "National", description: "Republic Day of India" },
+    { date: "2026-02-15", name: "Maha Shivaratri", type: "Religious", description: "Lord Shiva festival" },
+    { date: "2026-03-04", name: "Holi", type: "Festival", description: "Festival of colors" },
+    { date: "2026-08-15", name: "Independence Day", type: "National", description: "Independence Day of India" },
+    { date: "2026-10-02", name: "Gandhi Jayanti", type: "National", description: "Mahatma Gandhi birthday" },
+    { date: "2026-10-20", name: "Dussehra", type: "Festival", description: "Victory of good over evil" },
+    { date: "2026-11-08", name: "Diwali", type: "Festival", description: "Festival of lights" },
     { date: "2026-12-25", name: "Christmas", type: "Festival", description: "Birth of Jesus Christ" }
   ];
   for (const h of holidays) await insert("holidays", h);
@@ -934,10 +940,12 @@ async function rawList(moduleName) {
 
           const appMarksMap = new Map();
           for (const ar of appRows) {
-            const key = `${(ar.exam_name || '').trim().toLowerCase()}:::${(ar.class_name || '').trim().toLowerCase()}:::${(ar.student_name || '').trim().toLowerCase()}`;
-            if (!appMarksMap.has(key)) appMarksMap.set(key, []);
+            const eName = (ar.exam_name || '').trim().toLowerCase();
+            const adm = (ar.admission_no || '').trim().toLowerCase();
+            const admKey = adm ? `${eName}:::adm_${adm}` : null;
+
             const isAb = ar.grade === 'AB' || ar.remarks === 'Absent' || String(ar.marks_obtained).toUpperCase() === 'AB' || String(ar.subjective_marks).toUpperCase() === 'AB';
-            appMarksMap.get(key).push({
+            const subObj = {
               subject: (ar.subject || '').trim(),
               max: parseFloat(ar.max_marks) || 100,
               min: parseFloat(ar.passing_marks) || 33,
@@ -951,29 +959,20 @@ async function rawList(moduleName) {
               total: isAb ? 'AB' : (parseFloat(ar.marks_obtained) || 0),
               grade: isAb ? 'AB' : (ar.grade || ''),
               isAbsent: isAb
-            });
+            };
+
+            if (admKey) {
+              if (!appMarksMap.has(admKey)) appMarksMap.set(admKey, []);
+              appMarksMap.get(admKey).push(subObj);
+            }
           }
 
           rows.forEach(r => {
-            const key = `${(r.examName || '').trim().toLowerCase()}:::${(r.className || '').trim().toLowerCase()}:::${(r.studentName || '').trim().toLowerCase()}`;
-            const cKey = (r.className || '').trim().toLowerCase();
-            const classSubsSet = classCurriculumMap.get(cKey) || new Set();
-            let standardClassCount = 9;
-            let standardMainCount = 5;
-            if (cKey.includes('nursery') || cKey.includes('lkg')) {
-              standardClassCount = 4;
-              standardMainCount = 3;
-            } else if (cKey.includes('ukg')) {
-              standardClassCount = 5;
-              standardMainCount = 4;
-            } else if (/^(i|ii|iii)(-a)?$/i.test(cKey) || /^(1|2|3)(-a)?$/i.test(cKey) || /^class\s*(1|2|3|i|ii|iii)(-a)?$/i.test(cKey)) {
-              standardClassCount = 8;
-              standardMainCount = 5;
-            }
-            const expectedClassSubjectsCount = Math.max(classSubsSet.size, standardClassCount);
-            const expectedMainCount = Math.max(Array.from(classSubsSet).filter(isSubjectMainServer).length, standardMainCount);
+            const eName = (r.examName || '').trim().toLowerCase();
+            const adm = (r.admissionNo || '').trim().toLowerCase();
+            const admKey = adm ? `${eName}:::adm_${adm}` : null;
 
-            const appSubjects = appMarksMap.get(key);
+            const appSubjects = admKey ? appMarksMap.get(admKey) : null;
             if (appSubjects && appSubjects.length > 0) {
               let existingSubjects = [];
               try {

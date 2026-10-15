@@ -7,10 +7,9 @@ android.zip
 *.gz
 *.asar
 
-# All APKs (hosted on Render and GitHub Releases to keep Vercel deploys 10x faster & save bandwidth)
-*.apk
-**/*.apk
-public/*.apk
+# Other APK files
+Karz-e-Hasan.apk
+CabHUB.apk
 
 # Large Directories
 student-mobile-app
