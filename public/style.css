@@ -772,7 +772,7 @@ body{
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.12);
   border-radius: 8px;
-  color: #94A3B8;
+  color: #FFFFFF !important;
   cursor: pointer;
   padding: 0;
   flex-shrink: 0;
@@ -780,14 +780,18 @@ body{
 }
 .sidebar-toggle-btn:hover {
   background: rgba(255,255,255,0.12);
-  color: #FFFFFF;
+  color: #FFFFFF !important;
   border-color: rgba(255,255,255,0.25);
   transform: scale(1.05);
 }
 .sidebar-toggle-btn:active {
   transform: scale(0.96);
 }
-.sidebar-toggle-btn svg, .topbar-sidebar-toggle-btn svg {
+.sidebar-toggle-btn svg {
+  display: block;
+  stroke: #FFFFFF !important;
+}
+.topbar-sidebar-toggle-btn svg {
   display: block;
 }
 
@@ -869,6 +873,8 @@ body{
 .sidebar.collapsed #moduleNav button .nav-icon {
   margin: 0 !important;
   font-size: 22px !important;
+  color: #FFFFFF !important;
+  -webkit-text-fill-color: #FFFFFF !important;
 }
 .sidebar.collapsed #moduleNav button.active {
   background: rgba(79,70,229,0.25);
@@ -944,12 +950,37 @@ body{
   border-left: 3px solid var(--brand);
 }
 
-.nav-icon{
-  font-size:1.1rem;width:22px;text-align:center;flex-shrink:0;
-  transition:transform var(--transition);
+.nav-icon {
+  font-size: 1.1rem; width: 22px; text-align: center; flex-shrink: 0;
+  color: #FFFFFF !important;
+  -webkit-text-fill-color: #FFFFFF !important;
+  transition: transform var(--transition);
 }
-#moduleNav button:hover .nav-icon{transform:scale(1.1);}
-#moduleNav button.active .nav-icon{transform:scale(1.1);}
+#moduleNav button .nav-icon {
+  color: #FFFFFF !important;
+  -webkit-text-fill-color: #FFFFFF !important;
+}
+#moduleNav button:hover .nav-icon {
+  transform: scale(1.1);
+  color: #FFFFFF !important;
+  -webkit-text-fill-color: #FFFFFF !important;
+}
+#moduleNav button.active .nav-icon {
+  transform: scale(1.1);
+  color: #FFFFFF !important;
+  -webkit-text-fill-color: #FFFFFF !important;
+}
+
+/* ─── PURE WHITE SIDEBAR ICONS ─── */
+.sidebar .nav-icon,
+.sidebar #moduleNav button .nav-icon,
+.sidebar.collapsed #moduleNav button .nav-icon,
+.sidebar .nav-btn .nav-icon,
+.sidebar .material-symbols-outlined,
+.sidebar button .material-symbols-outlined {
+  color: #FFFFFF !important;
+  -webkit-text-fill-color: #FFFFFF !important;
+}
 .nav-badge{
   margin-left:auto;font-size:0.58rem;font-weight:800;
   background:var(--brand-light);color:var(--brand);
@@ -1874,6 +1905,8 @@ tbody td:last-child { padding-right: 24px; }
   width: 22px;
   display: inline-block;
   text-align: center;
+  color: #FFFFFF !important;
+  -webkit-text-fill-color: #FFFFFF !important;
 }
 
 .nav-text {
