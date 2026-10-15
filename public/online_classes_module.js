@@ -1315,8 +1315,66 @@
       console.warn('Inspect transceiver setup note:', e);
     }
 
+    const refreshInspectMediaElements = () => {
+      if (!state.isInspecting || !state.inspectRemoteStream) return;
+      const vTracks = state.inspectRemoteStream.getVideoTracks().filter(t => t.readyState === 'live');
+      const aTracks = state.inspectRemoteStream.getAudioTracks().filter(t => t.readyState === 'live');
+      const hasLiveVideo = vTracks.length > 0;
+      const hasLiveAudio = aTracks.length > 0;
+
+      // 1. Live Video Stream Viewport
+      const inspectVideo = document.getElementById('liveClassInspectVideo');
+      if (inspectVideo) {
+        if (inspectVideo.srcObject !== state.inspectRemoteStream) {
+          inspectVideo.srcObject = state.inspectRemoteStream;
+        }
+        inspectVideo.playsInline = true;
+        inspectVideo.autoplay = true;
+        inspectVideo.style.display = 'block';
+
+        // Play video immediately. If browser autoplay blocks unmuted sound, mute video tag and play!
+        inspectVideo.play().catch(err => {
+          console.warn('[Inspector WebRTC] Video autoplay caught, muting video tag:', err?.message || err);
+          inspectVideo.muted = true;
+          inspectVideo.play().catch(() => {});
+        });
+      }
+
+      // 2. Dedicated Live Audio Channel (Bypasses video autoplay restrictions)
+      let inspectAudio = document.getElementById('liveClassInspectAudio');
+      if (!inspectAudio) {
+        inspectAudio = document.createElement('audio');
+        inspectAudio.id = 'liveClassInspectAudio';
+        inspectAudio.autoplay = true;
+        inspectAudio.style.display = 'none';
+        document.body.appendChild(inspectAudio);
+      }
+      if (inspectAudio.srcObject !== state.inspectRemoteStream) {
+        inspectAudio.srcObject = state.inspectRemoteStream;
+      }
+      inspectAudio.muted = Boolean(state.isInspectAudioMuted);
+      inspectAudio.volume = state.inspectAudioVolume !== undefined ? state.inspectAudioVolume : 1;
+      inspectAudio.play().catch(err => {
+        console.warn('[Inspector WebRTC] Audio play note:', err?.message || err);
+      });
+
+      // 3. Dynamic Connection Status HUD
+      const inspectStatus = document.getElementById('inspectStreamStatus');
+      if (inspectStatus) {
+        if (hasLiveVideo) {
+          inspectStatus.innerHTML = '🟢 <span style="color:#4ade80;">HD Live Stream Connected</span>';
+        } else if (hasLiveAudio) {
+          inspectStatus.innerHTML = '🟢 <span style="color:#38bdf8;">Live Audio Connected</span> <span style="font-size:10px; color:#cbd5e1;">(Syncing Video...)</span>';
+        } else {
+          inspectStatus.innerHTML = '🟡 <span style="color:#facc15;">Negotiating Stream...</span>';
+        }
+      }
+    };
+
+    state.refreshInspectMediaElementsFn = refreshInspectMediaElements;
+
     state.inspectPc.ontrack = (event) => {
-      console.log('[Inspector WebRTC] ontrack received:', event.track?.kind);
+      console.log('[Inspector WebRTC] ontrack received:', event.track?.kind, 'readyState:', event.track?.readyState);
       if (event.receiver) {
         try {
           if ('playoutDelayHint' in event.receiver) event.receiver.playoutDelayHint = 0;
@@ -1324,32 +1382,28 @@
         } catch (e) {}
       }
       if (event.track) {
-        state.inspectRemoteStream.addTrack(event.track);
+        if (!state.inspectRemoteStream.getTracks().includes(event.track)) {
+          state.inspectRemoteStream.addTrack(event.track);
+        }
+        event.track.onunmute = () => {
+          console.log('[Inspector WebRTC] Track unmuted:', event.track?.kind);
+          refreshInspectMediaElements();
+        };
+        event.track.onended = () => {
+          console.log('[Inspector WebRTC] Track ended:', event.track?.kind);
+          refreshInspectMediaElements();
+        };
       }
       if (event.streams && event.streams[0]) {
         event.streams[0].getTracks().forEach(t => {
           if (!state.inspectRemoteStream.getTracks().includes(t)) {
             state.inspectRemoteStream.addTrack(t);
+            t.onunmute = () => refreshInspectMediaElements();
           }
         });
       }
 
-      const inspectVideo = document.getElementById('liveClassInspectVideo');
-      if (inspectVideo) {
-        if (inspectVideo.srcObject !== state.inspectRemoteStream) {
-          inspectVideo.srcObject = state.inspectRemoteStream;
-        }
-        inspectVideo.volume = state.inspectAudioVolume !== undefined ? state.inspectAudioVolume : 1;
-        inspectVideo.muted = Boolean(state.isInspectAudioMuted);
-        inspectVideo.play().catch(e => console.warn('Inspect play note:', e));
-      }
-      const inspectStatus = document.getElementById('inspectStreamStatus');
-      if (inspectStatus) {
-        const hasVideo = state.inspectRemoteStream.getVideoTracks().length > 0;
-        inspectStatus.innerHTML = hasVideo
-          ? '🟢 <span style="color:#4ade80;">HD Live Stream Connected</span>'
-          : '🟢 <span style="color:#38bdf8;">Live Audio Connected</span>';
-      }
+      refreshInspectMediaElements();
     };
 
     state.inspectPc.onicecandidate = (event) => {
@@ -1372,11 +1426,8 @@
       const connState = state.inspectPc?.connectionState;
       console.log('[Inspector WebRTC] Connection state:', connState);
       const inspectStatus = document.getElementById('inspectStreamStatus');
-      if (connState === 'connected' && inspectStatus) {
-        const hasVideo = state.inspectRemoteStream && state.inspectRemoteStream.getVideoTracks().length > 0;
-        inspectStatus.innerHTML = hasVideo
-          ? '🟢 <span style="color:#4ade80;">HD Live Stream Connected</span>'
-          : '🟢 <span style="color:#38bdf8;">Live Audio Connected</span>';
+      if (connState === 'connected') {
+        refreshInspectMediaElements();
       } else if (connState === 'failed') {
         if (inspectStatus) {
           inspectStatus.innerHTML = '⚠️ <span style="color:#f59e0b;">Reconnecting Live Stream...</span>';
@@ -1388,10 +1439,7 @@
     const sendInspectOffer = async () => {
       if (!state.isInspecting || !state.inspectPc) return;
       try {
-        const offer = await state.inspectPc.createOffer({
-          offerToReceiveAudio: true,
-          offerToReceiveVideo: true
-        });
+        const offer = await state.inspectPc.createOffer();
         await state.inspectPc.setLocalDescription(offer);
         state.inspectOfferSentAt = Date.now();
 
@@ -1535,6 +1583,15 @@
         state.inspectRemoteStream.getTracks().forEach(t => t.stop());
       } catch(e) {}
       state.inspectRemoteStream = null;
+    }
+
+    const inspectAudio = document.getElementById('liveClassInspectAudio');
+    if (inspectAudio) {
+      try { inspectAudio.pause(); inspectAudio.srcObject = null; inspectAudio.remove(); } catch(e){}
+    }
+    const inspectVideo = document.getElementById('liveClassInspectVideo');
+    if (inspectVideo) {
+      try { inspectVideo.pause(); inspectVideo.srcObject = null; } catch(e){}
     }
 
     const roomId = state.inspectRoom?.room_id;
@@ -2783,6 +2840,10 @@
                 <span class="material-symbols-outlined" style="font-size: 20px; color: #c084fc;">campaign</span>
                 <span class="zoom-sidebar-label" style="color: #c084fc; font-weight: 700;">Announce</span>
               </button>
+              <button class="zoom-sidebar-item" id="zoomNavBanner" onclick="window.openMediaNotificationModal()" title="Banner & Video Notification to Students">
+                <span class="material-symbols-outlined" style="font-size: 20px; color: #38bdf8;">photo_library</span>
+                <span class="zoom-sidebar-label" style="color: #38bdf8; font-weight: 700;">Banner</span>
+              </button>
               <button class="zoom-sidebar-item" id="zoomNavChat" onclick="window.zoomSwitchTab('chat')" title="Team Chat">
                 <span class="material-symbols-outlined" style="font-size: 20px;">chat_bubble</span>
                 <span class="zoom-sidebar-label">Chat</span>
@@ -2865,6 +2926,10 @@
                       <span class="material-symbols-outlined" style="font-size: 17px; color: #c084fc;">campaign</span>
                       <span>Announcement</span>
                     </button>
+                    <button class="zoom-hdr-btn" onclick="window.openMediaNotificationModal()" title="Broadcast Banner / Video Notification to Students">
+                      <span class="material-symbols-outlined" style="font-size: 17px; color: #38bdf8;">photo_library</span>
+                      <span>Banner / Video</span>
+                    </button>
                     <span class="material-symbols-outlined" style="color: #22c55e; font-size: 19px; padding: 0 2px;" title="Meeting Encrypted">security</span>
                     <button class="zoom-hdr-btn" style="padding: 5px 7px;" onclick="window.zoomCopyInviteLink()" title="Copy Invite Link">
                       <span class="material-symbols-outlined" style="font-size: 18px;">link</span>
@@ -2895,6 +2960,7 @@
 
                 <!-- Live Inspect Video Element (Plays teacher stream when observing other classes) -->
                 <video id="liveClassInspectVideo" class="zoom-live-video-element" autoplay playsinline style="display: ${isInspecting ? 'block' : 'none'}; width: 100%; height: 100%; object-fit: contain; background: #000;"></video>
+                <audio id="liveClassInspectAudio" autoplay style="display: none;"></audio>
 
                 ${isInspecting ? `
                   <!-- Floating Connection Status -->
@@ -3309,10 +3375,28 @@
         if (inspectVid.srcObject !== state.inspectRemoteStream) {
           inspectVid.srcObject = state.inspectRemoteStream;
         }
-        inspectVid.muted = Boolean(state.isInspectAudioMuted);
-        inspectVid.volume = state.inspectAudioVolume !== undefined ? state.inspectAudioVolume : 1;
-        inspectVid.play().catch(() => {});
+        inspectVid.playsInline = true;
+        inspectVid.autoplay = true;
+        inspectVid.style.display = 'block';
+        inspectVid.play().catch(err => {
+          inspectVid.muted = true;
+          inspectVid.play().catch(() => {});
+        });
       }
+      let aud = document.getElementById('liveClassInspectAudio');
+      if (!aud) {
+        aud = document.createElement('audio');
+        aud.id = 'liveClassInspectAudio';
+        aud.autoplay = true;
+        aud.style.display = 'none';
+        document.body.appendChild(aud);
+      }
+      if (aud.srcObject !== state.inspectRemoteStream) {
+        aud.srcObject = state.inspectRemoteStream;
+      }
+      aud.muted = Boolean(state.isInspectAudioMuted);
+      aud.volume = state.inspectAudioVolume !== undefined ? state.inspectAudioVolume : 1;
+      aud.play().catch(() => {});
     }
 
     // Inspection Controls Helpers
@@ -3320,6 +3404,8 @@
       state.isInspectAudioMuted = !state.isInspectAudioMuted;
       const vid = document.getElementById('liveClassInspectVideo');
       if (vid) vid.muted = state.isInspectAudioMuted;
+      const aud = document.getElementById('liveClassInspectAudio');
+      if (aud) aud.muted = state.isInspectAudioMuted;
       const btn = document.getElementById('zoomBtnInspectAudio');
       if (btn) {
         btn.innerHTML = state.isInspectAudioMuted
@@ -6066,8 +6152,502 @@
   };
 
   // ─────────────────────────────────────────────────────────────
-  // ── 10. INITIALIZATION
+  // ── 9B. MEDIA, BANNER & VIDEO BROADCAST MODAL ENGINE
   // ─────────────────────────────────────────────────────────────
+  window.openMediaNotificationModal = function() {
+    let modal = document.getElementById('mediaNotificationModal');
+    if (modal) {
+      modal.remove();
+    }
+
+    const store = typeof window.getStore === 'function' ? window.getStore() : (window.serverStore || {});
+    const CANONICAL_ORDER = ['Nursery-A', 'LKG-A', 'UKG-A', 'I-A', 'II-A', 'III-A', 'IV-A', 'V-A', 'VI-A', 'VII-A', 'VIII-A', 'IX-A', 'X-A'];
+    const normFunc = (typeof window.normalizeCanonicalClass === 'function') ? window.normalizeCanonicalClass : (x => (x || '').trim());
+    const rawClassList = [
+      ...CANONICAL_ORDER,
+      ...(store.classes || []).map(c => [c?.className, c?.section].filter(Boolean).join('-')),
+      ...(store.classes || []).map(c => c?.className),
+      ...(store.students || []).map(s => s?.className)
+    ];
+    const classSet = new Set();
+    rawClassList.forEach(c => {
+      if (c && typeof c === 'string' && c.trim()) {
+        const norm = normFunc(c.trim());
+        if (norm) classSet.add(norm);
+      }
+    });
+    const classOptions = Array.from(classSet).sort((a, b) => {
+      const idxA = CANONICAL_ORDER.indexOf(a);
+      const idxB = CANONICAL_ORDER.indexOf(b);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+    });
+
+    modal = document.createElement('div');
+    modal.id = 'mediaNotificationModal';
+    modal.style.cssText = 'position: fixed; inset: 0; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px); z-index: 99999; display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif;';
+
+    modal.innerHTML = `
+      <div style="background: #1e293b; border: 1.5px solid #38bdf8; border-radius: 18px; width: 100%; max-width: 620px; max-height: 92vh; overflow-y: auto; padding: 24px; box-shadow: 0 25px 50px -12px rgba(56, 189, 248, 0.35); box-sizing: border-box; color: #f8fafc;">
+        
+        <!-- Header -->
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 1px solid rgba(148, 163, 184, 0.15); padding-bottom: 16px;">
+          <div style="display: flex; gap: 14px; align-items: center;">
+            <div style="width: 52px; height: 52px; border-radius: 16px; background: linear-gradient(135deg, #0284c7, #38bdf8); display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(56, 189, 248, 0.45); flex-shrink: 0;">
+              <span class="material-symbols-outlined" style="font-size: 28px; color: #ffffff;">photo_library</span>
+            </div>
+            <div>
+              <h3 style="margin: 0; font-size: 19px; font-weight: 800; color: #f8fafc;">Broadcast Banner & Video Notification</h3>
+              <p style="margin: 4px 0 0; font-size: 13px; color: #94a3b8;">High-definition visual push & student dashboard carousel broadcast</p>
+            </div>
+          </div>
+          <button id="btnMnClose" style="background: transparent; border: none; color: #94a3b8; font-size: 22px; cursor: pointer; line-height: 1; padding: 4px; display: flex; align-items: center; justify-content: center;">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <!-- Highlight Badge -->
+        <div style="background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 12px; padding: 12px 16px; margin-bottom: 20px; display: flex; align-items: center; gap: 12px;">
+          <span class="material-symbols-outlined" style="font-size: 22px; color: #38bdf8;">stay_current_portrait</span>
+          <span style="font-size: 12.5px; color: #7dd3fc; font-weight: 600; line-height: 1.4;">
+            <strong>BigPicture Notification:</strong> Targeted phones receive an expandable widescreen banner notification. It also instantly updates the mobile app home screen banner carousel!
+          </span>
+        </div>
+
+        <!-- Form Inputs -->
+        <div style="display: flex; flex-direction: column; gap: 18px;">
+          
+          <!-- 1. Title -->
+          <div>
+            <label style="display: block; font-size: 13px; font-weight: 700; color: #cbd5e1; margin-bottom: 8px;">
+              Announcement / Event Title <span style="color: #ef4444;">*</span>
+            </label>
+            <input id="mnInputTitle" type="text" class="oc-custom-input" placeholder="E.g., 🇮🇳 Dr. A.P.J. Abdul Kalam Birth Anniversary / Annual Sports Day 2026" />
+          </div>
+
+          <!-- 2. Description / Details -->
+          <div>
+            <label style="display: block; font-size: 13px; font-weight: 700; color: #cbd5e1; margin-bottom: 8px;">
+              Details / Quote / Instructions <span style="font-size: 11px; font-weight: normal; color: #94a3b8;">(Optional)</span>
+            </label>
+            <textarea id="mnInputMessage" class="oc-custom-input" style="height: 65px; resize: vertical;" placeholder="Enter message, quote, or details for the notification..."></textarea>
+          </div>
+
+          <!-- 3. Media Type Tabs -->
+          <div>
+            <label style="display: block; font-size: 13px; font-weight: 700; color: #cbd5e1; margin-bottom: 8px;">Media Type</label>
+            <div style="display: flex; gap: 8px; background: rgba(15, 23, 42, 0.6); padding: 5px; border-radius: 10px; border: 1px solid rgba(148, 163, 184, 0.15);">
+              <button type="button" class="mn-type-btn active" data-type="image" style="flex: 1; padding: 8px 12px; border-radius: 8px; border: none; background: #0284c7; color: #ffffff; font-size: 12.5px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                <span class="material-symbols-outlined" style="font-size: 17px;">image</span> Banner Image
+              </button>
+              <button type="button" class="mn-type-btn" data-type="video" style="flex: 1; padding: 8px 12px; border-radius: 8px; border: none; background: transparent; color: #94a3b8; font-size: 12.5px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                <span class="material-symbols-outlined" style="font-size: 17px;">smart_display</span> Video Broadcast
+              </button>
+              <button type="button" class="mn-type-btn" data-type="gif" style="flex: 1; padding: 8px 12px; border-radius: 8px; border: none; background: transparent; color: #94a3b8; font-size: 12.5px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                <span class="material-symbols-outlined" style="font-size: 17px;">gif_box</span> Animated GIF
+              </button>
+            </div>
+          </div>
+
+          <!-- 4. Media Upload & Direct Link -->
+          <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 14px; padding: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+              <span style="font-size: 13px; font-weight: 700; color: #e2e8f0;">Media Source</span>
+              <span style="font-size: 11px; color: #94a3b8;">PNG, JPG, WebP, GIF, or Video Link</span>
+            </div>
+
+            <!-- Drag & Drop Upload Zone -->
+            <div id="mnDropZone" style="border: 2px dashed #0284c7; border-radius: 12px; padding: 20px 16px; text-align: center; cursor: pointer; background: rgba(2, 132, 199, 0.05); transition: all 0.2s ease;">
+              <input type="file" id="mnFileInput" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4" style="display: none;" />
+              <div style="width: 44px; height: 44px; border-radius: 50%; background: rgba(56, 189, 248, 0.15); display: flex; align-items: center; justify-content: center; margin: 0 auto 10px;">
+                <span class="material-symbols-outlined" style="font-size: 24px; color: #38bdf8;">cloud_upload</span>
+              </div>
+              <p style="margin: 0; font-size: 13.5px; font-weight: 700; color: #f8fafc;">Click to upload or drag & drop</p>
+              <p style="margin: 4px 0 0; font-size: 11.5px; color: #94a3b8;">Recommended size: 1200 × 675 px (16:9 widescreen)</p>
+            </div>
+
+            <!-- Divider -->
+            <div style="display: flex; align-items: center; gap: 10px; margin: 12px 0;">
+              <div style="flex: 1; height: 1px; background: rgba(148, 163, 184, 0.2);"></div>
+              <span style="font-size: 11px; color: #64748b; font-weight: 700;">OR PASTE URL</span>
+              <div style="flex: 1; height: 1px; background: rgba(148, 163, 184, 0.2);"></div>
+            </div>
+
+            <!-- URL Input (Direct Image or YouTube Link) -->
+            <div>
+              <input id="mnInputUrl" type="url" class="oc-custom-input" placeholder="Paste image URL or YouTube link (e.g. https://youtu.be/...)" />
+            </div>
+
+            <!-- Live Image / Video Preview Box -->
+            <div id="mnPreviewBox" style="display: none; margin-top: 14px; border-radius: 10px; overflow: hidden; border: 1px solid rgba(56, 189, 248, 0.4); background: #0f172a; position: relative;">
+              <img id="mnPreviewImg" src="" alt="Banner Preview" style="width: 100%; height: 160px; object-fit: cover; display: block;" />
+              <div id="mnVideoPlayOverlay" style="display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.4); align-items: center; justify-content: center;">
+                <div style="width: 48px; height: 48px; border-radius: 50%; background: #ef4444; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(239, 68, 68, 0.6);">
+                  <span class="material-symbols-outlined" style="font-size: 30px; color: #ffffff;">play_arrow</span>
+                </div>
+              </div>
+              <div style="position: absolute; top: 8px; right: 8px; background: rgba(15, 23, 42, 0.85); padding: 4px 8px; border-radius: 6px; font-size: 11px; color: #38bdf8; font-weight: 700; display: flex; align-items: center; gap: 4px;">
+                <span class="material-symbols-outlined" style="font-size: 14px;">visibility</span> Live Preview
+              </div>
+            </div>
+          </div>
+
+          <!-- 5. Target Audience Selector -->
+          <div>
+            <label style="display: block; font-size: 13px; font-weight: 700; color: #cbd5e1; margin-bottom: 8px;">Target Audience</label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+              <label style="background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px; font-weight: 600; color: #f8fafc;">
+                <input type="radio" name="mnTargetType" value="all" checked />
+                <span class="material-symbols-outlined" style="font-size: 17px; color: #38bdf8;">campaign</span>
+                All School
+              </label>
+              <label style="background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px; font-weight: 600; color: #f8fafc;">
+                <input type="radio" name="mnTargetType" value="class" />
+                <span class="material-symbols-outlined" style="font-size: 17px; color: #a78bfa;">school</span>
+                Specific Class
+              </label>
+              <label style="background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px; font-weight: 600; color: #f8fafc;">
+                <input type="radio" name="mnTargetType" value="student" />
+                <span class="material-symbols-outlined" style="font-size: 17px; color: #4ade80;">person</span>
+                Specific Student
+              </label>
+              <label style="background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px; font-weight: 600; color: #f8fafc;">
+                <input type="radio" name="mnTargetType" value="teachers" />
+                <span class="material-symbols-outlined" style="font-size: 17px; color: #f59e0b;">badge</span>
+                All Teachers
+              </label>
+            </div>
+
+            <!-- Conditional Class Selector -->
+            <div id="mnClassContainer" style="display: none; margin-top: 8px;">
+              <label style="display: block; font-size: 12px; color: #94a3b8; margin-bottom: 6px;">Select Target Class</label>
+              <select id="mnSelectClass" class="oc-custom-input">
+                <option value="">-- Choose Class --</option>
+                ${classOptions.map(c => `<option value="${c}">${c}</option>`).join('')}
+              </select>
+            </div>
+
+            <!-- Conditional Student Selector -->
+            <div id="mnStudentContainer" style="display: none; margin-top: 8px; position: relative;">
+              <label style="display: block; font-size: 12px; color: #94a3b8; margin-bottom: 6px;">Search Student (Name or Admission No)</label>
+              <input id="mnInputStudent" type="text" class="oc-custom-input" placeholder="Type student name or admission no..." />
+              <div id="mnStudentSuggestions" style="display: none; position: absolute; left: 0; right: 0; top: 100%; background: #0f172a; border: 1px solid #38bdf8; border-radius: 8px; max-height: 140px; overflow-y: auto; z-index: 10; margin-top: 4px;"></div>
+            </div>
+          </div>
+
+          <!-- 6. Display Toggles -->
+          <div style="background: rgba(15, 23, 42, 0.6); border-radius: 10px; padding: 12px 14px; border: 1px solid rgba(148, 163, 184, 0.15); display: flex; flex-direction: column; gap: 8px;">
+            <label style="display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: #e2e8f0; cursor: pointer;">
+              <input type="checkbox" id="mnCheckCarousel" checked style="accent-color: #38bdf8;" />
+              <span><strong>Show in Mobile App Home Carousel</strong> (Displays at top of Student & Parent Dashboard)</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: #e2e8f0; cursor: pointer;">
+              <input type="checkbox" id="mnCheckPush" checked style="accent-color: #38bdf8;" />
+              <span><strong>Send High-Priority Push Notification</strong> (Heads-up banner on phone screens)</span>
+            </label>
+          </div>
+
+        </div>
+
+        <!-- Action Buttons -->
+        <div style="margin-top: 24px; display: flex; flex-direction: column; gap: 10px;">
+          <button id="btnMnSubmit" style="width: 100%; padding: 14px 20px; border-radius: 12px; border: none; background: linear-gradient(135deg, #0284c7, #38bdf8); color: #ffffff; font-size: 15px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 8px 25px rgba(56, 189, 248, 0.4); transition: transform 0.1s ease;">
+            <span class="material-symbols-outlined" style="font-size: 20px;">send</span>
+            <span>Broadcast Banner & Video Notification Now</span>
+          </button>
+          <div id="mnStatusMsg" style="display: none; text-align: center; font-size: 12.5px; margin-top: 6px;"></div>
+        </div>
+
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Close logic
+    const closeBtn = document.getElementById('btnMnClose');
+    if (closeBtn) closeBtn.onclick = () => modal.remove();
+    modal.onclick = (e) => {
+      if (e.target === modal) modal.remove();
+    };
+
+    // State
+    let selectedMediaType = 'image';
+    let selectedMediaBase64 = '';
+    let selectedMediaMime = 'image/jpeg';
+    let selectedMediaFilename = 'banner.jpg';
+    let selectedStudentObj = null;
+
+    // Type buttons
+    const typeBtns = modal.querySelectorAll('.mn-type-btn');
+    typeBtns.forEach(btn => {
+      btn.onclick = () => {
+        typeBtns.forEach(b => {
+          b.classList.remove('active');
+          b.style.background = 'transparent';
+          b.style.color = '#94a3b8';
+        });
+        btn.classList.add('active');
+        btn.style.background = '#0284c7';
+        btn.style.color = '#ffffff';
+        selectedMediaType = btn.dataset.type;
+
+        // Toggle video overlay
+        const videoOverlay = document.getElementById('mnVideoPlayOverlay');
+        if (videoOverlay) {
+          videoOverlay.style.display = (selectedMediaType === 'video') ? 'flex' : 'none';
+        }
+      };
+    });
+
+    // Target audience radios
+    const targetRadios = modal.querySelectorAll('input[name="mnTargetType"]');
+    const classContainer = document.getElementById('mnClassContainer');
+    const studentContainer = document.getElementById('mnStudentContainer');
+
+    targetRadios.forEach(radio => {
+      radio.onchange = () => {
+        const val = radio.value;
+        if (classContainer) classContainer.style.display = (val === 'class') ? 'block' : 'none';
+        if (studentContainer) studentContainer.style.display = (val === 'student') ? 'block' : 'none';
+      };
+    });
+
+    // Student search autocomplete
+    const studentInput = document.getElementById('mnInputStudent');
+    const studentSuggestions = document.getElementById('mnStudentSuggestions');
+    if (studentInput && studentSuggestions) {
+      studentInput.oninput = () => {
+        const query = studentInput.value.toLowerCase().trim();
+        if (query.length < 2) {
+          studentSuggestions.style.display = 'none';
+          return;
+        }
+        const students = (store.students || []).filter(s => {
+          const adm = String(s.admissionNo || '').toLowerCase();
+          const name = String(s.fullName || s.studentName || '').toLowerCase();
+          return adm.includes(query) || name.includes(query);
+        }).slice(0, 8);
+
+        if (students.length === 0) {
+          studentSuggestions.style.display = 'none';
+          return;
+        }
+
+        studentSuggestions.innerHTML = students.map(s => `
+          <div class="mn-student-item" data-adm="${s.admissionNo}" data-name="${s.fullName || s.studentName}" data-class="${s.className}" style="padding: 8px 12px; cursor: pointer; font-size: 12px; border-bottom: 1px solid rgba(148, 163, 184, 0.1); color: #f8fafc; display: flex; justify-content: space-between;">
+            <span><strong>${s.fullName || s.studentName}</strong> (${s.admissionNo})</span>
+            <span style="color: #38bdf8;">${s.className || ''}</span>
+          </div>
+        `).join('');
+        studentSuggestions.style.display = 'block';
+
+        studentSuggestions.querySelectorAll('.mn-student-item').forEach(item => {
+          item.onclick = () => {
+            const adm = item.dataset.adm;
+            const name = item.dataset.name;
+            const cls = item.dataset.class;
+            selectedStudentObj = { admissionNo: adm, name, className: cls };
+            studentInput.value = `${name} (${adm}) - ${cls}`;
+            studentSuggestions.style.display = 'none';
+          };
+        });
+      };
+    }
+
+    // Helper: update live preview
+    const previewBox = document.getElementById('mnPreviewBox');
+    const previewImg = document.getElementById('mnPreviewImg');
+    const videoOverlay = document.getElementById('mnVideoPlayOverlay');
+
+    function updatePreview(url) {
+      if (!url) {
+        if (previewBox) previewBox.style.display = 'none';
+        return;
+      }
+      if (previewImg) previewImg.src = url;
+      if (previewBox) previewBox.style.display = 'block';
+      if (videoOverlay) {
+        const isYt = url.includes('youtube.com') || url.includes('youtu.be') || selectedMediaType === 'video';
+        videoOverlay.style.display = isYt ? 'flex' : 'none';
+      }
+    }
+
+    // URL input listener (detects YouTube and direct images)
+    const urlInput = document.getElementById('mnInputUrl');
+    if (urlInput) {
+      urlInput.oninput = () => {
+        const val = urlInput.value.trim();
+        if (!val) {
+          if (!selectedMediaBase64) updatePreview('');
+          return;
+        }
+        // YouTube detection
+        const ytMatch = val.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/i);
+        if (ytMatch) {
+          const ytId = ytMatch[1];
+          const ytThumb = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+          // Auto-select video tab
+          const vidBtn = modal.querySelector('.mn-type-btn[data-type="video"]');
+          if (vidBtn) vidBtn.click();
+          updatePreview(ytThumb);
+        } else {
+          updatePreview(val);
+        }
+      };
+    }
+
+    // File Drop & Upload
+    const dropZone = document.getElementById('mnDropZone');
+    const fileInput = document.getElementById('mnFileInput');
+
+    if (dropZone && fileInput) {
+      dropZone.onclick = () => fileInput.click();
+      dropZone.ondragover = (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = '#38bdf8';
+        dropZone.style.background = 'rgba(56, 189, 248, 0.15)';
+      };
+      dropZone.ondragleave = () => {
+        dropZone.style.borderColor = '#0284c7';
+        dropZone.style.background = 'rgba(2, 132, 199, 0.05)';
+      };
+      dropZone.ondrop = (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = '#0284c7';
+        dropZone.style.background = 'rgba(2, 132, 199, 0.05)';
+        const file = e.dataTransfer?.files?.[0];
+        if (file) handleMediaFile(file);
+      };
+      fileInput.onchange = (e) => {
+        const file = e.target?.files?.[0];
+        if (file) handleMediaFile(file);
+      };
+    }
+
+    function handleMediaFile(file) {
+      selectedMediaFilename = file.name;
+      selectedMediaMime = file.type || 'image/jpeg';
+
+      if (file.type.includes('gif')) {
+        const gifBtn = modal.querySelector('.mn-type-btn[data-type="gif"]');
+        if (gifBtn) gifBtn.click();
+      }
+
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        selectedMediaBase64 = ev.target.result;
+        updatePreview(selectedMediaBase64);
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // Submit broadcast
+    const submitBtn = document.getElementById('btnMnSubmit');
+    const statusMsg = document.getElementById('mnStatusMsg');
+
+    if (submitBtn) {
+      submitBtn.onclick = async () => {
+        const title = document.getElementById('mnInputTitle')?.value?.trim() || '';
+        if (!title) {
+          alert('Please enter an Announcement / Event Title.');
+          document.getElementById('mnInputTitle')?.focus();
+          return;
+        }
+
+        const inputUrl = document.getElementById('mnInputUrl')?.value?.trim() || '';
+        if (!selectedMediaBase64 && !inputUrl) {
+          alert('Please upload a banner image / video or paste a link.');
+          return;
+        }
+
+        const message = document.getElementById('mnInputMessage')?.value?.trim() || '';
+        const targetType = modal.querySelector('input[name="mnTargetType"]:checked')?.value || 'all';
+        let targetClass = '';
+        let targetId = '';
+
+        if (targetType === 'class') {
+          targetClass = document.getElementById('mnSelectClass')?.value || '';
+          if (!targetClass) {
+            alert('Please select a Target Class.');
+            return;
+          }
+        } else if (targetType === 'student') {
+          targetId = selectedStudentObj?.admissionNo || document.getElementById('mnInputStudent')?.value?.trim() || '';
+          if (!targetId) {
+            alert('Please search and select a specific student.');
+            return;
+          }
+          if (selectedStudentObj) targetClass = selectedStudentObj.className || '';
+        } else if (targetType === 'teachers') {
+          targetClass = 'Teachers';
+        }
+
+        const showInCarousel = document.getElementById('mnCheckCarousel')?.checked ?? true;
+
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '⏳ Broadcasting Media to Devices...';
+        if (statusMsg) {
+          statusMsg.style.display = 'block';
+          statusMsg.style.color = '#38bdf8';
+          statusMsg.textContent = 'Uploading media and triggering high-priority phone push...';
+        }
+
+        try {
+          const token = localStorage.getItem('token') || '';
+          const res = await fetch('/api/media-notifications/send', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json',
+              'Bypass-Tunnel-Reminder': 'true',
+              ...(token ? { 'Authorization': 'Bearer ' + token } : {}),
+              'x-admin-pin': 'tapowan2026'
+            },
+            body: JSON.stringify({
+              title,
+              message,
+              mediaType: selectedMediaType,
+              mediaBase64: selectedMediaBase64,
+              mediaUrl: inputUrl,
+              videoUrl: (selectedMediaType === 'video' || inputUrl.includes('youtube.com') || inputUrl.includes('youtu.be')) ? inputUrl : '',
+              mediaFilename: selectedMediaFilename,
+              mediaMime: selectedMediaMime,
+              targetType,
+              targetClass,
+              targetId,
+              showInCarousel,
+              adminPin: 'tapowan2026'
+            })
+          });
+
+          const data = await res.json();
+          if (!res.ok || data.error) {
+            throw new Error(data.error || 'Broadcast failed');
+          }
+
+          submitBtn.innerHTML = '✅ Broadcast Complete!';
+          submitBtn.style.background = '#16a34a';
+          if (statusMsg) {
+            statusMsg.style.color = '#4ade80';
+            statusMsg.innerHTML = `🎉 <strong>Media Notification Broadcasted!</strong> Reached ${data.recipientsNotified} devices with expanded banner display & app carousel!`;
+          }
+
+          setTimeout(() => {
+            modal.remove();
+          }, 3000);
+        } catch (err) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = '🚀 Broadcast Banner & Video Notification Now';
+          if (statusMsg) {
+            statusMsg.style.color = '#ef4444';
+            statusMsg.textContent = 'Error: ' + err.message;
+          }
+        }
+      };
+    }
+  };
   window.addEventListener('load', () => {
     initGlobalIncomingCallListener();
   });

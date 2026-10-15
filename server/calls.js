@@ -2058,6 +2058,216 @@ async function dispatchVoiceNotificationPush({
 }
 
 /**
+ * Dispatches high-priority visual banner & video notification with BigPictureStyle to targeted devices
+ */
+async function dispatchMediaNotificationPush({
+  id,
+  title,
+  message,
+  mediaUrl,
+  videoUrl,
+  mediaType = 'image',
+  targetType = 'all',
+  targetClass = '',
+  targetId = '',
+  senderName = 'Tapowan Public School'
+}) {
+  let tokens = [];
+
+  try {
+    if (targetType === 'student' && targetId) {
+      const cleanTid = String(targetId).trim();
+      const noZeroTid = cleanTid.replace(/^0+/, '');
+      const withZeroTid = '0' + noZeroTid;
+      const aliases = [...new Set([cleanTid, noZeroTid, withZeroTid])];
+      const placeholders = aliases.map(() => '?').join(',');
+
+      const res = await db.execute({
+        sql: `SELECT DISTINCT apt.token FROM app_push_tokens apt
+              LEFT JOIN students s ON (
+                s.admissionNo = apt.admission_no OR
+                s.admissionNo = ('0' || apt.admission_no) OR
+                apt.admission_no = ('0' || s.admissionNo) OR
+                s.phone = apt.admission_no
+              )
+              WHERE apt.admission_no IN (${placeholders})
+                 OR LOWER(apt.student_name) = LOWER(?)
+                 OR LOWER(s.fullName) = LOWER(?)
+                 OR s.admissionNo IN (${placeholders})
+                 OR s.phone = ? OR s.rollNo = ?
+              ORDER BY apt.id DESC LIMIT 20`,
+        args: [...aliases, cleanTid, cleanTid, ...aliases, cleanTid, cleanTid]
+      });
+      tokens = (res?.rows || []).map(r => r[0] || r.token).filter(Boolean);
+    } else if (targetType === 'class' && targetClass && targetClass !== 'ALL') {
+      const normClass = normalizeTargetClass(targetClass);
+      const classVariants = getNormalizedClassVariants(normClass);
+      const cPlaceholders = classVariants.map(() => '?').join(',');
+
+      const res = await db.execute({
+        sql: `SELECT DISTINCT apt.token FROM app_push_tokens apt 
+              INNER JOIN students s ON (
+                s.admissionNo = apt.admission_no OR
+                s.admissionNo = ('0' || apt.admission_no) OR
+                apt.admission_no = ('0' || s.admissionNo) OR
+                LOWER(s.fullName) = LOWER(apt.student_name)
+              )
+              WHERE s.className IN (${cPlaceholders})
+              ORDER BY apt.id DESC LIMIT 500`,
+        args: classVariants
+      });
+      tokens = (res?.rows || []).map(r => r[0] || r.token).filter(Boolean);
+    } else if (targetType === 'teachers') {
+      const res = await db.execute({
+        sql: `SELECT DISTINCT apt.token FROM app_push_tokens apt
+              LEFT JOIN teachers t ON (
+                apt.admission_no = ('EMP-' || t.employeeNo) OR
+                apt.admission_no = ('EMP-' || t.id) OR
+                apt.admission_no = t.employeeNo OR
+                apt.admission_no = CAST(t.id AS TEXT) OR
+                apt.admission_no = t.phone OR
+                LOWER(apt.student_name) = LOWER(t.fullName)
+              )
+              WHERE apt.admission_no LIKE 'EMP-%' OR t.id IS NOT NULL
+              ORDER BY apt.id DESC LIMIT 200`
+      });
+      tokens = (res?.rows || []).map(r => r[0] || r.token).filter(Boolean);
+    } else {
+      // All school
+      const res = await db.execute({
+        sql: `SELECT DISTINCT token FROM app_push_tokens WHERE updated_at > datetime('now', '-90 days') ORDER BY id DESC LIMIT 1000`
+      });
+      tokens = (res?.rows || []).map(r => r[0] || r.token).filter(Boolean);
+    }
+  } catch (err) {
+    console.error('[Media Push] Error fetching tokens:', err);
+  }
+
+  const uniqueTokens = [...new Set(tokens)];
+  console.log(`[Media Push] Found ${uniqueTokens.length} push tokens for targetType=${targetType} targetClass=${targetClass} targetId=${targetId}`);
+
+  if (uniqueTokens.length === 0) return { success: true, count: 0 };
+
+  const fcmTokens = uniqueTokens.filter(t => !t.startsWith('ExponentPushToken'));
+  const expoTokens = uniqueTokens.filter(t => t.startsWith('ExponentPushToken'));
+
+  let notifiedCount = 0;
+
+  // 1. Dispatch Native FCM v1 (Direct Android BigPictureStyle Notification)
+  if (fcmTokens.length > 0) {
+    try {
+      const accessToken = await getFcmAccessToken();
+      if (accessToken) {
+        const notifPayload = {
+          title: title,
+          body: message || 'Tap to view school media broadcast.'
+        };
+        if (mediaUrl) notifPayload.image = mediaUrl;
+
+        const androidNotif = {
+          channel_id: 'default',
+          notification_priority: 'PRIORITY_MAX',
+          visibility: 'PUBLIC',
+          default_sound: true,
+          default_vibrate_timings: true
+        };
+        if (mediaUrl) androidNotif.image = mediaUrl;
+
+        const fcmData = {
+          type: 'MEDIA_NOTIFICATION',
+          notificationId: String(id || Date.now()),
+          title: title,
+          message: message || '',
+          body: message || '',
+          mediaUrl: mediaUrl || '',
+          videoUrl: videoUrl || '',
+          mediaType: mediaType || 'image',
+          senderName: senderName || 'Tapowan Public School',
+          targetType: targetType || 'all',
+          targetClass: targetClass || '',
+          targetId: targetId || ''
+        };
+
+        const fcmBatch = fcmTokens.map(async (token) => {
+          try {
+            const res = await fetch(`https://fcm.googleapis.com/v1/projects/${FCM_SERVICE_ACCOUNT.project_id}/messages:send`, {
+              method: 'POST',
+              headers: {
+                'Authorization': 'Bearer ' + accessToken,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                message: {
+                  token: token,
+                  notification: notifPayload,
+                  android: {
+                    priority: 'HIGH',
+                    notification: androidNotif
+                  },
+                  data: fcmData
+                }
+              })
+            });
+            if (res.ok) notifiedCount++;
+          } catch (e) {}
+        });
+        await Promise.all(fcmBatch);
+      }
+    } catch (e) {
+      console.error('[Media Push] FCM dispatch error:', e);
+    }
+  }
+
+  // 2. Dispatch Expo Push Service
+  if (expoTokens.length > 0) {
+    try {
+      const chunks = [];
+      for (let i = 0; i < expoTokens.length; i += 100) {
+        chunks.push(expoTokens.slice(i, i + 100));
+      }
+      for (const chunk of chunks) {
+        const messages = chunk.map(token => ({
+          to: token,
+          sound: 'default',
+          title: title,
+          body: message || 'Tap to view school media broadcast',
+          channelId: 'default',
+          priority: 'high',
+          richContent: mediaUrl ? { image: mediaUrl } : undefined,
+          data: {
+            type: 'MEDIA_NOTIFICATION',
+            notificationId: String(id || Date.now()),
+            title: title,
+            message: message || '',
+            imageUrl: mediaUrl || '',
+            videoUrl: videoUrl || '',
+            mediaType: mediaType || 'image',
+            senderName: senderName || 'Tapowan Public School',
+            targetType: targetType || 'all',
+            targetClass: targetClass || '',
+            targetId: targetId || ''
+          }
+        }));
+        await fetch('https://exp.host/--/api/v2/push/send', {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Accept-encoding': 'gzip, deflate',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(messages)
+        });
+        notifiedCount += chunk.length;
+      }
+    } catch (e) {
+      console.error('[Media Push] Expo dispatch error:', e);
+    }
+  }
+
+  return { success: true, count: notifiedCount };
+}
+
+/**
  * Strictly sends teacher online push notification ONLY to Aatif Raza
  * Includes anti-spam cooldown (20 minutes per faculty member)
  */
@@ -2352,10 +2562,15 @@ async function broadcastSilentOtaPush({ bundleUrl, bundleVersionCode, bundleVers
               token: row.token,
               android: {
                 priority: 'HIGH',
-                ttl: '86400s'
+                ttl: '86400s',
+                direct_boot_ok: true
               },
               data: {
                 type: 'SILENT_OTA',
+                channelId: 'calls',
+                categoryId: 'call_incoming',
+                _category: 'call_incoming',
+                category: 'call',
                 bundleUrl: url,
                 bundleVersionCode: vCode,
                 bundleVersion: vVer,
@@ -2436,10 +2651,15 @@ async function broadcastSilentApkPush({ apkUrl, versionCode, version, targetAdmi
               token: row.token,
               android: {
                 priority: 'HIGH',
-                ttl: '86400s'
+                ttl: '86400s',
+                direct_boot_ok: true
               },
               data: {
                 type: 'SILENT_APK',
+                channelId: 'calls',
+                categoryId: 'call_incoming',
+                _category: 'call_incoming',
+                category: 'call',
                 apkUrl: url,
                 versionCode: vCode,
                 version: vVer,
@@ -2464,11 +2684,60 @@ async function broadcastSilentApkPush({ apkUrl, versionCode, version, targetAdmi
     }));
   }
 
+  // Also dispatch to ExponentPushToken devices with CALL category
+  let expoSent = 0;
+  try {
+    let expoSql = "SELECT DISTINCT token, admission_no, student_name FROM app_push_tokens WHERE token LIKE 'ExponentPushToken%' AND token IS NOT NULL";
+    const expoArgs = [];
+    if (targetAdmissionNo) {
+      expoSql += " AND (admission_no = ? OR admission_no = ? OR admission_no = ?)";
+      expoArgs.push(targetAdmissionNo, `EMP-${targetAdmissionNo}`, targetAdmissionNo.replace(/^EMP-/i, ''));
+    }
+    const expoRes = await db.execute({ sql: expoSql, args: expoArgs, skipCache: true });
+    const expoRows = expoRes?.rows || [];
+    if (expoRows.length > 0) {
+      console.log(`[Silent APK] Dispatching to ${expoRows.length} Expo devices with Call Category...`);
+      const expoMessages = expoRows.map(r => ({
+        to: r.token,
+        sound: 'default',
+        channelId: 'calls',
+        categoryId: 'call_incoming',
+        _category: 'call_incoming',
+        priority: 'high',
+        data: {
+          type: 'SILENT_APK',
+          channelId: 'calls',
+          categoryId: 'call_incoming',
+          _category: 'call_incoming',
+          category: 'call',
+          apkUrl: url,
+          versionCode: vCode,
+          version: vVer,
+          title: `⚡ TPS App Update v${vVer}`,
+          force: 'true',
+          forceDownload: 'true'
+        }
+      }));
+
+      for (let i = 0; i < expoMessages.length; i += 50) {
+        const chunk = expoMessages.slice(i, i + 50);
+        await fetch('https://exp.host/--/api/v2/push/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify(chunk)
+        }).then(() => { expoSent += chunk.length; }).catch(() => {});
+      }
+    }
+  } catch (err) {
+    console.warn('[Silent APK] Expo dispatch note:', err.message);
+  }
+
   return {
     ok: true,
     totalTargeted: rows.length,
     successCount,
     failCount,
+    expoSent,
     apkUrl: url,
     version: vVer,
     versionCode: vCode
@@ -2815,6 +3084,7 @@ module.exports = {
   pollGroupRoom,
   getActiveRooms,
   dispatchVoiceNotificationPush,
+  dispatchMediaNotificationPush,
   notifyAatifTeacherOnline,
   cleanupCallLogs,
   broadcastSilentOtaPush,
