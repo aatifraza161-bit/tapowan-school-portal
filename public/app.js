@@ -1320,9 +1320,17 @@ function getSaasEnabledModulesSet() {
   try {
     const store = typeof getStore === "function" ? getStore() : serverStore;
     const settingsList = Array.isArray(store?.settings) ? store.settings : [];
-    const row = settingsList.find(s => (s.key || s.KEY) === "saas_enabled_modules");
-    if (!row || !row.value) return null;
-    const parsed = typeof row.value === "string" ? JSON.parse(row.value) : row.value;
+    let row = settingsList.find(s => (s.key || s.KEY) === "saas_enabled_modules");
+    let rawVal = row ? row.value : null;
+    if (!rawVal) {
+      try { rawVal = localStorage.getItem("tps_saas_enabled_modules"); } catch (_) {}
+    } else {
+      try {
+        localStorage.setItem("tps_saas_enabled_modules", typeof rawVal === 'string' ? rawVal : JSON.stringify(rawVal));
+      } catch (_) {}
+    }
+    if (!rawVal) return null;
+    const parsed = typeof rawVal === "string" ? JSON.parse(rawVal) : rawVal;
     if (!Array.isArray(parsed) || parsed.length === 0) return null;
     return new Set(parsed);
   } catch (e) {
@@ -1337,8 +1345,14 @@ window.isSaasModuleEnabled = function(modKey) {
 };
 
 function getVisibleModules() {
+  const saasSet = getSaasEnabledModulesSet();
+
   if (!currentUser) {
-    if (localStorage.getItem("token")) return [...moduleOrder];
+    if (localStorage.getItem("token")) {
+      let initialMods = [...moduleOrder];
+      if (saasSet) initialMods = initialMods.filter(m => saasSet.has(m));
+      return initialMods;
+    }
     return ["dashboard"];
   }
   let mods = ["dashboard"];
@@ -1358,9 +1372,8 @@ function getVisibleModules() {
     if (!mods.includes("admissions")) mods.push("admissions");
   }
 
-  // Enforce Super Admin module entitlements from Turso DB settings (`saas_enabled_modules`)
-  const saasSet = getSaasEnabledModulesSet();
-  if (saasSet && !userIsAdmin()) {
+  // Enforce Super Admin module entitlements from Turso DB settings (`saas_enabled_modules`) across all roles
+  if (saasSet) {
     mods = mods.filter(m => saasSet.has(m));
     if (mods.length === 0) mods = ["dashboard"];
   }
@@ -6076,6 +6089,10 @@ function renderStudentPortalTimetable(student) {
 function renderAll(forceFormRefresh) {
   if (window.currentModule && window.currentModule !== currentModule) {
     currentModule = window.currentModule;
+  }
+  if (typeof window.isSaasModuleEnabled === "function" && !window.isSaasModuleEnabled(currentModule)) {
+    console.warn(`[Module Entitlement] Module '${currentModule}' is disabled in SaaS settings. Redirecting to dashboard.`);
+    currentModule = "dashboard";
   }
   window.currentModule = currentModule;
 

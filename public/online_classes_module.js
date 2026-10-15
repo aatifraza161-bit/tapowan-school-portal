@@ -2317,6 +2317,27 @@
   }
 
   function renderOnlineClassesWorkspace() {
+    if (typeof window.isSaasModuleEnabled === 'function' && !window.isSaasModuleEnabled('onlineClasses')) {
+      const panel = document.getElementById('onlineClassesPanel');
+      if (panel) {
+        panel.innerHTML = `
+          <div style="padding: 60px 20px; text-align: center; color: #94a3b8; background: #0f172a; border-radius: 16px; margin: 24px auto; max-width: 600px; border: 1px solid #334155;">
+            <div style="font-size: 56px; margin-bottom: 16px;">📹🚫</div>
+            <h3 style="font-size: 20px; font-weight: 800; color: #e2e8f0; margin-bottom: 8px;">Online Classes Module Deactivated</h3>
+            <p style="font-size: 14px; color: #94a3b8; line-height: 1.6; margin: 0 0 16px 0;">
+              This module is currently turned OFF in the Super Admin SaaS Control Panel (#onlineClasses).
+            </p>
+            <button onclick="window.currentModule='dashboard'; if(typeof renderAll==='function') renderAll();" style="padding: 10px 20px; background: #3b82f6; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
+              Return to Dashboard
+            </button>
+          </div>
+        `;
+        panel.classList.remove('hidden');
+        panel.style.display = 'block';
+      }
+      return;
+    }
+
     const store = typeof window.getStore === 'function' ? window.getStore() : (window.serverStore || {});
     const students = state.directoryStudents || store.students || [];
     const teachers = state.directoryTeachers || store.teachers || [];
