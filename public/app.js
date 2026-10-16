@@ -745,8 +745,7 @@ const refs = {
   executePrint4in1Btn: document.getElementById("executePrint4in1Btn"),
   tableWrap: document.querySelector(".table-wrap"),
   tablePanel: document.getElementById("tablePanel"),
-  formPanel: document.getElementById("formPanel"),
-  newAdmissionBtn: document.getElementById("newAdmissionBtn")
+  formPanel: document.getElementById("formPanel")
 };
 
 function isMobileLayout() {
@@ -2057,14 +2056,14 @@ function renderForm(forceRefresh) {
   const cfg = moduleConfig[currentModule];
   refs.dynamicForm.innerHTML = "";
 
-  const hideForm = !cfg.fields.length || currentModule === "dashboard" || ((currentModule === "students" || currentModule === "admissions") && editRecordId == null);
+  const hideForm = !cfg.fields.length || currentModule === "dashboard";
   if (refs.formPanel) {
     refs.formPanel.style.display = hideForm ? "none" : "";
     refs.formPanel.classList.toggle("hidden", hideForm);
   }
   const formTitle = document.getElementById("formPanelTitle");
   if (formTitle) {
-    formTitle.textContent = editRecordId != null ? `Edit ${cfg.title} Record` : `Add New ${cfg.title} Record`;
+    formTitle.textContent = editRecordId != null ? `Edit ${cfg.title} Record` : "Add New Record";
   }
   const tableTitle = document.getElementById("tablePanelTitle");
   if (tableTitle) {
@@ -2893,7 +2892,7 @@ function renderTable() {
     if (view) view.style.display = "none";
     if (refs.tablePanel) refs.tablePanel.style.display = "";
     if (refs.formPanel) {
-      const hideForm = !cfg.fields.length || currentModule === "dashboard" || ((currentModule === "students" || currentModule === "admissions") && editRecordId == null);
+      const hideForm = !cfg.fields.length || currentModule === "dashboard";
       refs.formPanel.style.display = hideForm ? "none" : "";
       refs.formPanel.classList.toggle("hidden", hideForm);
     }
@@ -5757,9 +5756,6 @@ function renderModuleTools() {
   const canExport = userIsAdmin() || userIsStaffOrAbove() || String(currentUser?.role || "").toLowerCase() === "teacher";
   if (refs.exportCsvBtn) refs.exportCsvBtn.style.display = canExport ? "" : "none";
   if (refs.exportPdfBtn) refs.exportPdfBtn.style.display = canExport ? "" : "none";
-  if (refs.newAdmissionBtn) {
-    refs.newAdmissionBtn.classList.toggle("hidden", (currentModule !== "students" && currentModule !== "admissions") || !canCurrentUserWrite("students"));
-  }
   if (refs.importDataBtn) {
     const canImport = currentModule !== "dashboard" && canCurrentUserWrite(currentModule);
     refs.importDataBtn.classList.toggle("hidden", !canImport);

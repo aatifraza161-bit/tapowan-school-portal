@@ -1948,7 +1948,7 @@ tbody td:last-child { padding-right: 24px; }
     gap: 8px !important;
     width: 100% !important;
   }
-  #searchInput, #classFilter, #dateFilter, #dayFilter, #allAttendanceBtn, #newAdmissionBtn,
+  #searchInput, #classFilter, #dateFilter, #dayFilter, #allAttendanceBtn,
   #smartGenerateBtn, #setPeriodTimingsBtn, #freeTeachersBtn, #print4in1Btn, #appReleasesBtn, #liveOtaStreamBtn, #onlinePaymentsAccessControlBtn {
     grid-column: 1 / -1 !important;
     width: 100% !important;
@@ -1961,11 +1961,6 @@ tbody td:last-child { padding-right: 24px; }
   #searchInput {
     order: -2 !important;
     min-height: 42px !important;
-  }
-  #newAdmissionBtn {
-    order: -1 !important;
-    min-height: 42px !important;
-    font-size: 0.9rem !important;
   }
   .btn-action {
     min-height: 38px !important;
@@ -1981,33 +1976,74 @@ tbody td:last-child { padding-right: 24px; }
   }
   .form-grid {
     grid-template-columns: 1fr !important;
-    padding: 14px !important;
+    padding: 16px 14px !important;
     gap: 12px !important;
   }
   form#dynamicForm > .field {
     grid-column: span 1 !important;
     width: 100% !important;
   }
+  .field {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 5px !important;
+  }
+  .field label {
+    font-size: 0.72rem !important;
+    font-weight: 800 !important;
+    color: #64748b !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+  }
   .field input, .field select, .field textarea,
   input[type="text"], input[type="email"], input[type="password"],
   input[type="number"], input[type="date"], input[type="search"],
   select, textarea {
-    font-size: 16px !important;
-    min-height: 44px !important;
-    padding: 10px 12px !important;
+    font-size: 15px !important;
+    min-height: 42px !important;
+    padding: 9px 12px !important;
     border-radius: 8px !important;
+    border: 1.5px solid #e2e8f0 !important;
+    background: #f8fafc !important;
     width: 100% !important;
     box-sizing: border-box !important;
+    color: #0f172a !important;
   }
-  .form-actions {
-    flex-direction: column !important;
-    gap: 8px !important;
+  .field input:focus, .field select:focus, .field textarea:focus {
+    border-color: #4f46e5 !important;
+    background: #ffffff !important;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15) !important;
   }
-  .form-actions button {
+  .field input[type="file"] {
+    background: #ffffff !important;
+    border: 1.5px dashed #cbd5e1 !important;
+    padding: 8px 10px !important;
+    font-size: 0.8rem !important;
+    color: #475569 !important;
+  }
+  #dynamicForm .actions,
+  .form-grid .actions {
+    grid-column: 1 / -1 !important;
     width: 100% !important;
-    min-height: 46px !important;
+    margin-top: 8px !important;
+  }
+  #dynamicForm .actions button[type="submit"],
+  .form-grid button[type="submit"],
+  #dynamicForm button[type="submit"] {
+    background: linear-gradient(135deg, #4f46e5, #7c3aed) !important;
+    color: #ffffff !important;
+    font-weight: 800 !important;
+    width: 100% !important;
+    min-height: 48px !important;
+    border-radius: 12px !important;
     font-size: 0.95rem !important;
-    border-radius: 10px !important;
+    letter-spacing: 0.02em !important;
+    box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    border: none !important;
   }
   .table-wrap {
     width: 100% !important;
