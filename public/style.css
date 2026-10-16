@@ -2915,17 +2915,22 @@ tbody td:last-child { padding-right: 24px; }
 }
 
 /* ─── Language Toggle ─── */
-.vidya-lang-toggle, .vidya-model-toggle {
-  display: flex; gap: 6px;
-  justify-content: center;
-  padding: 8px 18px;
+/* ─── Language & Controls Toggle with More Drawer ─── */
+.vidya-top-controls {
+  position: relative;
+  z-index: 10;
   background: linear-gradient(135deg, #7c3aed, #4f46e5);
-  position: relative; z-index: 1;
+  border-bottom: 1px solid rgba(255,255,255,0.15);
+}
+.vidya-lang-toggle {
+  display: flex; gap: 6px;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
   flex-wrap: wrap;
 }
-.vidya-model-toggle { padding-top: 0; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); }
-.vidya-lang-btn, .vidya-model-btn {
-  padding: 4px 12px;
+.vidya-lang-btn, .vidya-model-btn, .vidya-more-toggle-btn {
+  padding: 4px 11px;
   border-radius: 20px;
   font-size: 0.7rem;
   font-weight: 700;
@@ -2933,10 +2938,70 @@ tbody td:last-child { padding-right: 24px; }
   background: rgba(255,255,255,0.15);
   color: #fff;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
-.vidya-lang-btn.active, .vidya-model-btn.active { background: #fff; color: #6d28d9; border-color: #fff; }
+.vidya-lang-btn:hover, .vidya-model-btn:hover, .vidya-more-toggle-btn:hover {
+  background: rgba(255,255,255,0.25);
+  border-color: rgba(255,255,255,0.8);
+}
+.vidya-lang-btn.active, .vidya-model-btn.active, .vidya-more-toggle-btn.active {
+  background: #fff;
+  color: #6d28d9;
+  border-color: #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+.vidya-more-toggle-btn {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.65);
+}
+.vidya-more-arrow {
+  font-size: 0.6rem;
+  transition: transform 0.2s ease;
+}
+.vidya-more-options-drawer {
+  background: rgba(15, 10, 33, 0.96);
+  backdrop-filter: blur(12px);
+  padding: 10px 14px 12px;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: vidya-drawer-slide 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.vidya-more-options-drawer.hidden {
+  display: none !important;
+}
+@keyframes vidya-drawer-slide {
+  0%   { opacity: 0; transform: translateY(-8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.vidya-drawer-section-title {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 2px;
+}
+.vidya-more-options-drawer .vidya-model-toggle {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  padding: 2px 0 6px !important;
+  background: transparent !important;
+  border-bottom: none !important;
+  justify-content: flex-start !important;
+}
+.vidya-more-options-drawer .vidya-image-model-toggle {
+  display: flex;
+  gap: 6px;
+  margin: 2px 0 0 !important;
+  justify-content: flex-start !important;
+}
 
 /* ─── Messages ─── */
 .vidya-messages {

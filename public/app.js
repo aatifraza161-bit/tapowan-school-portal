@@ -18605,22 +18605,30 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
           <span>Live 3D Robot AI Assistant</span>
         </div>
       </div>
-    </div>
-    <div class="vidya-lang-toggle">
-      <button class="vidya-lang-btn active" data-lang="auto">🌐 Auto</button>
-      <button class="vidya-lang-btn" data-lang="hi">🇮🇳 Hindi</button>
-      <button class="vidya-lang-btn" data-lang="en">🇬🇧 English</button>
-    </div>
-    <div class="vidya-model-toggle" id="vidyaModelToggle">
-      <button class="vidya-model-btn" data-provider="auto">🧠 Auto</button>
-      <button class="vidya-model-btn" data-provider="Gemini">♊ Gemini</button>
-      <button class="vidya-model-btn" data-provider="Claude">🟣 Claude</button>
-      <button class="vidya-model-btn active" data-provider="OpenRouter">🦙 Llama 3</button>
-      <button class="vidya-model-btn" data-provider="OpenAI">🤖 OpenAI</button>
-    </div>
-    <div class="vidya-image-model-toggle" id="vidyaImageModelToggle" style="display:flex; justify-content:center; gap:5px; margin: 0 10px 10px 10px;">
-      <button class="vidya-imodel-btn active" data-imodel="flux" style="border:1px solid #d8b4fe; border-radius:12px; padding:4px 8px; font-size:0.7rem; background:#faf5ff; color:#7e22ce; font-weight:700; cursor:pointer;">🎨 Flux (HD)</button>
-      <button class="vidya-imodel-btn" data-imodel="turbo" style="border:1px solid #e2e8f0; border-radius:12px; padding:4px 8px; font-size:0.7rem; background:#f8fafc; color:#64748b; font-weight:600; cursor:pointer;">⚡ Turbo</button>
+    <div class="vidya-top-controls">
+      <div class="vidya-lang-toggle">
+        <button class="vidya-lang-btn active" data-lang="auto">🌐 Auto</button>
+        <button class="vidya-lang-btn" data-lang="hi">🇮🇳 Hindi</button>
+        <button class="vidya-lang-btn" data-lang="en">🇬🇧 English</button>
+        <button class="vidya-more-toggle-btn" id="vidyaMoreToggleBtn" title="More Options / और विकल्प">
+          <span>⚙️ More</span> <span class="vidya-more-arrow" id="vidyaMoreArrow">▼</span>
+        </button>
+      </div>
+      <div class="vidya-more-options-drawer hidden" id="vidyaMoreOptionsDrawer">
+        <div class="vidya-drawer-section-title">AI Brain / मॉडल चुनें:</div>
+        <div class="vidya-model-toggle" id="vidyaModelToggle">
+          <button class="vidya-model-btn" data-provider="auto">🧠 Auto</button>
+          <button class="vidya-model-btn" data-provider="Gemini">♊ Gemini</button>
+          <button class="vidya-model-btn" data-provider="Claude">🟣 Claude</button>
+          <button class="vidya-model-btn active" data-provider="OpenRouter">🦙 Llama 3</button>
+          <button class="vidya-model-btn" data-provider="OpenAI">🤖 OpenAI</button>
+        </div>
+        <div class="vidya-drawer-section-title">Image Generator / इमेज मॉडल:</div>
+        <div class="vidya-image-model-toggle" id="vidyaImageModelToggle">
+          <button class="vidya-imodel-btn active" data-imodel="flux">🎨 Flux (HD)</button>
+          <button class="vidya-imodel-btn" data-imodel="turbo">⚡ Turbo</button>
+        </div>
+      </div>
     </div>
     <div class="vidya-messages" id="vidyaMessages">
       <div class="vidya-msg bot">
@@ -20391,6 +20399,17 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     }
   });
 
+
+  // ── More Options Drawer toggle ──
+  const moreBtn = widget.querySelector("#vidyaMoreToggleBtn");
+  const moreDrawer = widget.querySelector("#vidyaMoreOptionsDrawer");
+  const moreArrow = widget.querySelector("#vidyaMoreArrow");
+
+  moreBtn?.addEventListener("click", () => {
+    const isHidden = moreDrawer.classList.toggle("hidden");
+    moreBtn.classList.toggle("active", !isHidden);
+    if (moreArrow) moreArrow.textContent = isHidden ? "▼" : "▲";
+  });
 
   // ── Lang toggle ──
   widget.querySelectorAll(".vidya-lang-btn").forEach(btn => {
