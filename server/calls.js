@@ -2694,13 +2694,11 @@ async function broadcastSilentApkPush({ apkUrl, versionCode, version, targetAdmi
       const expoMessages = expoRows.map(r => ({
         to: r.token,
         sound: 'default',
-        channelId: 'calls',
-        categoryId: 'call_incoming',
-        _category: 'call_incoming',
+        channelId: 'default',
         priority: 'high',
         data: {
           type: 'SILENT_APK',
-                channelId: 'default',
+          channelId: 'default',
           apkUrl: url,
           versionCode: vCode,
           version: vVer,
