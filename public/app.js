@@ -7516,9 +7516,9 @@ async function ensureFaceModelsLoaded() {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3500);
-      let res = await fetch(`${candidate}/health`, { signal: controller.signal });
-      if (!res.ok) res = await fetch(`${candidate}/status`, { signal: controller.signal });
-      if (!res.ok) res = await fetch(`${candidate}/`, { signal: controller.signal });
+      let res = await fetch(`${candidate}/health`, { signal: controller.signal, headers: { 'ngrok-skip-browser-warning': 'true' } });
+      if (!res.ok) res = await fetch(`${candidate}/status`, { signal: controller.signal, headers: { 'ngrok-skip-browser-warning': 'true' } });
+      if (!res.ok) res = await fetch(`${candidate}/`, { signal: controller.signal, headers: { 'ngrok-skip-browser-warning': 'true' } });
       clearTimeout(timeoutId);
       
       if (res.ok) {
@@ -7883,7 +7883,7 @@ async function getInsightFace(imageSource) {
         fd.append('file', blob, 'frame.jpg');
         const ctrl = new AbortController();
         const tid = setTimeout(() => ctrl.abort(), 3500);
-        const response = await fetch(`${cloudApi}/extract`, { method: 'POST', body: fd, signal: ctrl.signal });
+        const response = await fetch(`${cloudApi}/extract`, { method: 'POST', body: fd, headers: { 'ngrok-skip-browser-warning': 'true' }, signal: ctrl.signal });
         clearTimeout(tid);
         if (response.ok) {
           const data = await response.json();
@@ -10931,7 +10931,7 @@ refs.syncAllStudentFacesBtn?.addEventListener("click", async () => {
                 fd.append('file', blob, 'face.jpg');
                 const ctrl = new AbortController();
                 const tid = setTimeout(() => ctrl.abort(), 4000);
-                const resp = await fetch(`${cloudApi}/extract`, { method: 'POST', body: fd, signal: ctrl.signal });
+                const resp = await fetch(`${cloudApi}/extract`, { method: 'POST', body: fd, headers: { 'ngrok-skip-browser-warning': 'true' }, signal: ctrl.signal });
                 clearTimeout(tid);
                 if (resp.ok) {
                   const data = await resp.json();

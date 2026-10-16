@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tps-cache-v20261016-mobile15';
+const CACHE_NAME = 'tps-cache-v20261016-mobile16';
 
 self.addEventListener('install', event => {
   self.skipWaiting();
