@@ -18298,39 +18298,35 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     studentCtx += "\nNote: User is an Administrator. Accessing system-wide knowledge base.";
   }
 
-  // ── Proper 3D Animated Robot Avatar Engine (Three.js WebGL) ──
+  // ── Proper 3D Animated Robot Avatar Engine (Procedural Three.js) ──
   const vidyaInstances = [];
   let isVidya3dReady = false;
+  let waveUntil = 0;
 
-  function playAllVidyaActions(name) {
-    vidyaInstances.forEach(inst => {
-      if (!inst.mixer || !inst.actions[name]) return;
-      const nextAction = inst.actions[name];
-      if (inst.activeAction !== nextAction) {
-        if (inst.activeAction) inst.activeAction.fadeOut(0.25);
-        nextAction.reset().fadeIn(0.25).play();
-        inst.activeAction = nextAction;
-      }
-    });
+  function triggerRobotWave(sec = 2.4) {
+    const now = window.performance ? performance.now() / 1000 : Date.now() / 1000;
+    waveUntil = now + sec;
   }
 
-  function playTemporaryAction(name, duration = 2400) {
-    vidyaInstances.forEach(inst => {
-      if (!inst.mixer || !inst.actions[name]) return;
-      const nextAction = inst.actions[name];
-      if (inst.activeAction === nextAction) return;
-      const prevAction = inst.activeAction;
-      if (prevAction) prevAction.fadeOut(0.2);
-      nextAction.reset().fadeIn(0.2).play();
-      inst.activeAction = nextAction;
-      setTimeout(() => {
-        if (inst.activeAction === nextAction && inst.actions["Idle"]) {
-          nextAction.fadeOut(0.3);
-          inst.actions["Idle"].reset().fadeIn(0.3).play();
-          inst.activeAction = inst.actions["Idle"];
-        }
-      }, duration);
-    });
+  const robotMsgs = [
+    "नमस्ते! मैं Vidya हूँ — आपकी AI साथी! 😊",
+    "गणित, विज्ञान या अंग्रेज़ी — कोई भी doubt पूछें! 📚",
+    "होमवर्क में मदद चाहिए? मैं तैयार हूँ! ✨",
+    "Ask me anything in Hindi or English! 🚀"
+  ];
+  let robotMsgIdx = 0;
+  let robotBubbleTimer = null;
+
+  function showRobotBubble(customText) {
+    const bubbleEl = document.getElementById("vidyaRobotBubble");
+    if (!bubbleEl) return;
+    bubbleEl.textContent = customText || robotMsgs[robotMsgIdx++ % robotMsgs.length];
+    bubbleEl.classList.add("show");
+    clearTimeout(robotBubbleTimer);
+    robotBubbleTimer = setTimeout(() => {
+      bubbleEl.classList.remove("show");
+    }, 3400);
+    triggerRobotWave(2.4);
   }
 
   function initVidya3dAvatar(targetContainer) {
@@ -18341,9 +18337,6 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
       const width = targetContainer.clientWidth || 92;
       const height = targetContainer.clientHeight || 110;
 
-      const scene = new THREE.Scene();
-      const camera = new THREE.PerspectiveCamera(36, width / height, 0.1, 100);
-
       const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
       renderer.setSize(width, height);
@@ -18351,6 +18344,163 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
       renderer.outputEncoding = THREE.sRGBEncoding;
       targetContainer.innerHTML = "";
       targetContainer.appendChild(renderer.domElement);
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(35, width / height, 0.1, 100);
+      camera.position.set(0, 0.52, 9.4);
+      camera.lookAt(0, 0.52, 0);
+
+      // Studio lights
+      scene.add(new THREE.HemisphereLight(0xffffff, 0x6d4bd1, 0.95));
+      const key = new THREE.DirectionalLight(0xffffff, 1.2);
+      key.position.set(3, 5, 6);
+      scene.add(key);
+
+      const rim = new THREE.PointLight(0xec6ad0, 1.6, 20);
+      rim.position.set(-4, 2, -2);
+      scene.add(rim);
+
+      const fill = new THREE.PointLight(0x5ff3ff, 0.9, 20);
+      fill.position.set(4, -1, 3);
+      scene.add(fill);
+
+      // Materials
+      const white = new THREE.MeshStandardMaterial({ color: 0xf6f3ff, roughness: 0.22, metalness: 0.15 });
+      const dark = new THREE.MeshStandardMaterial({ color: 0x160d33, roughness: 0.12, metalness: 0.7 });
+      const glow = (c) => new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 1.4, roughness: 0.4 });
+      const purple = new THREE.MeshStandardMaterial({ color: 0x8b5cf6, roughness: 0.3, metalness: 0.4, emissive: 0x3b1fa0, emissiveIntensity: 0.5 });
+      const S = (r, sx, sy, sz, m, seg) => {
+        const o = new THREE.Mesh(new THREE.SphereGeometry(r, seg || 40, seg || 40), m);
+        o.scale.set(sx, sy, sz);
+        return o;
+      };
+
+      const robot = new THREE.Group();
+      scene.add(robot);
+
+      // Head
+      const head = new THREE.Group();
+      head.position.y = 1.5;
+      robot.add(head);
+      head.add(S(1, 1.15, 0.95, 0.95, white, 48));
+
+      const visor = S(1, 0.92, 0.66, 0.5, dark);
+      visor.position.z = 0.55;
+      head.add(visor);
+
+      const eyes = new THREE.Group();
+      head.add(eyes);
+      [-0.36, 0.36].forEach(x => {
+        const e = S(1, 0.15, 0.2, 0.06, glow(0x5ff3ff), 24);
+        e.position.set(x, 0.06, 1.0);
+        eyes.add(e);
+      });
+
+      const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.022, 10, 28, Math.PI), glow(0xff7ad9));
+      mouth.rotation.z = Math.PI;
+      mouth.position.set(0, -0.12, 1.0);
+      head.add(mouth);
+
+      [-1, 1].forEach(s => {
+        const ear = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.22, 32), purple);
+        ear.rotation.z = Math.PI / 2;
+        ear.position.x = s * 1.14;
+        head.add(ear);
+        const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.26, 24), glow(0xb99bff));
+        cap.rotation.z = Math.PI / 2;
+        cap.position.x = s * 1.14;
+        head.add(cap);
+      });
+
+      const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.45, 12), white);
+      ant.position.y = 1.12;
+      head.add(ant);
+
+      const bulb = S(0.15, 1, 1, 1, glow(0xff7ad9), 24);
+      bulb.position.y = 1.42;
+      head.add(bulb);
+
+      // Body
+      const body = S(1, 0.82, 1, 0.7, white, 40);
+      body.position.y = -0.45;
+      robot.add(body);
+
+      const collar = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.08, 16, 40), purple);
+      collar.rotation.x = Math.PI / 2;
+      collar.position.y = 0.5;
+      robot.add(collar);
+
+      const chest = S(0.2, 1, 1, 0.5, glow(0x8b5cf6), 24);
+      chest.position.set(0, -0.2, 0.68);
+      robot.add(chest);
+
+      const chestRing = new THREE.Mesh(new THREE.TorusGeometry(0.27, 0.03, 10, 32), glow(0x5ff3ff));
+      chestRing.position.set(0, -0.2, 0.66);
+      robot.add(chestRing);
+
+      // Arms
+      function createArm(side) {
+        const g = new THREE.Group();
+        g.position.set(side * 0.98, 0.1, 0);
+        const up = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.11, 0.8, 20), white);
+        up.position.y = -0.4;
+        g.add(up);
+        const shMesh = S(0.16, 1, 1, 1, purple, 20);
+        g.add(shMesh);
+        const hand = S(0.2, 1, 1, 1, white, 24);
+        hand.position.y = -0.88;
+        g.add(hand);
+        robot.add(g);
+        return g;
+      }
+      const armR = createArm(1);
+      const armL = createArm(-1);
+
+      // Ground shadow
+      const sh = new THREE.Mesh(new THREE.CircleGeometry(1, 40), new THREE.MeshBasicMaterial({ color: 0x0b0420, transparent: true, opacity: 0.35 }));
+      sh.rotation.x = -Math.PI / 2;
+      sh.position.y = -2.1;
+      sh.scale.set(1.2, 1.2, 1.2);
+      scene.add(sh);
+
+      const inst = {
+        container: targetContainer,
+        scene,
+        camera,
+        renderer,
+        robot,
+        head,
+        eyes,
+        mouth,
+        bulb,
+        chest,
+        chestRing,
+        armR,
+        armL,
+        sh,
+        hx: 0,
+        hy: 0,
+        tx: 0,
+        ty: 0,
+        blinkAt: 2,
+        blinkEnd: 0
+      };
+      vidyaInstances.push(inst);
+
+      isVidya3dReady = true;
+
+      // Softly hide 2D poster immediately as 3D robot is active
+      const poster = targetContainer.parentElement?.querySelector(".vidya-3d-img, .vidya-header-3d-img");
+      if (poster) poster.style.opacity = "0";
+
+      // Pointer tracking
+      window.addEventListener("pointermove", (e) => {
+        const r = targetContainer.getBoundingClientRect();
+        if (r.width > 0) {
+          inst.tx = Math.max(-1, Math.min(1, (e.clientX - (r.left + r.width / 2)) / (window.innerWidth / 2)));
+          inst.ty = Math.max(-1, Math.min(1, (e.clientY - (r.top + r.height / 2)) / (window.innerHeight / 2)));
+        }
+      });
 
       const ro = new ResizeObserver(() => {
         const nw = targetContainer.clientWidth;
@@ -18363,135 +18513,51 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
       });
       ro.observe(targetContainer);
 
-      // Studio lighting for robot metallic/glossy materials
-      const hemiLight = new THREE.HemisphereLight(0xffffff, 0x334155, 1.45);
-      hemiLight.position.set(0, 10, 0);
-      scene.add(hemiLight);
-
-      const keyLight = new THREE.DirectionalLight(0xffffff, 1.5);
-      keyLight.position.set(3, 6, 4);
-      scene.add(keyLight);
-
-      const fillLight = new THREE.DirectionalLight(0xa855f7, 1.15);
-      fillLight.position.set(-3, 4, 3);
-      scene.add(fillLight);
-
-      const rimLight = new THREE.DirectionalLight(0x38bdf8, 1.4);
-      rimLight.position.set(0, 5, -4);
-      scene.add(rimLight);
-
-      const inst = {
-        container: targetContainer,
-        scene,
-        camera,
-        renderer,
-        mixer: null,
-        actions: {},
-        activeAction: null,
-        model: null,
-        morphMeshes: [],
-        targetRotY: 0,
-        targetRotX: 0
-      };
-      vidyaInstances.push(inst);
-
-      const loader = new THREE.GLTFLoader();
-      loader.load("models/robot_avatar.glb", function (gltf) {
-        inst.model = gltf.scene;
-
-        // Accurate bounding box calculation to dynamically frame the full robot
-        const box = new THREE.Box3().setFromObject(inst.model);
-        const size = box.getSize(new THREE.Vector3());
-        const center = box.getCenter(new THREE.Vector3());
-
-        // Center horizontally and anchor feet at y = 0
-        inst.model.position.x = -center.x;
-        inst.model.position.z = -center.z;
-        inst.model.position.y = -box.min.y;
-        scene.add(inst.model);
-
-        // Collect facial morph targets on Head mesh (Angry, Surprised, Sad)
-        inst.model.traverse(node => {
-          if (node.isMesh && node.morphTargetDictionary) {
-            inst.morphMeshes.push(node);
-          }
-        });
-
-        // Setup rigged robot animations
-        inst.mixer = new THREE.AnimationMixer(inst.model);
-        (gltf.animations || []).forEach(clip => {
-          inst.actions[clip.name] = inst.mixer.clipAction(clip);
-        });
-
-        // Default: Idle breathing & standing animation
-        if (inst.actions["Idle"]) {
-          inst.activeAction = inst.actions["Idle"];
-          inst.activeAction.play();
-        }
-
-        isVidya3dReady = true;
-
-        // Fade out 2D poster now that live 3D robot is rendering
-        const poster = targetContainer.parentElement?.querySelector(".vidya-3d-img, .vidya-header-3d-img");
-        if (poster) poster.style.opacity = "0";
-
-        // Dynamic perspective framing for complete standing robot
-        const fovRad = (camera.fov * Math.PI) / 180;
-        const curAspect = (targetContainer.clientWidth || 92) / (targetContainer.clientHeight || 110);
-        const distY = (size.y / 2) / Math.tan(fovRad / 2);
-        const distX = (size.x / 2) / Math.tan((fovRad * curAspect) / 2);
-        const camDist = Math.max(distY, distX) * 1.14;
-
-        camera.position.set(0, size.y * 0.52, camDist);
-        camera.lookAt(0, size.y * 0.48, 0);
-
-      }, undefined, function (err) {
-        console.warn("[Robot 3D] Load error:", err);
-      });
-
-      // Mouse tracking: robot looks subtly toward cursor
-      targetContainer.addEventListener("mousemove", (e) => {
-        const rect = targetContainer.getBoundingClientRect();
-        const cx = rect.left + rect.width / 2;
-        const cy = rect.top + rect.height / 2;
-        inst.targetRotY = ((e.clientX - cx) / (rect.width / 2)) * 0.35;
-        inst.targetRotX = -((e.clientY - cy) / (rect.height / 2)) * 0.15;
-      });
-      targetContainer.addEventListener("mouseleave", () => {
-        inst.targetRotY = 0;
-        inst.targetRotX = 0;
-      });
-
       const clock = new THREE.Clock();
 
       function animate() {
         requestAnimationFrame(animate);
-        const dt = clock.getDelta();
         const t = clock.getElapsedTime();
 
-        if (inst.mixer) inst.mixer.update(dt);
+        // Hover float and gentle sway
+        robot.position.y = Math.sin(t * 1.6) * 0.12;
+        robot.rotation.y = Math.sin(t * 0.7) * 0.12;
+        sh.scale.setScalar(1.2 - Math.sin(t * 1.6) * 0.08);
 
-        if (inst.model) {
-          inst.model.rotation.y = THREE.MathUtils.lerp(inst.model.rotation.y, inst.targetRotY, 0.1);
-          inst.model.rotation.x = THREE.MathUtils.lerp(inst.model.rotation.x, inst.targetRotX, 0.1);
+        // Head follow cursor
+        inst.hx += (inst.tx * 0.7 - inst.hx) * 0.08;
+        inst.hy += (inst.ty * 0.4 - inst.hy) * 0.08;
+        head.rotation.y = inst.hx;
+        head.rotation.x = inst.hy;
+        head.rotation.z = -inst.hx * 0.08;
+
+        // Eye blinking
+        if (t > inst.blinkAt) {
+          inst.blinkEnd = t + 0.13;
+          inst.blinkAt = t + 2 + Math.random() * 3;
         }
+        const closed = t < inst.blinkEnd;
+        eyes.scale.y += ((closed ? 0.08 : 1) - eyes.scale.y) * 0.5;
 
-        // Facial expression oscillation when speaking
-        if (isSpeaking && inst.morphMeshes.length > 0) {
-          const osc = (Math.sin(t * 9) + 1) * 0.4;
-          inst.morphMeshes.forEach(mesh => {
-            const idx = mesh.morphTargetDictionary["Surprised"];
-            if (idx !== undefined && mesh.morphTargetInfluences) {
-              mesh.morphTargetInfluences[idx] = osc;
-            }
-          });
-        } else if (inst.morphMeshes.length > 0) {
-          inst.morphMeshes.forEach(mesh => {
-            const idx = mesh.morphTargetDictionary["Surprised"];
-            if (idx !== undefined && mesh.morphTargetInfluences) {
-              mesh.morphTargetInfluences[idx] = 0;
-            }
-          });
+        // Antenna bulb & chest reactor pulse
+        const p = 0.5 + 0.5 * Math.sin(t * 3);
+        bulb.scale.setScalar(0.9 + p * 0.35);
+        bulb.material.emissiveIntensity = 0.8 + p * 1.2;
+        chest.material.emissiveIntensity = 0.8 + p * 1.4;
+        chestRing.rotation.z = t * 1.2;
+
+        // Arm waving & speech mouth animation
+        const curTime = window.performance ? performance.now() / 1000 : Date.now() / 1000;
+        const waving = (curTime < waveUntil) || isSpeaking;
+        const rT = waving ? 2.55 + Math.sin(t * 10) * 0.35 : 0.22 + Math.sin(t * 1.6) * 0.04;
+        armR.rotation.z += (rT - armR.rotation.z) * 0.15;
+        armL.rotation.z += (- (0.22 + Math.sin(t * 1.6 + 1) * 0.04) - armL.rotation.z) * 0.15;
+
+        if (isSpeaking) {
+          const talkMouth = 1.0 + Math.abs(Math.sin(t * 14)) * 0.6;
+          mouth.scale.set(talkMouth, talkMouth, 1);
+        } else {
+          mouth.scale.set(waving ? 1.35 : 1, waving ? 1.35 : 1, 1);
         }
 
         renderer.render(scene, camera);
@@ -18499,7 +18565,7 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
       animate();
 
     } catch (e) {
-      console.warn("[Robot 3D] Init failed:", e);
+      console.warn("[Vidya 3D Robot] Init failed:", e);
     }
   }
 
@@ -18511,11 +18577,11 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     if (speaking) {
       fabAvatar?.classList.add("talking");
       headerStage?.classList.add("talking");
-      playAllVidyaActions("Yes"); // Enthusiastic head nod / speaking gesture
+      triggerRobotWave(999); // continuous animated talking gestures
     } else {
       fabAvatar?.classList.remove("talking");
       headerStage?.classList.remove("talking");
-      playAllVidyaActions("Idle"); // Smooth transition back to idle
+      triggerRobotWave(0); // return smoothly to idle
     }
   }
 
@@ -18589,6 +18655,7 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
   fab.id = "vidyaFab";
   fab.className = "vidya-fab";
   fab.innerHTML = `
+    <div class="vidya-robot-bubble" id="vidyaRobotBubble"></div>
     <div class="vidya-fab-avatar" id="vidyaFabAvatarHolder" title="AI Vidya — 3D Robot Assistant">
       <img class="vidya-3d-img" id="vidyaFabPoster" src="models/robot_transparent.png" alt="AI Robot Avatar" />
       <div id="vidyaFabCanvasWrap"></div>
@@ -18607,14 +18674,19 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
   setTimeout(() => {
     const fabWrap = document.getElementById("vidyaFabCanvasWrap");
     if (fabWrap) initVidya3dAvatar(fabWrap);
-  }, 250);
+  }, 200);
 
-  // Interactive Robot Wave on hover
+  // Interactive Robot Wave & Speech Bubble on hover
   fab.addEventListener("mouseenter", () => {
     if (!isSpeaking) {
-      playTemporaryAction("Wave", 2200);
+      showRobotBubble();
     }
   });
+
+  // Initial friendly robot greeting after startup
+  setTimeout(() => {
+    showRobotBubble("नमस्ते! मैं Vidya हूँ — आपकी 3D Robot AI साथी! 👋");
+  }, 1400);
 
   // ── Helpers ──
   const msgBox = document.getElementById("vidyaMessages");
