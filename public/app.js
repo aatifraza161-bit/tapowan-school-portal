@@ -634,6 +634,7 @@ window.startListeningToVisitor = function() {
 // ---------------------------------
 let editStudentId = null;
 let editRecordId = null;
+let isFormOpen = false;
 let pendingStudentPrefill = null;
 // Tracking for Due Management integration in Fees module
 let appliedDueMgmtAmount = 0;
@@ -745,7 +746,9 @@ const refs = {
   executePrint4in1Btn: document.getElementById("executePrint4in1Btn"),
   tableWrap: document.querySelector(".table-wrap"),
   tablePanel: document.getElementById("tablePanel"),
-  formPanel: document.getElementById("formPanel")
+  formPanel: document.getElementById("formPanel"),
+  addNewBtn: document.getElementById("addNewBtn"),
+  closeFormBtn: document.getElementById("closeFormBtn")
 };
 
 function isMobileLayout() {
@@ -770,6 +773,9 @@ window.switchModuleFromMobile = function(modName) {
   if (typeof window.isSaasModuleEnabled === 'function' && !window.isSaasModuleEnabled(modName)) {
     modName = 'dashboard';
   }
+  isFormOpen = false;
+  editRecordId = null;
+  editStudentId = null;
   currentModule = modName;
   window.currentModule = modName;
   if (refs.searchInput) refs.searchInput.value = '';
@@ -1439,6 +1445,9 @@ function renderNav() {
       const icon = moduleIcons[name] || "🔹";
       btn.innerHTML = `<span class="nav-icon material-symbols-outlined" style="font-size: 20px;">${icon}</span> <span class="nav-text" style="margin-left: 6px;">${moduleConfig[name].title}</span>`;
       btn.addEventListener("click", async () => {
+        isFormOpen = false;
+        editRecordId = null;
+        editStudentId = null;
         currentModule = name;
         refs.searchInput.value = "";
         if (isMobileLayout()) setMobileSidebarOpen(false);
@@ -2045,6 +2054,44 @@ function destroyFormTomSelects() {
   });
 }
 
+function openFormPanel() {
+  isFormOpen = true;
+  renderForm(true);
+  if (refs.formPanel) {
+    refs.formPanel.style.display = "";
+    refs.formPanel.classList.remove("hidden");
+    try {
+      refs.formPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (_) {}
+  }
+  const first = refs.dynamicForm ? refs.dynamicForm.querySelector("input:not([type=hidden]),select,textarea") : null;
+  first?.focus?.();
+  renderModuleTools();
+}
+window.openFormPanel = openFormPanel;
+
+function closeFormPanel() {
+  isFormOpen = false;
+  editRecordId = null;
+  editStudentId = null;
+  if (refs.dynamicForm) {
+    refs.dynamicForm.reset();
+  }
+  renderForm(true);
+  renderModuleTools();
+}
+window.closeFormPanel = closeFormPanel;
+
+function toggleFormPanel() {
+  const isEditing = (editRecordId != null) || (currentModule === "students" && editStudentId != null);
+  if (isFormOpen || isEditing) {
+    closeFormPanel();
+  } else {
+    openFormPanel();
+  }
+}
+window.toggleFormPanel = toggleFormPanel;
+
 function renderForm(forceRefresh) {
   if (!forceRefresh) {
     const activeEl = document.activeElement;
@@ -2056,14 +2103,17 @@ function renderForm(forceRefresh) {
   const cfg = moduleConfig[currentModule];
   refs.dynamicForm.innerHTML = "";
 
-  const hideForm = !cfg.fields.length || currentModule === "dashboard";
+  const isEditing = (editRecordId != null) || (currentModule === "students" && editStudentId != null);
+  const hideForm = !cfg.fields.length || currentModule === "dashboard" || (!isFormOpen && !isEditing);
   if (refs.formPanel) {
     refs.formPanel.style.display = hideForm ? "none" : "";
     refs.formPanel.classList.toggle("hidden", hideForm);
   }
   const formTitle = document.getElementById("formPanelTitle");
   if (formTitle) {
-    formTitle.textContent = editRecordId != null ? `Edit ${cfg.title} Record` : "Add New Record";
+    formTitle.innerHTML = isEditing
+      ? `<span class="material-symbols-outlined" style="color:#6366f1;vertical-align:middle;margin-right:6px;">edit_note</span> Edit ${cfg.title} Record`
+      : `<span class="material-symbols-outlined" style="color:#6366f1;vertical-align:middle;margin-right:6px;">edit_note</span> Add New ${cfg.title || 'Record'}`;
   }
   const tableTitle = document.getElementById("tablePanelTitle");
   if (tableTitle) {
@@ -2535,7 +2585,14 @@ function renderForm(forceRefresh) {
 
   const action = document.createElement("div");
   action.className = "actions";
-  action.innerHTML = `<button type="submit">Save ${cfg.title}</button>`;
+  action.style.display = "flex";
+  action.style.gap = "10px";
+  action.style.alignItems = "center";
+  action.style.flexWrap = "wrap";
+  action.innerHTML = `
+    <button type="submit" style="background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #ffffff; border: none; font-weight: 700; padding: 10px 24px; border-radius: 8px; cursor: pointer; box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);">Save ${cfg.title}</button>
+    <button type="button" onclick="if(window.closeFormPanel) window.closeFormPanel()" style="background: #f1f5f9; color: #475569; border: 1.5px solid #cbd5e1; font-weight: 700; padding: 10px 20px; border-radius: 8px; cursor: pointer;">Cancel</button>
+  `;
   refs.dynamicForm.appendChild(action);
 
   setTimeout(() => {
@@ -2892,7 +2949,8 @@ function renderTable() {
     if (view) view.style.display = "none";
     if (refs.tablePanel) refs.tablePanel.style.display = "";
     if (refs.formPanel) {
-      const hideForm = !cfg.fields.length || currentModule === "dashboard";
+      const isEditing = (editRecordId != null) || (currentModule === "students" && editStudentId != null);
+      const hideForm = !cfg.fields.length || currentModule === "dashboard" || (!isFormOpen && !isEditing);
       refs.formPanel.style.display = hideForm ? "none" : "";
       refs.formPanel.classList.toggle("hidden", hideForm);
     }
@@ -4126,6 +4184,7 @@ function renderStudentProfile() {
 
 function startEditStudentById(studentId) {
   editStudentId = Number(studentId);
+  isFormOpen = true;
   currentModule = "students";
   refs.searchInput.value = "";
   // Re-render form then prefill.
@@ -4166,10 +4225,18 @@ function startEditStudentById(studentId) {
       first?.focus?.();
     }, 50);
   }
+  if (refs.formPanel) {
+    refs.formPanel.style.display = "";
+    refs.formPanel.classList.remove("hidden");
+    try {
+      refs.formPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (_) {}
+  }
 }
 
 function startGenericEditById(moduleName, recordId) {
   editRecordId = Number(recordId);
+  isFormOpen = true;
   currentModule = moduleName;
   refs.searchInput.value = "";
   renderAll();
@@ -5749,6 +5816,34 @@ function renderModuleTools() {
       }
     } else {
       refs.classFilter.classList.add("hidden");
+    }
+  }
+
+  // Add New Record button toggle
+  const addNewBtn = refs.addNewBtn || document.getElementById("addNewBtn");
+  if (addNewBtn) {
+    const cfg = moduleConfig[currentModule];
+    const canWrite = cfg && cfg.fields && cfg.fields.length > 0 && canCurrentUserWrite(currentModule) && currentModule !== "dashboard";
+    if (canWrite) {
+      addNewBtn.style.display = "inline-flex";
+      addNewBtn.classList.remove("hidden");
+      const isEditing = (editRecordId != null) || (currentModule === "students" && editStudentId != null);
+      if (isFormOpen || isEditing) {
+        addNewBtn.innerHTML = `<span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px;">close</span> Close Form`;
+        addNewBtn.style.background = "#f1f5f9";
+        addNewBtn.style.color = "#475569";
+        addNewBtn.style.border = "1.5px solid #cbd5e1";
+        addNewBtn.style.boxShadow = "none";
+      } else {
+        addNewBtn.innerHTML = `<span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px;">add_circle</span> Add New`;
+        addNewBtn.style.background = "linear-gradient(135deg, #4f46e5, #7c3aed)";
+        addNewBtn.style.color = "#ffffff";
+        addNewBtn.style.border = "none";
+        addNewBtn.style.boxShadow = "0 2px 8px rgba(79, 70, 229, 0.3)";
+      }
+    } else {
+      addNewBtn.style.display = "none";
+      addNewBtn.classList.add("hidden");
     }
   }
 
@@ -9828,6 +9923,9 @@ refs.dynamicForm.addEventListener("submit", async (e) => {
     if (bdInfo) { bdInfo.innerHTML = ""; bdInfo.style.display = "none"; }
 
     await loadStore();
+    isFormOpen = false;
+    editRecordId = null;
+    editStudentId = null;
     renderAll();
     if (typeof showToast === "function") showToast(`${toLabel(currentModule)} record saved successfully`, "success");
 

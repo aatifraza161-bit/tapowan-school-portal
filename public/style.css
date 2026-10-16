@@ -1496,6 +1496,18 @@ tbody td:last-child { padding-right: 24px; }
 .arrow{margin-right:3px;}
 
 
+#addNewBtn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  background:linear-gradient(135deg, #4f46e5, #7c3aed);
+  color:#ffffff;border:none;border-radius:var(--radius-sm);
+  padding:8px 16px;font-weight:700;font-size:0.85rem;
+  box-shadow:0 2px 8px rgba(79,70,229,0.3);cursor:pointer;
+  transition:all var(--transition);white-space:nowrap;
+}
+#addNewBtn:hover{
+  filter:brightness(1.08);transform:translateY(-1px);
+}
+
 #searchInput{
   padding:9px 16px 9px 38px;border-radius:30px;
   border:2px solid var(--border);background:#f8fafc;
@@ -1948,7 +1960,7 @@ tbody td:last-child { padding-right: 24px; }
     gap: 8px !important;
     width: 100% !important;
   }
-  #searchInput, #classFilter, #dateFilter, #dayFilter, #allAttendanceBtn,
+  #addNewBtn, #searchInput, #classFilter, #dateFilter, #dayFilter, #allAttendanceBtn,
   #smartGenerateBtn, #setPeriodTimingsBtn, #freeTeachersBtn, #print4in1Btn, #appReleasesBtn, #liveOtaStreamBtn, #onlinePaymentsAccessControlBtn {
     grid-column: 1 / -1 !important;
     width: 100% !important;
@@ -1958,9 +1970,25 @@ tbody td:last-child { padding-right: 24px; }
     font-size: 16px !important;
     box-sizing: border-box !important;
   }
+  #addNewBtn {
+    order: -3 !important;
+    min-height: 44px !important;
+    font-size: 0.92rem !important;
+  }
   #searchInput {
     order: -2 !important;
     min-height: 42px !important;
+  }
+  #formPanel .panel-head {
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 14px 16px !important;
+  }
+  #formPanel .panel-head #closeFormBtn {
+    width: auto !important;
+    min-height: 32px !important;
+    padding: 4px 12px !important;
   }
   .btn-action {
     min-height: 38px !important;
