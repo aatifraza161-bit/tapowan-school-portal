@@ -1,8 +1,9 @@
 {
-  "bundleVersion": "2.5.0",
-  "bundleVersionCode": 260,
-  "bundleUrl": "https://tapowan-whatsapp-gateway.onrender.com/bundles/index.android.bundle",
-  "bundleSize": 5946463,
-  "releaseNotes": "Drawing marks excluded from student performance report and academic totals.",
-  "updatedAt": "2026-10-05T15:15:00.000Z"
+  "bundleVersion": "3.1.8",
+  "bundleVersionCode": 331,
+  "bundleUrl": "https://tapowan-app.vercel.app/bundles/index.android.bundle",
+  "bundleSize": 6002281,
+  "releaseNotes": "Instant Face ID Login powered by Colab GPU ArcFace Engine (512-D).",
+  "updatedAt": "2026-10-16T14:41:19.464Z",
+  "isActive": true
 }
