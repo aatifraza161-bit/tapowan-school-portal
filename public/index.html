@@ -321,6 +321,26 @@
         </div>
       </section>
       <section id="facePanel" class="panel hidden">
+        <!-- ─── BIOMETRIC MODE TABS (FACE VS FINGERPRINT) ─── -->
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.08);">
+          <div style="display:inline-flex; background:#0f172a; padding:4px; border-radius:12px; border:1px solid #334155; gap:4px;">
+            <button id="biometricTabFaceBtn" type="button" class="btn-biometric-tab active" style="padding:7px 16px; border-radius:8px; border:none; font-weight:700; font-size:0.85rem; cursor:pointer; background:#3b82f6; color:#fff; display:flex; align-items:center; gap:6px; transition:all 0.2s;">
+              <span class="material-symbols-outlined" style="font-size:18px;">face</span>
+              <span>Face Recognition</span>
+            </button>
+            <button id="biometricTabFingerprintBtn" type="button" class="btn-biometric-tab" style="padding:7px 16px; border-radius:8px; border:none; font-weight:700; font-size:0.85rem; cursor:pointer; background:transparent; color:#94a3b8; display:flex; align-items:center; gap:6px; transition:all 0.2s;">
+              <span class="material-symbols-outlined" style="font-size:18px;">fingerprint</span>
+              <span>Biometric Fingerprint</span>
+            </button>
+          </div>
+          <!-- Real-Time Hardware Status Badge -->
+          <div id="biometricHwStatusPill" style="display:inline-flex; align-items:center; gap:6px; font-size:0.82rem; font-weight:600; padding:5px 14px; border-radius:20px; background:rgba(59, 130, 246, 0.15); color:#60a5fa; border:1px solid rgba(59, 130, 246, 0.3);">
+            <span id="biometricHwStatusDot">🔵</span>
+            <span id="biometricHwStatusText">Ready for Biometric Attendance</span>
+          </div>
+        </div>
+
+        <div id="faceRecognitionSection">
         <div class="panel-head">
           <h3>Face Recognition Attendance</h3>
           <div class="panel-actions">
@@ -466,6 +486,141 @@
           </div>
         </div>
         <p id="faceStatusText" class="small-note">Load camera and capture face embedding to mark attendance.</p>
+        </div> <!-- /faceRecognitionSection -->
+
+        <!-- ─── BIOMETRIC FINGERPRINT ATTENDANCE SECTION ─── -->
+        <div id="fingerprintAttendanceSection" style="display:none;">
+          <div class="panel-head" style="margin-bottom:12px;">
+            <div>
+              <h3 style="display:flex;align-items:center;gap:8px;">
+                <span class="material-symbols-outlined" style="color:#3b82f6;">fingerprint</span>
+                <span>Biometric Fingerprint Attendance Engine</span>
+              </h3>
+              <p style="font-size:0.82rem;color:#94a3b8;margin-top:2px;">
+                Supports Native Device Touch Sensors (Windows Hello / Mac Touch ID / Android) &amp; USB Optical Scanners (Mantra MFS100 / Morpho RD Service).
+              </p>
+            </div>
+            <div class="panel-actions">
+              <button id="fpCheckRdBtn" type="button" class="dark" style="display:flex;align-items:center;gap:6px;font-size:0.82rem;">
+                <span class="material-symbols-outlined" style="font-size:16px;">refresh</span>
+                <span>Check Hardware</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="fingerprint-panel-grid">
+            <!-- Left: Holographic Fingerprint Sensor Target -->
+            <div class="fingerprint-scanner-box">
+              <div id="fpPad" class="fingerprint-pad" title="Click or Touch to Scan Fingerprint">
+                <div class="fingerprint-laser"></div>
+                <!-- SVG Concentric Fingerprint Ridges -->
+                <svg class="fingerprint-svg-icon" viewBox="0 0 24 24" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 2a10 10 0 0 0-10 10c0 3 1.5 6 3 8" />
+                  <path d="M12 6a6 6 0 0 0-6 6c0 2 1 4 2 5.5" />
+                  <path d="M12 10a2 2 0 0 0-2 2c0 1.5.5 3 1.5 4" />
+                  <path d="M14 12c0 2-.5 3.5-1.5 5" />
+                  <path d="M18 12c0 3.5-1.5 6.5-3.5 8.5" />
+                  <path d="M22 12c0 5-2.5 9-5.5 11" />
+                </svg>
+              </div>
+
+              <div id="fpStatusTitle" style="font-size:0.95rem;font-weight:700;color:#f8fafc;margin-top:14px;">
+                Place Finger on Sensor
+              </div>
+              <div id="fpStatusSub" style="font-size:0.8rem;color:#94a3b8;margin-top:4px;">
+                Touch your fingerprint sensor or USB scanner
+              </div>
+
+              <!-- Quality Meter -->
+              <div style="width:100%;margin-top:16px;text-align:left;">
+                <div style="display:flex;justify-content:space-between;font-size:0.75rem;color:#94a3b8;font-weight:600;">
+                  <span>Biometric Quality</span>
+                  <span id="fpQualityPercent">0%</span>
+                </div>
+                <div class="fingerprint-quality-bar">
+                  <div id="fpQualityFill" class="fingerprint-quality-fill"></div>
+                </div>
+              </div>
+
+              <button id="fpTriggerScanBtn" type="button" class="btn" style="width:100%;margin-top:16px;padding:12px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border:none;border-radius:12px;font-weight:700;font-size:0.9rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 15px rgba(37,99,235,0.4);transition:all 0.2s;">
+                <span class="material-symbols-outlined" style="font-size:20px;">fingerprint</span>
+                <span>Scan Fingerprint Now</span>
+              </button>
+
+              <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:0.8rem;color:#94a3b8;cursor:pointer;user-select:none;">
+                <input id="fpAutoAdvanceToggle" type="checkbox" style="accent-color:#3b82f6;" />
+                <span>Auto-Advance Continuous Mode</span>
+              </label>
+            </div>
+
+            <!-- Right: Target Selection, Hardware Setup & Verification Logs -->
+            <div style="display:flex;flex-direction:column;gap:14px;">
+              <!-- Scanner Type Selection -->
+              <div style="background:#0f172a;border:1px solid #1e293b;border-radius:14px;padding:14px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <span style="font-size:0.85rem;font-weight:600;color:#cbd5e1;">Scanner Hardware:</span>
+                  <select id="fpHardwareModeSelect" style="padding:6px 12px;border-radius:8px;border:1px solid #475569;background:#1e293b;color:#f8fafc;font-size:0.85rem;font-weight:600;">
+                    <option value="auto">⚡ Auto-Detect (RD Service / Device)</option>
+                    <option value="mantra">🔌 Mantra MFS100 / Morpho RD Service</option>
+                    <option value="webauthn">💻 Native Touch Sensor / Windows Hello</option>
+                  </select>
+                </div>
+                <div id="fpRdServiceStatus" style="font-size:0.8rem;color:#38bdf8;font-weight:600;">
+                  RD Port: 127.0.0.1:11100
+                </div>
+              </div>
+
+              <!-- Student / Teacher Selector Form -->
+              <div class="form-grid" style="margin:0;">
+                <div class="field">
+                  <label for="fpTargetType">Target Type</label>
+                  <select id="fpTargetType">
+                    <option value="students">Students</option>
+                    <option value="teachers">Teachers</option>
+                  </select>
+                </div>
+                <div class="field" id="fpClassFilterField">
+                  <label for="fpClassFilter">Filter Class</label>
+                  <select id="fpClassFilter">
+                    <option value="">All Classes</option>
+                  </select>
+                </div>
+                <div class="field" style="grid-column: span 2;">
+                  <label for="fpPersonSelect">Select Student / Staff Roster</label>
+                  <div style="display:flex;gap:8px;margin-bottom:6px;">
+                    <input id="fpSearchInput" placeholder="🔍 Quick search student by name, roll no or admission no..." style="flex:1;" />
+                  </div>
+                  <select id="fpPersonSelect" style="width:100%;"></select>
+                </div>
+                <div class="field">
+                  <label for="fpStatusSelect">Attendance Status</label>
+                  <select id="fpStatusSelect">
+                    <option value="Present">Present</option>
+                    <option value="Late">Late</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="fpTimeInput">Arrival Timestamp</label>
+                  <input id="fpTimeInput" type="text" readonly style="background:#0f172a;color:#94a3b8;font-family:monospace;" />
+                </div>
+              </div>
+
+              <!-- Live Verification Stream Logs -->
+              <div style="background:#090d16;border:1px solid #1e293b;border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,0.06);padding-bottom:6px;">
+                  <span style="font-size:0.82rem;font-weight:700;color:#94a3b8;display:flex;align-items:center;gap:6px;">
+                    <span class="material-symbols-outlined" style="font-size:16px;color:#10b981;">history</span>
+                    <span>Biometric Verification Live Stream</span>
+                  </span>
+                  <button id="fpClearLogsBtn" type="button" style="background:none;border:none;color:#64748b;font-size:0.75rem;cursor:pointer;">Clear</button>
+                </div>
+                <div id="fpLiveLogs" style="max-height:120px;overflow-y:auto;font-family:'JetBrains Mono',monospace;font-size:0.78rem;color:#cbd5e1;display:flex;flex-direction:column;gap:4px;padding-top:4px;">
+                  <div style="color:#64748b;font-style:italic;">Ready to record biometric attendance. Place finger on sensor or click Scan.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
 
       <!-- Exam Management Panel -->

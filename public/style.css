@@ -4478,3 +4478,112 @@ img[src*="student-photos"],
 .face-auth-status-text.success {
   color: #10b981;
 }
+
+/* ─── BIOMETRIC FINGERPRINT ATTENDANCE STYLES ─── */
+.fingerprint-panel-grid {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 860px) {
+  .fingerprint-panel-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.fingerprint-scanner-box {
+  background: #090d16;
+  border: 1px solid #1e293b;
+  border-radius: 20px;
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  position: relative;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 10px 25px -5px rgba(0,0,0,0.5);
+}
+.fingerprint-pad {
+  position: relative;
+  width: 170px;
+  height: 190px;
+  border-radius: 28px;
+  background: radial-gradient(circle at 50% 45%, #131d36 0%, #0b1120 75%);
+  border: 2px solid #334155;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 25px rgba(37, 99, 235, 0.15);
+}
+.fingerprint-pad:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 0 35px rgba(59, 130, 246, 0.35);
+  transform: translateY(-2px);
+}
+.fingerprint-pad.scanning {
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 40px rgba(56, 189, 248, 0.6) !important;
+}
+.fingerprint-pad.matched {
+  border-color: #10b981 !important;
+  box-shadow: 0 0 50px rgba(16, 185, 129, 0.7) !important;
+}
+.fingerprint-pad.failed {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 40px rgba(239, 68, 68, 0.6) !important;
+}
+.fingerprint-laser {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #38bdf8 30%, #a5f3fc 50%, #38bdf8 70%, transparent);
+  box-shadow: 0 0 14px 2px #38bdf8;
+  display: none;
+}
+.fingerprint-pad.scanning .fingerprint-laser {
+  display: block;
+  animation: fpLaserSweep 1.6s infinite ease-in-out;
+}
+@keyframes fpLaserSweep {
+  0% { top: 8%; opacity: 0.9; }
+  50% { top: 88%; opacity: 1; }
+  100% { top: 8%; opacity: 0.9; }
+}
+.fingerprint-svg-icon {
+  width: 100px;
+  height: 100px;
+  stroke: #60a5fa;
+  fill: none;
+  transition: all 0.3s;
+}
+.fingerprint-pad.scanning .fingerprint-svg-icon {
+  stroke: #38bdf8;
+  filter: drop-shadow(0 0 10px #38bdf8);
+}
+.fingerprint-pad.matched .fingerprint-svg-icon {
+  stroke: #10b981;
+  filter: drop-shadow(0 0 12px #10b981);
+}
+.fingerprint-pad.failed .fingerprint-svg-icon {
+  stroke: #ef4444;
+  filter: drop-shadow(0 0 10px #ef4444);
+}
+.fingerprint-quality-bar {
+  width: 100%;
+  height: 6px;
+  background: #1e293b;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 10px;
+}
+.fingerprint-quality-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #3b82f6, #10b981);
+  transition: width 0.3s ease;
+}
