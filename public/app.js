@@ -18298,90 +18298,157 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     studentCtx += "\nNote: User is an Administrator. Accessing system-wide knowledge base.";
   }
 
-  // ── 3D Avatar State & Three.js WebGL Loader ──
-  let threeJsMixer = null;
-  let threeJsActions = {};
-  let threeJsActiveAction = null;
-  let threeJsAnimId = null;
-  let isThreeJsInitialized = false;
+  // ── Proper 3D Animated Avatar Engine (Three.js WebGL & Ready Player Me) ──
+  let vidyaMixer = null;
+  let vidyaActions = {};
+  let vidyaActiveAction = null;
+  let vidyaModel = null;
+  let vidyaMorphMeshes = [];
+  let isVidya3dReady = false;
 
-  function initThreeJsAvatar(container) {
-    if (isThreeJsInitialized || !container || typeof THREE === "undefined") return;
+  function initVidya3dAvatar(targetContainer) {
+    if (!targetContainer || typeof THREE === "undefined") return;
+    if (targetContainer.querySelector("canvas")) return; // already initialized
+
     try {
-      const width = container.clientWidth || 82;
-      const height = container.clientHeight || 82;
+      const width = targetContainer.clientWidth || 80;
+      const height = targetContainer.clientHeight || 80;
 
       const scene = new THREE.Scene();
-      const camera = new THREE.PerspectiveCamera(45, width / height, 0.25, 100);
-      camera.position.set(0, 3.2, 5.8);
-      camera.lookAt(0, 1.8, 0);
+      const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 100);
+      // Head is at y ~ 1.56m. Frame face, eyes, hair and shoulders
+      camera.position.set(0, 1.52, 0.72);
+      camera.lookAt(0, 1.48, 0);
 
-      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-      renderer.setPixelRatio(window.devicePixelRatio || 1);
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
       renderer.setSize(width, height);
       renderer.outputEncoding = THREE.sRGBEncoding;
-      container.innerHTML = "";
-      container.appendChild(renderer.domElement);
+      targetContainer.innerHTML = "";
+      targetContainer.appendChild(renderer.domElement);
 
-      const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
-      hemiLight.position.set(0, 20, 0);
+      // Studio lights for realistic avatar skin & hair
+      const hemiLight = new THREE.HemisphereLight(0xfff5ea, 0x333344, 1.35);
+      hemiLight.position.set(0, 10, 0);
       scene.add(hemiLight);
 
-      const dirLight = new THREE.DirectionalLight(0xa855f7, 1.5);
-      dirLight.position.set(3, 10, 10);
-      scene.add(dirLight);
+      const keyLight = new THREE.DirectionalLight(0xffffff, 1.4);
+      keyLight.position.set(2, 4, 3);
+      scene.add(keyLight);
+
+      const fillLight = new THREE.DirectionalLight(0xc084fc, 0.85);
+      fillLight.position.set(-2, 3, 2);
+      scene.add(fillLight);
+
+      const backLight = new THREE.DirectionalLight(0x38bdf8, 0.95);
+      backLight.position.set(0, 3, -3);
+      scene.add(backLight);
 
       const loader = new THREE.GLTFLoader();
-      const modelUrl = "https://cdn.jsdelivr.net/gh/mrdoob/three.js@dev/examples/models/gltf/RobotExpressive/RobotExpressive.glb";
+      loader.load("models/vidya_avatar.glb", function (gltf) {
+        vidyaModel = gltf.scene;
+        vidyaModel.position.set(0, 0, 0);
+        scene.add(vidyaModel);
 
-      loader.load(modelUrl, function (gltf) {
-        const model = gltf.scene;
-        model.position.set(0, 0, 0);
-        model.scale.set(0.68, 0.68, 0.68);
-        scene.add(model);
+        // Collect skinned meshes with morph targets
+        vidyaMorphMeshes = [];
+        vidyaModel.traverse(node => {
+          if (node.isSkinnedMesh && node.morphTargetDictionary) {
+            vidyaMorphMeshes.push(node);
+          }
+        });
 
-        threeJsMixer = new THREE.AnimationMixer(model);
-        threeJsActions = {};
+        // Default welcoming gentle smile
+        setMorphValue("mouthSmileLeft", 0.25);
+        setMorphValue("mouthSmileRight", 0.25);
 
-        for (let i = 0; i < gltf.animations.length; i++) {
-          const clip = gltf.animations[i];
-          const action = threeJsMixer.clipAction(clip);
-          threeJsActions[clip.name] = action;
-        }
+        vidyaMixer = new THREE.AnimationMixer(vidyaModel);
 
-        if (threeJsActions['Idle']) {
-          threeJsActiveAction = threeJsActions['Idle'];
-          threeJsActiveAction.play();
-        } else if (gltf.animations.length > 0) {
-          threeJsActiveAction = threeJsMixer.clipAction(gltf.animations[0]);
-          threeJsActiveAction.play();
-        }
+        // Load smooth human animations (Idle, Talking_0, Talking_1, Talking_2, Laughing)
+        loader.load("models/vidya_animations.glb", function (animGltf) {
+          animGltf.animations.forEach(clip => {
+            vidyaActions[clip.name] = vidyaMixer.clipAction(clip);
+          });
 
-        isThreeJsInitialized = true;
+          if (vidyaActions["Idle"]) {
+            vidyaActiveAction = vidyaActions["Idle"];
+            vidyaActiveAction.play();
+          }
+
+          isVidya3dReady = true;
+          // Softly reveal 3D canvas over poster
+          const fabPoster = document.getElementById("vidyaFabPoster");
+          const headPoster = document.getElementById("vidyaHeaderPoster");
+          if (fabPoster) fabPoster.style.opacity = "0.2";
+          if (headPoster) headPoster.style.opacity = "0.2";
+        }, undefined, function (err) {
+          console.warn("[Vidya 3D] Animation load error:", err);
+        });
+
       }, undefined, function (err) {
-        console.warn("[Vidya 3D] Failed to load Three.js model:", err);
+        console.warn("[Vidya 3D] Avatar load error:", err);
       });
 
       const clock = new THREE.Clock();
+      let blinkTimer = 0;
+
       function animate() {
-        threeJsAnimId = requestAnimationFrame(animate);
+        requestAnimationFrame(animate);
         const dt = clock.getDelta();
-        if (threeJsMixer) threeJsMixer.update(dt);
+        const t = clock.getElapsedTime();
+
+        if (vidyaMixer) vidyaMixer.update(dt);
+
+        // Natural eye blinking
+        blinkTimer += dt;
+        if (blinkTimer > 3.5) {
+          const blinkProgress = (blinkTimer - 3.5) / 0.16;
+          if (blinkProgress <= 1.0) {
+            const bVal = Math.sin(blinkProgress * Math.PI);
+            setMorphValue("eyeBlinkLeft", bVal);
+            setMorphValue("eyeBlinkRight", bVal);
+          } else {
+            setMorphValue("eyeBlinkLeft", 0);
+            setMorphValue("eyeBlinkRight", 0);
+            blinkTimer = Math.random() * 1.6;
+          }
+        }
+
+        // Real-time speech lip sync
+        if (isSpeaking) {
+          const talkWave = Math.abs(Math.sin(t * 11)) * 0.75;
+          setMorphValue("jawOpen", talkWave);
+          setMorphValue("viseme_aa", talkWave * 0.85);
+        } else {
+          setMorphValue("jawOpen", 0);
+          setMorphValue("viseme_aa", 0);
+        }
+
         renderer.render(scene, camera);
       }
       animate();
+
     } catch (e) {
-      console.warn("[Vidya 3D] WebGL init error:", e);
+      console.warn("[Vidya 3D] Init failed:", e);
     }
   }
 
-  function playThreeJsAction(name) {
-    if (!threeJsActions || !threeJsActions[name] || !threeJsMixer) return;
-    const nextAction = threeJsActions[name];
-    if (threeJsActiveAction !== nextAction) {
-      if (threeJsActiveAction) threeJsActiveAction.fadeOut(0.3);
+  function setMorphValue(name, val) {
+    vidyaMorphMeshes.forEach(mesh => {
+      const idx = mesh.morphTargetDictionary[name];
+      if (idx !== undefined && mesh.morphTargetInfluences) {
+        mesh.morphTargetInfluences[idx] = val;
+      }
+    });
+  }
+
+  function playVidyaAction(name) {
+    if (!vidyaActions || !vidyaActions[name] || !vidyaMixer) return;
+    const nextAction = vidyaActions[name];
+    if (vidyaActiveAction !== nextAction) {
+      if (vidyaActiveAction) vidyaActiveAction.fadeOut(0.3);
       nextAction.reset().fadeIn(0.3).play();
-      threeJsActiveAction = nextAction;
+      vidyaActiveAction = nextAction;
     }
   }
 
@@ -18389,16 +18456,22 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     isSpeaking = speaking;
     const fabAvatar = document.querySelector(".vidya-fab-avatar");
     const headerCircle = document.getElementById("vidyaHeader3dCircle");
+    const fabPoster = document.getElementById("vidyaFabPoster");
+    const headPoster = document.getElementById("vidyaHeaderPoster");
+
     if (speaking) {
       fabAvatar?.classList.add("talking");
       headerCircle?.classList.add("talking");
-      if (threeJsActions['Wave']) playThreeJsAction('Wave');
-      else if (threeJsActions['Yes']) playThreeJsAction('Yes');
-      else if (threeJsActions['Dance']) playThreeJsAction('Dance');
+      if (fabPoster) fabPoster.src = "models/vidya_talk_poster.jpg";
+      if (headPoster) headPoster.src = "models/vidya_talk_poster.jpg";
+      if (vidyaActions["Talking_0"]) playVidyaAction("Talking_0");
+      else if (vidyaActions["Talking_1"]) playVidyaAction("Talking_1");
     } else {
       fabAvatar?.classList.remove("talking");
       headerCircle?.classList.remove("talking");
-      if (threeJsActions['Idle']) playThreeJsAction('Idle');
+      if (fabPoster) fabPoster.src = "models/vidya_idle_poster.jpg";
+      if (headPoster) headPoster.src = "models/vidya_idle_poster.jpg";
+      if (vidyaActions["Idle"]) playVidyaAction("Idle");
     }
   }
 
@@ -18412,7 +18485,7 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     <div class="vidya-header">
       <div class="vidya-header-top">
         <div class="vidya-header-info">
-          <h4>🤖 Vidya — 3D AI Helper</h4>
+          <h4>✨ Vidya — 3D AI Helper</h4>
           <p>आपकी 3D AI साथी • Hindi & English</p>
           <div id="vidyaProviderBadge" style="font-size:0.6rem; background:rgba(0,0,0,0.2); padding:1px 6px; border-radius:4px; display:inline-block; margin-top:4px;">Searching provider...</div>
         </div>
@@ -18421,15 +18494,15 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
       </div>
       <div class="vidya-avatar-3d-header-wrap">
         <div class="vidya-header-3d-circle" id="vidyaHeader3dCircle" title="3D Animated AI Vidya">
-          <video class="vidya-header-3d-video" id="vidyaHeaderVideo" src="login_robot_clean.mp4" poster="login_robot_poster.jpg" autoplay loop muted playsinline></video>
-          <div id="vidyaThreeJsContainer" style="display:none; width:100%; height:100%; border-radius:50%; overflow:hidden;"></div>
+          <img class="vidya-header-3d-img" id="vidyaHeaderPoster" src="models/vidya_idle_poster.jpg" alt="AI Vidya 3D" />
+          <div id="vidyaHeaderCanvasWrap"></div>
           <div class="vidya-soundwave-bars">
             <span></span><span></span><span></span><span></span><span></span>
           </div>
         </div>
-        <div style="display:flex; gap:6px; margin-top:8px; align-items:center;">
-          <button id="btnAvatarMascot" class="vidya-avatar-switch-btn active" style="border:none; border-radius:12px; padding:3px 10px; font-size:0.68rem; font-weight:700; cursor:pointer; background:rgba(255,255,255,0.28); color:#fff; backdrop-filter:blur(4px); transition:all 0.2s;" title="3D Animated Mascot">🤖 3D Mascot</button>
-          <button id="btnAvatarThreeJs" class="vidya-avatar-switch-btn" style="border:none; border-radius:12px; padding:3px 10px; font-size:0.68rem; font-weight:600; cursor:pointer; background:rgba(255,255,255,0.12); color:rgba(255,255,255,0.85); backdrop-filter:blur(4px); transition:all 0.2s;" title="WebGL 3D Three.js Interactive Robot">🌐 3D Three.js</button>
+        <div style="margin-top:6px; font-size:0.7rem; color:rgba(255,255,255,0.92); font-weight:700; display:flex; align-items:center; gap:5px;">
+          <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#22c55e; box-shadow:0 0 6px #22c55e;"></span>
+          <span>Live 3D AI Assistant</span>
         </div>
       </div>
     </div>
@@ -18467,14 +18540,15 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
       <button class="vidya-send-btn" id="vidyaSendBtn">➤</button>
     </div>`;
 
-  // ── FAB Button with 3D Animated Avatar ──
+  // ── FAB Button with Proper 3D Animated Avatar ──
   const fab = document.createElement("div");
   fab.id = "vidyaFab";
   fab.className = "vidya-fab";
   fab.innerHTML = `
     <div class="vidya-fab-ring"></div>
     <div class="vidya-fab-avatar" id="vidyaFabAvatarHolder" title="AI Vidya — 3D Smart Assistant">
-      <video class="vidya-3d-video" id="vidyaFabVideo" src="login_robot_clean.mp4" poster="login_robot_poster.jpg" autoplay loop muted playsinline></video>
+      <img class="vidya-3d-img" id="vidyaFabPoster" src="models/vidya_idle_poster.jpg" alt="AI Vidya 3D Avatar" />
+      <div id="vidyaFabCanvasWrap"></div>
       <div class="vidya-avatar-status-badge" title="AI Online & Ready"></div>
       <div class="vidya-soundwave-bars">
         <span></span><span></span><span></span><span></span><span></span>
@@ -18485,25 +18559,17 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
   document.body.appendChild(widget);
   document.body.appendChild(fab);
 
+  // Initialize 3D Avatar in FAB
+  setTimeout(() => {
+    const fabWrap = document.getElementById("vidyaFabCanvasWrap");
+    if (fabWrap) initVidya3dAvatar(fabWrap);
+  }, 250);
+
   // ── Helpers ──
   const msgBox = document.getElementById("vidyaMessages");
   const inputEl = document.getElementById("vidyaInput");
 
-  function ensureVidyaVideosPlaying() {
-    const fabVid = document.getElementById("vidyaFabVideo");
-    const headVid = document.getElementById("vidyaHeaderVideo");
-    if (fabVid) {
-      fabVid.muted = true;
-      fabVid.play().catch(() => {});
-    }
-    if (headVid && headVid.style.display !== "none") {
-      headVid.muted = true;
-      headVid.play().catch(() => {});
-    }
-  }
-  setTimeout(ensureVidyaVideosPlaying, 300);
-  document.addEventListener("click", ensureVidyaVideosPlaying, { once: true });
-  document.addEventListener("touchstart", ensureVidyaVideosPlaying, { once: true });
+
 
   function addMsg(text, role, provider) {
     const div = document.createElement("div");
@@ -20267,68 +20333,12 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     });
   });
 
-  // ── 3D Avatar Style Switcher (Mascot vs Three.js WebGL) ──
-  const btnMascot = document.getElementById("btnAvatarMascot");
-  const btnThreeJs = document.getElementById("btnAvatarThreeJs");
-  const headVid = document.getElementById("vidyaHeaderVideo");
-  const threeContainer = document.getElementById("vidyaThreeJsContainer");
-
-  function switchAvatarStyle(style) {
-    if (style === "threejs") {
-      if (headVid) headVid.style.display = "none";
-      if (threeContainer) threeContainer.style.display = "block";
-      btnThreeJs?.classList.add("active");
-      if (btnThreeJs) {
-        btnThreeJs.style.background = "rgba(255,255,255,0.3)";
-        btnThreeJs.style.color = "#fff";
-        btnThreeJs.style.fontWeight = "700";
-      }
-      btnMascot?.classList.remove("active");
-      if (btnMascot) {
-        btnMascot.style.background = "rgba(255,255,255,0.12)";
-        btnMascot.style.color = "rgba(255,255,255,0.85)";
-        btnMascot.style.fontWeight = "600";
-      }
-      initThreeJsAvatar(threeContainer);
-      try { localStorage.setItem("tps_vidya_avatar_style", "threejs"); } catch(_) {}
-    } else {
-      if (threeContainer) threeContainer.style.display = "none";
-      if (headVid) {
-        headVid.style.display = "block";
-        headVid.muted = true;
-        headVid.play().catch(() => {});
-      }
-      btnMascot?.classList.add("active");
-      if (btnMascot) {
-        btnMascot.style.background = "rgba(255,255,255,0.3)";
-        btnMascot.style.color = "#fff";
-        btnMascot.style.fontWeight = "700";
-      }
-      btnThreeJs?.classList.remove("active");
-      if (btnThreeJs) {
-        btnThreeJs.style.background = "rgba(255,255,255,0.12)";
-        btnThreeJs.style.color = "rgba(255,255,255,0.85)";
-        btnThreeJs.style.fontWeight = "600";
-      }
-      try { localStorage.setItem("tps_vidya_avatar_style", "mascot"); } catch(_) {}
-    }
-  }
-
-  btnMascot?.addEventListener("click", () => switchAvatarStyle("mascot"));
-  btnThreeJs?.addEventListener("click", () => switchAvatarStyle("threejs"));
-
-  try {
-    const savedStyle = localStorage.getItem("tps_vidya_avatar_style");
-    if (savedStyle === "threejs") {
-      switchAvatarStyle("threejs");
-    }
-  } catch(_) {}
-
   // ── FAB toggle ──
   fab.addEventListener("click", () => {
     widget.classList.toggle("hidden");
     if (!widget.classList.contains("hidden")) {
-      ensureVidyaVideosPlaying();
+      const headWrap = document.getElementById("vidyaHeaderCanvasWrap");
+      if (headWrap) initVidya3dAvatar(headWrap);
       inputEl.focus();
     }
   });
