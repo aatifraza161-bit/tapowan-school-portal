@@ -20478,9 +20478,14 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
   fab.addEventListener("click", () => {
     widget.classList.toggle("hidden");
     if (!widget.classList.contains("hidden")) {
+      document.body.classList.add("vidya-modal-open");
+      fab.style.display = "none";
       const headWrap = document.getElementById("vidyaHeaderCanvasWrap");
       if (headWrap) mountRobotWhenReady(headWrap);
-      inputEl.focus();
+      setTimeout(() => inputEl.focus(), 100);
+    } else {
+      document.body.classList.remove("vidya-modal-open");
+      fab.style.display = "";
     }
   });
 
@@ -20521,6 +20526,8 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
 
   document.getElementById("vidyaCloseBtn").addEventListener("click", () => {
     widget.classList.add("hidden");
+    document.body.classList.remove("vidya-modal-open");
+    fab.style.display = "";
   });
 
   // ── Send button ──

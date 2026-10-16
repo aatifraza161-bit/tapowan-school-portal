@@ -3232,20 +3232,135 @@ tbody td:last-child { padding-right: 24px; }
   animation: vidya-pulse-ring 1s ease infinite;
 }
 
-/* ─── Mobile (Ultra-Compact Vidya Sheet) ─── */
-@media (max-width: 480px) {
-  .vidya-widget {
-    bottom: 0; right: 0; left: 0;
-    width: 100%; max-height: 85vh; height: 85vh;
-    border-radius: 20px 20px 0 0;
+/* ─── Mobile (Native Fullscreen Vidya AI Chat <= 768px) ─── */
+@media (max-width: 768px) {
+  /* Hide floating robot FAB completely whenever chat widget is open */
+  .vidya-widget:not(.hidden) ~ .vidya-fab,
+  #vidyaWidget:not(.hidden) ~ #vidyaFab {
+    display: none !important;
   }
-  .vidya-fab { bottom: 18px; right: 18px; }
-  .vidya-header { padding: 6px 10px; }
-  .vidya-header-3d-stage { width: 36px; height: 36px; }
-  .vidya-header-info h4 { font-size: 0.88rem; }
-  .vidya-provider-badge { max-width: 105px; font-size: 0.55rem; }
-  .vidya-top-controls { padding: 2px 4px; }
-  .vidya-lang-btn, .vidya-model-btn, .vidya-more-toggle-btn { padding: 2px 6px; font-size: 0.64rem; }
+
+  .vidya-widget {
+    position: fixed !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    height: 100% !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    z-index: 100005 !important; /* Above mobile bottom navigation (99999) */
+    display: flex !important;
+    flex-direction: column !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    animation: vidya-mobile-slide-up 0.28s cubic-bezier(0.16, 1, 0.3, 1) both !important;
+  }
+
+  .vidya-widget.hidden {
+    display: none !important;
+  }
+
+  /* Compact native mobile header with safe area padding */
+  .vidya-header {
+    padding: max(10px, env(safe-area-inset-top, 10px)) 12px 10px !important;
+    flex-shrink: 0 !important;
+  }
+  .vidya-header-3d-stage {
+    width: 38px !important;
+    height: 38px !important;
+  }
+  .vidya-header-info h4 {
+    font-size: 0.92rem !important;
+  }
+  .vidya-provider-badge {
+    max-width: 120px !important;
+    font-size: 0.58rem !important;
+  }
+  .vidya-close-btn {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 1.1rem !important;
+  }
+
+  /* Compact language chips row */
+  .vidya-top-controls {
+    padding: 4px 8px !important;
+    flex-shrink: 0 !important;
+  }
+  .vidya-lang-btn, .vidya-model-btn, .vidya-more-toggle-btn {
+    padding: 3px 8px !important;
+    font-size: 0.68rem !important;
+  }
+
+  /* Smooth full-height scrollable messages */
+  .vidya-messages {
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding: 14px 12px !important;
+  }
+  .vidya-bubble {
+    max-width: 86% !important;
+    font-size: 0.92rem !important;
+    padding: 10px 14px !important;
+    line-height: 1.5 !important;
+  }
+
+  /* Quick chips directly above input bar */
+  .vidya-quick-wrap {
+    padding: 6px 10px !important;
+    flex-shrink: 0 !important;
+    overflow-x: auto !important;
+    flex-wrap: nowrap !important;
+    scrollbar-width: none !important;
+  }
+  .vidya-quick-wrap::-webkit-scrollbar {
+    display: none !important;
+  }
+  .vidya-quick-btn {
+    padding: 5px 12px !important;
+    font-size: 0.72rem !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* Fixed bottom typing dock with iOS / Android safe area insets */
+  .vidya-input-area {
+    padding: 8px 10px !important;
+    padding-bottom: max(10px, env(safe-area-inset-bottom, 12px)) !important;
+    background: #ffffff !important;
+    border-top: 1px solid #ede9fe !important;
+    position: relative !important;
+    bottom: 0 !important;
+    flex-shrink: 0 !important;
+    z-index: 10 !important;
+  }
+  .vidya-input {
+    font-size: 0.92rem !important;
+    padding: 10px 14px !important;
+    border-radius: 20px !important;
+  }
+  .vidya-send-btn, .vidya-mic-btn {
+    width: 38px !important;
+    height: 38px !important;
+    font-size: 1.05rem !important;
+  }
+
+  /* FAB button default position on mobile */
+  .vidya-fab {
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px)) !important;
+    right: 14px !important;
+  }
+}
+
+@keyframes vidya-mobile-slide-up {
+  0%   { transform: translateY(100%); opacity: 0.6; }
+  100% { transform: translateY(0);    opacity: 1; }
 }
 
 /* FIX FOR TYPING AREA BLOCK */
