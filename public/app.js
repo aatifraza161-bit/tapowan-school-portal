@@ -7890,9 +7890,20 @@ async function getInsightFace(imageSource) {
           const scaleX = vw / canvas.width;
           const scaleY = vh / canvas.height;
           const faces = (data.faces || []).map(f => {
-            const b = f.bbox || f.box || [0, 0, 0, 0];
+            let bx = 0, by = 0, bw = 0, bh = 0;
+            if (Array.isArray(f.box) && f.box.length >= 4) {
+              bx = f.box[0];
+              by = f.box[1];
+              bw = f.box[2];
+              bh = f.box[3];
+            } else if (Array.isArray(f.bbox) && f.bbox.length >= 4) {
+              bx = f.bbox[0];
+              by = f.bbox[1];
+              bw = Math.max(1, f.bbox[2] - f.bbox[0]);
+              bh = Math.max(1, f.bbox[3] - f.bbox[1]);
+            }
             return {
-              box: [b[0] * scaleX, b[1] * scaleY, (b[2] - b[0]) * scaleX, (b[3] - b[1]) * scaleY],
+              box: [bx * scaleX, by * scaleY, bw * scaleX, bh * scaleY],
               score: f.det_score || f.score || 0.95,
               embedding: f.embedding || []
             };
