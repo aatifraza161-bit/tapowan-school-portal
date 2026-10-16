@@ -24527,6 +24527,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   window.switchBiometricAttendanceMode = function(mode) {
+  // alias
+  window.switchBiometricTab = window.switchBiometricAttendanceMode;
+
     activeBiometricMode = mode;
     const faceSec = document.getElementById('faceRecognitionSection');
     const fpSec = document.getElementById('fingerprintAttendanceSection');

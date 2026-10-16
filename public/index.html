@@ -330,7 +330,7 @@
             </button>
             <button id="biometricTabFingerprintBtn" type="button" class="btn-biometric-tab" style="padding:7px 16px; border-radius:8px; border:none; font-weight:700; font-size:0.85rem; cursor:pointer; background:transparent; color:#94a3b8; display:flex; align-items:center; gap:6px; transition:all 0.2s;">
               <span class="material-symbols-outlined" style="font-size:18px;">fingerprint</span>
-              <span>Biometric Fingerprint</span>
+              <span>Biometric Fingerprint</span> <span style="background:#0284c7; color:#fff; font-size:0.65rem; font-weight:800; padding:1px 6px; border-radius:8px; margin-left:3px; letter-spacing:0.5px;">NEW</span>
             </button>
           </div>
           <!-- Real-Time Hardware Status Badge -->
@@ -344,6 +344,7 @@
         <div class="panel-head">
           <h3>Face Recognition Attendance</h3>
           <div class="panel-actions">
+            <button id="quickSwitchFingerprintBtn" type="button" class="dark" onclick="if(window.switchBiometricTab) window.switchBiometricTab('fingerprint'); else { document.getElementById('biometricTabFingerprintBtn') && document.getElementById('biometricTabFingerprintBtn').click(); }" style="background:linear-gradient(135deg, #1d4ed8, #0284c7);color:#fff;border:1.5px solid #38bdf8;font-weight:700;display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;cursor:pointer;box-shadow:0 2px 8px rgba(37,99,235,0.4);"><span class="material-symbols-outlined" style="font-size:18px;">fingerprint</span><span>Biometric Fingerprint Mode</span></button>
             <button id="startCameraBtn" class="dark">Start Camera</button>
             <button id="captureFaceBtn" class="dark">Capture Face</button>
             <button id="markFaceAttendanceBtn" class="dark">Mark Attendance</button>
