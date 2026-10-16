@@ -751,6 +751,7 @@ const refs = {
 function isMobileLayout() {
   return window.matchMedia("(max-width: 900px)").matches;
 }
+window.isMobileLayout = isMobileLayout;
 
 function setMobileSidebarOpen(open) {
   if (!refs.sidebar || !refs.mobileSidebarBackdrop) return;
@@ -763,6 +764,25 @@ function setMobileSidebarOpen(open) {
     refs.mobileMenuBtn.setAttribute("aria-expanded", open ? "true" : "false");
   }
 }
+window.setMobileSidebarOpen = setMobileSidebarOpen;
+
+window.switchModuleFromMobile = function(modName) {
+  if (typeof window.isSaasModuleEnabled === 'function' && !window.isSaasModuleEnabled(modName)) {
+    modName = 'dashboard';
+  }
+  currentModule = modName;
+  window.currentModule = modName;
+  if (refs.searchInput) refs.searchInput.value = '';
+  if (isMobileLayout()) setMobileSidebarOpen(false);
+  renderAll();
+  try {
+    const items = document.querySelectorAll('.mobile-bottom-item[data-mod]');
+    items.forEach(btn => btn.classList.toggle('active', btn.dataset.mod === modName));
+  } catch (_) {}
+  const mainEl = document.querySelector('.main');
+  if (mainEl) mainEl.scrollTo({ top: 0, behavior: 'smooth' });
+  else window.scrollTo({ top: 0, behavior: 'smooth' });
+};
 
 function toggleSidebarCollapse() {
   if (isMobileLayout()) {
@@ -6095,6 +6115,11 @@ function renderAll(forceFormRefresh) {
     currentModule = "dashboard";
   }
   window.currentModule = currentModule;
+
+  try {
+    const bottomNavItems = document.querySelectorAll('.mobile-bottom-item[data-mod]');
+    bottomNavItems.forEach(btn => btn.classList.toggle('active', btn.dataset.mod === currentModule));
+  } catch (_) {}
 
   if (!userIsStudent()) {
     // Mount Vidya for Admins/Principal as well

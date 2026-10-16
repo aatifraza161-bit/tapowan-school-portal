@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
   <title>Tapowan Public School — Management System</title>
   <script>
     if (localStorage.getItem("token")) {
@@ -50,7 +50,7 @@
   <link href="vendor/tom-select.css" rel="stylesheet">
   
   <script src="vendor/lordicon.js" defer></script>
-  <link rel="stylesheet" href="style.css?v=202610151505" />
+  <link rel="stylesheet" href="style.css?v=202610161158" />
 
   <script src="vendor/html2pdf.bundle.min.js" defer></script>
   <script src="vendor/xlsx.full.min.js" defer></script>
@@ -507,6 +507,30 @@
       </section>
 
       </div><!-- /content-area -->
+
+      <!-- Mobile Bottom Navigation Bar (Visible on mobile <= 768px) -->
+      <nav id="mobileBottomNav" class="mobile-bottom-nav" aria-label="Mobile Navigation">
+        <button type="button" class="mobile-bottom-item active" data-mod="dashboard" onclick="window.switchModuleFromMobile('dashboard')">
+          <span class="material-symbols-outlined">space_dashboard</span>
+          <span>Dashboard</span>
+        </button>
+        <button type="button" class="mobile-bottom-item" data-mod="students" onclick="window.switchModuleFromMobile('students')">
+          <span class="material-symbols-outlined">school</span>
+          <span>Students</span>
+        </button>
+        <button type="button" class="mobile-bottom-item" data-mod="attendance" onclick="window.switchModuleFromMobile('attendance')">
+          <span class="material-symbols-outlined">fact_check</span>
+          <span>Attendance</span>
+        </button>
+        <button type="button" class="mobile-bottom-item" data-mod="fees" onclick="window.switchModuleFromMobile('fees')">
+          <span class="material-symbols-outlined">credit_card</span>
+          <span>Fees</span>
+        </button>
+        <button type="button" class="mobile-bottom-item" id="mobileBottomMenuBtn" onclick="window.setMobileSidebarOpen && window.setMobileSidebarOpen(true)">
+          <span class="material-symbols-outlined">menu</span>
+          <span>Menu</span>
+        </button>
+      </nav>
     </main>
   </div>
 
@@ -820,11 +844,11 @@
   </script>
   <!-- Pure 512-D ArcFace InsightFace GPU Engine -->
   <script src="https://cdn.lordicon.com/lordicon.js" defer></script>
-  <script src="slip-templates.js?v=202610161135" defer></script>
-  <script src="app.js?v=202610161135" defer></script>
-  <script src="exam_module.js?v=202610161135" defer></script>
-  <script src="reports_module.js?v=202610161135" defer></script>
-  <script src="online_classes_module.js?v=202610161135" defer></script>
+  <script src="slip-templates.js?v=202610161158" defer></script>
+  <script src="app.js?v=202610161158" defer></script>
+  <script src="exam_module.js?v=202610161158" defer></script>
+  <script src="reports_module.js?v=202610161158" defer></script>
+  <script src="online_classes_module.js?v=202610161158" defer></script>
   
   <!-- Register PWA Service Worker -->
   <script>
