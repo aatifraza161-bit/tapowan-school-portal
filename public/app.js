@@ -18308,25 +18308,16 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     waveUntil = now + sec;
   }
 
-  const robotMsgs = [
-    "नमस्ते! मैं Vidya हूँ — आपकी AI साथी! 😊",
-    "गणित, विज्ञान या अंग्रेज़ी — कोई भी doubt पूछें! 📚",
-    "होमवर्क में मदद चाहिए? मैं तैयार हूँ! ✨",
-    "Ask me anything in Hindi or English! 🚀"
-  ];
-  let robotMsgIdx = 0;
-  let robotBubbleTimer = null;
-
-  function showRobotBubble(customText) {
-    const bubbleEl = document.getElementById("vidyaRobotBubble");
-    if (!bubbleEl) return;
-    bubbleEl.textContent = customText || robotMsgs[robotMsgIdx++ % robotMsgs.length];
-    bubbleEl.classList.add("show");
-    clearTimeout(robotBubbleTimer);
-    robotBubbleTimer = setTimeout(() => {
-      bubbleEl.classList.remove("show");
-    }, 3400);
-    triggerRobotWave(2.4);
+  function mountRobotWhenReady(container) {
+    if (!container) return;
+    function tryMount() {
+      if (typeof THREE !== "undefined") {
+        initVidya3dAvatar(container);
+      } else {
+        setTimeout(tryMount, 50);
+      }
+    }
+    tryMount();
   }
 
   function initVidya3dAvatar(targetContainer) {
@@ -18604,7 +18595,6 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
       </div>
       <div class="vidya-avatar-3d-header-wrap">
         <div class="vidya-header-3d-stage" id="vidyaHeader3dStage" title="3D Animated Robot Vidya">
-          <img class="vidya-header-3d-img" id="vidyaHeaderPoster" src="models/robot_transparent.png" alt="AI Robot 3D" />
           <div id="vidyaHeaderCanvasWrap"></div>
           <div class="vidya-soundwave-bars">
             <span></span><span></span><span></span><span></span><span></span>
@@ -18650,14 +18640,12 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
       <button class="vidya-send-btn" id="vidyaSendBtn">➤</button>
     </div>`;
 
-  // ── FAB Button with Borderless 3D Animated Robot Avatar ──
+  // ── FAB Button with Borderless 3D Animated Robot Avatar (Pure 3D, NO CIRCLE, NO BOX) ──
   const fab = document.createElement("div");
   fab.id = "vidyaFab";
   fab.className = "vidya-fab";
   fab.innerHTML = `
-    <div class="vidya-robot-bubble" id="vidyaRobotBubble"></div>
     <div class="vidya-fab-avatar" id="vidyaFabAvatarHolder" title="AI Vidya — 3D Robot Assistant">
-      <img class="vidya-3d-img" id="vidyaFabPoster" src="models/robot_transparent.png" alt="AI Robot Avatar" />
       <div id="vidyaFabCanvasWrap"></div>
       <div class="vidya-robot-shadow"></div>
       <div class="vidya-avatar-status-badge" title="Robot Online & Ready"></div>
@@ -18670,23 +18658,15 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
   document.body.appendChild(widget);
   document.body.appendChild(fab);
 
-  // Initialize 3D Avatar in FAB
-  setTimeout(() => {
-    const fabWrap = document.getElementById("vidyaFabCanvasWrap");
-    if (fabWrap) initVidya3dAvatar(fabWrap);
-  }, 200);
+  // Initialize 3D Avatar in FAB immediately when Three.js is ready
+  mountRobotWhenReady(document.getElementById("vidyaFabCanvasWrap"));
 
-  // Interactive Robot Wave & Speech Bubble on hover
+  // Interactive Robot Wave on hover (No pop-up speech bubbles)
   fab.addEventListener("mouseenter", () => {
     if (!isSpeaking) {
-      showRobotBubble();
+      triggerRobotWave(2.2);
     }
   });
-
-  // Initial friendly robot greeting after startup
-  setTimeout(() => {
-    showRobotBubble("नमस्ते! मैं Vidya हूँ — आपकी 3D Robot AI साथी! 👋");
-  }, 1400);
 
   // ── Helpers ──
   const msgBox = document.getElementById("vidyaMessages");
@@ -20461,7 +20441,7 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     widget.classList.toggle("hidden");
     if (!widget.classList.contains("hidden")) {
       const headWrap = document.getElementById("vidyaHeaderCanvasWrap");
-      if (headWrap) initVidya3dAvatar(headWrap);
+      if (headWrap) mountRobotWhenReady(headWrap);
       inputEl.focus();
     }
   });
