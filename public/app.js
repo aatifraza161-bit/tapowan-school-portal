@@ -7494,7 +7494,7 @@ async function ensureFaceModelsLoaded() {
   // 1. Check Turso DB for live Kaggle / Colab GPU URL
   let dbUrls = [];
   try {
-    const dynamicSettings = await fetchDirectFromTurso("SELECT key, value FROM settings WHERE key IN ('kaggle_insightface_url', 'colab_insightface_url') ORDER BY id DESC;");
+    const dynamicSettings = await fetchDirectFromTurso("SELECT key, value FROM settings WHERE key IN ('kaggle_insightface_url', 'colab_insightface_url', 'muse_insightface_url') ORDER BY id DESC;");
     if (dynamicSettings && Array.isArray(dynamicSettings)) {
       dynamicSettings.forEach(s => {
         if (s?.value && typeof s.value === 'string' && s.value.startsWith('http')) {
@@ -7917,6 +7917,12 @@ async function getInsightFace(imageSource) {
       }
     } catch(err) {
       console.warn("GPU face extraction request failed:", err.message);
+      // Auto-reconnect to latest URL from Turso DB if server restarted
+      if (Date.now() - (window._lastFaceTursoRefresh || 0) > 8000) {
+        window._lastFaceTursoRefresh = Date.now();
+        console.log("[FaceAI] Face server unreachable. Checking Turso DB for fresh URL...");
+        ensureFaceModelsLoaded().catch(() => {});
+      }
     }
     return { face: [] };
   } catch (err) {
