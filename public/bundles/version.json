@@ -1,9 +1,12 @@
 {
-  "bundleVersion": "3.1.8",
-  "bundleVersionCode": 331,
-  "bundleUrl": "https://tapowan-app.vercel.app/bundles/index.android.bundle",
-  "bundleSize": 6002281,
-  "releaseNotes": "Instant Face ID Login powered by Colab GPU ArcFace Engine (512-D).",
+  "bundleVersion": "3.2.0",
+  "bundleVersionCode": 332,
+  "bundleUrl": "https://tapowan-school.vercel.app/bundles/index.android.bundle",
+  "bundleSize": 6001995,
+  "releaseNotes": "Remove biometric fingerprint option for students in phone",
   "updatedAt": "2026-10-16T14:41:19.464Z",
-  "isActive": true
+  "isActive": true,
+  "targetedUpdates": [],
+  "targetAudience": "all",
+  "releaseDate": "2026-10-16T17:42:42.730Z"
 }
