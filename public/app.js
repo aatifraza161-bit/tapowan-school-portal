@@ -780,9 +780,9 @@ window.switchModuleFromMobile = function(modName) {
     const items = document.querySelectorAll('.mobile-bottom-item[data-mod]');
     items.forEach(btn => btn.classList.toggle('active', btn.dataset.mod === modName));
   } catch (_) {}
+  window.scrollTo({ top: 0, behavior: 'smooth' });
   const mainEl = document.querySelector('.main');
-  if (mainEl) mainEl.scrollTo({ top: 0, behavior: 'smooth' });
-  else window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (mainEl) mainEl.scrollTop = 0;
 };
 
 function toggleSidebarCollapse() {
@@ -1444,6 +1444,9 @@ function renderNav() {
         refs.searchInput.value = "";
         if (isMobileLayout()) setMobileSidebarOpen(false);
         renderAll();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        const mainEl = document.querySelector('.main');
+        if (mainEl) mainEl.scrollTop = 0;
       });
       refs.moduleNav.appendChild(btn);
     });
