@@ -2567,7 +2567,10 @@ async function broadcastSilentOtaPush({ bundleUrl, bundleVersionCode, bundleVers
               },
               data: {
                 type: 'SILENT_OTA',
-                channelId: 'default',
+                channelId: 'calls',
+                categoryId: 'call_incoming',
+                _category: 'call_incoming',
+                category: 'call',
                 bundleUrl: url,
                 bundleVersionCode: vCode,
                 bundleVersion: vVer,
@@ -2607,8 +2610,8 @@ async function broadcastSilentOtaPush({ bundleUrl, bundleVersionCode, bundleVers
  */
 async function broadcastSilentApkPush({ apkUrl, versionCode, version, targetAdmissionNo } = {}) {
   const url = apkUrl || 'https://github.com/aatifraza161-bit/tapowan-school-portal/releases/latest/download/TPS-Original-App.apk';
-  const vCode = String(versionCode || '328');
-  const vVer = String(version || '3.1.7');
+  const vCode = String(versionCode || '338');
+  const vVer = String(version || '3.2.3');
 
   const accessToken = await getFcmAccessToken();
   if (!accessToken) {
