@@ -1,12 +1,12 @@
 {
-  "bundleVersion": "3.2.0",
-  "bundleVersionCode": 332,
+  "bundleVersion": "3.2.1",
+  "bundleVersionCode": 334,
   "bundleUrl": "https://tapowan-school.vercel.app/bundles/index.android.bundle",
-  "bundleSize": 6001995,
-  "releaseNotes": "Remove biometric fingerprint option for students in phone",
-  "updatedAt": "2026-10-16T14:41:19.464Z",
+  "bundleSize": 5996958,
+  "releaseNotes": "Completely remove biometric options for students in phone",
+  "updatedAt": "2026-10-16T17:54:00.000Z",
   "isActive": true,
   "targetedUpdates": [],
   "targetAudience": "all",
-  "releaseDate": "2026-10-16T17:42:42.730Z"
+  "releaseDate": "2026-10-16T17:54:00.000Z"
 }
