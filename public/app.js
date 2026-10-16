@@ -2054,7 +2054,7 @@ function renderForm(forceRefresh) {
   const cfg = moduleConfig[currentModule];
   refs.dynamicForm.innerHTML = "";
 
-  const hideForm = !cfg.fields.length || currentModule === "dashboard" || (currentModule === "students" && editRecordId == null);
+  const hideForm = !cfg.fields.length || currentModule === "dashboard" || ((currentModule === "students" || currentModule === "admissions") && editRecordId == null);
   if (refs.formPanel) {
     refs.formPanel.style.display = hideForm ? "none" : "";
     refs.formPanel.classList.toggle("hidden", hideForm);
@@ -2627,10 +2627,14 @@ function getCurrentList() {
     list = list.filter(item => normalizeToISO(item.date) === refs.dateFilter.value);
   }
 
-  if (currentModule === "students" && refs.classFilter && !refs.classFilter.classList.contains("hidden")) {
+  const classFilterModules = ["students", "admissions", "attendance", "fees", "dueManagement", "timetable", "weeklyEvaluation"];
+  if (classFilterModules.includes(currentModule) && refs.classFilter && !refs.classFilter.classList.contains("hidden")) {
     const classVal = refs.classFilter.value;
     if (classVal) {
-      list = list.filter(item => String(item.className || "") === classVal);
+      list = list.filter(item => {
+        const itemClass = item.className || item.class_name || item.classApplyingFor || "";
+        return String(itemClass).trim().toLowerCase() === classVal.trim().toLowerCase();
+      });
     }
   }
 
@@ -2885,7 +2889,11 @@ function renderTable() {
     const view = document.getElementById("studentModuleView");
     if (view) view.style.display = "none";
     if (refs.tablePanel) refs.tablePanel.style.display = "";
-    if (refs.formPanel) refs.formPanel.style.display = "";
+    if (refs.formPanel) {
+      const hideForm = !cfg.fields.length || currentModule === "dashboard" || ((currentModule === "students" || currentModule === "admissions") && editRecordId == null);
+      refs.formPanel.style.display = hideForm ? "none" : "";
+      refs.formPanel.classList.toggle("hidden", hideForm);
+    }
     if (refs.tableWrap) refs.tableWrap.style.display = "";
     if (refs.moduleTools) refs.moduleTools.style.display = "";
   }
@@ -5719,12 +5727,15 @@ function renderModuleTools() {
   }
 
   if (refs.classFilter) {
-    if (currentModule === "students") {
+    const classFilterModules = ["students", "admissions", "attendance", "fees", "dueManagement", "timetable", "weeklyEvaluation"];
+    if (classFilterModules.includes(currentModule)) {
       refs.classFilter.classList.remove("hidden");
       const store = getStore();
       const currentVal = refs.classFilter.value;
       refs.classFilter.innerHTML = '<option value="">All Classes</option>';
-      const classOptions = Array.from(new Set((store.classes || []).map((x) => [x.className, x.section].filter(Boolean).join("-")).filter(Boolean)));
+      const classesFromStore = (store.classes || []).map((x) => [x.className, x.section].filter(Boolean).join("-")).filter(Boolean);
+      const classesFromStudents = (store.students || []).map(s => s.className).filter(Boolean);
+      const classOptions = Array.from(new Set([...classesFromStore, ...classesFromStudents])).sort();
       classOptions.forEach(opt => {
         const option = document.createElement("option");
         option.value = opt;
@@ -5744,7 +5755,7 @@ function renderModuleTools() {
   if (refs.exportCsvBtn) refs.exportCsvBtn.style.display = canExport ? "" : "none";
   if (refs.exportPdfBtn) refs.exportPdfBtn.style.display = canExport ? "" : "none";
   if (refs.newAdmissionBtn) {
-    refs.newAdmissionBtn.classList.toggle("hidden", currentModule !== "students" || !canCurrentUserWrite("students"));
+    refs.newAdmissionBtn.classList.toggle("hidden", (currentModule !== "students" && currentModule !== "admissions") || !canCurrentUserWrite("students"));
   }
   if (refs.importDataBtn) {
     const canImport = currentModule !== "dashboard" && canCurrentUserWrite(currentModule);
@@ -5771,7 +5782,10 @@ function renderModuleTools() {
   const showFacePanel = (currentModule === "attendance" || currentModule === "teacherAttendance")
     && (userIsAdmin() || userIsStaffOrAbove() || String(currentUser?.role || "").toLowerCase() === "teacher")
     && (typeof window.isSaasModuleEnabled !== "function" || window.isSaasModuleEnabled("faceAttendance"));
-  refs.facePanel.classList.toggle("hidden", !showFacePanel);
+  if (refs.facePanel) {
+    refs.facePanel.classList.toggle("hidden", !showFacePanel);
+    refs.facePanel.style.display = showFacePanel ? "" : "none";
+  }
 
   if (!showFacePanel) return;
 

@@ -1915,7 +1915,8 @@ tbody td:last-child { padding-right: 24px; }
     gap: 8px !important;
     width: 100% !important;
   }
-  #searchInput, #classFilter, #dateFilter, #dayFilter, #allAttendanceBtn, #newAdmissionBtn {
+  #searchInput, #classFilter, #dateFilter, #dayFilter, #allAttendanceBtn, #newAdmissionBtn,
+  #smartGenerateBtn, #setPeriodTimingsBtn, #freeTeachersBtn, #print4in1Btn, #appReleasesBtn, #liveOtaStreamBtn, #onlinePaymentsAccessControlBtn {
     grid-column: 1 / -1 !important;
     width: 100% !important;
     max-width: 100% !important;
