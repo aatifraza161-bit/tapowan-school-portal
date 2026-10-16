@@ -50,7 +50,7 @@
   <link href="vendor/tom-select.css" rel="stylesheet">
   
   <script src="vendor/lordicon.js" defer></script>
-  <link rel="stylesheet" href="style.css?v=202610161215" />
+  <link rel="stylesheet" href="style.css?v=202610161235" />
 
   <script src="vendor/html2pdf.bundle.min.js" defer></script>
   <script src="vendor/xlsx.full.min.js" defer></script>
@@ -269,15 +269,16 @@
       <div class="content-area">
       <section id="statsCards" class="stats-grid"></section>
 
-      <section class="panel">
-        <h3>Add New Record</h3>
+      <section id="formPanel" class="panel">
+        <h3 id="formPanelTitle">Add New Record</h3>
         <form id="dynamicForm" class="form-grid"></form>
       </section>
 
-      <section class="panel">
+      <section id="tablePanel" class="panel">
         <div class="panel-head">
-          <h3>Module Data</h3>
+          <h3 id="tablePanelTitle">Module Data</h3>
           <div class="panel-actions">
+            <button id="newAdmissionBtn" type="button" class="btn-action hidden" onclick="window.openAdmissionForm &amp;&amp; window.openAdmissionForm()" style="background:#2563eb;color:#ffffff;border:none;font-weight:700;"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px;">person_add</span> New Admission</button>
             <select id="classFilter" class="hidden" style="padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.9rem; margin-right: 8px;"><option value="">All Classes</option></select>
             <input type="date" id="dateFilter" class="hidden" style="padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.9rem; margin-right: 8px;" />
             <button id="allAttendanceBtn" class="hidden" style="padding: 10px 16px; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.9rem; color: #475569; font-weight: 500; cursor: pointer; margin-right: 8px; transition: all 0.2s;">All</button>
@@ -845,11 +846,11 @@
   </script>
   <!-- Pure 512-D ArcFace InsightFace GPU Engine -->
   <script src="https://cdn.lordicon.com/lordicon.js" defer></script>
-  <script src="slip-templates.js?v=202610161215" defer></script>
-  <script src="app.js?v=202610161215" defer></script>
-  <script src="exam_module.js?v=202610161215" defer></script>
-  <script src="reports_module.js?v=202610161215" defer></script>
-  <script src="online_classes_module.js?v=202610161215" defer></script>
+  <script src="slip-templates.js?v=202610161235" defer></script>
+  <script src="app.js?v=202610161235" defer></script>
+  <script src="exam_module.js?v=202610161235" defer></script>
+  <script src="reports_module.js?v=202610161235" defer></script>
+  <script src="online_classes_module.js?v=202610161235" defer></script>
   
   <!-- Register PWA Service Worker -->
   <script>

@@ -1806,11 +1806,13 @@ tbody td:last-child { padding-right: 24px; }
   .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
   .form-grid { grid-template-columns: 1fr; }
   .analytics-grid {
-    display: block !important;
     width: 100% !important;
     max-width: 100% !important;
     margin-top: 14px !important;
     overflow-x: hidden !important;
+  }
+  .analytics-grid.hidden {
+    display: none !important;
   }
   .dribbble-dashboard-wrapper {
     width: 100% !important;
@@ -1908,22 +1910,13 @@ tbody td:last-child { padding-right: 24px; }
   }
   .panel-head h3 { font-size: 1rem !important; margin: 0 !important; }
   .panel-actions {
-    display: flex !important;
-    flex-wrap: wrap !important;
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
     gap: 8px !important;
     width: 100% !important;
   }
-  #searchInput {
-    width: 100% !important;
-    min-width: 100% !important;
-    flex: 1 1 100% !important;
-    order: -1 !important;
-    min-height: 42px !important;
-    font-size: 16px !important;
-    margin: 0 !important;
-    box-sizing: border-box !important;
-  }
-  #classFilter, #dateFilter, #dayFilter, #allAttendanceBtn {
+  #searchInput, #classFilter, #dateFilter, #dayFilter, #allAttendanceBtn, #newAdmissionBtn {
+    grid-column: 1 / -1 !important;
     width: 100% !important;
     max-width: 100% !important;
     margin: 0 !important;
@@ -1931,14 +1924,26 @@ tbody td:last-child { padding-right: 24px; }
     font-size: 16px !important;
     box-sizing: border-box !important;
   }
+  #searchInput {
+    order: -2 !important;
+    min-height: 42px !important;
+  }
+  #newAdmissionBtn {
+    order: -1 !important;
+    min-height: 42px !important;
+    font-size: 0.9rem !important;
+  }
   .btn-action {
-    flex: 1 1 calc(50% - 6px) !important;
     min-height: 38px !important;
     justify-content: center !important;
-    font-size: 0.8rem !important;
-    padding: 8px 10px !important;
+    font-size: 0.78rem !important;
+    font-weight: 700 !important;
+    padding: 8px 6px !important;
     text-align: center !important;
     box-sizing: border-box !important;
+    width: 100% !important;
+    margin: 0 !important;
+    flex: unset !important;
   }
   .form-grid {
     grid-template-columns: 1fr !important;
@@ -2081,10 +2086,6 @@ tbody td:last-child { padding-right: 24px; }
   .auth-form-column { padding: 12px 8px !important; }
   .auth-main-title { font-size: 1.3rem !important; }
   .auth-mascot-column { height: 140px !important; }
-  .btn-action {
-    flex: 1 1 100% !important;
-    width: 100% !important;
-  }
   .concentric-gauge-wrap {
     display: flex !important;
     flex-direction: column !important;
@@ -2409,6 +2410,9 @@ tbody td:last-child { padding-right: 24px; }
   gap: 20px;
   margin-top: 24px;
   grid-column: 1 / -1; /* spans full width if inside another grid */
+}
+.analytics-grid.hidden {
+  display: none !important;
 }
 .chart-card {
   background: white;

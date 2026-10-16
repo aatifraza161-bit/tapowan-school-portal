@@ -745,7 +745,8 @@ const refs = {
   executePrint4in1Btn: document.getElementById("executePrint4in1Btn"),
   tableWrap: document.querySelector(".table-wrap"),
   tablePanel: document.getElementById("tablePanel"),
-  formPanel: document.getElementById("formPanel")
+  formPanel: document.getElementById("formPanel"),
+  newAdmissionBtn: document.getElementById("newAdmissionBtn")
 };
 
 function isMobileLayout() {
@@ -2052,7 +2053,21 @@ function renderForm(forceRefresh) {
   destroyFormTomSelects();
   const cfg = moduleConfig[currentModule];
   refs.dynamicForm.innerHTML = "";
-  if (!cfg.fields.length) return;
+
+  const hideForm = !cfg.fields.length || currentModule === "dashboard" || (currentModule === "students" && editRecordId == null);
+  if (refs.formPanel) {
+    refs.formPanel.style.display = hideForm ? "none" : "";
+    refs.formPanel.classList.toggle("hidden", hideForm);
+  }
+  const formTitle = document.getElementById("formPanelTitle");
+  if (formTitle) {
+    formTitle.textContent = editRecordId != null ? `Edit ${cfg.title} Record` : `Add New ${cfg.title} Record`;
+  }
+  const tableTitle = document.getElementById("tablePanelTitle");
+  if (tableTitle) {
+    tableTitle.textContent = `${cfg.title} Records`;
+  }
+  if (hideForm) return;
 
   // Hide form for roles that cannot write to this module
   if (!canCurrentUserWrite(currentModule)) {
@@ -4874,12 +4889,24 @@ let dashboardCharts = [];
 function renderStatsCards(forceFullRebuild = false) {
   let grid = document.querySelector(".analytics-grid");
   if (currentModule !== "dashboard") {
-    if (grid) grid.style.display = "none";
-    if (refs.statsCards) refs.statsCards.style.display = "none";
+    if (grid) {
+      grid.style.display = "none";
+      grid.classList.add("hidden");
+    }
+    if (refs.statsCards) {
+      refs.statsCards.style.display = "none";
+      refs.statsCards.classList.add("hidden");
+    }
     return;
   }
-  if (refs.statsCards) refs.statsCards.style.display = "grid";
-  if (grid) grid.style.display = "grid";
+  if (refs.statsCards) {
+    refs.statsCards.style.display = "grid";
+    refs.statsCards.classList.remove("hidden");
+  }
+  if (grid) {
+    grid.style.display = "grid";
+    grid.classList.remove("hidden");
+  }
 
   const stats = getDashboardStats(getStore());
   const hiddenForStudents = new Set(["System Active Users", "Pending Fee Accounts", "Hostel Active"]);
@@ -5716,6 +5743,9 @@ function renderModuleTools() {
   const canExport = userIsAdmin() || userIsStaffOrAbove() || String(currentUser?.role || "").toLowerCase() === "teacher";
   if (refs.exportCsvBtn) refs.exportCsvBtn.style.display = canExport ? "" : "none";
   if (refs.exportPdfBtn) refs.exportPdfBtn.style.display = canExport ? "" : "none";
+  if (refs.newAdmissionBtn) {
+    refs.newAdmissionBtn.classList.toggle("hidden", currentModule !== "students" || !canCurrentUserWrite("students"));
+  }
   if (refs.importDataBtn) {
     const canImport = currentModule !== "dashboard" && canCurrentUserWrite(currentModule);
     refs.importDataBtn.classList.toggle("hidden", !canImport);
@@ -5737,8 +5767,8 @@ function renderModuleTools() {
   if (refs.appReleasesBtn) refs.appReleasesBtn.classList.toggle("hidden", currentModule !== "appLiveUsers");
   if (refs.liveOtaStreamBtn) refs.liveOtaStreamBtn.classList.toggle("hidden", currentModule !== "appLiveUsers");
 
-  // Face panel only for users who can write attendance or manage people (and when faceAttendance is enabled by Super Admin)
-  const showFacePanel = (currentModule === "attendance" || currentModule === "teacherAttendance" || currentModule === "students" || currentModule === "teachers")
+  // Face panel only for attendance modules
+  const showFacePanel = (currentModule === "attendance" || currentModule === "teacherAttendance")
     && (userIsAdmin() || userIsStaffOrAbove() || String(currentUser?.role || "").toLowerCase() === "teacher")
     && (typeof window.isSaasModuleEnabled !== "function" || window.isSaasModuleEnabled("faceAttendance"));
   refs.facePanel.classList.toggle("hidden", !showFacePanel);
@@ -6144,7 +6174,16 @@ function renderAll(forceFormRefresh) {
   const isOnlineClasses = currentModule === "onlineClasses";
 
   const sc = document.getElementById("statsCards");
-  if (sc) sc.style.display = isDashboard ? "grid" : "none";
+  if (sc) {
+    sc.style.display = isDashboard ? "grid" : "none";
+    sc.classList.toggle("hidden", !isDashboard);
+  }
+
+  const grid = document.querySelector(".analytics-grid");
+  if (grid) {
+    grid.style.display = isDashboard ? "" : "none";
+    grid.classList.toggle("hidden", !isDashboard);
+  }
 
   const hero = document.getElementById("dashboardHero");
   if (hero) {
