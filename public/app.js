@@ -18298,46 +18298,109 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     studentCtx += "\nNote: User is an Administrator. Accessing system-wide knowledge base.";
   }
 
-  // ── SVG Cartoon Character (Vidya) ──
-  const avatarSVG = `
-    <svg class="vidya-avatar-svg" id="vidyaAvatarSvg" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">
-      <!-- Body -->
-      <ellipse cx="30" cy="52" rx="14" ry="8" fill="#7c3aed" opacity="0.3"/>
-      <!-- Torso -->
-      <rect x="18" y="38" width="24" height="16" rx="6" fill="#7c3aed"/>
-      <!-- Collar stars -->
-      <text x="25" y="50" font-size="5" fill="#c4b5fd">★</text>
-      <!-- Head -->
-      <circle cx="30" cy="26" r="16" fill="#fde68a"/>
-      <!-- Hair -->
-      <ellipse cx="30" cy="11" rx="15" ry="7" fill="#1e293b"/>
-      <rect x="15" y="11" width="30" height="6" rx="0" fill="#1e293b"/>
-      <!-- Left Ear -->
-      <ellipse cx="14" cy="26" rx="3" ry="4" fill="#fde68a"/>
-      <!-- Right Ear -->
-      <ellipse cx="46" cy="26" rx="3" ry="4" fill="#fde68a"/>
-      <!-- Eyes -->
-      <circle cx="23" cy="25" r="4" fill="white"/>
-      <circle cx="37" cy="25" r="4" fill="white"/>
-      <circle cx="24" cy="25.5" r="2.2" fill="#1e293b"/>
-      <circle cx="38" cy="25.5" r="2.2" fill="#1e293b"/>
-      <!-- Eye shine -->
-      <circle cx="25" cy="24.5" r="0.8" fill="white"/>
-      <circle cx="39" cy="24.5" r="0.8" fill="white"/>
-      <!-- Nose -->
-      <ellipse cx="30" cy="29" rx="1.5" ry="1" fill="#f59e0b"/>
-      <!-- Mouth -->
-      <path class="vidya-avatar-mouth" d="M 24 33 Q 30 38 36 33" stroke="#92400e" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-      <!-- Cheeks -->
-      <circle cx="20" cy="31" r="3" fill="#fca5a5" opacity="0.5"/>
-      <circle cx="40" cy="31" r="3" fill="#fca5a5" opacity="0.5"/>
-      <!-- Arms -->
-      <rect x="5" y="40" width="13" height="6" rx="3" fill="#7c3aed" transform="rotate(-20 5 40)"/>
-      <rect x="42" y="40" width="13" height="6" rx="3" fill="#7c3aed" transform="rotate(20 42 40)"/>
-      <!-- Book in hand -->
-      <rect x="4" y="47" width="9" height="7" rx="2" fill="#c7d2fe"/>
-      <line x1="8.5" y1="47" x2="8.5" y2="54" stroke="#818cf8" stroke-width="0.8"/>
-    </svg>`;
+  // ── 3D Avatar State & Three.js WebGL Loader ──
+  let threeJsMixer = null;
+  let threeJsActions = {};
+  let threeJsActiveAction = null;
+  let threeJsAnimId = null;
+  let isThreeJsInitialized = false;
+
+  function initThreeJsAvatar(container) {
+    if (isThreeJsInitialized || !container || typeof THREE === "undefined") return;
+    try {
+      const width = container.clientWidth || 82;
+      const height = container.clientHeight || 82;
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(45, width / height, 0.25, 100);
+      camera.position.set(0, 3.2, 5.8);
+      camera.lookAt(0, 1.8, 0);
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setPixelRatio(window.devicePixelRatio || 1);
+      renderer.setSize(width, height);
+      renderer.outputEncoding = THREE.sRGBEncoding;
+      container.innerHTML = "";
+      container.appendChild(renderer.domElement);
+
+      const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
+      hemiLight.position.set(0, 20, 0);
+      scene.add(hemiLight);
+
+      const dirLight = new THREE.DirectionalLight(0xa855f7, 1.5);
+      dirLight.position.set(3, 10, 10);
+      scene.add(dirLight);
+
+      const loader = new THREE.GLTFLoader();
+      const modelUrl = "https://cdn.jsdelivr.net/gh/mrdoob/three.js@dev/examples/models/gltf/RobotExpressive/RobotExpressive.glb";
+
+      loader.load(modelUrl, function (gltf) {
+        const model = gltf.scene;
+        model.position.set(0, 0, 0);
+        model.scale.set(0.68, 0.68, 0.68);
+        scene.add(model);
+
+        threeJsMixer = new THREE.AnimationMixer(model);
+        threeJsActions = {};
+
+        for (let i = 0; i < gltf.animations.length; i++) {
+          const clip = gltf.animations[i];
+          const action = threeJsMixer.clipAction(clip);
+          threeJsActions[clip.name] = action;
+        }
+
+        if (threeJsActions['Idle']) {
+          threeJsActiveAction = threeJsActions['Idle'];
+          threeJsActiveAction.play();
+        } else if (gltf.animations.length > 0) {
+          threeJsActiveAction = threeJsMixer.clipAction(gltf.animations[0]);
+          threeJsActiveAction.play();
+        }
+
+        isThreeJsInitialized = true;
+      }, undefined, function (err) {
+        console.warn("[Vidya 3D] Failed to load Three.js model:", err);
+      });
+
+      const clock = new THREE.Clock();
+      function animate() {
+        threeJsAnimId = requestAnimationFrame(animate);
+        const dt = clock.getDelta();
+        if (threeJsMixer) threeJsMixer.update(dt);
+        renderer.render(scene, camera);
+      }
+      animate();
+    } catch (e) {
+      console.warn("[Vidya 3D] WebGL init error:", e);
+    }
+  }
+
+  function playThreeJsAction(name) {
+    if (!threeJsActions || !threeJsActions[name] || !threeJsMixer) return;
+    const nextAction = threeJsActions[name];
+    if (threeJsActiveAction !== nextAction) {
+      if (threeJsActiveAction) threeJsActiveAction.fadeOut(0.3);
+      nextAction.reset().fadeIn(0.3).play();
+      threeJsActiveAction = nextAction;
+    }
+  }
+
+  function setAvatarSpeakingState(speaking) {
+    isSpeaking = speaking;
+    const fabAvatar = document.querySelector(".vidya-fab-avatar");
+    const headerCircle = document.getElementById("vidyaHeader3dCircle");
+    if (speaking) {
+      fabAvatar?.classList.add("talking");
+      headerCircle?.classList.add("talking");
+      if (threeJsActions['Wave']) playThreeJsAction('Wave');
+      else if (threeJsActions['Yes']) playThreeJsAction('Yes');
+      else if (threeJsActions['Dance']) playThreeJsAction('Dance');
+    } else {
+      fabAvatar?.classList.remove("talking");
+      headerCircle?.classList.remove("talking");
+      if (threeJsActions['Idle']) playThreeJsAction('Idle');
+    }
+  }
 
   // ── HTML Structure ──
   const quickHi = isS ? ["मेरी fees?", "My timetable?", "Results kab?", "Help me!"] : ["School status?", "Fee pending?", "Attendance summary", "Daily help"];
@@ -18349,14 +18412,26 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     <div class="vidya-header">
       <div class="vidya-header-top">
         <div class="vidya-header-info">
-          <h4>🎓 Vidya — AI Helper</h4>
-          <p>आपकी अपनी AI साथी • Hindi & English</p>
+          <h4>🤖 Vidya — 3D AI Helper</h4>
+          <p>आपकी 3D AI साथी • Hindi & English</p>
           <div id="vidyaProviderBadge" style="font-size:0.6rem; background:rgba(0,0,0,0.2); padding:1px 6px; border-radius:4px; display:inline-block; margin-top:4px;">Searching provider...</div>
         </div>
-                <button id="vidyaConsoleBtn" style="background: none; border: none; color: white; cursor: pointer; font-size: 1.2rem; margin-right: 10px;" title="Live Logs">&#128269;</button>
+        <button id="vidyaConsoleBtn" style="background: none; border: none; color: white; cursor: pointer; font-size: 1.2rem; margin-right: 10px;" title="Live Logs">&#128269;</button>
         <button class="vidya-close-btn" id="vidyaCloseBtn">✕</button>
       </div>
-      <div class="vidya-avatar-svg-wrap">${avatarSVG}</div>
+      <div class="vidya-avatar-3d-header-wrap">
+        <div class="vidya-header-3d-circle" id="vidyaHeader3dCircle" title="3D Animated AI Vidya">
+          <video class="vidya-header-3d-video" id="vidyaHeaderVideo" src="login_robot_clean.mp4" poster="login_robot_poster.jpg" autoplay loop muted playsinline></video>
+          <div id="vidyaThreeJsContainer" style="display:none; width:100%; height:100%; border-radius:50%; overflow:hidden;"></div>
+          <div class="vidya-soundwave-bars">
+            <span></span><span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+        <div style="display:flex; gap:6px; margin-top:8px; align-items:center;">
+          <button id="btnAvatarMascot" class="vidya-avatar-switch-btn active" style="border:none; border-radius:12px; padding:3px 10px; font-size:0.68rem; font-weight:700; cursor:pointer; background:rgba(255,255,255,0.28); color:#fff; backdrop-filter:blur(4px); transition:all 0.2s;" title="3D Animated Mascot">🤖 3D Mascot</button>
+          <button id="btnAvatarThreeJs" class="vidya-avatar-switch-btn" style="border:none; border-radius:12px; padding:3px 10px; font-size:0.68rem; font-weight:600; cursor:pointer; background:rgba(255,255,255,0.12); color:rgba(255,255,255,0.85); backdrop-filter:blur(4px); transition:all 0.2s;" title="WebGL 3D Three.js Interactive Robot">🌐 3D Three.js</button>
+        </div>
+      </div>
     </div>
     <div class="vidya-lang-toggle">
       <button class="vidya-lang-btn active" data-lang="auto">🌐 Auto</button>
@@ -18377,7 +18452,7 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     <div class="vidya-messages" id="vidyaMessages">
       <div class="vidya-msg bot">
         <div class="vidya-msg-avatar">🤖</div>
-        <div class="vidya-bubble">नमस्ते ${displayName.split(" ")[0]}! 👋 मैं Vidya हूँ — आपकी AI साथी! आप Hindi या English में कुछ भी पूछ सकते हैं। 😊</div>
+        <div class="vidya-bubble">नमस्ते ${displayName.split(" ")[0]}! 👋 मैं Vidya हूँ — आपकी 3D AI साथी! आप Hindi या English में कुछ भी पूछ सकते हैं। 😊</div>
       </div>
     </div>
     <div class="vidya-quick-wrap">
@@ -18392,14 +18467,20 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
       <button class="vidya-send-btn" id="vidyaSendBtn">➤</button>
     </div>`;
 
-  // ── FAB Button ──
+  // ── FAB Button with 3D Animated Avatar ──
   const fab = document.createElement("div");
   fab.id = "vidyaFab";
   fab.className = "vidya-fab";
   fab.innerHTML = `
     <div class="vidya-fab-ring"></div>
-    <div class="vidya-fab-avatar">🎓</div>
-    <span class="vidya-fab-label">AI Vidya</span>`;
+    <div class="vidya-fab-avatar" id="vidyaFabAvatarHolder" title="AI Vidya — 3D Smart Assistant">
+      <video class="vidya-3d-video" id="vidyaFabVideo" src="login_robot_clean.mp4" poster="login_robot_poster.jpg" autoplay loop muted playsinline></video>
+      <div class="vidya-avatar-status-badge" title="AI Online & Ready"></div>
+      <div class="vidya-soundwave-bars">
+        <span></span><span></span><span></span><span></span><span></span>
+      </div>
+    </div>
+    <span class="vidya-fab-label">✨ AI Vidya 3D</span>`;
 
   document.body.appendChild(widget);
   document.body.appendChild(fab);
@@ -18407,7 +18488,22 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
   // ── Helpers ──
   const msgBox = document.getElementById("vidyaMessages");
   const inputEl = document.getElementById("vidyaInput");
-  const svgEl   = document.getElementById("vidyaAvatarSvg");
+
+  function ensureVidyaVideosPlaying() {
+    const fabVid = document.getElementById("vidyaFabVideo");
+    const headVid = document.getElementById("vidyaHeaderVideo");
+    if (fabVid) {
+      fabVid.muted = true;
+      fabVid.play().catch(() => {});
+    }
+    if (headVid && headVid.style.display !== "none") {
+      headVid.muted = true;
+      headVid.play().catch(() => {});
+    }
+  }
+  setTimeout(ensureVidyaVideosPlaying, 300);
+  document.addEventListener("click", ensureVidyaVideosPlaying, { once: true });
+  document.addEventListener("touchstart", ensureVidyaVideosPlaying, { once: true });
 
   function addMsg(text, role, provider) {
     const div = document.createElement("div");
@@ -18459,9 +18555,9 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
         const url = URL.createObjectURL(blob);
         const audio = new Audio(url);
         window.currentVidyaAudio = audio;
-        audio.onplay = () => { isSpeaking = true; svgEl?.classList.add("talking"); };
-        audio.onended = () => { isSpeaking = false; svgEl?.classList.remove("talking"); URL.revokeObjectURL(url); };
-        audio.onerror = () => { isSpeaking = false; svgEl?.classList.remove("talking"); URL.revokeObjectURL(url); };
+        audio.onplay = () => setAvatarSpeakingState(true);
+        audio.onended = () => { setAvatarSpeakingState(false); URL.revokeObjectURL(url); };
+        audio.onerror = () => { setAvatarSpeakingState(false); URL.revokeObjectURL(url); };
         await audio.play();
         return;
       }
@@ -18474,9 +18570,9 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     utter.lang = lang === "hi" ? "hi-IN" : "en-IN";
     utter.rate = 0.95;
     utter.pitch = 1.15;
-    utter.onstart  = () => { isSpeaking = true;  svgEl?.classList.add("talking"); };
-    utter.onend    = () => { isSpeaking = false; svgEl?.classList.remove("talking"); };
-    utter.onerror  = () => { isSpeaking = false; svgEl?.classList.remove("talking"); };
+    utter.onstart  = () => setAvatarSpeakingState(true);
+    utter.onend    = () => setAvatarSpeakingState(false);
+    utter.onerror  = () => setAvatarSpeakingState(false);
     const voices = speechSynth.getVoices();
     const preferred = voices.find(v => v.lang === utter.lang) || voices.find(v => v.lang.startsWith(utter.lang.split("-")[0]));
     if (preferred) utter.voice = preferred;
@@ -20171,10 +20267,70 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     });
   });
 
+  // ── 3D Avatar Style Switcher (Mascot vs Three.js WebGL) ──
+  const btnMascot = document.getElementById("btnAvatarMascot");
+  const btnThreeJs = document.getElementById("btnAvatarThreeJs");
+  const headVid = document.getElementById("vidyaHeaderVideo");
+  const threeContainer = document.getElementById("vidyaThreeJsContainer");
+
+  function switchAvatarStyle(style) {
+    if (style === "threejs") {
+      if (headVid) headVid.style.display = "none";
+      if (threeContainer) threeContainer.style.display = "block";
+      btnThreeJs?.classList.add("active");
+      if (btnThreeJs) {
+        btnThreeJs.style.background = "rgba(255,255,255,0.3)";
+        btnThreeJs.style.color = "#fff";
+        btnThreeJs.style.fontWeight = "700";
+      }
+      btnMascot?.classList.remove("active");
+      if (btnMascot) {
+        btnMascot.style.background = "rgba(255,255,255,0.12)";
+        btnMascot.style.color = "rgba(255,255,255,0.85)";
+        btnMascot.style.fontWeight = "600";
+      }
+      initThreeJsAvatar(threeContainer);
+      try { localStorage.setItem("tps_vidya_avatar_style", "threejs"); } catch(_) {}
+    } else {
+      if (threeContainer) threeContainer.style.display = "none";
+      if (headVid) {
+        headVid.style.display = "block";
+        headVid.muted = true;
+        headVid.play().catch(() => {});
+      }
+      btnMascot?.classList.add("active");
+      if (btnMascot) {
+        btnMascot.style.background = "rgba(255,255,255,0.3)";
+        btnMascot.style.color = "#fff";
+        btnMascot.style.fontWeight = "700";
+      }
+      btnThreeJs?.classList.remove("active");
+      if (btnThreeJs) {
+        btnThreeJs.style.background = "rgba(255,255,255,0.12)";
+        btnThreeJs.style.color = "rgba(255,255,255,0.85)";
+        btnThreeJs.style.fontWeight = "600";
+      }
+      try { localStorage.setItem("tps_vidya_avatar_style", "mascot"); } catch(_) {}
+    }
+  }
+
+  btnMascot?.addEventListener("click", () => switchAvatarStyle("mascot"));
+  btnThreeJs?.addEventListener("click", () => switchAvatarStyle("threejs"));
+
+  try {
+    const savedStyle = localStorage.getItem("tps_vidya_avatar_style");
+    if (savedStyle === "threejs") {
+      switchAvatarStyle("threejs");
+    }
+  } catch(_) {}
+
   // ── FAB toggle ──
   fab.addEventListener("click", () => {
     widget.classList.toggle("hidden");
-    if (!widget.classList.contains("hidden")) inputEl.focus();
+    if (!widget.classList.contains("hidden")) {
+      ensureVidyaVideosPlaying();
+      inputEl.focus();
+    }
   });
 
   
