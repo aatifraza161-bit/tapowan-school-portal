@@ -2808,74 +2808,157 @@ tbody td:last-child { padding-right: 24px; }
 }
 .vidya-widget.hidden { display: none !important; }
 
-/* ─── Widget Header ─── */
+/* ─── Widget Header (Ultra-Compact Modern Header) ─── */
 .vidya-header {
   background: linear-gradient(135deg, #7c3aed, #4f46e5, #0ea5e9);
-  padding: 16px 18px 12px;
+  padding: 8px 12px;
   position: relative;
   overflow: hidden;
+  box-shadow: 0 2px 10px rgba(109, 40, 217, 0.2);
 }
 .vidya-header::before {
   content: '';
   position: absolute; inset: 0;
-  background: radial-gradient(ellipse at top right, rgba(255,255,255,0.15), transparent 60%);
+  background: radial-gradient(ellipse at top right, rgba(255,255,255,0.18), transparent 60%);
+  pointer-events: none;
 }
 .vidya-header-top {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   position: relative; z-index: 1;
+  gap: 10px;
 }
-.vidya-header-info { color: #fff; }
-.vidya-header-info h4 { margin: 0; font-size: 1rem; font-weight: 800; letter-spacing: -0.01em; }
-.vidya-header-info p  { margin: 2px 0 0; font-size: 0.72rem; opacity: 0.85; }
-.vidya-close-btn {
-  background: rgba(255,255,255,0.2);
-  border: none; color: #fff;
-  width: 28px; height: 28px;
+.vidya-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+.vidya-header-info {
+  color: #fff;
+  flex: 1;
+  min-width: 0;
+}
+.vidya-title-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.vidya-header-info h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.vidya-status-dot {
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  cursor: pointer;
-  font-size: 1rem;
-  display: flex; align-items: center; justify-content: center;
-  transition: background 0.2s;
+  background: #22c55e;
+  box-shadow: 0 0 8px #22c55e;
+  display: inline-block;
   flex-shrink: 0;
 }
-.vidya-close-btn:hover { background: rgba(255,255,255,0.35); }
-
-/* ─── 3D Avatar in header ─── */
-.vidya-avatar-3d-header-wrap {
-  display: flex;
-  flex-direction: column;
+.vidya-provider-badge {
+  font-size: 0.6rem;
+  font-weight: 600;
+  background: rgba(0, 0, 0, 0.25);
+  color: rgba(255, 255, 255, 0.95);
+  padding: 1px 7px;
+  border-radius: 10px;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  padding: 6px 0 2px;
-  position: relative;
-  z-index: 1;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  white-space: nowrap;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.vidya-header-3d-stage {
-  width: 90px;
-  height: 98px;
-  border-radius: 0 !important;
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  position: relative;
-  overflow: visible !important;
+.vidya-header-info p {
+  margin: 1px 0 0;
+  font-size: 0.68rem;
+  opacity: 0.88;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vidya-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.vidya-console-btn {
+  background: rgba(255, 255, 255, 0.18);
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 0.9rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.35));
+  transition: all 0.2s ease;
+}
+.vidya-console-btn:hover {
+  background: rgba(255, 255, 255, 0.35);
+  transform: scale(1.05);
+}
+.vidya-close-btn {
+  background: rgba(255,255,255,0.2);
+  border: none;
+  color: #fff;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+.vidya-close-btn:hover {
+  background: rgba(255,255,255,0.38);
+  transform: scale(1.05);
+}
+
+/* ─── Compact 3D Avatar in header (42px Circle) ─── */
+.vidya-header-3d-stage {
+  width: 42px;
+  height: 42px;
+  border-radius: 50% !important;
+  background: radial-gradient(circle at center, rgba(124, 58, 237, 0.5) 0%, rgba(30, 27, 75, 0.7) 100%) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.4) !important;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25) !important;
+  position: relative;
+  overflow: hidden !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
   transition: all 0.3s ease;
 }
 .vidya-header-3d-stage.talking {
-  filter: drop-shadow(0 10px 24px rgba(56, 189, 248, 0.95)) drop-shadow(0 0 20px rgba(255, 255, 255, 0.7));
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.8), 0 0 20px rgba(124, 58, 237, 0.5) !important;
 }
 .vidya-header-3d-img,
 .vidya-header-3d-video {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  border-radius: 0 !important;
+  border-radius: 50% !important;
   background: transparent !important;
   pointer-events: none;
   transition: opacity 0.3s ease;
@@ -2887,8 +2970,8 @@ tbody td:last-child { padding-right: 24px; }
   transform: translateX(-50%);
   display: flex;
   align-items: flex-end;
-  gap: 3px;
-  height: 14px;
+  gap: 2px;
+  height: 10px;
   z-index: 5;
   opacity: 0;
   transition: opacity 0.2s ease;
@@ -2898,10 +2981,10 @@ tbody td:last-child { padding-right: 24px; }
   opacity: 1;
 }
 .vidya-soundwave-bars span {
-  width: 3px;
-  height: 4px;
+  width: 2px;
+  height: 3px;
   background: #38bdf8;
-  border-radius: 2px;
+  border-radius: 1px;
   animation: soundwave 0.8s ease-in-out infinite alternate;
 }
 .vidya-soundwave-bars span:nth-child(1) { animation-delay: 0.1s; }
@@ -2910,53 +2993,56 @@ tbody td:last-child { padding-right: 24px; }
 .vidya-soundwave-bars span:nth-child(4) { animation-delay: 0.4s; }
 .vidya-soundwave-bars span:nth-child(5) { animation-delay: 0.15s; }
 @keyframes soundwave {
-  0% { height: 4px; }
-  100% { height: 16px; }
+  0% { height: 3px; }
+  100% { height: 10px; }
 }
 
-/* ─── Language Toggle ─── */
-/* ─── Language & Controls Toggle with More Drawer ─── */
+/* ─── Language & Controls Toggle (Ultra-Slim) ─── */
 .vidya-top-controls {
   position: relative;
   z-index: 10;
-  background: linear-gradient(135deg, #7c3aed, #4f46e5);
-  border-bottom: 1px solid rgba(255,255,255,0.15);
+  background: #f3f0fd;
+  border-bottom: 1px solid rgba(139, 92, 246, 0.15);
 }
 .vidya-lang-toggle {
-  display: flex; gap: 6px;
+  display: flex;
+  gap: 5px;
   align-items: center;
   justify-content: center;
-  padding: 8px 14px;
-  flex-wrap: wrap;
+  padding: 4px 8px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
+.vidya-lang-toggle::-webkit-scrollbar { display: none; }
 .vidya-lang-btn, .vidya-model-btn, .vidya-more-toggle-btn {
-  padding: 4px 11px;
-  border-radius: 20px;
-  font-size: 0.7rem;
+  padding: 2.5px 8px;
+  border-radius: 12px;
+  font-size: 0.67rem;
   font-weight: 700;
-  border: 1.5px solid rgba(255,255,255,0.4);
-  background: rgba(255,255,255,0.15);
-  color: #fff;
+  border: 1px solid rgba(139, 92, 246, 0.22);
+  background: #ffffff;
+  color: #5b21b6;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
   white-space: nowrap;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
 }
 .vidya-lang-btn:hover, .vidya-model-btn:hover, .vidya-more-toggle-btn:hover {
-  background: rgba(255,255,255,0.25);
-  border-color: rgba(255,255,255,0.8);
+  background: rgba(124, 58, 237, 0.1);
+  border-color: #7c3aed;
 }
 .vidya-lang-btn.active, .vidya-model-btn.active, .vidya-more-toggle-btn.active {
-  background: #fff;
-  color: #6d28d9;
-  border-color: #fff;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  background: #7c3aed;
+  color: #fff;
+  border-color: #7c3aed;
+  box-shadow: 0 1px 4px rgba(124, 58, 237, 0.25);
 }
 .vidya-more-toggle-btn {
-  background: rgba(255, 255, 255, 0.25);
-  border-color: rgba(255, 255, 255, 0.65);
+  background: #ffffff;
+  border-color: rgba(139, 92, 246, 0.3);
 }
 .vidya-more-arrow {
   font-size: 0.6rem;
@@ -3138,14 +3224,20 @@ tbody td:last-child { padding-right: 24px; }
   animation: vidya-pulse-ring 1s ease infinite;
 }
 
-/* ─── Mobile ─── */
+/* ─── Mobile (Ultra-Compact Vidya Sheet) ─── */
 @media (max-width: 480px) {
   .vidya-widget {
     bottom: 0; right: 0; left: 0;
-    width: 100%; max-height: 90vh;
-    border-radius: 24px 24px 0 0;
+    width: 100%; max-height: 85vh; height: 85vh;
+    border-radius: 20px 20px 0 0;
   }
   .vidya-fab { bottom: 18px; right: 18px; }
+  .vidya-header { padding: 6px 10px; }
+  .vidya-header-3d-stage { width: 36px; height: 36px; }
+  .vidya-header-info h4 { font-size: 0.88rem; }
+  .vidya-provider-badge { max-width: 105px; font-size: 0.55rem; }
+  .vidya-top-controls { padding: 2px 4px; }
+  .vidya-lang-btn, .vidya-model-btn, .vidya-more-toggle-btn { padding: 2px 6px; font-size: 0.64rem; }
 }
 
 /* FIX FOR TYPING AREA BLOCK */

@@ -18602,26 +18602,28 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
   widget.innerHTML = `
     <div class="vidya-header">
       <div class="vidya-header-top">
-        <div class="vidya-header-info">
-          <h4>🤖 Vidya — 3D Robot AI</h4>
-          <p>आपकी 3D Robot AI साथी • Hindi & English</p>
-          <div id="vidyaProviderBadge" style="font-size:0.6rem; background:rgba(0,0,0,0.2); padding:1px 6px; border-radius:4px; display:inline-block; margin-top:4px;">Searching provider...</div>
-        </div>
-        <button id="vidyaConsoleBtn" style="background: none; border: none; color: white; cursor: pointer; font-size: 1.2rem; margin-right: 10px;" title="Live Logs">&#128269;</button>
-        <button class="vidya-close-btn" id="vidyaCloseBtn">✕</button>
-      </div>
-      <div class="vidya-avatar-3d-header-wrap">
-        <div class="vidya-header-3d-stage" id="vidyaHeader3dStage" title="3D Animated Robot Vidya">
-          <div id="vidyaHeaderCanvasWrap"></div>
-          <div class="vidya-soundwave-bars">
-            <span></span><span></span><span></span><span></span><span></span>
+        <div class="vidya-header-left">
+          <div class="vidya-header-3d-stage" id="vidyaHeader3dStage" title="3D Animated Robot Vidya">
+            <div id="vidyaHeaderCanvasWrap"></div>
+            <div class="vidya-soundwave-bars">
+              <span></span><span></span><span></span><span></span><span></span>
+            </div>
+          </div>
+          <div class="vidya-header-info">
+            <div class="vidya-title-line">
+              <h4>🤖 Vidya AI</h4>
+              <span class="vidya-status-dot" title="Online"></span>
+              <div id="vidyaProviderBadge" class="vidya-provider-badge">Searching...</div>
+            </div>
+            <p>आपकी 3D Robot AI साथी • Hindi & English</p>
           </div>
         </div>
-        <div style="margin-top:4px; font-size:0.72rem; color:rgba(255,255,255,0.95); font-weight:700; display:flex; align-items:center; gap:6px;">
-          <span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#22c55e; box-shadow:0 0 8px #22c55e;"></span>
-          <span>Live 3D Robot AI Assistant</span>
+        <div class="vidya-header-actions">
+          <button id="vidyaConsoleBtn" class="vidya-console-btn" title="Live Logs">&#128269;</button>
+          <button class="vidya-close-btn" id="vidyaCloseBtn">✕</button>
         </div>
       </div>
+    </div>
     <div class="vidya-top-controls">
       <div class="vidya-lang-toggle">
         <button class="vidya-lang-btn active" data-lang="auto">🌐 Auto</button>
