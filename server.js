@@ -677,6 +677,93 @@ app.post("/api/auth/login", authLimiter, async (req, res) => {
     res.status(500).json({ error: "Login failed" });
   }
 });
+// ─── Face ID Authentication Endpoint ───
+app.post("/api/auth/face-login", authLimiter, async (req, res) => {
+  try {
+    const { name, admissionNo, role } = req.body || {};
+    if (!name && !admissionNo) {
+      return res.status(400).json({ error: "Missing biometric identity." });
+    }
+
+    const settingsRes = await db.execute({ sql: "SELECT key, value FROM settings WHERE key = 'saas_school_status' LIMIT 1", skipCache: true }).catch(() => ({ rows: [] }));
+    const saasStatusRow = settingsRes?.rows?.[0] || null;
+    if (saasStatusRow && (saasStatusRow.value === "Suspended" || saasStatusRow.value === "Archived")) {
+      return res.status(403).json({ error: `This school portal is currently ${saasStatusRow.value} by EduCore Super Admin.` });
+    }
+
+    // 1. Try users table
+    const users = await list("users");
+    let user = users.find(u => 
+      (u.fullName && u.fullName.trim().toLowerCase() === (name || "").trim().toLowerCase()) ||
+      (admissionNo && u.admissionNo && u.admissionNo === admissionNo) ||
+      (admissionNo && u.username && u.username === admissionNo)
+    );
+
+    // 2. Try students table
+    if (!user) {
+      const students = await list("students");
+      const student = students.find(s => 
+        (admissionNo && (s.admissionNo === admissionNo || s.rollNo === admissionNo)) ||
+        (s.fullName && s.fullName.trim().toLowerCase() === (name || "").trim().toLowerCase())
+      );
+      if (student) {
+        user = {
+          id: student.id,
+          username: student.admissionNo || student.rollNo || student.fullName,
+          fullName: student.fullName,
+          admissionNo: student.admissionNo,
+          role: "Student",
+          className: student.className
+        };
+      }
+    }
+
+    // 3. Try teachers table
+    if (!user) {
+      const teachers = await list("teachers");
+      const teacher = teachers.find(t => 
+        (name && t.fullName && t.fullName.trim().toLowerCase() === name.trim().toLowerCase()) ||
+        (t.phone && t.phone === admissionNo)
+      );
+      if (teacher) {
+        user = {
+          id: teacher.id,
+          username: teacher.phone || teacher.fullName,
+          fullName: teacher.fullName,
+          admissionNo: teacher.phone,
+          role: "Teacher",
+          department: teacher.department
+        };
+      }
+    }
+
+    if (!user) {
+      return res.status(404).json({ error: "No matching registered profile found in school database." });
+    }
+
+    req.session.user = {
+      id: user.id,
+      username: user.username,
+      fullName: user.fullName,
+      admissionNo: user.admissionNo,
+      role: user.role || "Student"
+    };
+
+    req.session.save((err) => {
+      if (err) {
+        console.error("Face session save failed:", err);
+        return res.status(500).json({ error: "Session save failed" });
+      }
+      const token = signStatelessToken(req.session.user);
+      console.log(`[FaceAuth] Instant Face Login success: ${user.fullName} (${user.role})`);
+      res.json({ user: req.session.user, token, ok: true });
+    });
+  } catch (err) {
+    console.error("Face login error:", err);
+    res.status(500).json({ error: "Face ID login failed." });
+  }
+});
+
 
 // ── ADMISSION HELPERS ──
 function sendAdmissionNotification(student) {
