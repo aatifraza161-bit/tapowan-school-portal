@@ -18298,130 +18298,200 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     studentCtx += "\nNote: User is an Administrator. Accessing system-wide knowledge base.";
   }
 
-  // ── Proper 3D Animated Avatar Engine (Three.js WebGL & Ready Player Me) ──
-  let vidyaMixer = null;
-  let vidyaActions = {};
-  let vidyaActiveAction = null;
-  let vidyaModel = null;
-  let vidyaMorphMeshes = [];
+  // ── Proper 3D Animated Robot Avatar Engine (Three.js WebGL) ──
+  const vidyaInstances = [];
   let isVidya3dReady = false;
+
+  function playAllVidyaActions(name) {
+    vidyaInstances.forEach(inst => {
+      if (!inst.mixer || !inst.actions[name]) return;
+      const nextAction = inst.actions[name];
+      if (inst.activeAction !== nextAction) {
+        if (inst.activeAction) inst.activeAction.fadeOut(0.25);
+        nextAction.reset().fadeIn(0.25).play();
+        inst.activeAction = nextAction;
+      }
+    });
+  }
+
+  function playTemporaryAction(name, duration = 2400) {
+    vidyaInstances.forEach(inst => {
+      if (!inst.mixer || !inst.actions[name]) return;
+      const nextAction = inst.actions[name];
+      if (inst.activeAction === nextAction) return;
+      const prevAction = inst.activeAction;
+      if (prevAction) prevAction.fadeOut(0.2);
+      nextAction.reset().fadeIn(0.2).play();
+      inst.activeAction = nextAction;
+      setTimeout(() => {
+        if (inst.activeAction === nextAction && inst.actions["Idle"]) {
+          nextAction.fadeOut(0.3);
+          inst.actions["Idle"].reset().fadeIn(0.3).play();
+          inst.activeAction = inst.actions["Idle"];
+        }
+      }, duration);
+    });
+  }
 
   function initVidya3dAvatar(targetContainer) {
     if (!targetContainer || typeof THREE === "undefined") return;
     if (targetContainer.querySelector("canvas")) return; // already initialized
 
     try {
-      const width = targetContainer.clientWidth || 80;
-      const height = targetContainer.clientHeight || 80;
+      const width = targetContainer.clientWidth || 92;
+      const height = targetContainer.clientHeight || 110;
 
       const scene = new THREE.Scene();
-      const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 100);
-      // Head is at y ~ 1.56m. Frame face, eyes, hair and shoulders
-      camera.position.set(0, 1.52, 0.72);
-      camera.lookAt(0, 1.48, 0);
+      const camera = new THREE.PerspectiveCamera(36, width / height, 0.1, 100);
 
       const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
       renderer.setSize(width, height);
+      renderer.setClearColor(0x000000, 0); // 100% transparent canvas (NO CIRCLE, NO BACKGROUND)
       renderer.outputEncoding = THREE.sRGBEncoding;
       targetContainer.innerHTML = "";
       targetContainer.appendChild(renderer.domElement);
 
-      // Studio lights for realistic avatar skin & hair
-      const hemiLight = new THREE.HemisphereLight(0xfff5ea, 0x333344, 1.35);
+      const ro = new ResizeObserver(() => {
+        const nw = targetContainer.clientWidth;
+        const nh = targetContainer.clientHeight;
+        if (nw > 0 && nh > 0) {
+          camera.aspect = nw / nh;
+          camera.updateProjectionMatrix();
+          renderer.setSize(nw, nh);
+        }
+      });
+      ro.observe(targetContainer);
+
+      // Studio lighting for robot metallic/glossy materials
+      const hemiLight = new THREE.HemisphereLight(0xffffff, 0x334155, 1.45);
       hemiLight.position.set(0, 10, 0);
       scene.add(hemiLight);
 
-      const keyLight = new THREE.DirectionalLight(0xffffff, 1.4);
-      keyLight.position.set(2, 4, 3);
+      const keyLight = new THREE.DirectionalLight(0xffffff, 1.5);
+      keyLight.position.set(3, 6, 4);
       scene.add(keyLight);
 
-      const fillLight = new THREE.DirectionalLight(0xc084fc, 0.85);
-      fillLight.position.set(-2, 3, 2);
+      const fillLight = new THREE.DirectionalLight(0xa855f7, 1.15);
+      fillLight.position.set(-3, 4, 3);
       scene.add(fillLight);
 
-      const backLight = new THREE.DirectionalLight(0x38bdf8, 0.95);
-      backLight.position.set(0, 3, -3);
-      scene.add(backLight);
+      const rimLight = new THREE.DirectionalLight(0x38bdf8, 1.4);
+      rimLight.position.set(0, 5, -4);
+      scene.add(rimLight);
+
+      const inst = {
+        container: targetContainer,
+        scene,
+        camera,
+        renderer,
+        mixer: null,
+        actions: {},
+        activeAction: null,
+        model: null,
+        morphMeshes: [],
+        targetRotY: 0,
+        targetRotX: 0
+      };
+      vidyaInstances.push(inst);
 
       const loader = new THREE.GLTFLoader();
-      loader.load("models/vidya_avatar.glb", function (gltf) {
-        vidyaModel = gltf.scene;
-        vidyaModel.position.set(0, 0, 0);
-        scene.add(vidyaModel);
+      loader.load("models/robot_avatar.glb", function (gltf) {
+        inst.model = gltf.scene;
 
-        // Collect skinned meshes with morph targets
-        vidyaMorphMeshes = [];
-        vidyaModel.traverse(node => {
-          if (node.isSkinnedMesh && node.morphTargetDictionary) {
-            vidyaMorphMeshes.push(node);
+        // Accurate bounding box calculation to dynamically frame the full robot
+        const box = new THREE.Box3().setFromObject(inst.model);
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
+
+        // Center horizontally and anchor feet at y = 0
+        inst.model.position.x = -center.x;
+        inst.model.position.z = -center.z;
+        inst.model.position.y = -box.min.y;
+        scene.add(inst.model);
+
+        // Collect facial morph targets on Head mesh (Angry, Surprised, Sad)
+        inst.model.traverse(node => {
+          if (node.isMesh && node.morphTargetDictionary) {
+            inst.morphMeshes.push(node);
           }
         });
 
-        // Default welcoming gentle smile
-        setMorphValue("mouthSmileLeft", 0.25);
-        setMorphValue("mouthSmileRight", 0.25);
-
-        vidyaMixer = new THREE.AnimationMixer(vidyaModel);
-
-        // Load smooth human animations (Idle, Talking_0, Talking_1, Talking_2, Laughing)
-        loader.load("models/vidya_animations.glb", function (animGltf) {
-          animGltf.animations.forEach(clip => {
-            vidyaActions[clip.name] = vidyaMixer.clipAction(clip);
-          });
-
-          if (vidyaActions["Idle"]) {
-            vidyaActiveAction = vidyaActions["Idle"];
-            vidyaActiveAction.play();
-          }
-
-          isVidya3dReady = true;
-          // Softly reveal 3D canvas over poster
-          const fabPoster = document.getElementById("vidyaFabPoster");
-          const headPoster = document.getElementById("vidyaHeaderPoster");
-          if (fabPoster) fabPoster.style.opacity = "0.2";
-          if (headPoster) headPoster.style.opacity = "0.2";
-        }, undefined, function (err) {
-          console.warn("[Vidya 3D] Animation load error:", err);
+        // Setup rigged robot animations
+        inst.mixer = new THREE.AnimationMixer(inst.model);
+        (gltf.animations || []).forEach(clip => {
+          inst.actions[clip.name] = inst.mixer.clipAction(clip);
         });
+
+        // Default: Idle breathing & standing animation
+        if (inst.actions["Idle"]) {
+          inst.activeAction = inst.actions["Idle"];
+          inst.activeAction.play();
+        }
+
+        isVidya3dReady = true;
+
+        // Fade out 2D poster now that live 3D robot is rendering
+        const poster = targetContainer.parentElement?.querySelector(".vidya-3d-img, .vidya-header-3d-img");
+        if (poster) poster.style.opacity = "0";
+
+        // Dynamic perspective framing for complete standing robot
+        const fovRad = (camera.fov * Math.PI) / 180;
+        const curAspect = (targetContainer.clientWidth || 92) / (targetContainer.clientHeight || 110);
+        const distY = (size.y / 2) / Math.tan(fovRad / 2);
+        const distX = (size.x / 2) / Math.tan((fovRad * curAspect) / 2);
+        const camDist = Math.max(distY, distX) * 1.14;
+
+        camera.position.set(0, size.y * 0.52, camDist);
+        camera.lookAt(0, size.y * 0.48, 0);
 
       }, undefined, function (err) {
-        console.warn("[Vidya 3D] Avatar load error:", err);
+        console.warn("[Robot 3D] Load error:", err);
+      });
+
+      // Mouse tracking: robot looks subtly toward cursor
+      targetContainer.addEventListener("mousemove", (e) => {
+        const rect = targetContainer.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        inst.targetRotY = ((e.clientX - cx) / (rect.width / 2)) * 0.35;
+        inst.targetRotX = -((e.clientY - cy) / (rect.height / 2)) * 0.15;
+      });
+      targetContainer.addEventListener("mouseleave", () => {
+        inst.targetRotY = 0;
+        inst.targetRotX = 0;
       });
 
       const clock = new THREE.Clock();
-      let blinkTimer = 0;
 
       function animate() {
         requestAnimationFrame(animate);
         const dt = clock.getDelta();
         const t = clock.getElapsedTime();
 
-        if (vidyaMixer) vidyaMixer.update(dt);
+        if (inst.mixer) inst.mixer.update(dt);
 
-        // Natural eye blinking
-        blinkTimer += dt;
-        if (blinkTimer > 3.5) {
-          const blinkProgress = (blinkTimer - 3.5) / 0.16;
-          if (blinkProgress <= 1.0) {
-            const bVal = Math.sin(blinkProgress * Math.PI);
-            setMorphValue("eyeBlinkLeft", bVal);
-            setMorphValue("eyeBlinkRight", bVal);
-          } else {
-            setMorphValue("eyeBlinkLeft", 0);
-            setMorphValue("eyeBlinkRight", 0);
-            blinkTimer = Math.random() * 1.6;
-          }
+        if (inst.model) {
+          inst.model.rotation.y = THREE.MathUtils.lerp(inst.model.rotation.y, inst.targetRotY, 0.1);
+          inst.model.rotation.x = THREE.MathUtils.lerp(inst.model.rotation.x, inst.targetRotX, 0.1);
         }
 
-        // Real-time speech lip sync
-        if (isSpeaking) {
-          const talkWave = Math.abs(Math.sin(t * 11)) * 0.75;
-          setMorphValue("jawOpen", talkWave);
-          setMorphValue("viseme_aa", talkWave * 0.85);
-        } else {
-          setMorphValue("jawOpen", 0);
-          setMorphValue("viseme_aa", 0);
+        // Facial expression oscillation when speaking
+        if (isSpeaking && inst.morphMeshes.length > 0) {
+          const osc = (Math.sin(t * 9) + 1) * 0.4;
+          inst.morphMeshes.forEach(mesh => {
+            const idx = mesh.morphTargetDictionary["Surprised"];
+            if (idx !== undefined && mesh.morphTargetInfluences) {
+              mesh.morphTargetInfluences[idx] = osc;
+            }
+          });
+        } else if (inst.morphMeshes.length > 0) {
+          inst.morphMeshes.forEach(mesh => {
+            const idx = mesh.morphTargetDictionary["Surprised"];
+            if (idx !== undefined && mesh.morphTargetInfluences) {
+              mesh.morphTargetInfluences[idx] = 0;
+            }
+          });
         }
 
         renderer.render(scene, camera);
@@ -18429,49 +18499,23 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
       animate();
 
     } catch (e) {
-      console.warn("[Vidya 3D] Init failed:", e);
-    }
-  }
-
-  function setMorphValue(name, val) {
-    vidyaMorphMeshes.forEach(mesh => {
-      const idx = mesh.morphTargetDictionary[name];
-      if (idx !== undefined && mesh.morphTargetInfluences) {
-        mesh.morphTargetInfluences[idx] = val;
-      }
-    });
-  }
-
-  function playVidyaAction(name) {
-    if (!vidyaActions || !vidyaActions[name] || !vidyaMixer) return;
-    const nextAction = vidyaActions[name];
-    if (vidyaActiveAction !== nextAction) {
-      if (vidyaActiveAction) vidyaActiveAction.fadeOut(0.3);
-      nextAction.reset().fadeIn(0.3).play();
-      vidyaActiveAction = nextAction;
+      console.warn("[Robot 3D] Init failed:", e);
     }
   }
 
   function setAvatarSpeakingState(speaking) {
     isSpeaking = speaking;
-    const fabAvatar = document.querySelector(".vidya-fab-avatar");
-    const headerCircle = document.getElementById("vidyaHeader3dCircle");
-    const fabPoster = document.getElementById("vidyaFabPoster");
-    const headPoster = document.getElementById("vidyaHeaderPoster");
+    const fabAvatar = document.getElementById("vidyaFabAvatarHolder");
+    const headerStage = document.getElementById("vidyaHeader3dStage");
 
     if (speaking) {
       fabAvatar?.classList.add("talking");
-      headerCircle?.classList.add("talking");
-      if (fabPoster) fabPoster.src = "models/vidya_talk_poster.jpg";
-      if (headPoster) headPoster.src = "models/vidya_talk_poster.jpg";
-      if (vidyaActions["Talking_0"]) playVidyaAction("Talking_0");
-      else if (vidyaActions["Talking_1"]) playVidyaAction("Talking_1");
+      headerStage?.classList.add("talking");
+      playAllVidyaActions("Yes"); // Enthusiastic head nod / speaking gesture
     } else {
       fabAvatar?.classList.remove("talking");
-      headerCircle?.classList.remove("talking");
-      if (fabPoster) fabPoster.src = "models/vidya_idle_poster.jpg";
-      if (headPoster) headPoster.src = "models/vidya_idle_poster.jpg";
-      if (vidyaActions["Idle"]) playVidyaAction("Idle");
+      headerStage?.classList.remove("talking");
+      playAllVidyaActions("Idle"); // Smooth transition back to idle
     }
   }
 
@@ -18485,24 +18529,24 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     <div class="vidya-header">
       <div class="vidya-header-top">
         <div class="vidya-header-info">
-          <h4>✨ Vidya — 3D AI Helper</h4>
-          <p>आपकी 3D AI साथी • Hindi & English</p>
+          <h4>🤖 Vidya — 3D Robot AI</h4>
+          <p>आपकी 3D Robot AI साथी • Hindi & English</p>
           <div id="vidyaProviderBadge" style="font-size:0.6rem; background:rgba(0,0,0,0.2); padding:1px 6px; border-radius:4px; display:inline-block; margin-top:4px;">Searching provider...</div>
         </div>
         <button id="vidyaConsoleBtn" style="background: none; border: none; color: white; cursor: pointer; font-size: 1.2rem; margin-right: 10px;" title="Live Logs">&#128269;</button>
         <button class="vidya-close-btn" id="vidyaCloseBtn">✕</button>
       </div>
       <div class="vidya-avatar-3d-header-wrap">
-        <div class="vidya-header-3d-circle" id="vidyaHeader3dCircle" title="3D Animated AI Vidya">
-          <img class="vidya-header-3d-img" id="vidyaHeaderPoster" src="models/vidya_idle_poster.jpg" alt="AI Vidya 3D" />
+        <div class="vidya-header-3d-stage" id="vidyaHeader3dStage" title="3D Animated Robot Vidya">
+          <img class="vidya-header-3d-img" id="vidyaHeaderPoster" src="models/robot_transparent.png" alt="AI Robot 3D" />
           <div id="vidyaHeaderCanvasWrap"></div>
           <div class="vidya-soundwave-bars">
             <span></span><span></span><span></span><span></span><span></span>
           </div>
         </div>
-        <div style="margin-top:6px; font-size:0.7rem; color:rgba(255,255,255,0.92); font-weight:700; display:flex; align-items:center; gap:5px;">
-          <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:#22c55e; box-shadow:0 0 6px #22c55e;"></span>
-          <span>Live 3D AI Assistant</span>
+        <div style="margin-top:4px; font-size:0.72rem; color:rgba(255,255,255,0.95); font-weight:700; display:flex; align-items:center; gap:6px;">
+          <span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#22c55e; box-shadow:0 0 8px #22c55e;"></span>
+          <span>Live 3D Robot AI Assistant</span>
         </div>
       </div>
     </div>
@@ -18525,7 +18569,7 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     <div class="vidya-messages" id="vidyaMessages">
       <div class="vidya-msg bot">
         <div class="vidya-msg-avatar">🤖</div>
-        <div class="vidya-bubble">नमस्ते ${displayName.split(" ")[0]}! 👋 मैं Vidya हूँ — आपकी 3D AI साथी! आप Hindi या English में कुछ भी पूछ सकते हैं। 😊</div>
+        <div class="vidya-bubble">नमस्ते ${displayName.split(" ")[0]}! 👋 मैं Vidya हूँ — आपकी 3D Robot AI साथी! आप Hindi या English में कुछ भी पूछ सकते हैं। 😊</div>
       </div>
     </div>
     <div class="vidya-quick-wrap">
@@ -18540,21 +18584,21 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
       <button class="vidya-send-btn" id="vidyaSendBtn">➤</button>
     </div>`;
 
-  // ── FAB Button with Proper 3D Animated Avatar ──
+  // ── FAB Button with Borderless 3D Animated Robot Avatar ──
   const fab = document.createElement("div");
   fab.id = "vidyaFab";
   fab.className = "vidya-fab";
   fab.innerHTML = `
-    <div class="vidya-fab-ring"></div>
-    <div class="vidya-fab-avatar" id="vidyaFabAvatarHolder" title="AI Vidya — 3D Smart Assistant">
-      <img class="vidya-3d-img" id="vidyaFabPoster" src="models/vidya_idle_poster.jpg" alt="AI Vidya 3D Avatar" />
+    <div class="vidya-fab-avatar" id="vidyaFabAvatarHolder" title="AI Vidya — 3D Robot Assistant">
+      <img class="vidya-3d-img" id="vidyaFabPoster" src="models/robot_transparent.png" alt="AI Robot Avatar" />
       <div id="vidyaFabCanvasWrap"></div>
-      <div class="vidya-avatar-status-badge" title="AI Online & Ready"></div>
+      <div class="vidya-robot-shadow"></div>
+      <div class="vidya-avatar-status-badge" title="Robot Online & Ready"></div>
       <div class="vidya-soundwave-bars">
         <span></span><span></span><span></span><span></span><span></span>
       </div>
     </div>
-    <span class="vidya-fab-label">✨ AI Vidya 3D</span>`;
+    <span class="vidya-fab-label">🤖 AI Vidya</span>`;
 
   document.body.appendChild(widget);
   document.body.appendChild(fab);
@@ -18564,6 +18608,13 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     const fabWrap = document.getElementById("vidyaFabCanvasWrap");
     if (fabWrap) initVidya3dAvatar(fabWrap);
   }, 250);
+
+  // Interactive Robot Wave on hover
+  fab.addEventListener("mouseenter", () => {
+    if (!isSpeaking) {
+      playTemporaryAction("Wave", 2200);
+    }
+  });
 
   // ── Helpers ──
   const msgBox = document.getElementById("vidyaMessages");
