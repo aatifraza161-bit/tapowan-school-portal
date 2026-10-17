@@ -1,15 +1,15 @@
 {
-    "bundleVersion":  "3.2.5",
-    "bundleVersionCode":  342,
+    "bundleVersion":  "3.2.6",
+    "bundleVersionCode":  344,
     "bundleUrl":  "https://tapowan-app.vercel.app/bundles/index.android.bundle",
-    "bundleSize":  6004040,
-    "releaseNotes":  "TPS v3.2.5: Native UPI Intent auto-status query \u0026 12-digit UTR auto-capture.",
-    "updatedAt":  "2026-10-17T12:56:58.0023198Z",
+    "bundleSize":  6004166,
+    "releaseNotes":  "TPS v3.2.6: Verified NPCI School Merchant UPI (mc=8299, orgid=159028).",
+    "updatedAt":  "2026-10-17T13:20:32.5169137Z",
     "isActive":  true,
     "targetedUpdates":  [
 
                         ],
     "targetAudience":  "all",
-    "releaseDate":  "2026-10-17T12:56:58.0083221Z",
-    "minAppVersionCode":  341
+    "releaseDate":  "2026-10-17T13:20:32.5209163Z",
+    "minAppVersionCode":  343
 }
