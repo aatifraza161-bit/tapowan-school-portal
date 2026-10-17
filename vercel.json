@@ -71,7 +71,7 @@
       ]
     },
     {
-      "source": "/(index\\.html|sw\\.js|app\\.js|reports_module\\.js|exam_module\\.js|online_classes_module\\.js|slip-templates\\.js|style\\.css)",
+      "source": "/(index\\.html|sw\\.js|app\\.js|reports_module\\.js|exam_module\\.js|online_classes_module\\.js|slip-templates\\.js|online_payments_module\\.js|style\\.css)",
       "headers": [
         {
           "key": "Cache-Control",

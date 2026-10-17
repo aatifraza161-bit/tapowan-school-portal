@@ -77,3 +77,7 @@ scratch.js
 deploy-only.js
 deploy-vercel.ps1
 github-app.js
+
+*.apk
+public/*.apk
+public/**/*.apk
