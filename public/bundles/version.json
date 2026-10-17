@@ -1,12 +1,12 @@
 {
   "bundleVersion": "3.2.4",
   "bundleVersionCode": 340,
-  "bundleUrl": "https://tapowan-school.vercel.app/bundles/index.android.bundle",
-  "bundleSize": 6004065,
+  "bundleUrl": "https://tapowan-app.vercel.app/bundles/index.android.bundle",
+  "bundleSize": 6004049,
   "releaseNotes": "Native UPI Intent payment auto-query for status and 12-digit UTR with instant admin verification.",
-  "updatedAt": "2026-10-17T11:53:00.000Z",
+  "updatedAt": "2026-10-17T12:36:00.000Z",
   "isActive": true,
   "targetedUpdates": [],
   "targetAudience": "all",
-  "releaseDate": "2026-10-17T11:53:00.000Z"
+  "releaseDate": "2026-10-17T12:36:00.000Z"
 }
