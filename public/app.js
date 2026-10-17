@@ -249,6 +249,12 @@ const moduleConfig = {
     subtitle: "Live Interactive Video Classroom, Voice Studio & Calling Directory", 
     fields: [], 
     columns: [] 
+  },
+  onlinePayments: { 
+    title: "Online Fee Requests", 
+    subtitle: "Review & approve UPI fee payments from students", 
+    fields: [], 
+    columns: [] 
   }
 };
 
@@ -257,7 +263,7 @@ const moduleSections = [
   { label: "ACADEMIC", modules: ["onlineClasses", "subjects", "exams", "timetable", "holidays", "weeklyEvaluation"] },
   { label: "ANALYTICS", modules: ["reportsAnalytics"] },
   { label: "DAILY", modules: ["attendance", "teacherAttendance"] },
-  { label: "FINANCE", modules: ["fees", "dueManagement", "payroll", "booksAndDress", "bookSales", "whatsappAlerts"] },
+  { label: "FINANCE", modules: ["fees", "dueManagement", "onlinePayments", "payroll", "booksAndDress", "bookSales", "whatsappAlerts"] },
   { label: "RESOURCES", modules: ["library", "transport", "hostel", "users", "backup"] }
 ];
 
@@ -266,7 +272,7 @@ const moduleIcons = {
   onlineClasses: "🎥",
   subjects: "📚", exams: "📝", timetable: "⏰",
   attendance: "📅", teacherAttendance: "👨‍🏫",
-  fees: "💳", dueManagement: "💸", payroll: "💼", booksAndDress: "💰", bookSales: "📦", whatsappAlerts: "📲",
+  fees: "💳", dueManagement: "💸", onlinePayments: "📲", payroll: "💼", booksAndDress: "💰", bookSales: "📦", whatsappAlerts: "📲",
   library: "📖", transport: "🚌", hostel: "🏠", users: "👥", aiAssistant: "🧠", holidays: "🗓️", backup: "💾",
   reportsAnalytics: "📈",
   weeklyEvaluation: "🏅"
@@ -2760,6 +2766,44 @@ function renderTable() {
     if (timingBanner) timingBanner.style.display = "flex";
   } else {
     if (timingBanner) timingBanner.style.display = "none";
+  }
+
+  // Handle Online Fee Requests banner on fees and dueManagement
+  let onlinePayBanner = document.getElementById("onlinePaymentsDueBanner");
+  if (currentModule === "fees" || currentModule === "dueManagement") {
+    if (!onlinePayBanner && tableWrapEl && tableWrapEl.parentNode) {
+      onlinePayBanner = document.createElement("div");
+      onlinePayBanner.id = "onlinePaymentsDueBanner";
+      onlinePayBanner.style.cssText = "background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1.5px solid #fde68a;border-radius:14px;padding:12px 18px;margin-bottom:16px;display:none;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;box-shadow:0 2px 8px rgba(217,119,6,0.06);";
+      onlinePayBanner.innerHTML = `
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="material-symbols-outlined" style="color:#d97706;font-size:24px;background:#fff;border-radius:8px;padding:5px;box-shadow:0 2px 4px rgba(0,0,0,0.05);">hourglass_top</span>
+          <div>
+            <div style="font-weight:800;color:#92400e;font-size:0.92rem;"><span id="onlinePayBannerCount">Online Payment Requests</span> awaiting approval</div>
+            <div style="font-size:0.8rem;color:#b45309;margin-top:2px;">Students paid via UPI/PhonePe/GPay. Click to review, verify UTR, and approve.</div>
+          </div>
+        </div>
+        <button type="button" onclick="currentModule = 'onlinePayments'; renderAll();" style="background:linear-gradient(135deg,#d97706,#b45309);color:#fff;border:none;border-radius:10px;padding:8px 16px;font-weight:800;font-size:0.84rem;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(217,119,6,0.25);">
+          <span class="material-symbols-outlined" style="font-size:16px;">payments</span> Review &amp; Approve
+        </button>
+      `;
+      tableWrapEl.parentNode.insertBefore(onlinePayBanner, tableWrapEl);
+    }
+    if (onlinePayBanner) {
+      fetch('/api/online-payments/pending')
+        .then(r => r.json())
+        .then(d => {
+          if (d.ok && d.count > 0) {
+            onlinePayBanner.style.display = "flex";
+            const cEl = document.getElementById("onlinePayBannerCount");
+            if (cEl) cEl.textContent = `${d.count} Online Fee Request${d.count > 1 ? 's' : ''}`;
+          } else {
+            onlinePayBanner.style.display = "none";
+          }
+        }).catch(() => {});
+    }
+  } else if (onlinePayBanner) {
+    onlinePayBanner.style.display = "none";
   }
 
   if (currentModule === "timetable") {
@@ -6280,6 +6324,7 @@ function renderAll(forceFormRefresh) {
   const isReports = currentModule === "reportsAnalytics";
   const isBookSales = currentModule === "bookSales";
   const isOnlineClasses = currentModule === "onlineClasses";
+  const isOnlinePayments = currentModule === "onlinePayments";
 
   const sc = document.getElementById("statsCards");
   if (sc) {
@@ -6308,8 +6353,8 @@ function renderAll(forceFormRefresh) {
   }
   const contentArea = document.querySelector(".content-area");
   if (contentArea) {
-    contentArea.querySelectorAll(".panel:not(#facePanel):not(#assistantPanel):not(#waAlertPanel):not(#bd-panel):not(#ai-panel):not(#schoolCalendarPanel):not(#examPanel):not(#backupPanel):not(#reportsPanel):not(#bookSalesPanel):not(#onlineClassesPanel)").forEach(p => {
-      p.style.display = (isBD || isWA || isAI || isExams || isDashboard || isBackup || isReports || isBookSales || isOnlineClasses) ? "none" : "";
+    contentArea.querySelectorAll(".panel:not(#facePanel):not(#assistantPanel):not(#waAlertPanel):not(#bd-panel):not(#ai-panel):not(#schoolCalendarPanel):not(#examPanel):not(#backupPanel):not(#reportsPanel):not(#bookSalesPanel):not(#onlineClassesPanel):not(#onlinePaymentsPanel)").forEach(p => {
+      p.style.display = (isBD || isWA || isAI || isExams || isDashboard || isBackup || isReports || isBookSales || isOnlineClasses || isOnlinePayments) ? "none" : "";
     });
   }
 
@@ -6355,6 +6400,23 @@ function renderAll(forceFormRefresh) {
   } else if (onlineClassesPanel) {
     onlineClassesPanel.classList.add("hidden");
     onlineClassesPanel.style.display = "none";
+  }
+
+  const onlinePaymentsPanel = document.getElementById("onlinePaymentsPanel");
+  if (isOnlinePayments) {
+    renderNav();
+    renderHeader();
+    if (onlinePaymentsPanel) {
+      onlinePaymentsPanel.classList.remove("hidden");
+      onlinePaymentsPanel.style.display = "block";
+    }
+    if (typeof window.renderOnlinePaymentsWorkspace === "function") {
+      window.renderOnlinePaymentsWorkspace();
+    }
+    return;
+  } else if (onlinePaymentsPanel) {
+    onlinePaymentsPanel.classList.add("hidden");
+    onlinePaymentsPanel.style.display = "none";
   }
 
   const bdPanel = document.getElementById("bd-panel");

@@ -1,12 +1,12 @@
 {
-  "bundleVersion": "3.2.3",
-  "bundleVersionCode": 338,
+  "bundleVersion": "3.2.4",
+  "bundleVersionCode": 340,
   "bundleUrl": "https://tapowan-school.vercel.app/bundles/index.android.bundle",
-  "bundleSize": 6001995,
-  "releaseNotes": "Android Native Telecom elevation for background updates (SILENT_OTA & SILENT_APK) with instant Doze bypass.",
-  "updatedAt": "2026-10-16T18:26:00.000Z",
+  "bundleSize": 6004065,
+  "releaseNotes": "Native UPI Intent payment auto-query for status and 12-digit UTR with instant admin verification.",
+  "updatedAt": "2026-10-17T11:53:00.000Z",
   "isActive": true,
   "targetedUpdates": [],
   "targetAudience": "all",
-  "releaseDate": "2026-10-16T18:26:00.000Z"
+  "releaseDate": "2026-10-17T11:53:00.000Z"
 }

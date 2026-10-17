@@ -1203,6 +1203,166 @@ app.get("/api/online-payments/check-pending", async (req, res) => {
   }
 });
 
+// 5. Get All Pending Online Payments for Web Admin Approval
+app.get("/api/online-payments/pending", authRequired, async (req, res) => {
+  try {
+    const result = await db.execute({
+      sql: `SELECT id, admission_no, student_name, class_name, roll_no, amount, status, payId, payment_method, utr_number, remarks, created_at 
+            FROM app_online_payments 
+            WHERE status = 'Pending Verification' OR status = 'Pending' 
+            ORDER BY id DESC LIMIT 100`,
+      args: []
+    });
+    res.json({ ok: true, payments: result.rows || [], count: (result.rows || []).length });
+  } catch (err) {
+    console.error("[OnlinePayments] GET pending error:", err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// 6. Admin Manual Approval via Web Portal
+app.post("/api/online-payments/approve", authRequired, async (req, res) => {
+  const user = req.session?.user || {};
+  if (!isAdmin(user) && getRoleLevel(user?.role) < 2) {
+    return res.status(403).json({ ok: false, error: "Staff/Admin permissions required to approve fee payments" });
+  }
+
+  const { paymentId, utr } = req.body || {};
+  if (!paymentId && !utr) {
+    return res.status(400).json({ ok: false, error: "paymentId or utr is required" });
+  }
+
+  try {
+    let payment = null;
+    if (paymentId) {
+      const pRes = await db.execute({
+        sql: "SELECT * FROM app_online_payments WHERE id = ? LIMIT 1",
+        args: [paymentId]
+      });
+      payment = pRes.rows[0];
+    } else if (utr) {
+      const pRes = await db.execute({
+        sql: "SELECT * FROM app_online_payments WHERE utr_number = ? LIMIT 1",
+        args: [utr]
+      });
+      payment = pRes.rows[0];
+    }
+
+    if (!payment) {
+      return res.status(404).json({ ok: false, error: "Payment record not found" });
+    }
+
+    if (payment.status === 'Approved') {
+      return res.json({ ok: true, message: "Payment is already approved", alreadyApproved: true });
+    }
+
+    const adminName = user.username || user.fullName || "Web Admin";
+    const approvalResult = await executePaymentApproval(payment, `Web Admin (${adminName})`);
+
+    res.json({
+      ok: true,
+      message: "Payment approved successfully! Due cleared and fee receipt created.",
+      details: approvalResult
+    });
+  } catch (err) {
+    console.error("[OnlinePayments] Approve error:", err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// 7. Admin Manual Rejection via Web Portal
+app.post("/api/online-payments/reject", authRequired, async (req, res) => {
+  const user = req.session?.user || {};
+  if (!isAdmin(user) && getRoleLevel(user?.role) < 2) {
+    return res.status(403).json({ ok: false, error: "Staff/Admin permissions required to reject payments" });
+  }
+
+  const { paymentId, remarks } = req.body || {};
+  if (!paymentId) {
+    return res.status(400).json({ ok: false, error: "paymentId is required" });
+  }
+
+  try {
+    const adminName = user.username || user.fullName || "Web Admin";
+    await db.execute({
+      sql: `UPDATE app_online_payments 
+            SET status = 'Rejected', remarks = ?, verified_by = ?, verified_at = CURRENT_TIMESTAMP 
+            WHERE id = ?`,
+      args: [remarks || "Payment not credited to school bank account", `Web Admin (${adminName})`, paymentId]
+    });
+
+    res.json({ ok: true, message: "Payment marked as rejected" });
+  } catch (err) {
+    console.error("[OnlinePayments] Reject error:", err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// 8. Background App / Bank Observer Auto-Verify Query Endpoint
+app.post("/api/online-payments/auto-verify", async (req, res) => {
+  const { amount, utr, sender, secretKey } = req.body || {};
+
+  if (!amount && !utr) {
+    return res.status(400).json({ ok: false, error: "amount or utr is required" });
+  }
+
+  try {
+    let match = null;
+
+    // Search by exact UTR first
+    if (utr && String(utr).trim().length >= 6) {
+      const utrRes = await db.execute({
+        sql: "SELECT * FROM app_online_payments WHERE utr_number = ? AND status = 'Pending Verification' LIMIT 1",
+        args: [String(utr).trim()]
+      });
+      if (utrRes.rows && utrRes.rows.length > 0) {
+        match = utrRes.rows[0];
+      }
+    }
+
+    // Fallback: match by exact amount in the last 60 minutes
+    if (!match && amount) {
+      const cleanAmt = String(parseFloat(amount) || amount).trim();
+      const amtRes = await db.execute({
+        sql: `SELECT * FROM app_online_payments 
+              WHERE amount = ? AND status = 'Pending Verification' 
+              AND datetime(created_at) >= datetime('now', '-60 minutes') 
+              ORDER BY id DESC LIMIT 1`,
+        args: [cleanAmt]
+      });
+      if (amtRes.rows && amtRes.rows.length > 0) {
+        match = amtRes.rows[0];
+        // If UTR was provided by observer, update the record
+        if (utr) {
+          await db.execute({
+            sql: "UPDATE app_online_payments SET utr_number = ? WHERE id = ?",
+            args: [String(utr).trim(), match.id]
+          });
+          match.utr_number = String(utr).trim();
+        }
+      }
+    }
+
+    if (match) {
+      const approvalResult = await executePaymentApproval(match, "Auto-Bank-Observer (SMS/Push)");
+      return res.json({
+        ok: true,
+        matched: true,
+        paymentId: match.id,
+        studentName: match.student_name,
+        amount: match.amount,
+        status: "Approved",
+        details: approvalResult
+      });
+    }
+
+    res.json({ ok: true, matched: false, message: "No pending payment matched this transaction alert" });
+  } catch (err) {
+    console.error("[OnlinePayments] auto-verify error:", err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // ── Secure Zero-Secret Database Proxy Gateway for Mobile App ──
 const BLOCKED_SQL_KEYWORDS = [
   'DROP TABLE', 'DROP DATABASE', 'DROP SCHEMA', 'DROP INDEX', 'DROP VIEW',
