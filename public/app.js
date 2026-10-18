@@ -5068,7 +5068,8 @@ function renderStatsCards(forceFullRebuild = false) {
     grid.classList.remove("hidden");
   }
 
-  const stats = getDashboardStats(getStore());
+  const store = getStore();
+  const stats = getDashboardStats(store);
   const hiddenForStudents = new Set(["System Active Users", "Pending Fee Accounts", "Hostel Active"]);
 
   const existingCards = refs.statsCards ? refs.statsCards.querySelectorAll(".stat-card[data-stat-key]") : [];
