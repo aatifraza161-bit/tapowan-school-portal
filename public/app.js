@@ -5163,6 +5163,314 @@ window.showClassWiseFeeModal = function(targetClass = null) {
   document.body.appendChild(modal);
 };
 
+// ═══════════════════════════════════════════════════════════════
+// CLASS-WISE ATTENDANCE AGGREGATION ENGINE (100% Real Data)
+// ═══════════════════════════════════════════════════════════════
+window.getClassWiseAttendanceStats = function(store, targetDate) {
+  store = store || (typeof getStore === "function" ? getStore() : (window.serverStore || {}));
+  const attList = store.attendance || [];
+  const stuList = store.students || [];
+  const now = new Date();
+  const today = targetDate || [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
+
+  const classOrderRank = (clsName) => {
+    const raw = String(clsName || '').trim();
+    const base = raw.split(/[-\s]/)[0].toUpperCase();
+    const map = {
+      'NURSERY': 1, 'NUR': 1,
+      'LKG': 2, 'L.K.G': 2,
+      'UKG': 3, 'U.K.G': 3,
+      'I': 4, '1': 4,
+      'II': 5, '2': 5,
+      'III': 6, '3': 6,
+      'IV': 7, '4': 7,
+      'V': 8, '5': 8,
+      'VI': 9, '6': 9,
+      'VII': 10, '7': 10,
+      'VIII': 11, '8': 11,
+      'IX': 12, '9': 12,
+      'X': 13, '10': 13,
+      'XI': 14, '11': 14,
+      'XII': 15, '12': 15
+    };
+    return map[base] !== undefined ? map[base] : 99;
+  };
+
+  const classMap = {};
+  function getClsEntry(rawCls) {
+    let c = String(rawCls || '').trim();
+    if (!c || c.toLowerCase() === 'null') c = 'Unassigned';
+    c = c.replace(/^Class\s+/i, '').trim();
+    if (!classMap[c]) {
+      classMap[c] = {
+        className: c,
+        totalStudents: 0,
+        presentCount: 0,
+        absentCount: 0,
+        lateCount: 0,
+        overallPresentSum: 0,
+        overallMarkedCount: 0
+      };
+    }
+    return classMap[c];
+  }
+
+  stuList.forEach(s => {
+    const cls = s.className || s.classname;
+    if (cls) getClsEntry(cls).totalStudents++;
+  });
+
+  attList.forEach(a => {
+    const cls = a.className || a.classname;
+    const st = String(a.status || '').toLowerCase();
+    const entry = getClsEntry(cls);
+
+    entry.overallMarkedCount++;
+    if (st.includes('present')) entry.overallPresentSum++;
+
+    if (a.date === today) {
+      if (st.includes('present')) entry.presentCount++;
+      else if (st.includes('late')) entry.lateCount++;
+      else entry.absentCount++;
+    }
+  });
+
+  const sorted = Object.values(classMap)
+    .filter(x => x.className !== 'Unassigned' || x.totalStudents > 0)
+    .sort((a, b) => {
+      const rA = classOrderRank(a.className);
+      const rB = classOrderRank(b.className);
+      if (rA !== rB) return rA - rB;
+      return a.className.localeCompare(b.className);
+    });
+
+  let grandTotalStudents = 0;
+  let grandPresentToday = 0;
+  let grandOverallPresent = 0;
+  let grandOverallMarked = 0;
+
+  sorted.forEach(c => {
+    grandTotalStudents += c.totalStudents;
+    grandPresentToday += c.presentCount;
+    grandOverallPresent += c.overallPresentSum;
+    grandOverallMarked += c.overallMarkedCount;
+  });
+
+  return {
+    classes: sorted,
+    grandTotalStudents,
+    grandPresentToday,
+    grandOverallRate: grandOverallMarked > 0 ? Math.round((grandOverallPresent / grandOverallMarked) * 100) : 0,
+    date: today
+  };
+};
+
+window.takeAttendanceForClass = function(clsName) {
+  const modal = document.getElementById("classWiseAttendanceModal");
+  if (modal) modal.remove();
+
+  if (typeof window.navigateModule === "function") {
+    window.navigateModule("attendance");
+  } else {
+    const btn = document.querySelector('button[data-module="attendance"]');
+    if (btn) btn.click();
+  }
+
+  setTimeout(() => {
+    const cf = document.getElementById("classFilter");
+    if (cf) {
+      cf.value = clsName;
+      cf.dispatchEvent(new Event("change"));
+    }
+  }, 250);
+};
+
+window.showClassWiseAttendanceModal = function(targetClass = null) {
+  const store = typeof getStore === "function" ? getStore() : (window.serverStore || {});
+  const attData = window.getClassWiseAttendanceStats(store);
+  const classes = attData.classes || [];
+  const maxStudents = Math.max(1, ...(classes.map(c => Math.max(c.totalStudents, c.presentCount))));
+
+  let existing = document.getElementById("classWiseAttendanceModal");
+  if (existing) existing.remove();
+
+  const modal = document.createElement("div");
+  modal.id = "classWiseAttendanceModal";
+  modal.style.cssText = `
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(6px);
+    z-index: 999999; display: flex; align-items: center; justify-content: center;
+    padding: 16px; box-sizing: border-box; font-family: inherit;
+    animation: modalFadeIn 0.2s ease-out;
+  `;
+
+  let rowsHtml = classes.map(c => {
+    const isTarget = targetClass && (c.className === targetClass || targetClass.includes(c.className));
+    const todayRate = c.totalStudents > 0 ? Math.round((c.presentCount / c.totalStudents) * 100) : 0;
+    const overallRate = c.overallMarkedCount > 0 ? Math.round((c.overallPresentSum / c.overallMarkedCount) * 100) : 0;
+    const highlightBg = isTarget ? 'background:#fff1f2; border-left:4px solid #e11d48;' : '';
+
+    return `
+      <tr style="${highlightBg} border-bottom:1px solid #f1f5f9; transition:background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='${isTarget ? '#fff1f2' : 'transparent'}'">
+        <td style="padding:10px 14px; font-weight:800; color:#1e293b; display:flex; align-items:center; gap:8px;">
+          <span style="width:10px; height:10px; border-radius:50%; background:${c.presentCount > 0 ? '#10b981' : '#f43f5e'};"></span>
+          ${c.className}
+        </td>
+        <td style="padding:10px 14px; text-align:center; font-weight:700; color:#475569;">${c.totalStudents}</td>
+        <td style="padding:10px 14px; text-align:center;">
+          <span style="background:${c.presentCount > 0 ? '#ecfdf5' : '#f1f5f9'}; color:${c.presentCount > 0 ? '#059669' : '#64748b'}; padding:3px 10px; border-radius:12px; font-weight:800; font-size:0.78rem; border:1px solid ${c.presentCount > 0 ? '#a7f3d0' : '#e2e8f0'};">
+            ${c.presentCount}
+          </span>
+        </td>
+        <td style="padding:10px 14px; text-align:center; color:#94a3b8; font-weight:600;">
+          ${Math.max(0, c.totalStudents - c.presentCount)}
+        </td>
+        <td style="padding:10px 14px; text-align:center;">
+          <div style="display:inline-flex; align-items:center; gap:6px;">
+            <div style="width:50px; height:6px; background:#e2e8f0; border-radius:3px; overflow:hidden;">
+              <div style="width:${todayRate}%; height:100%; background:#10b981;"></div>
+            </div>
+            <span style="font-size:0.72rem; font-weight:700; color:${todayRate > 0 ? '#059669' : '#94a3b8'};">${todayRate}%</span>
+          </div>
+        </td>
+        <td style="padding:10px 14px; text-align:center;">
+          <span style="font-weight:700; color:#0369a1; font-size:0.78rem;">${overallRate}%</span>
+        </td>
+        <td style="padding:10px 14px; text-align:center;">
+          <button type="button" onclick="window.takeAttendanceForClass('${c.className}')" style="padding:4px 10px; background:#ffe4e6; color:#be123c; border:1px solid #fecdd3; border-radius:6px; font-size:0.72rem; font-weight:700; cursor:pointer;" title="Mark Attendance">
+            Mark Attendance →
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  const chartColsHtml = classes.map(c => {
+    const tH = Math.max(12, Math.round((c.totalStudents / maxStudents) * 120));
+    const pH = Math.max(c.presentCount > 0 ? 8 : 2, Math.round((c.presentCount / maxStudents) * 120));
+    const isTarget = targetClass && (c.className === targetClass || targetClass.includes(c.className));
+
+    return `
+      <div style="display:flex; flex-direction:column; align-items:center; flex:1; min-width:38px; cursor:pointer;" title="${c.className}&#10;Enrolled: ${c.totalStudents}&#10;Present Today: ${c.presentCount}">
+        <div style="height:130px; display:flex; align-items:flex-end; gap:4px; position:relative; padding-bottom:4px;">
+          <!-- Enrolled Students Bar (Rose/Slate) -->
+          <div style="width:12px; height:${tH}px; background:linear-gradient(180deg, #fda4af, #f43f5e); border-radius:4px 4px 0 0; box-shadow:0 2px 6px rgba(244,63,94,0.2);"></div>
+          <!-- Present Students Bar (Emerald) -->
+          <div style="width:12px; height:${pH}px; background:linear-gradient(180deg, #34d399, #059669); border-radius:4px 4px 0 0; box-shadow:0 2px 6px rgba(16,185,129,0.25);"></div>
+        </div>
+        <span style="font-size:0.72rem; font-weight:${isTarget ? '900' : '700'}; color:${isTarget ? '#e11d48' : '#475569'}; margin-top:6px; text-align:center;">
+          ${c.className.replace(/Nursery/i, 'Nur').replace(/-A$/, '')}
+        </span>
+      </div>
+    `;
+  }).join('');
+
+  modal.innerHTML = `
+    <div style="background:#fff; width:100%; max-width:880px; max-height:90vh; border-radius:18px; box-shadow:0 20px 40px rgba(0,0,0,0.25); display:flex; flex-direction:column; overflow:hidden; border:1px solid #e2e8f0;">
+      
+      <!-- Modal Header -->
+      <div style="padding:18px 22px; background:linear-gradient(135deg, #fff1f2, #ffe4e6); border-bottom:1px solid #fecdd3; display:flex; align-items:center; justify-content:space-between;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="width:42px; height:42px; border-radius:12px; background:#fecdd3; color:#be123c; display:grid; place-items:center;">
+            <span class="material-symbols-outlined" style="font-size:24px;">how_to_reg</span>
+          </div>
+          <div>
+            <h3 style="margin:0; font-size:1.15rem; font-weight:800; color:#881337;">Class-Wise Daily Attendance Analysis</h3>
+            <p style="margin:2px 0 0; font-size:0.75rem; color:#be123c;">Live student attendance verification &amp; campus presence by class (${attData.date})</p>
+          </div>
+        </div>
+        <button type="button" onclick="document.getElementById('classWiseAttendanceModal').remove()" style="width:36px; height:36px; border-radius:50%; border:none; background:#fecdd3; color:#881337; cursor:pointer; display:grid; place-items:center; font-weight:bold; transition:all 0.15s;" onmouseover="this.style.background='#fda4af'" onmouseout="this.style.background='#fecdd3'">
+          <span class="material-symbols-outlined" style="font-size:20px;">close</span>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div style="padding:20px 22px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:20px;">
+        
+        <!-- Summary Cards -->
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px;">
+          <div style="background:#fff1f2; border:1px solid #fecdd3; border-radius:12px; padding:12px 14px;">
+            <div style="font-size:0.68rem; font-weight:700; color:#be123c; text-transform:uppercase; letter-spacing:0.04em;">Present Today</div>
+            <div style="font-size:1.35rem; font-weight:900; color:#881337; margin-top:2px;">${attData.grandPresentToday} Students</div>
+            <div style="font-size:0.7rem; color:#e11d48; margin-top:2px;">Active Verified Check-ins</div>
+          </div>
+          <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:12px; padding:12px 14px;">
+            <div style="font-size:0.68rem; font-weight:700; color:#2563eb; text-transform:uppercase; letter-spacing:0.04em;">Total Enrolled</div>
+            <div style="font-size:1.35rem; font-weight:900; color:#1e40af; margin-top:2px;">${attData.grandTotalStudents} Students</div>
+            <div style="font-size:0.7rem; color:#3b82f6; margin-top:2px;">Across ${classes.length} Academic Classes</div>
+          </div>
+          <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px; padding:12px 14px;">
+            <div style="font-size:0.68rem; font-weight:700; color:#16a34a; text-transform:uppercase; letter-spacing:0.04em;">Today's Rate</div>
+            <div style="font-size:1.35rem; font-weight:900; color:#15803d; margin-top:2px;">
+              ${attData.grandTotalStudents > 0 ? Math.round((attData.grandPresentToday / attData.grandTotalStudents) * 100) : 0}%
+            </div>
+            <div style="font-size:0.7rem; color:#16a34a; margin-top:2px;">Daily School Attendance</div>
+          </div>
+          <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px 14px;">
+            <div style="font-size:0.68rem; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:0.04em;">Historical Avg</div>
+            <div style="font-size:1.35rem; font-weight:900; color:#0f172a; margin-top:2px;">${attData.grandOverallRate}%</div>
+            <div style="font-size:0.7rem; color:#64748b; margin-top:2px;">Session Attendance Baseline</div>
+          </div>
+        </div>
+
+        <!-- Comparative Chart Box -->
+        <div style="background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:16px; box-shadow:0 2px 8px rgba(0,0,0,0.02);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <div style="font-size:0.85rem; font-weight:800; color:#1e293b;">Comparative Chart: Enrolled Students vs Present Today</div>
+            <div style="display:flex; gap:12px; font-size:0.72rem; font-weight:700;">
+              <span style="display:inline-flex; align-items:center; gap:4px; color:#f43f5e;"><span style="width:8px; height:8px; border-radius:50%; background:#f43f5e;"></span>Enrolled</span>
+              <span style="display:inline-flex; align-items:center; gap:4px; color:#10b981;"><span style="width:8px; height:8px; border-radius:50%; background:#10b981;"></span>Present Today</span>
+            </div>
+          </div>
+          <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:6px; overflow-x:auto; padding-bottom:6px; scrollbar-width:thin;">
+            ${chartColsHtml}
+          </div>
+        </div>
+
+        <!-- Full Breakdown Table -->
+        <div style="background:#fff; border:1px solid #e2e8f0; border-radius:14px; overflow:hidden;">
+          <div style="padding:12px 16px; background:#f8fafc; border-bottom:1px solid #e2e8f0; font-size:0.82rem; font-weight:800; color:#1e293b; display:flex; justify-content:space-between; align-items:center;">
+            <span>Class-Wise Attendance Roster</span>
+            <span style="font-size:0.72rem; font-weight:600; color:#64748b;">${classes.length} classes listed</span>
+          </div>
+          <div style="overflow-x:auto;">
+            <table style="width:100%; border-collapse:collapse; font-size:0.82rem;">
+              <thead>
+                <tr style="background:#f1f5f9; color:#475569; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.04em; border-bottom:1px solid #e2e8f0;">
+                  <th style="padding:8px 14px; text-align:left;">Class</th>
+                  <th style="padding:8px 14px; text-align:center;">Enrolled</th>
+                  <th style="padding:8px 14px; text-align:center;">Present</th>
+                  <th style="padding:8px 14px; text-align:center;">Absent</th>
+                  <th style="padding:8px 14px; text-align:center;">Today %</th>
+                  <th style="padding:8px 14px; text-align:center;">Historical %</th>
+                  <th style="padding:8px 14px; text-align:center;">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rowsHtml}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div style="padding:12px 22px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size:0.72rem; color:#64748b;">Live biometric &amp; class register data</span>
+        <button type="button" onclick="document.getElementById('classWiseAttendanceModal').remove()" style="padding:8px 18px; background:#be123c; color:#fff; border:none; border-radius:8px; font-weight:700; font-size:0.8rem; cursor:pointer;">Close</button>
+      </div>
+
+    </div>
+  `;
+
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) modal.remove();
+  });
+
+  document.body.appendChild(modal);
+};
+
 function getDashboardStats(store) {
   const fees = store.fees || [];
   
@@ -5463,6 +5771,15 @@ function renderStatsCards(forceFullRebuild = false) {
         const totalPendingFmt = classFeeData ? '₹' + classFeeData.grandTotalPending.toLocaleString('en-IN') : '';
         const pendingAmountEl = card.querySelector(".stat-pending-dues-amount");
         if (pendingAmountEl && totalPendingFmt) pendingAmountEl.textContent = totalPendingFmt;
+      } else if (k === "Student Present Today") {
+        const valEl = card.querySelector(".stat-value");
+        if (valEl && valEl.textContent !== String(v)) valEl.textContent = v;
+        const attData = window.getClassWiseAttendanceStats ? window.getClassWiseAttendanceStats(store) : null;
+        const summarySpan = card.querySelector(".stat-att-summary-val");
+        if (summarySpan && attData) {
+          const rate = attData.grandTotalStudents > 0 ? Math.round((v / attData.grandTotalStudents) * 100) : 0;
+          summarySpan.textContent = `Today: ${rate}% Present`;
+        }
       } else {
         const valEl = card.querySelector(".stat-value");
         if (valEl && valEl.textContent !== String(v)) {
@@ -5617,6 +5934,83 @@ function renderStatsCards(forceFullRebuild = false) {
             <button type="button" onclick="window.navigateModule ? window.navigateModule('dueManagement') : document.querySelector('button[data-module=dueManagement]')?.click()" class="tbl-btn" style="padding:6px 10px; font-size:0.7rem; font-weight:700; background:#fff; color:#6b21a8; border:1px solid #e9d5ff; border-radius:8px; cursor:pointer; display:flex; align-items:center; gap:3px; transition:all 0.15s;" onmouseover="this.style.background='#faf5ff'" onmouseout="this.style.background='#fff'">
               <span class="material-symbols-outlined" style="font-size:14px;">receipt_long</span>
               Dues
+            </button>
+          </div>
+        `;
+      } else if (k === "Student Present Today") {
+        card.style.background = "linear-gradient(135deg, #fff1f2, #ffffff)";
+        card.style.border = "1px solid #fecdd3";
+        card.style.minHeight = "240px";
+        card.classList.add("stat-card-attendance");
+
+        const attData = window.getClassWiseAttendanceStats ? window.getClassWiseAttendanceStats(store) : null;
+        const classes = attData ? attData.classes : [];
+        const maxStudents = Math.max(1, ...(classes.map(c => Math.max(c.totalStudents, c.presentCount))));
+        const totalEnrolled = attData ? attData.grandTotalStudents : 0;
+        const totalPresent = v;
+        const attRate = totalEnrolled > 0 ? Math.round((totalPresent / totalEnrolled) * 100) : 0;
+        const overallRate = attData ? attData.grandOverallRate : 0;
+
+        const barsHtml = classes.map(c => {
+          const eH = Math.max(8, Math.round((c.totalStudents / maxStudents) * 65));
+          const pH = Math.max(c.presentCount > 0 ? 6 : 2, Math.round((c.presentCount / maxStudents) * 65));
+          const pPct = c.totalStudents > 0 ? Math.round((c.presentCount / c.totalStudents) * 100) : 0;
+          const shortName = c.className.replace(/Nursery/i, 'Nur').replace(/-A$/, '');
+
+          return `
+            <div class="attendance-bar-col" data-class="${c.className}" onclick="window.showClassWiseAttendanceModal('${c.className}')" title="${c.className}&#10;Present Today: ${c.presentCount} / ${c.totalStudents} (${pPct}%)&#10;Historical Rate: ${c.overallMarkedCount > 0 ? Math.round((c.overallPresentSum / c.overallMarkedCount) * 100) : 0}%&#10;Enrolled: ${c.totalStudents}" style="display:flex; flex-direction:column; align-items:center; cursor:pointer; flex:1; min-width:18px;">
+              <div style="height:70px; display:flex; align-items:flex-end; gap:2px; position:relative;">
+                <!-- Enrolled Students Bar (Rose/Slate) -->
+                <div style="width:6px; height:${eH}px; background:linear-gradient(180deg, #fda4af, #f43f5e); border-radius:3px 3px 0 0;" title="Enrolled: ${c.totalStudents}"></div>
+                <!-- Present Students Bar (Emerald) -->
+                <div style="width:6px; height:${pH}px; background:linear-gradient(180deg, #34d399, #059669); border-radius:3px 3px 0 0;" title="Present Today: ${c.presentCount} (${pPct}%)"></div>
+              </div>
+              <span style="font-size:0.6rem; font-weight:700; color:#64748b; margin-top:4px; white-space:nowrap;">${shortName}</span>
+            </div>
+          `;
+        }).join('');
+
+        card.innerHTML = `
+          <div class="stat-top">
+            <h4 style="color:#9f1239;">${k}</h4>
+            <div class="stat-icon-bubble" style="background:#ffe4e6; color:#e11d48;">
+              <span class="material-symbols-outlined" style="font-size:22px; color:#e11d48;">how_to_reg</span>
+            </div>
+          </div>
+          <div style="display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:6px;">
+            <div class="stat-value" style="color:#be123c; font-size:1.8rem; margin:0;">${v}</div>
+            <div style="font-size:0.88rem; font-weight:800; color:#059669;">${totalPresent} / ${totalEnrolled} Active</div>
+          </div>
+          <div style="font-size:0.72rem; color:#be123c; font-weight:600; margin-top:2px; display:flex; justify-content:space-between;">
+            <span class="stat-att-summary-val">Today: ${attRate}% Present</span>
+            <span style="color:#0369a1; font-weight:700;">Historical Avg: ${overallRate}%</span>
+          </div>
+
+          <!-- Class-wise Graph Section -->
+          <div style="margin-top:14px; background:#fff; border-radius:12px; padding:10px 8px; box-shadow:0 2px 8px rgba(225,29,72,0.06); border:1px solid #ffe4e6;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; padding:0 4px;">
+              <span style="font-size:0.65rem; font-weight:800; color:#9f1239; text-transform:uppercase; letter-spacing:0.04em;">Class-wise Attendance</span>
+              <div style="display:flex; align-items:center; gap:8px; font-size:0.62rem; font-weight:600;">
+                <span style="display:inline-flex; align-items:center; gap:3px; color:#f43f5e;"><span style="width:6px; height:6px; border-radius:50%; background:#f43f5e;"></span>Enrolled</span>
+                <span style="display:inline-flex; align-items:center; gap:3px; color:#059669;"><span style="width:6px; height:6px; border-radius:50%; background:#10b981;"></span>Present</span>
+              </div>
+            </div>
+
+            <!-- Scrollable Bar Chart Plot -->
+            <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:4px; overflow-x:auto; padding-bottom:2px; scrollbar-width:thin;">
+              ${barsHtml}
+            </div>
+          </div>
+
+          <!-- Bottom Action Buttons -->
+          <div style="margin-top:12px; display:flex; gap:6px;">
+            <button type="button" onclick="window.showClassWiseAttendanceModal()" class="tbl-btn" style="flex:1; padding:6px; font-size:0.7rem; font-weight:700; background:#ffe4e6; color:#be123c; border:1px solid #fecdd3; border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; transition:all 0.15s;" onmouseover="this.style.background='#fecdd3'" onmouseout="this.style.background='#ffe4e6'">
+              <span class="material-symbols-outlined" style="font-size:14px;">bar_chart</span>
+              Class Breakdown
+            </button>
+            <button type="button" onclick="window.navigateModule ? window.navigateModule('attendance') : document.querySelector('button[data-module=attendance]')?.click()" class="tbl-btn" style="padding:6px 10px; font-size:0.7rem; font-weight:700; background:#fff; color:#be123c; border:1px solid #fecdd3; border-radius:8px; cursor:pointer; display:flex; align-items:center; gap:3px; transition:all 0.15s;" onmouseover="this.style.background='#fff1f2'" onmouseout="this.style.background='#fff'">
+              <span class="material-symbols-outlined" style="font-size:14px;">check_circle</span>
+              Mark
             </button>
           </div>
         `;
@@ -6076,6 +6470,13 @@ window.getRealAnalyticsSuiteHTML = function(d) {
                   <div class="speedo-fill gray" style="width: ${staffRate}%;"></div>
                 </div>
               </div>
+            </div>
+
+            <div style="margin-top:14px;">
+              <button type="button" onclick="window.showClassWiseAttendanceModal()" style="width:100%; padding:7px 12px; background:#fff1f2; color:#be123c; border:1px solid #fecdd3; border-radius:10px; font-size:0.75rem; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; transition:all 0.15s;" onmouseover="this.style.background='#ffe4e6'" onmouseout="this.style.background='#fff1f2'">
+                <span class="material-symbols-outlined" style="font-size:16px;">how_to_reg</span>
+                View Class-wise Attendance Graph →
+              </button>
             </div>
           </div>
         </div>
