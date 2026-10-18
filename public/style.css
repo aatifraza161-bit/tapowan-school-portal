@@ -2357,7 +2357,7 @@ tbody td:last-child { padding-right: 24px; }
   .mobile-bottom-item:active {
     transform: scale(0.92);
   }
-  .vidya-fab {
+  .vidya-fab:not([style*="left"]) {
     bottom: 74px !important;
     right: 16px !important;
     z-index: 9990 !important;
@@ -2743,13 +2743,26 @@ tbody td:last-child { padding-right: 24px; }
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  cursor: pointer;
+  cursor: grab;
   user-select: none;
   -webkit-user-select: none;
+  touch-action: none;
   transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .vidya-fab:hover {
-  transform: translateY(-4px);
+  transform: translateY(-2px);
+}
+.vidya-fab:active {
+  cursor: grabbing;
+}
+.vidya-fab.is-dragging {
+  cursor: grabbing !important;
+  transition: none !important;
+  pointer-events: auto;
+}
+.vidya-fab.is-dragging .vidya-fab-avatar {
+  animation: none !important;
+  transition: none !important;
 }
 .vidya-fab-ring {
   display: none !important;
@@ -2768,16 +2781,16 @@ tbody td:last-child { padding-right: 24px; }
   position: relative;
   z-index: 1;
   overflow: visible !important;
-  filter: drop-shadow(0 10px 18px rgba(124, 58, 237, 0.45));
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.3s ease;
+  filter: none !important;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .vidya-fab-avatar:hover {
-  transform: scale(1.1) translateY(-6px);
-  filter: drop-shadow(0 14px 26px rgba(124, 58, 237, 0.7)) drop-shadow(0 0 16px rgba(56, 189, 248, 0.6));
+  transform: scale(1.05) translateY(-3px);
+  filter: none !important;
 }
 .vidya-fab-avatar.talking {
   animation: vidya-robot-talking 1.1s ease-in-out infinite alternate !important;
-  filter: drop-shadow(0 14px 28px rgba(56, 189, 248, 0.85)) drop-shadow(0 0 20px rgba(168, 85, 247, 0.75)) !important;
+  filter: none !important;
   border: none !important;
   border-radius: 0 !important;
   box-shadow: none !important;
@@ -2788,21 +2801,7 @@ tbody td:last-child { padding-right: 24px; }
   100% { transform: translateY(-2px) scale(1.02) rotate(-1deg); }
 }
 .vidya-robot-shadow {
-  position: absolute;
-  bottom: 2px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 56px;
-  height: 10px;
-  border-radius: 50%;
-  background: radial-gradient(ellipse at center, rgba(15, 23, 42, 0.45) 0%, rgba(124, 58, 237, 0.2) 50%, transparent 80%);
-  pointer-events: none;
-  z-index: 0;
-  animation: vidya-shadow-scale 3.5s ease-in-out infinite;
-}
-@keyframes vidya-shadow-scale {
-  0%, 100% { transform: translateX(-50%) scale(1); opacity: 0.65; }
-  50%      { transform: translateX(-50%) scale(0.8); opacity: 0.3; }
+  display: none !important;
 }
 .vidya-3d-img,
 .vidya-3d-video {
@@ -3427,7 +3426,7 @@ tbody td:last-child { padding-right: 24px; }
   }
 
   /* FAB button default position on mobile */
-  .vidya-fab {
+  .vidya-fab:not([style*="left"]) {
     bottom: calc(72px + env(safe-area-inset-bottom, 0px)) !important;
     right: 14px !important;
   }

@@ -20404,12 +20404,9 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
       const armR = createArm(1);
       const armL = createArm(-1);
 
-      // Ground shadow
-      const sh = new THREE.Mesh(new THREE.CircleGeometry(1, 40), new THREE.MeshBasicMaterial({ color: 0x0b0420, transparent: true, opacity: 0.35 }));
-      sh.rotation.x = -Math.PI / 2;
-      sh.position.y = -2.1;
-      sh.scale.set(1.2, 1.2, 1.2);
-      scene.add(sh);
+      // Ground shadow removed per user request to avoid hiding content
+      const sh = new THREE.Mesh(new THREE.CircleGeometry(0.1, 8), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 }));
+      sh.visible = false;
 
       const inst = {
         container: targetContainer,
@@ -20470,7 +20467,7 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
         // Hover float and gentle sway
         robot.position.y = Math.sin(t * 1.6) * 0.12;
         robot.rotation.y = Math.sin(t * 0.7) * 0.12;
-        sh.scale.setScalar(1.2 - Math.sin(t * 1.6) * 0.08);
+        if (sh && sh.visible) sh.scale.setScalar(1.2 - Math.sin(t * 1.6) * 0.08);
 
         // Head follow cursor
         inst.hx += (inst.tx * 0.7 - inst.hx) * 0.08;
@@ -20612,9 +20609,8 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
   fab.id = "vidyaFab";
   fab.className = "vidya-fab";
   fab.innerHTML = `
-    <div class="vidya-fab-avatar" id="vidyaFabAvatarHolder" title="AI Vidya — 3D Robot Assistant">
+    <div class="vidya-fab-avatar" id="vidyaFabAvatarHolder" title="AI Vidya — 3D Robot Assistant (Drag to reposition)">
       <div id="vidyaFabCanvasWrap"></div>
-      <div class="vidya-robot-shadow"></div>
       <div class="vidya-avatar-status-badge" title="Robot Online & Ready"></div>
       <div class="vidya-soundwave-bars">
         <span></span><span></span><span></span><span></span><span></span>
@@ -20624,6 +20620,119 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
 
   document.body.appendChild(widget);
   document.body.appendChild(fab);
+
+  // ── Drag & Drop Controller for AI Vidya Robot (Move anywhere, remember position, prevent hiding content) ──
+  window._vidyaFabMoved = false;
+  let isDraggingFab = false;
+  let dragStartX = 0;
+  let dragStartY = 0;
+  let fabOrigLeft = 0;
+  let fabOrigTop = 0;
+
+  // Restore saved position if available
+  try {
+    const savedPos = localStorage.getItem("vidya_fab_pos");
+    if (savedPos) {
+      const parsed = JSON.parse(savedPos);
+      if (typeof parsed.left === "number" && typeof parsed.top === "number") {
+        const maxL = Math.max(8, window.innerWidth - 110);
+        const maxT = Math.max(8, window.innerHeight - 150);
+        const clampL = Math.max(8, Math.min(maxL, parsed.left));
+        const clampT = Math.max(8, Math.min(maxT, parsed.top));
+        fab.style.setProperty("left", `${clampL}px`, "important");
+        fab.style.setProperty("top", `${clampT}px`, "important");
+        fab.style.setProperty("right", "auto", "important");
+        fab.style.setProperty("bottom", "auto", "important");
+      }
+    }
+  } catch (err) {
+    console.warn("Could not load vidya_fab_pos:", err);
+  }
+
+  function onFabPointerDown(e) {
+    if (e.type === "mousedown" && e.button !== 0) return;
+    isDraggingFab = true;
+    window._vidyaFabMoved = false;
+
+    const clientX = e.type.startsWith("touch") ? e.touches[0].clientX : e.clientX;
+    const clientY = e.type.startsWith("touch") ? e.touches[0].clientY : e.clientY;
+
+    dragStartX = clientX;
+    dragStartY = clientY;
+
+    const rect = fab.getBoundingClientRect();
+    fabOrigLeft = rect.left;
+    fabOrigTop = rect.top;
+
+    fab.classList.add("is-dragging");
+
+    window.addEventListener("mousemove", onFabPointerMove, { passive: false });
+    window.addEventListener("mouseup", onFabPointerUp, { passive: false });
+    window.addEventListener("touchmove", onFabPointerMove, { passive: false });
+    window.addEventListener("touchend", onFabPointerUp, { passive: false });
+    window.addEventListener("touchcancel", onFabPointerUp, { passive: false });
+  }
+
+  function onFabPointerMove(e) {
+    if (!isDraggingFab) return;
+
+    const clientX = e.type.startsWith("touch") ? e.touches[0].clientX : e.clientX;
+    const clientY = e.type.startsWith("touch") ? e.touches[0].clientY : e.clientY;
+
+    const dx = clientX - dragStartX;
+    const dy = clientY - dragStartY;
+
+    if (!window._vidyaFabMoved && Math.hypot(dx, dy) > 6) {
+      window._vidyaFabMoved = true;
+    }
+
+    if (window._vidyaFabMoved) {
+      if (e.cancelable) e.preventDefault();
+      const maxL = Math.max(8, window.innerWidth - fab.offsetWidth - 8);
+      const maxT = Math.max(8, window.innerHeight - fab.offsetHeight - 8);
+      const newL = Math.max(8, Math.min(maxL, fabOrigLeft + dx));
+      const newT = Math.max(8, Math.min(maxT, fabOrigTop + dy));
+
+      fab.style.setProperty("left", `${newL}px`, "important");
+      fab.style.setProperty("top", `${newT}px`, "important");
+      fab.style.setProperty("right", "auto", "important");
+      fab.style.setProperty("bottom", "auto", "important");
+    }
+  }
+
+  function onFabPointerUp(e) {
+    if (!isDraggingFab) return;
+    isDraggingFab = false;
+    fab.classList.remove("is-dragging");
+
+    window.removeEventListener("mousemove", onFabPointerMove);
+    window.removeEventListener("mouseup", onFabPointerUp);
+    window.removeEventListener("touchmove", onFabPointerMove);
+    window.removeEventListener("touchend", onFabPointerUp);
+    window.removeEventListener("touchcancel", onFabPointerUp);
+
+    if (window._vidyaFabMoved) {
+      const rect = fab.getBoundingClientRect();
+      try {
+        localStorage.setItem("vidya_fab_pos", JSON.stringify({ left: Math.round(rect.left), top: Math.round(rect.top) }));
+      } catch (err) {}
+      setTimeout(() => { window._vidyaFabMoved = false; }, 80);
+    }
+  }
+
+  fab.addEventListener("mousedown", onFabPointerDown);
+  fab.addEventListener("touchstart", onFabPointerDown, { passive: true });
+
+  window.addEventListener("resize", () => {
+    if (!fab.style.left || fab.style.left === "auto") return;
+    const rect = fab.getBoundingClientRect();
+    const maxL = Math.max(8, window.innerWidth - fab.offsetWidth - 8);
+    const maxT = Math.max(8, window.innerHeight - fab.offsetHeight - 8);
+    if (rect.left > maxL || rect.top > maxT) {
+      fab.style.setProperty("left", `${Math.max(8, Math.min(maxL, rect.left))}px`, "important");
+      fab.style.setProperty("top", `${Math.max(8, Math.min(maxT, rect.top))}px`, "important");
+    }
+  });
 
   // Initialize 3D Avatar in FAB immediately when Three.js is ready
   mountRobotWhenReady(document.getElementById("vidyaFabCanvasWrap"));
@@ -22408,7 +22517,12 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
   });
 
   // ── FAB toggle ──
-  fab.addEventListener("click", () => {
+  fab.addEventListener("click", (e) => {
+    if (window._vidyaFabMoved) {
+      e.stopPropagation();
+      e.preventDefault();
+      return;
+    }
     widget.classList.toggle("hidden");
     if (!widget.classList.contains("hidden")) {
       document.body.classList.add("vidya-modal-open");
