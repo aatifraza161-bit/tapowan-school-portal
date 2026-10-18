@@ -4365,7 +4365,8 @@ img[src*="student-photos"],
 
 .class-avg-pill {
   position: absolute;
-  left: 8px;
+  right: 10px;
+  left: auto;
   transform: translateY(-50%);
   background: #0f172a;
   color: #ffffff;
@@ -4374,7 +4375,7 @@ img[src*="student-photos"],
   font-size: 0.68rem;
   font-weight: 700;
   box-shadow: 0 2px 6px rgba(0,0,0,0.18);
-  z-index: 3;
+  z-index: 5;
 }
 
 .class-bar-col {
