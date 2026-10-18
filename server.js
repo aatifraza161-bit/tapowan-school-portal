@@ -456,12 +456,20 @@ app.get([
   const reqFile = req.path.replace(/^\/+/, '') || 'TPS-Original-App.apk';
   const localApkPath = path.join(__dirname, 'public', reqFile);
   const defaultApkPath = path.join(__dirname, 'public', 'TPS-Original-App.apk');
+  const rootApkPath = path.join(__dirname, reqFile);
+  const rootDefaultApkPath = path.join(__dirname, 'TPS-Original-App.apk');
 
   if (fs.existsSync(localApkPath)) {
     return res.sendFile(localApkPath);
   }
   if (fs.existsSync(defaultApkPath)) {
     return res.sendFile(defaultApkPath);
+  }
+  if (fs.existsSync(rootApkPath)) {
+    return res.sendFile(rootApkPath);
+  }
+  if (fs.existsSync(rootDefaultApkPath)) {
+    return res.sendFile(rootDefaultApkPath);
   }
 
   const targetUrl = (reqFile.includes('TPS') || reqFile.endsWith('.apk'))
