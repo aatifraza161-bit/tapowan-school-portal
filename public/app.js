@@ -5012,20 +5012,20 @@ window.renderDashboardCalendarHTML = function(skipAutoFetch = false) {
         let shadow = 'none';
         
         if (holiday) {
-            bg = isToday ? 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)' : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)';
+            bg = isToday ? 'linear-gradient(135deg, #1e1b4b 0%, #0a0a0a 100%)' : 'linear-gradient(135deg, #262626 0%, #0a0a0a 100%)';
             color = '#ffffff';
-            border = isToday ? '2px solid #6366f1' : '1px solid #dc2626';
+            border = isToday ? '2px solid #6366f1' : '1px solid #171717';
             fontWeight = '800';
-            shadow = '0 2px 4px rgba(220, 38, 38, 0.25)';
+            shadow = isToday ? '0 0 0 2px rgba(99, 102, 241, 0.4), 0 3px 6px rgba(0,0,0,0.3)' : '0 2px 5px rgba(0, 0, 0, 0.25)';
         }
         
         let holidayTag = '';
         if (holiday) {
-            holidayTag = `<div style="font-size: 0.52rem; line-height: 1.15; color: #ffffff; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 3px; width: 100%; max-width: 100%; padding: 0 2px; box-sizing: border-box; text-align: center; text-shadow: 0 1px 2px rgba(0,0,0,0.3); letter-spacing: 0.2px;">${holidayTitle}</div>`;
+            holidayTag = `<div style="font-size: 0.52rem; line-height: 1.15; color: #ffffff; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 3px; width: 100%; max-width: 100%; padding: 0 2px; box-sizing: border-box; text-align: center; text-shadow: 0 1px 2px rgba(0,0,0,0.5); letter-spacing: 0.2px;">${holidayTitle}</div>`;
         }
         
         html += `<div style="padding: 6px 2px; border-radius: 8px; background: ${bg}; border: ${border}; box-shadow: ${shadow}; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 48px; min-width: 0; width: 100%; box-sizing: border-box; overflow: hidden; cursor: default; transition: transform 0.2s;" title="${holiday ? holidayTitle : ''}" onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='none'">
-            <div style="color: ${color}; font-weight: ${fontWeight}; font-size: 0.9rem; line-height: 1; ${holiday ? 'text-shadow: 0 1px 2px rgba(0,0,0,0.25);' : ''}">${day}</div>
+            <div style="color: ${color}; font-weight: ${fontWeight}; font-size: 0.9rem; line-height: 1; ${holiday ? 'text-shadow: 0 1px 2px rgba(0,0,0,0.4);' : ''}">${day}</div>
             ${holidayTag}
         </div>`;
     }
@@ -5033,7 +5033,7 @@ window.renderDashboardCalendarHTML = function(skipAutoFetch = false) {
     html += `</div>
              <div style="margin-top: 15px; font-size: 0.75rem; color: #64748b; font-weight: 600; display: flex; gap: 15px; justify-content: center; align-items: center;">
                 <div style="display: flex; align-items: center; gap: 6px;"><div style="width: 12px; height: 12px; background: #e0e7ff; border: 1px solid #c7d2fe; border-radius: 4px;"></div> Today</div>
-                <div style="display: flex; align-items: center; gap: 6px;"><div style="width: 12px; height: 12px; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); border: 1px solid #dc2626; border-radius: 4px; box-shadow: 0 1px 2px rgba(220, 38, 38, 0.25);"></div> Holiday</div>
+                <div style="display: flex; align-items: center; gap: 6px;"><div style="width: 12px; height: 12px; background: linear-gradient(135deg, #262626 0%, #0a0a0a 100%); border: 1px solid #171717; border-radius: 4px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);"></div> Holiday</div>
              </div>
     </div>`;
     return html;
