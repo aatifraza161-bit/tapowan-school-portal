@@ -4854,6 +4854,23 @@ function getDashboardStats(store) {
     date: displayDate(f.paymentDate) || "No Date"
   }));
 
+  // Accurate pending fee calculation across duemanagement and fees
+  const dueStudentSet = new Set();
+  let totalPendingFeeBal = 0;
+  (store.dueManagement || []).forEach(d => {
+    if (String(d.status).toLowerCase() !== "paid" && (Number(d.balance) > 0 || Number(d.dueAmount) > 0)) {
+      if (d.admissionNo) dueStudentSet.add(d.admissionNo);
+      totalPendingFeeBal += Number(d.balance || d.dueAmount || 0);
+    }
+  });
+  (store.fees || []).forEach(f => {
+    if (String(f.status).toLowerCase() !== "paid" && Number(f.balance) > 0) {
+      if (f.admissionNo) dueStudentSet.add(f.admissionNo);
+      totalPendingFeeBal += Number(f.balance || 0);
+    }
+  });
+  const pendingFeeAccountsCount = dueStudentSet.size || (store.fees || []).filter(x => String(x.status).toLowerCase() !== "paid").length;
+
   return {
     "Today's System Date": displayDate(today),
     "Total Students": (store.students || []).length,
@@ -4861,10 +4878,11 @@ function getDashboardStats(store) {
     "Total Classes": (store.classes || []).length,
     "Student Present Today": (store.attendance || []).filter(x => String(x.status).toLowerCase() === "present" && x.date === today).length,
     "Teacher Present Today": (store.teacherAttendance || []).filter(x => String(x.status).toLowerCase() === "present" && x.date === today).length,
-    "Pending Fee Accounts": (store.fees || []).filter(x => String(x.status).toLowerCase() !== "paid").length,
+    "Pending Fee Accounts": pendingFeeAccountsCount,
     "Total Payment Received": "₹" + filteredTotal.toLocaleString("en-IN"),
     "Lifetime Collection": "₹" + allTimeTotal.toLocaleString("en-IN"),
     "LastThree": lastThreePayments,
+    "Total Pending Dues Amount": totalPendingFeeBal,
     "Books Issued": (store.library || []).filter(x => String(x.status).toLowerCase() === "issued").length,
     "Hostel Active": (store.hostel || []).filter(x => String(x.status).toLowerCase() === "active").length,
     "New Admissions": (store.admissions || []).length,
@@ -5053,14 +5071,186 @@ function renderStatsCards(forceFullRebuild = false) {
   const stats = getDashboardStats(getStore());
   const hiddenForStudents = new Set(["System Active Users", "Pending Fee Accounts", "Hostel Active"]);
 
+  const store = getStore();
+  const totalStudents = Number(stats["Total Students"]) || (store.students || []).length || 1;
+  const totalTeachers = Number(stats["Total Teachers"]) || (store.teachers || []).length || 1;
+  const totalPendingBal = Number(stats["Total Pending Dues Amount"]) || 0;
+
+  const CARD_METAS = {
+    "Student Present Today": {
+      icon: "how_to_reg",
+      color: "#059669",
+      bgColor: "#ecfdf5",
+      borderColor: "#a7f3d0",
+      getDenominator: () => `<span class="stat-denominator">/ ${totalStudents}</span>`,
+      getSubtitle: (v) => {
+        const num = Number(v) || 0;
+        const pct = totalStudents > 0 ? ((num / totalStudents) * 100).toFixed(1) : "0";
+        const absent = Math.max(0, totalStudents - num);
+        return `<span class="stat-badge-pill" style="background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;"><span class="material-symbols-outlined" style="font-size:14px;">check_circle</span>${pct}% Turnout</span><span style="font-size:0.75rem;color:#64748b;margin-left:6px;">${absent} Absent</span>`;
+      },
+      getProgress: (v) => totalStudents > 0 ? Math.min(100, Math.round(((Number(v) || 0) / totalStudents) * 100)) : 0,
+      progressColor: "linear-gradient(90deg, #10b981, #059669)"
+    },
+    "Teacher Present Today": {
+      icon: "co_present",
+      color: "#2563eb",
+      bgColor: "#eff6ff",
+      borderColor: "#bfdbfe",
+      getDenominator: () => `<span class="stat-denominator">/ ${totalTeachers}</span>`,
+      getSubtitle: (v) => {
+        const num = Number(v) || 0;
+        const pct = totalTeachers > 0 ? Math.round((num / totalTeachers) * 100) : 0;
+        return `<span class="stat-badge-pill" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;"><span class="material-symbols-outlined" style="font-size:14px;">badge</span>${pct}% Present</span><span style="font-size:0.75rem;color:#64748b;margin-left:6px;">${totalTeachers} Staff</span>`;
+      },
+      getProgress: (v) => totalTeachers > 0 ? Math.min(100, Math.round(((Number(v) || 0) / totalTeachers) * 100)) : 0,
+      progressColor: "linear-gradient(90deg, #3b82f6, #1d4ed8)"
+    },
+    "Pending Fee Accounts": {
+      icon: "receipt_long",
+      color: "#e11d48",
+      bgColor: "#fff1f2",
+      borderColor: "#fecdd3",
+      getDenominator: () => `<span class="stat-denominator" style="color:#e11d48;font-size:0.85rem;">Due</span>`,
+      getSubtitle: (v) => {
+        const amtStr = totalPendingBal >= 100000 
+          ? "₹" + (totalPendingBal / 100000).toFixed(2) + " Lakh" 
+          : (totalPendingBal > 0 ? "₹" + totalPendingBal.toLocaleString('en-IN') : "Zero Balance");
+        return `<span class="stat-badge-pill" style="background:#fff1f2;color:#be123c;border:1px solid #fecdd3;"><span class="material-symbols-outlined" style="font-size:14px;">currency_rupee</span>${amtStr} Due</span><span style="font-size:0.75rem;color:#881337;margin-left:6px;">Action Required</span>`;
+      },
+      getProgress: (v) => totalStudents > 0 ? Math.min(100, Math.round(((Number(v) || 0) / totalStudents) * 100)) : 0,
+      progressColor: "linear-gradient(90deg, #f43f5e, #e11d48)"
+    },
+    "Total Students": {
+      icon: "school",
+      color: "#4f46e5",
+      bgColor: "#eef2ff",
+      borderColor: "#c7d2fe",
+      getDenominator: () => `<span class="stat-denominator" style="color:#6366f1;font-size:0.85rem;">Enrolled</span>`,
+      getSubtitle: () => `<span class="stat-badge-pill" style="background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe;"><span class="material-symbols-outlined" style="font-size:14px;">groups</span>Active Roster</span><span style="font-size:0.75rem;color:#64748b;margin-left:6px;">Academic 2026</span>`,
+      getProgress: () => 100,
+      progressColor: "linear-gradient(90deg, #6366f1, #4f46e5)"
+    },
+    "Total Teachers": {
+      icon: "local_library",
+      color: "#0891b2",
+      bgColor: "#ecfeff",
+      borderColor: "#a5f3fc",
+      getDenominator: () => `<span class="stat-denominator" style="color:#0891b2;font-size:0.85rem;">Faculty</span>`,
+      getSubtitle: () => `<span class="stat-badge-pill" style="background:#ecfeff;color:#0e7490;border:1px solid #a5f3fc;"><span class="material-symbols-outlined" style="font-size:14px;">verified</span>Teaching Staff</span><span style="font-size:0.75rem;color:#64748b;margin-left:6px;">All Departments</span>`,
+      getProgress: () => 100,
+      progressColor: "linear-gradient(90deg, #06b6d4, #0891b2)"
+    },
+    "Total Classes": {
+      icon: "meeting_room",
+      color: "#d97706",
+      bgColor: "#fffbeb",
+      borderColor: "#fde68a",
+      getDenominator: () => `<span class="stat-denominator" style="color:#d97706;font-size:0.85rem;">Classes</span>`,
+      getSubtitle: () => `<span class="stat-badge-pill" style="background:#fffbeb;color:#b45309;border:1px solid #fde68a;"><span class="material-symbols-outlined" style="font-size:14px;">domain</span>Curriculum</span><span style="font-size:0.75rem;color:#64748b;margin-left:6px;">Nursery to Class X</span>`,
+      getProgress: () => 100,
+      progressColor: "linear-gradient(90deg, #f59e0b, #d97706)"
+    },
+    "New Admissions": {
+      icon: "person_add",
+      color: "#059669",
+      bgColor: "#ecfdf5",
+      borderColor: "#a7f3d0",
+      getDenominator: () => `<span class="stat-denominator" style="color:#059669;font-size:0.85rem;">Intake</span>`,
+      getSubtitle: () => `<span class="stat-badge-pill" style="background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;"><span class="material-symbols-outlined" style="font-size:14px;">trending_up</span>New Registrations</span>`,
+      getProgress: () => 100,
+      progressColor: "linear-gradient(90deg, #10b981, #059669)"
+    },
+    "Books Issued": {
+      icon: "auto_stories",
+      color: "#7c3aed",
+      bgColor: "#f5f3ff",
+      borderColor: "#ddd6fe",
+      getDenominator: () => `<span class="stat-denominator" style="color:#7c3aed;font-size:0.85rem;">Issued</span>`,
+      getSubtitle: () => `<span class="stat-badge-pill" style="background:#f5f3ff;color:#6d28d9;border:1px solid #ddd6fe;"><span class="material-symbols-outlined" style="font-size:14px;">book</span>Library Books</span><span style="font-size:0.75rem;color:#64748b;margin-left:6px;">Active Borrowers</span>`,
+      getProgress: () => 100,
+      progressColor: "linear-gradient(90deg, #8b5cf6, #7c3aed)"
+    },
+    "Hostel Active": {
+      icon: "apartment",
+      color: "#ea580c",
+      bgColor: "#fff7ed",
+      borderColor: "#fed7aa",
+      getDenominator: () => `<span class="stat-denominator" style="color:#ea580c;font-size:0.85rem;">Boarders</span>`,
+      getSubtitle: () => `<span class="stat-badge-pill" style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;"><span class="material-symbols-outlined" style="font-size:14px;">home</span>Hostel</span><span style="font-size:0.75rem;color:#64748b;margin-left:6px;">Resident Students</span>`,
+      getProgress: () => 100,
+      progressColor: "linear-gradient(90deg, #f97316, #ea580c)"
+    },
+    "System Active Users": {
+      icon: "manage_accounts",
+      color: "#0284c7",
+      bgColor: "#f0f9ff",
+      borderColor: "#bae6fd",
+      getDenominator: () => `<span class="stat-denominator" style="color:#0284c7;font-size:0.85rem;">Active</span>`,
+      getSubtitle: () => `<span class="stat-badge-pill" style="background:#f0f9ff;color:#0369a1;border:1px solid #bae6fd;"><span class="material-symbols-outlined" style="font-size:14px;">shield</span>Portal Access</span><span style="font-size:0.75rem;color:#64748b;margin-left:6px;">Online & Active</span>`,
+      getProgress: () => 100,
+      progressColor: "linear-gradient(90deg, #0ea5e9, #0284c7)"
+    },
+    "My Total Paid": {
+      icon: "payments",
+      color: "#16a34a",
+      bgColor: "#f0fdf4",
+      borderColor: "#bbf7d0",
+      getDenominator: () => ``,
+      getSubtitle: () => `<span class="stat-badge-pill" style="background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;"><span class="material-symbols-outlined" style="font-size:14px;">verified</span>Cleared Payments</span>`,
+      getProgress: () => 100,
+      progressColor: "#16a34a"
+    },
+    "My Pending Dues": {
+      icon: "account_balance_wallet",
+      color: "#dc2626",
+      bgColor: "#fef2f2",
+      borderColor: "#fecaca",
+      getDenominator: () => ``,
+      getSubtitle: () => `<span class="stat-badge-pill" style="background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;"><span class="material-symbols-outlined" style="font-size:14px;">warning</span>Payable Fees</span>`,
+      getProgress: () => 100,
+      progressColor: "#dc2626"
+    },
+    "Days Present": {
+      icon: "event_available",
+      color: "#2563eb",
+      bgColor: "#eff6ff",
+      borderColor: "#bfdbfe",
+      getDenominator: () => `<span class="stat-denominator">Days</span>`,
+      getSubtitle: () => `<span class="stat-badge-pill" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;"><span class="material-symbols-outlined" style="font-size:14px;">check</span>Attended Classes</span>`,
+      getProgress: () => 100,
+      progressColor: "#2563eb"
+    },
+    "Days Absent": {
+      icon: "event_busy",
+      color: "#f59e0b",
+      bgColor: "#fffbeb",
+      borderColor: "#fde68a",
+      getDenominator: () => `<span class="stat-denominator">Days</span>`,
+      getSubtitle: () => `<span class="stat-badge-pill" style="background:#fffbeb;color:#b45309;border:1px solid #fde68a;"><span class="material-symbols-outlined" style="font-size:14px;">info</span>Leave / Absent</span>`,
+      getProgress: () => 100,
+      progressColor: "#f59e0b"
+    },
+    "Class & Section": {
+      icon: "school",
+      color: "#7c3aed",
+      bgColor: "#f5f3ff",
+      borderColor: "#ddd6fe",
+      getDenominator: () => ``,
+      getSubtitle: () => `<span class="stat-badge-pill" style="background:#f5f3ff;color:#6d28d9;border:1px solid #ddd6fe;"><span class="material-symbols-outlined" style="font-size:14px;">badge</span>Current Grade</span>`,
+      getProgress: () => 100,
+      progressColor: "#7c3aed"
+    }
+  };
+
   const existingCards = refs.statsCards ? refs.statsCards.querySelectorAll(".stat-card[data-stat-key]") : [];
   const canUpdateInPlace = !forceFullRebuild && existingCards.length > 0;
 
   if (canUpdateInPlace) {
-    // ── Smooth In-Place Updates: Zero Layout Shift, Zero LordIcon Reload ──
+    // ── Smooth In-Place Updates: Zero Layout Shift ──
     Object.entries(stats).forEach(([k, v]) => {
       if (userIsStudent() && hiddenForStudents.has(k)) return;
-      if (k === "Lifetime Collection" || k === "LastThree" || k === "Today's System Date") return;
+      if (k === "Lifetime Collection" || k === "LastThree" || k === "Today's System Date" || k === "Total Pending Dues Amount") return;
 
       const card = refs.statsCards.querySelector(`.stat-card[data-stat-key="${k}"]`);
       if (!card) return;
@@ -5086,9 +5276,22 @@ function renderStatsCards(forceFullRebuild = false) {
           recListEl.innerHTML = recentHtml || '<div style="font-size:0.7rem; color:#9ca3af;">No recent payments</div>';
         }
       } else {
+        const meta = CARD_METAS[k];
         const valEl = card.querySelector(".stat-value");
         if (valEl && valEl.textContent !== String(v)) {
           valEl.textContent = v;
+        }
+        const denomEl = card.querySelector(".stat-denom-wrap");
+        if (denomEl && meta && meta.getDenominator) {
+          denomEl.innerHTML = meta.getDenominator(v);
+        }
+        const barEl = card.querySelector(".stat-progress-inner");
+        if (barEl && meta && meta.getProgress) {
+          barEl.style.width = meta.getProgress(v) + "%";
+        }
+        const subEl = card.querySelector(".stat-subtitle-wrap");
+        if (subEl && meta && meta.getSubtitle) {
+          subEl.innerHTML = meta.getSubtitle(v);
         }
       }
     });
@@ -5097,39 +5300,29 @@ function renderStatsCards(forceFullRebuild = false) {
       window.injectDashboardCard();
     }
   } else {
-    // ── First-Time Stat Cards Build ──
+    // ── First-Time Stat Cards Build (Modern Pixel-Perfect Design) ──
     refs.statsCards.innerHTML = "";
     Object.entries(stats).forEach(([k, v]) => {
       if (userIsStudent() && hiddenForStudents.has(k)) return;
+      if (k === "Lifetime Collection" || k === "LastThree" || k === "Today's System Date" || k === "Total Pending Dues Amount") return;
+
       const card = document.createElement("article");
       card.className = "stat-card";
       card.setAttribute("data-stat-key", k);
-      const li = (id) => `<lord-icon src="https://cdn.lordicon.com/${id}.json" trigger="loop-on-hover" style="width:32px;height:32px"></lord-icon>`;
-      const statIcons = {
-        "Total Students": li('dxjqoygy'),
-        "Total Teachers": li('bhfjfgqz'),
-        "Total Classes": li('qwjfapmb'),
-        "Student Present Today": li('egiwmiit'),
-        "Teacher Present Today": li('egiwmiit'),
-        "Pending Fee Accounts": li('qhviklyi'),
-        "Books Issued": li('wxnxiano'),
-        "Hostel Active": li('osuxyevn'),
-        "System Active Users": li('dxjqoygy'),
-        "New Admissions": li('puvaffet'),
-        "My Total Paid": li('qhviklyi'),
-        "My Pending Dues": li('qhviklyi'),
-        "Days Present": li('egiwmiit'),
-        "Days Absent": li('nocvdjmh'),
-        "Class & Section": li('qwjfapmb'),
-        "Status": li('egiwmiit')
+
+      const meta = CARD_METAS[k] || {
+        icon: "insights",
+        color: "#4f46e5",
+        bgColor: "#eef2ff",
+        borderColor: "#c7d2fe",
+        getDenominator: () => "",
+        getSubtitle: () => `<span style="font-size:0.75rem;color:#64748b;">School Metric</span>`,
+        getProgress: null
       };
 
-      const icon = statIcons[k] || "⭐";
-      const trend = v > 0 ? { arrow: "↑", text: "+5%" } : { arrow: "↓", text: "-2%" };
-
       if (k === "Total Payment Received") {
-        card.style.background = "linear-gradient(135deg, #f0fdf4, #ffffff)";
-        card.style.border = "1px solid #bbf7d0";
+        card.style.background = "linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%)";
+        card.style.border = "1.5px solid #bbf7d0";
         card.style.minHeight = "240px";
         const recentHtml = stats.LastThree.map(p => `
           <div style="display:flex; justify-content:space-between; font-size:0.68rem; padding:4px 0; border-bottom:1px solid #f0fdf4; color:#374151;">
@@ -5142,38 +5335,47 @@ function renderStatsCards(forceFullRebuild = false) {
         card.innerHTML = `
           <div class="stat-top">
             <h4 style="color:#166534;">${k}</h4>
-            <div class="stat-icon-bubble" style="background:#dcfce7; color:#16a34a;">${li('qhviklyi')}</div>
+            <div class="stat-icon-bubble" style="background:#dcfce7; color:#16a34a; border:1px solid #bbf7d0;">
+              <span class="material-symbols-outlined" style="font-size:22px;">payments</span>
+            </div>
           </div>
-          <div class="stat-value" style="color:#15803d; font-size:1.8rem;">${v}</div>
-          <div style="font-size:0.72rem; color:#16a34a; font-weight:600; margin-top:2px; display:flex; justify-content:space-between;">
+          <div class="stat-value" style="color:#15803d; font-size:2rem; font-weight:900;">${v}</div>
+          <div style="font-size:0.75rem; color:#16a34a; font-weight:600; margin-top:2px; display:flex; justify-content:space-between;">
             <span class="stat-overall-val">Overall: ${stats["Lifetime Collection"]}</span>
-            <span class="stat-today-val" style="opacity:0.6; font-weight:400;">Today: ${stats["Today's System Date"]}</span>
+            <span class="stat-today-val" style="opacity:0.7; font-weight:400;">Today: ${stats["Today's System Date"]}</span>
           </div>
           
-          <div style="margin-top:16px; background:#fff; border-radius:12px; padding:10px; box-shadow:0 4px 12px rgba(0,0,0,0.03);">
-            <div style="font-size:0.65rem; font-weight:800; color:#16a34a; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">Recent Activity</div>
+          <div style="margin-top:14px; background:#fff; border-radius:12px; padding:10px; border:1px solid #dcfce7; box-shadow:0 2px 8px rgba(0,0,0,0.02);">
+            <div style="font-size:0.65rem; font-weight:800; color:#16a34a; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">Recent Transactions</div>
             <div class="stat-recent-payments">${recentHtml || '<div style="font-size:0.7rem; color:#9ca3af;">No recent payments</div>'}</div>
           </div>
           
           <div style="margin-top:12px; display:flex; gap:6px;">
-            <button onclick="window.currentFeeFilter='day'; renderStatsCards(true);" class="tbl-btn" style="flex:1; padding:4px; font-size:0.65rem; ${window.currentFeeFilter==='day'?'background:#16a34a;color:#fff;':'background:#f0fdf4;color:#16a34a;'}">DAY</button>
-            <button onclick="window.currentFeeFilter='month'; renderStatsCards(true);" class="tbl-btn" style="flex:1; padding:4px; font-size:0.65rem; ${window.currentFeeFilter==='month'?'background:#16a34a;color:#fff;':'background:#f0fdf4;color:#16a34a;'}">MONTH</button>
-            <button onclick="window.currentFeeFilter='year'; renderStatsCards(true);" class="tbl-btn" style="flex:1; padding:4px; font-size:0.65rem; ${window.currentFeeFilter==='year'?'background:#16a34a;color:#fff;':'background:#f0fdf4;color:#16a34a;'}">YEAR</button>
-            <button onclick="window.currentFeeFilter='all'; renderStatsCards(true);" class="tbl-btn" style="flex:1; padding:4px; font-size:0.65rem; ${window.currentFeeFilter==='all'?'background:#16a34a;color:#fff;':'background:#f0fdf4;color:#16a34a;'}">ALL</button>
+            <button onclick="window.currentFeeFilter='day'; renderStatsCards(true);" class="tbl-btn" style="flex:1; padding:5px; font-size:0.68rem; font-weight:700; border-radius:8px; border:none; cursor:pointer; ${window.currentFeeFilter==='day'?'background:#16a34a;color:#fff;':'background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;'}">DAY</button>
+            <button onclick="window.currentFeeFilter='month'; renderStatsCards(true);" class="tbl-btn" style="flex:1; padding:5px; font-size:0.68rem; font-weight:700; border-radius:8px; border:none; cursor:pointer; ${window.currentFeeFilter==='month'?'background:#16a34a;color:#fff;':'background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;'}">MONTH</button>
+            <button onclick="window.currentFeeFilter='year'; renderStatsCards(true);" class="tbl-btn" style="flex:1; padding:5px; font-size:0.68rem; font-weight:700; border-radius:8px; border:none; cursor:pointer; ${window.currentFeeFilter==='year'?'background:#16a34a;color:#fff;':'background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;'}">YEAR</button>
+            <button onclick="window.currentFeeFilter='all'; renderStatsCards(true);" class="tbl-btn" style="flex:1; padding:5px; font-size:0.68rem; font-weight:700; border-radius:8px; border:none; cursor:pointer; ${window.currentFeeFilter==='all'?'background:#16a34a;color:#fff;':'background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;'}">ALL</button>
           </div>
         `;
-      } else if (k === "Lifetime Collection" || k === "LastThree" || k === "Today's System Date") {
-        return;
       } else {
         card.innerHTML = `
           <div class="stat-top">
             <h4>${k}</h4>
-            <div class="stat-icon-bubble">${icon}</div>
+            <div class="stat-icon-bubble" style="background:${meta.bgColor};color:${meta.color};border:1px solid ${meta.borderColor};box-shadow:0 2px 6px rgba(0,0,0,0.03);">
+              <span class="material-symbols-outlined" style="font-size:22px;">${meta.icon}</span>
+            </div>
           </div>
-          <div class="stat-value">${v}</div>
-          <div class="stat-trend ${trend.arrow === "↑" ? "pos" : "neg"}">
-            <span class="arrow">${trend.arrow}</span>
-            <span class="pct">${trend.text}</span>
+          <div style="display:flex;align-items:baseline;margin:4px 0 8px 0;">
+            <div class="stat-value">${v}</div>
+            <span class="stat-denom-wrap">${meta.getDenominator ? meta.getDenominator(v) : ''}</span>
+          </div>
+          ${meta.getProgress ? `
+            <div style="width:100%;height:5px;background:#f1f5f9;border-radius:99px;overflow:hidden;margin-bottom:10px;">
+              <div class="stat-progress-inner" style="width:${meta.getProgress(v)}%;height:100%;background:${meta.progressColor};border-radius:99px;transition:width 0.6s cubic-bezier(0.16,1,0.3,1);"></div>
+            </div>
+          ` : ''}
+          <div class="stat-subtitle-wrap" style="display:flex;align-items:center;margin-top:2px;">
+            ${meta.getSubtitle ? meta.getSubtitle(v) : ''}
           </div>
         `;
       }
@@ -5187,7 +5389,6 @@ function renderStatsCards(forceFullRebuild = false) {
   }
 
   // Calculate chart statistics from store
-  const store = getStore();
   const fees = store.fees || [];
   let feeStatus = { paid: 0, partial: 0, pending: 0 };
   let totalPaidAmount = 0;
