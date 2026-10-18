@@ -23717,18 +23717,27 @@ function setupEditMobileStudentListeners() {
 
   if (photoInput && !photoInput.dataset.listenerSet) {
     photoInput.dataset.listenerSet = 'true';
-    photoInput.addEventListener('change', (e) => {
+    photoInput.addEventListener('change', async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        const b64 = evt.target.result;
+      try {
+        const b64 = await fileToResizedDataUrl(file, 600, 0.85);
         if (b64Input) b64Input.value = b64;
         if (preview) {
           preview.innerHTML = `<img src="${b64}" style="width:100%;height:100%;object-fit:cover;" />`;
         }
-      };
-      reader.readAsDataURL(file);
+      } catch (err) {
+        console.warn('Auto-convert student photo fallback:', err);
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          const b64 = evt.target.result;
+          if (b64Input) b64Input.value = b64;
+          if (preview) {
+            preview.innerHTML = `<img src="${b64}" style="width:100%;height:100%;object-fit:cover;" />`;
+          }
+        };
+        reader.readAsDataURL(file);
+      }
     });
   }
 
