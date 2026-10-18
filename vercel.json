@@ -41,6 +41,8 @@
     }
   ],
   "rewrites": [
+    { "source": "/educore", "destination": "/educore.html" },
+    { "source": "/ecosystem", "destination": "/educore.html" },
     { "source": "/api/(.*)", "destination": "/api/index.js" },
     { "source": "/banners/(.*)", "destination": "/api/index.js" }
   ],
@@ -72,7 +74,7 @@
       ]
     },
     {
-      "source": "/(index\\.html|sw\\.js|app\\.js|reports_module\\.js|exam_module\\.js|online_classes_module\\.js|slip-templates\\.js|online_payments_module\\.js|style\\.css)",
+      "source": "/(index\\.html|educore\\.html|educore|sw\\.js|app\\.js|reports_module\\.js|exam_module\\.js|online_classes_module\\.js|slip-templates\\.js|online_payments_module\\.js|style\\.css)",
       "headers": [
         {
           "key": "Cache-Control",

@@ -81,3 +81,6 @@ github-app.js
 *.apk
 public/*.apk
 public/**/*.apk
+
+*.mp4
+public/**/*.mp4
