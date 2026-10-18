@@ -2,8 +2,8 @@ const https = require('https');
 
 const payload = JSON.stringify({
   bundleUrl: 'https://tapowan-school.vercel.app/bundles/index.android.bundle',
-  bundleVersionCode: '352',
-  bundleVersion: '3.3.3',
+  bundleVersionCode: '353',
+  bundleVersion: '3.3.4',
   force: 'true',
   forceDownload: 'true'
 });

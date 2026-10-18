@@ -6,19 +6,19 @@ const client = createClient({
 });
 
 async function publishUpdate() {
-  console.log('Publishing v3.3.3 (Build 352) to app_updates...');
+  console.log('Publishing v3.3.4 (Build 353) to app_updates...');
   await client.execute('UPDATE app_updates SET is_active = 0');
   
-  const notes = '⚡ Official TPS Build v3.3.3: High-Precision Multilingual Hindi & Sanskrit Devanagari OCR (Engine 3), Devanagari numerals auto-conversion (०-९ to 0-9), and dual-pass OCR engine.';
+  const notes = '📝 Official TPS Build v3.3.4: All-New CBSE Exam Question Paper Generator with High-Accuracy Multilingual OCR (Devanagari & English), AI Prompt Integration (ChatGPT/Gemini), Live Marks Balancer, Section/Question Accordion Editor, and Official Print Preview.';
 
   const res = await client.execute({
     sql: `INSERT INTO app_updates (version, version_code, apk_url, title, release_notes, is_force_update, is_active, target_audience, created_at)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
-      '3.3.3',
-      352,
+      '3.3.4',
+      353,
       'https://github.com/aatifraza161-bit/tapowan-school-portal/releases/latest/download/TPS-Original-App.apk',
-      '⚡ TPS App Executive Update v3.3.3',
+      '📝 TPS App Exam Paper Generator & OCR v3.3.4',
       notes,
       1,
       1,
