@@ -5,6 +5,7 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 const { app, BrowserWindow, autoUpdater, dialog, ipcMain } = require('electron');
 const { spawn } = require('child_process');
 const http = require('http');
+const https = require('https');
 const fs = require('fs');
 
 let mainWindow;
@@ -173,14 +174,80 @@ function checkForUpdates() {
   } catch (error) {}
 }
 
-function startAppFlow() {
-  startBackgroundServers();
-  waitForServer('http://localhost:3000', 150000, (err) => {
-    if (err) {
-      return;
+const LIVE_CLOUD_URL = 'https://tapowan-school.vercel.app';
+const LOCAL_FALLBACK_URL = 'http://localhost:3000';
+
+function checkUrlReachable(url, timeoutMs = 4000) {
+  return new Promise((resolve) => {
+    try {
+      const client = url.startsWith('https') ? https : http;
+      const req = client.get(url, { timeout: timeoutMs }, (res) => {
+        resolve(res.statusCode >= 200 && res.statusCode < 400);
+      });
+      req.on('error', () => resolve(false));
+      req.on('timeout', () => { req.destroy(); resolve(false); });
+    } catch (_) {
+      resolve(false);
     }
-    if(mainWindow) mainWindow.loadURL('http://localhost:3000');
   });
+}
+
+async function startAppFlow() {
+  startBackgroundServers();
+
+  let logoImgHtml = '<span style="font-size: 42px;">🎓</span>';
+  try {
+    const logoPath = path.join(__dirname, 'public', 'educore_logo.png');
+    if (fs.existsSync(logoPath)) {
+      const b64 = fs.readFileSync(logoPath).toString('base64');
+      logoImgHtml = `<img src="data:image/png;base64,${b64}" style="width: 76px; height: 76px; object-fit: contain; border-radius: 16px;" />`;
+    }
+  } catch (_) {}
+
+  // Show immediate sleek loading state while servers spin up
+  if (mainWindow) {
+    mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>EduCore - Starting Up...</title>
+        <style>
+          body { margin: 0; background: #0f172a; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
+          .logo-box { width: 90px; height: 90px; border-radius: 22px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); display: flex; align-items: center; justify-content: center; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+          .spinner { width: 34px; height: 34px; border: 3px solid rgba(59,130,246,0.2); border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite; margin-top: 20px; }
+          @keyframes spin { to { transform: rotate(360deg); } }
+          h2 { font-size: 1.4rem; font-weight: 800; margin: 0 0 6px 0; letter-spacing: -0.02em; }
+          p { font-size: 0.88rem; color: #94a3b8; margin: 0; }
+        </style>
+      </head>
+      <body>
+        <div class="logo-box">
+          ${logoImgHtml}
+        </div>
+        <h2>EduCore</h2>
+        <p>Connecting to Cloud Portal & Background Engines...</p>
+        <div class="spinner"></div>
+      </body>
+      </html>
+    `)}`);
+  }
+
+  // Fast check: Is live cloud accessible?
+  const isCloudOnline = await checkUrlReachable(LIVE_CLOUD_URL, 3500);
+
+  if (isCloudOnline) {
+    console.log(`[Hybrid Mode] Live cloud portal is active (${LIVE_CLOUD_URL}). Loading latest live deployment...`);
+    if (mainWindow) {
+      mainWindow.loadURL(LIVE_CLOUD_URL);
+    }
+  } else {
+    console.log(`[Hybrid Mode] Cloud offline or unreachable. Falling back to local offline server (${LOCAL_FALLBACK_URL})...`);
+    waitForServer(LOCAL_FALLBACK_URL, 150000, (err) => {
+      if (err) return;
+      if (mainWindow) mainWindow.loadURL(LOCAL_FALLBACK_URL);
+    });
+  }
+
   checkForUpdates();
 }
 
@@ -193,13 +260,33 @@ function createWindow() {
     autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: false,
-      contextIsolation: true
+      contextIsolation: true,
+      webSecurity: false, // Essential: Allows live web app to call local InsightFace (http://127.0.0.1:8000) & local WhatsApp without mixed-content blocks!
+      allowRunningInsecureContent: true
     }
   });
 
   mainWindow.maximize();
 
-  // Copy protection removed - always start app flow directly
+  // Useful power shortcuts: F5 (Reload), Ctrl+Shift+R (Hard Refresh), F12 (DevTools), Ctrl+Shift+L (Toggle Cloud/Local)
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.key === 'F5' || (input.control && input.key.toLowerCase() === 'r')) {
+      mainWindow.webContents.reload();
+    }
+    if (input.control && input.shift && input.key.toLowerCase() === 'r') {
+      mainWindow.webContents.reloadIgnoringCache();
+    }
+    if (input.key === 'F12' || (input.control && input.shift && input.key.toLowerCase() === 'i')) {
+      mainWindow.webContents.toggleDevTools();
+    }
+    if (input.control && input.shift && input.key.toLowerCase() === 'l') {
+      const current = mainWindow.webContents.getURL();
+      const target = current.includes('tapowan-school') ? LOCAL_FALLBACK_URL : LIVE_CLOUD_URL;
+      console.log(`[Hybrid Mode] Manually switching view to: ${target}`);
+      mainWindow.loadURL(target);
+    }
+  });
+
   startAppFlow();
 
   mainWindow.on('closed', function () {
