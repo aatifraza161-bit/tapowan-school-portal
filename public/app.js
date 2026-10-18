@@ -214,7 +214,7 @@ const moduleConfig = {
   subjects: { title: "Subjects", subtitle: "Define subjects and assign faculty", fields: ["subjectCode", "subjectName", "className", "teacher"], columns: ["subjectCode", "subjectName", "className", "teacher"] },
   attendance: { title: "Attendance", subtitle: "Track daily student attendance", fields: ["date", "className", "studentName", "rollNo", "status", "arrivalTime", "departureTime", "remarks"], columns: ["date", "className", "studentName", "rollNo", "status", "arrivalTime", "departureTime"] },
   teacherAttendance: { title: "Teacher Attendance", subtitle: "Track daily teacher attendance", fields: ["date", "department", "teacherName", "status", "arrivalTime", "departureTime", "remarks"], columns: ["date", "department", "teacherName", "status", "arrivalTime", "departureTime"] },
-  exams: { title: "Exams & Results", subtitle: "Manage exams, admit cards, and student marks", fields: ["examName", "className", "section", "studentName", "rollNo", "registrationNo", "session", "examDate", "reportingTime", "examCenter", "subjectMarks", "totalMarks", "percentage", "grade", "gpa", "rank", "resultStatus", "teacherRemark"], columns: ["examName", "className", "studentName", "rollNo", "percentage", "grade", "resultStatus"] },
+  exams: { title: "Exams & Results", subtitle: "Manage exams, admit cards, and student marks", fields: [], columns: [] },
   fees: { 
     title: "Fees", 
     subtitle: "Record fee structures and payments", 
@@ -8081,6 +8081,54 @@ function renderAll(forceFormRefresh) {
     });
   }
 
+  // ── Explicitly hide custom panels if their corresponding module is NOT active ──
+  const examPanel = document.getElementById("examPanel");
+  if (examPanel && !isExams) {
+    examPanel.classList.add("hidden");
+    examPanel.style.display = "none";
+  }
+
+  const backupPanel = document.getElementById("backupPanel");
+  if (backupPanel && !isBackup) {
+    backupPanel.style.display = "none";
+    try { backupPanel.remove(); } catch (_) {}
+  }
+
+  const reportsPanel = document.getElementById("reportsPanel");
+  if (reportsPanel && !isReports) {
+    reportsPanel.classList.add("hidden");
+    reportsPanel.style.display = "none";
+  }
+
+  const onlineClassesPanel = document.getElementById("onlineClassesPanel");
+  if (onlineClassesPanel && !isOnlineClasses) {
+    onlineClassesPanel.classList.add("hidden");
+    onlineClassesPanel.style.display = "none";
+  }
+
+  const onlinePaymentsPanel = document.getElementById("onlinePaymentsPanel");
+  if (onlinePaymentsPanel && !isOnlinePayments) {
+    onlinePaymentsPanel.classList.add("hidden");
+    onlinePaymentsPanel.style.display = "none";
+    const opAccessBtn = document.getElementById("onlinePaymentsAccessControlBtn");
+    if (opAccessBtn) opAccessBtn.classList.add("hidden");
+  }
+
+  const bdPanel = document.getElementById("bd-panel");
+  if (bdPanel && !isBD) {
+    bdPanel.style.display = "none";
+  }
+
+  const bookSalesPanel = document.getElementById("bookSalesPanel");
+  if (bookSalesPanel && !isBookSales) {
+    bookSalesPanel.style.display = "none";
+  }
+
+  const waPanel = document.getElementById("waAlertPanel");
+  if (waPanel && !isWA) {
+    waPanel.style.display = "none";
+  }
+
   if (isAI) {
     renderAiAssistant();
     return;
@@ -8093,7 +8141,32 @@ function renderAll(forceFormRefresh) {
     return;
   }
 
-  const onlineClassesPanel = document.getElementById("onlineClassesPanel");
+  if (isExams) {
+    renderNav();
+    renderHeader();
+    if (examPanel) {
+      examPanel.classList.remove("hidden");
+      examPanel.style.display = "block";
+    }
+    if (typeof window.renderExamModule === "function") {
+      window.renderExamModule();
+    } else {
+      if (examPanel) {
+        examPanel.innerHTML = '<div style="padding: 40px; text-align: center; color: #64748b;"><div style="font-size: 32px; margin-bottom: 12px;">⏳</div>Loading Exam Management...</div>';
+      }
+      const checkInterval = setInterval(() => {
+        if (typeof window.renderExamModule === "function") {
+          clearInterval(checkInterval);
+          if (currentModule === "exams") {
+            window.renderExamModule();
+          }
+        }
+      }, 100);
+      setTimeout(() => clearInterval(checkInterval), 5000);
+    }
+    return;
+  }
+
   if (isOnlineClasses) {
     renderNav();
     renderHeader();
@@ -8120,12 +8193,8 @@ function renderAll(forceFormRefresh) {
       setTimeout(() => clearInterval(checkInterval), 5000);
     }
     return;
-  } else if (onlineClassesPanel) {
-    onlineClassesPanel.classList.add("hidden");
-    onlineClassesPanel.style.display = "none";
   }
 
-  const onlinePaymentsPanel = document.getElementById("onlinePaymentsPanel");
   if (isOnlinePayments) {
     renderNav();
     renderHeader();
@@ -8152,53 +8221,34 @@ function renderAll(forceFormRefresh) {
       setTimeout(() => clearInterval(checkInterval), 5000);
     }
     return;
-  } else if (onlinePaymentsPanel) {
-    onlinePaymentsPanel.classList.add("hidden");
-    onlinePaymentsPanel.style.display = "none";
-    const opAccessBtn = document.getElementById("onlinePaymentsAccessControlBtn");
-    if (opAccessBtn) opAccessBtn.classList.add("hidden");
   }
 
-  const bdPanel = document.getElementById("bd-panel");
+  if (isReports) {
+    renderNav();
+    renderHeader();
+    if (reportsPanel) {
+      reportsPanel.classList.remove("hidden");
+      reportsPanel.style.display = "block";
+    }
+    if (typeof window.renderReportsModule === "function") {
+      window.renderReportsModule();
+    }
+    return;
+  }
+
   if (isBD && typeof window.showBDPanel === "function") {
     window.showBDPanel();
-  } else if (bdPanel) {
-    bdPanel.style.display = "none";
+    return;
   }
 
-  let bookSalesPanel = document.getElementById("bookSalesPanel");
   if (isBookSales && typeof window.showBookSalesPanel === "function") {
     window.showBookSalesPanel();
-  } else if (bookSalesPanel) {
-    bookSalesPanel.style.display = "none";
+    return;
   }
 
-  const waPanel = document.getElementById("waAlertPanel");
   if (isWA && typeof window.renderWhatsAppModule === "function") {
     window.renderWhatsAppModule();
-  } else if (waPanel) {
-    waPanel.style.display = "none";
-  }
-
-  const examPanel = document.getElementById("examPanel");
-  if (isExams && typeof window.renderExamModule === "function") {
-    window.renderExamModule();
-  } else if (examPanel) {
-    examPanel.classList.add("hidden");
-    examPanel.style.display = "none";
-  }
-
-    const backupPanel = document.getElementById("backupPanel");
-  if (backupPanel && !isBackup) {
-    backupPanel.style.display = "none";
-  }
-
-  const reportsPanel = document.getElementById("reportsPanel");
-  if (isReports && typeof window.renderReportsModule === "function") {
-    window.renderReportsModule();
-  } else if (reportsPanel) {
-    reportsPanel.classList.add("hidden");
-    reportsPanel.style.display = "none";
+    return;
   }
 
   renderNav();

@@ -1251,12 +1251,19 @@
     examPanel.classList.remove("hidden");
     examPanel.style.display = "block";
 
+    if (options.activeTab && ['entry', 'schedule', 'admit', 'result'].includes(options.activeTab)) {
+      activeExamTab = options.activeTab;
+    }
+
     const contentEl = document.getElementById("examPanelContent");
     const hasExamCard = examPanel.querySelector(".exam-card");
     const isPopulated = contentEl && contentEl.children.length > 0;
 
     if (hasExamCard && isPopulated && !options.forceRebuild) {
       updateExamTabs();
+      if (options.activeTab) {
+        renderExamContent();
+      }
       return;
     }
 
@@ -1288,15 +1295,32 @@
     renderExamContent();
   };
 
+  window.switchExamTab = function(tabName) {
+    if (['entry', 'schedule', 'admit', 'result'].includes(tabName)) {
+      activeExamTab = tabName;
+      const examPanel = document.getElementById("examPanel");
+      if (examPanel) {
+        window.renderExamModule();
+        updateExamTabs();
+        renderExamContent();
+      }
+    }
+  };
+
   function updateExamTabs() {
-    document.getElementById("examTabEntryBtn").classList.toggle("active", activeExamTab === 'entry');
-    document.getElementById("examTabScheduleBtn").classList.toggle("active", activeExamTab === 'schedule');
-    document.getElementById("examTabAdmitBtn").classList.toggle("active", activeExamTab === 'admit');
-    document.getElementById("examTabResultBtn").classList.toggle("active", activeExamTab === 'result');
+    const bEntry = document.getElementById("examTabEntryBtn");
+    const bSched = document.getElementById("examTabScheduleBtn");
+    const bAdmit = document.getElementById("examTabAdmitBtn");
+    const bResult = document.getElementById("examTabResultBtn");
+    if (bEntry) bEntry.classList.toggle("active", activeExamTab === 'entry');
+    if (bSched) bSched.classList.toggle("active", activeExamTab === 'schedule');
+    if (bAdmit) bAdmit.classList.toggle("active", activeExamTab === 'admit');
+    if (bResult) bResult.classList.toggle("active", activeExamTab === 'result');
   }
 
   function renderExamContent() {
     const content = document.getElementById("examPanelContent");
+    if (!content) return;
     if (activeExamTab === 'entry') renderMarksEntry(content);
     else if (activeExamTab === 'schedule') renderExamSchedule(content);
     else if (activeExamTab === 'admit') renderAdmitCards(content);
