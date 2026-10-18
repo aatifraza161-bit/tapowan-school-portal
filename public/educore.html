@@ -3,44 +3,33 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>EduCore Ecosystem — The Complete Educational Operating System & SaaS ERP</title>
-  <meta name="description" content="EduCore is the next-generation multi-tenant school operating system unifying cloud web ERP, native WebRTC VoIP telephony, hardware 50m geofence auto-attendance, 1:1 Euclidean face biometrics, and 18,000+ CBSE NCERT interactive lessons.">
+  <title>EduCore — The Operating System for Modern Education</title>
+  <meta name="description" content="EduCore is the unified educational SaaS operating system combining zero-secret cloud ERP, native WebRTC VoIP telephony, 50m hardware geofencing, 1:1 Euclidean face biometrics, and 18,000+ CBSE NCERT interactive lessons.">
   <link rel="icon" type="image/png" href="/educore-assets/educore_logo.png">
   
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+
+  <!-- React 18 & Babel Standalone -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
   <style>
     :root {
-      --bg-base: #06070a;
-      --bg-surface: #0a0d14;
-      --bg-card: rgba(13, 17, 26, 0.75);
-      --bg-card-hover: rgba(19, 25, 40, 0.88);
-      --border-subtle: rgba(255, 255, 255, 0.08);
-      --border-hover: rgba(0, 240, 255, 0.35);
-      --border-violet: rgba(139, 92, 246, 0.35);
-      --accent-cyan: #00f0ff;
-      --accent-cyan-glow: rgba(0, 240, 255, 0.25);
-      --accent-emerald: #10b981;
-      --accent-emerald-glow: rgba(16, 185, 129, 0.25);
-      --accent-violet: #8b5cf6;
-      --accent-violet-glow: rgba(139, 92, 246, 0.25);
-      --accent-amber: #f59e0b;
-      --accent-rose: #f43f5e;
-      --text-main: #f8fafc;
-      --text-dim: #94a3b8;
-      --text-muted: #64748b;
-      --font-display: 'Outfit', sans-serif;
-      --font-body: 'Plus Jakarta Sans', sans-serif;
+      --bg-outer: #000000;
+      --bg-canvas: #ffffff;
+      --text-dark: #000000;
+      --text-sub: #555555;
+      --text-dim: #777777;
+      --border-line: #e5e5e5;
+      --border-dark: #000000;
+      --accent-pill: #000000;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       --font-mono: 'JetBrains Mono', monospace;
-      --radius-sm: 8px;
-      --radius-md: 14px;
-      --radius-lg: 20px;
-      --radius-xl: 28px;
-      --container-max: 1360px;
     }
 
     * {
@@ -48,25 +37,20 @@
       margin: 0;
       padding: 0;
       -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-    }
-
-    html {
-      scroll-behavior: smooth;
-      background-color: var(--bg-base);
-      color: var(--text-main);
-      font-family: var(--font-body);
+      -moz-smoothing: grayscale;
     }
 
     body {
-      background-color: var(--bg-base);
+      background-color: var(--bg-outer);
+      color: var(--text-dark);
+      font-family: var(--font-sans);
       overflow-x: hidden;
+      min-height: 100vh;
       position: relative;
-      line-height: 1.6;
     }
 
-    /* Ambient Cyber Background */
-    .ambient-glow {
+    /* Halftone Dot Matrix Texture on Outer Black Canvas */
+    .halftone-bg {
       position: fixed;
       top: 0;
       left: 0;
@@ -74,2426 +58,1781 @@
       height: 100vh;
       pointer-events: none;
       z-index: 0;
-      overflow: hidden;
-    }
-
-    .glow-sphere-1 {
-      position: absolute;
-      top: -15%;
-      left: 20%;
-      width: 800px;
-      height: 800px;
-      background: radial-gradient(circle, rgba(0, 240, 255, 0.08) 0%, rgba(0, 0, 0, 0) 70%);
-      filter: blur(80px);
-      border-radius: 50%;
-      animation: floatSlow 20s infinite alternate ease-in-out;
-    }
-
-    .glow-sphere-2 {
-      position: absolute;
-      top: 40%;
-      right: -10%;
-      width: 700px;
-      height: 700px;
-      background: radial-gradient(circle, rgba(139, 92, 246, 0.09) 0%, rgba(0, 0, 0, 0) 70%);
-      filter: blur(90px);
-      border-radius: 50%;
-      animation: floatSlow 25s infinite alternate-reverse ease-in-out;
-    }
-
-    .glow-sphere-3 {
-      position: absolute;
-      bottom: -10%;
-      left: -5%;
-      width: 600px;
-      height: 600px;
-      background: radial-gradient(circle, rgba(16, 185, 129, 0.07) 0%, rgba(0, 0, 0, 0) 70%);
-      filter: blur(80px);
-      border-radius: 50%;
-    }
-
-    .cyber-grid {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
+      background-color: #000000;
       background-image: 
-        linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-        linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-      background-size: 48px 48px;
-      mask-image: radial-gradient(circle at 50% 50%, black 40%, transparent 85%);
-      pointer-events: none;
+        radial-gradient(circle at 10% 15%, rgba(255, 255, 255, 0.45) 1.5px, transparent 1.5px),
+        radial-gradient(circle at 90% 15%, rgba(255, 255, 255, 0.45) 1.5px, transparent 1.5px),
+        radial-gradient(circle at 10% 85%, rgba(255, 255, 255, 0.45) 1.5px, transparent 1.5px),
+        radial-gradient(circle at 90% 85%, rgba(255, 255, 255, 0.45) 1.5px, transparent 1.5px),
+        radial-gradient(circle at 50% 5%, rgba(255, 255, 255, 0.25) 1.2px, transparent 1.2px),
+        radial-gradient(circle at 50% 95%, rgba(255, 255, 255, 0.25) 1.2px, transparent 1.2px);
+      background-size: 24px 24px, 20px 20px, 22px 22px, 26px 26px, 18px 18px, 18px 18px;
+    }
+
+    /* Outer Wrapper with Viewfinder Padding */
+    .outer-wrapper {
+      position: relative;
       z-index: 1;
-    }
-
-    @keyframes floatSlow {
-      0% { transform: translate(0, 0) scale(1); }
-      100% { transform: translate(40px, 60px) scale(1.1); }
-    }
-
-    /* Container */
-    .container {
       width: 100%;
-      max-width: var(--container-max);
-      margin: 0 auto;
-      padding: 0 24px;
-      position: relative;
-      z-index: 2;
-    }
-
-    /* Navigation Bar */
-    header.site-header {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      z-index: 100;
-      backdrop-filter: blur(24px);
-      -webkit-backdrop-filter: blur(24px);
-      background: rgba(6, 7, 10, 0.75);
-      border-bottom: 1px solid var(--border-subtle);
-      transition: all 0.3s ease;
-    }
-
-    .nav-inner {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      height: 80px;
-      max-width: var(--container-max);
-      margin: 0 auto;
-      padding: 0 24px;
-    }
-
-    .brand-mark {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      text-decoration: none;
-      color: var(--text-main);
-    }
-
-    .brand-logo-img {
-      width: 42px;
-      height: 42px;
-      border-radius: 10px;
-      object-fit: cover;
-      box-shadow: 0 0 20px var(--accent-cyan-glow);
-      border: 1px solid rgba(0, 240, 255, 0.3);
-    }
-
-    .brand-text {
-      font-family: var(--font-display);
-      font-weight: 800;
-      font-size: 20px;
-      letter-spacing: -0.5px;
-      background: linear-gradient(135deg, #fff 0%, #b8c6e8 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .brand-pill {
-      font-size: 11px;
-      font-family: var(--font-mono);
-      padding: 2px 8px;
-      border-radius: 12px;
-      background: rgba(0, 240, 255, 0.1);
-      color: var(--accent-cyan);
-      border: 1px solid rgba(0, 240, 255, 0.25);
-      font-weight: 600;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-    }
-
-    .nav-links {
-      display: flex;
-      align-items: center;
-      gap: 32px;
-      list-style: none;
-    }
-
-    .nav-link {
-      color: var(--text-dim);
-      text-decoration: none;
-      font-size: 14px;
-      font-weight: 500;
-      transition: all 0.2s ease;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .nav-link:hover {
-      color: var(--text-main);
-    }
-
-    .status-badge {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 14px;
-      border-radius: 30px;
-      background: rgba(16, 185, 129, 0.08);
-      border: 1px solid rgba(16, 185, 129, 0.25);
-      font-size: 12px;
-      font-family: var(--font-mono);
-      color: var(--accent-emerald);
-      font-weight: 600;
-    }
-
-    .pulse-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--accent-emerald);
-      box-shadow: 0 0 10px var(--accent-emerald);
-      animation: pulseAnim 2s infinite ease-in-out;
-    }
-
-    @keyframes pulseAnim {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.4; transform: scale(0.85); }
-    }
-
-    .nav-actions {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .btn-secondary {
-      padding: 10px 18px;
-      border-radius: var(--radius-sm);
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid var(--border-subtle);
-      color: var(--text-main);
-      font-size: 13.5px;
-      font-weight: 600;
-      text-decoration: none;
-      transition: all 0.25s ease;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .btn-secondary:hover {
-      background: rgba(255, 255, 255, 0.08);
-      border-color: rgba(255, 255, 255, 0.2);
-      transform: translateY(-1px);
-    }
-
-    .btn-primary {
-      padding: 10px 20px;
-      border-radius: var(--radius-sm);
-      background: linear-gradient(135deg, #00f0ff 0%, #0284c7 100%);
-      color: #030712;
-      font-size: 13.5px;
-      font-weight: 700;
-      text-decoration: none;
-      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      box-shadow: 0 4px 20px rgba(0, 240, 255, 0.3);
-    }
-
-    .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 28px rgba(0, 240, 255, 0.5);
-      filter: brightness(1.1);
-    }
-
-    /* Hero Section */
-    .hero-section {
-      padding-top: 160px;
-      padding-bottom: 90px;
-      position: relative;
-    }
-
-    .hero-badge-wrap {
-      display: flex;
-      justify-content: center;
-      margin-bottom: 24px;
-    }
-
-    .hero-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 18px;
-      border-radius: 40px;
-      background: linear-gradient(90deg, rgba(0, 240, 255, 0.08), rgba(139, 92, 246, 0.08));
-      border: 1px solid rgba(0, 240, 255, 0.25);
-      font-size: 13px;
-      font-weight: 600;
-      color: #e2e8f0;
-      box-shadow: 0 0 25px rgba(0, 240, 255, 0.1);
-    }
-
-    .hero-pill-sparkle {
-      color: var(--accent-cyan);
-      font-size: 16px;
-    }
-
-    .hero-pill-tag {
-      font-family: var(--font-mono);
-      color: var(--accent-cyan);
-      font-size: 11px;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-      font-weight: 700;
-      background: rgba(0, 240, 255, 0.15);
-      padding: 2px 8px;
-      border-radius: 20px;
-    }
-
-    .hero-headline {
-      font-family: var(--font-display);
-      font-size: clamp(38px, 6.2vw, 76px);
-      font-weight: 900;
-      line-height: 1.08;
-      letter-spacing: -2px;
-      text-align: center;
-      max-width: 1080px;
-      margin: 0 auto 24px auto;
-    }
-
-    .gradient-text-cyan {
-      background: linear-gradient(135deg, #ffffff 10%, #67e8f9 50%, #00f0ff 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    .gradient-text-violet {
-      background: linear-gradient(135deg, #c084fc 0%, #818cf8 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    .hero-subtitle {
-      font-size: clamp(16px, 1.8vw, 20px);
-      color: var(--text-dim);
-      text-align: center;
-      max-width: 820px;
-      margin: 0 auto 40px auto;
-      font-weight: 400;
-      line-height: 1.6;
-    }
-
-    .hero-actions {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 16px;
-      flex-wrap: wrap;
-      margin-bottom: 60px;
-    }
-
-    .btn-hero-main {
-      padding: 14px 30px;
-      border-radius: var(--radius-md);
-      background: linear-gradient(135deg, #00f0ff 0%, #0ea5e9 100%);
-      color: #040814;
-      font-size: 15px;
-      font-weight: 700;
-      text-decoration: none;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      box-shadow: 0 8px 30px rgba(0, 240, 255, 0.35);
-      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-
-    .btn-hero-main:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 12px 40px rgba(0, 240, 255, 0.55);
-      filter: brightness(1.08);
-    }
-
-    .btn-hero-ghost {
-      padding: 14px 28px;
-      border-radius: var(--radius-md);
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      color: var(--text-main);
-      font-size: 15px;
-      font-weight: 600;
-      text-decoration: none;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      backdrop-filter: blur(12px);
-      transition: all 0.3s ease;
-    }
-
-    .btn-hero-ghost:hover {
-      background: rgba(255, 255, 255, 0.08);
-      border-color: rgba(255, 255, 255, 0.25);
-      transform: translateY(-2px);
-    }
-
-    /* Live Stat Metric Strip */
-    .hero-stat-strip {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-      gap: 16px;
-      max-width: 1140px;
-      margin: 0 auto 60px auto;
-    }
-
-    .stat-pill-card {
-      background: rgba(13, 17, 26, 0.6);
-      backdrop-filter: blur(16px);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-md);
-      padding: 18px 20px;
-      text-align: center;
-      position: relative;
-      overflow: hidden;
-      transition: all 0.3s ease;
-    }
-
-    .stat-pill-card:hover {
-      border-color: rgba(0, 240, 255, 0.25);
-      background: rgba(19, 25, 40, 0.75);
-      transform: translateY(-3px);
-    }
-
-    .stat-pill-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 2px;
-      background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
-      opacity: 0;
-      transition: opacity 0.3s ease;
-    }
-
-    .stat-pill-card:hover::before {
-      opacity: 1;
-    }
-
-    .stat-val {
-      font-family: var(--font-display);
-      font-size: 28px;
-      font-weight: 800;
-      color: #fff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 4px;
-      margin-bottom: 4px;
-      letter-spacing: -0.5px;
-    }
-
-    .stat-val-cyan { color: var(--accent-cyan); }
-    .stat-val-emerald { color: var(--accent-emerald); }
-    .stat-val-violet { color: var(--accent-violet); }
-    .stat-val-amber { color: var(--accent-amber); }
-
-    .stat-lbl {
-      font-size: 12.5px;
-      color: var(--text-dim);
-      font-weight: 500;
-      letter-spacing: 0.2px;
-    }
-
-    /* Dynamic Interactive Showcase Viewport */
-    .showcase-viewport-wrap {
-      max-width: 1200px;
-      margin: 0 auto;
-      border-radius: var(--radius-xl);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      background: linear-gradient(180deg, rgba(16, 21, 34, 0.8) 0%, rgba(10, 13, 20, 0.95) 100%);
-      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.8), 0 0 60px rgba(0, 240, 255, 0.08);
-      position: relative;
-      overflow: hidden;
-      backdrop-filter: blur(30px);
-    }
-
-    .viewport-tab-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 16px 24px;
-      background: rgba(8, 11, 18, 0.9);
-      border-bottom: 1px solid var(--border-subtle);
-      flex-wrap: wrap;
-      gap: 16px;
-    }
-
-    .viewport-window-dots {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .win-dot {
-      width: 11px;
-      height: 11px;
-      border-radius: 50%;
-    }
-
-    .win-dot-red { background: #ef4444; }
-    .win-dot-yellow { background: #f59e0b; }
-    .win-dot-green { background: #10b981; }
-
-    .viewport-tabs-list {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      background: rgba(255, 255, 255, 0.03);
-      padding: 4px;
-      border-radius: var(--radius-sm);
-      border: 1px solid rgba(255, 255, 255, 0.06);
-    }
-
-    .viewport-tab-btn {
-      background: transparent;
-      border: none;
-      color: var(--text-dim);
-      padding: 8px 16px;
-      border-radius: 6px;
-      font-size: 13px;
-      font-weight: 600;
-      font-family: var(--font-body);
-      cursor: pointer;
-      transition: all 0.25s ease;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .viewport-tab-btn:hover {
-      color: var(--text-main);
-      background: rgba(255, 255, 255, 0.05);
-    }
-
-    .viewport-tab-btn.active {
-      background: rgba(0, 240, 255, 0.15);
-      color: var(--accent-cyan);
-      box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
-    }
-
-    .viewport-url-bar {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      padding: 6px 14px;
-      border-radius: 20px;
-      font-size: 11.5px;
-      font-family: var(--font-mono);
-      color: var(--text-dim);
-    }
-
-    .viewport-body {
-      padding: 24px;
-      position: relative;
-      min-height: 540px;
-    }
-
-    .tab-content-panel {
-      display: none;
-      animation: fadeIn 0.4s ease forwards;
-    }
-
-    .tab-content-panel.active {
-      display: block;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    /* Screen Preview Showcase Layout */
-    .screen-stage-wrapper {
-      position: relative;
-      border-radius: var(--radius-md);
-      overflow: hidden;
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
-      background: #000;
-      cursor: zoom-in;
-    }
-
-    .screen-stage-wrapper img {
-      width: 100%;
-      height: auto;
-      max-height: 600px;
-      object-fit: cover;
-      object-position: top;
-      display: block;
-      transition: transform 0.5s ease;
-    }
-
-    .screen-stage-wrapper:hover img {
-      transform: scale(1.02);
-    }
-
-    .screen-overlay-badge {
-      position: absolute;
-      top: 16px;
-      left: 16px;
-      background: rgba(6, 7, 10, 0.85);
-      backdrop-filter: blur(12px);
-      border: 1px solid rgba(0, 240, 255, 0.3);
-      padding: 8px 16px;
-      border-radius: 30px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 12px;
-      font-weight: 600;
-      color: #fff;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-    }
-
-    .screen-hotspot {
-      position: absolute;
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      background: rgba(0, 240, 255, 0.35);
-      border: 2px solid var(--accent-cyan);
-      box-shadow: 0 0 20px var(--accent-cyan);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      animation: pulseHotspot 2s infinite ease-in-out;
-      transition: transform 0.2s ease;
-    }
-
-    .screen-hotspot:hover {
-      transform: scale(1.25);
-    }
-
-    .hotspot-tooltip {
-      position: absolute;
-      bottom: 40px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(10, 14, 22, 0.95);
-      backdrop-filter: blur(16px);
-      border: 1px solid var(--accent-cyan);
-      border-radius: 8px;
-      padding: 8px 14px;
-      font-size: 12px;
-      white-space: nowrap;
-      color: #fff;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 0.2s ease;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.8);
-      z-index: 10;
-    }
-
-    .screen-hotspot:hover .hotspot-tooltip {
-      opacity: 1;
-    }
-
-    @keyframes pulseHotspot {
-      0%, 100% { transform: scale(1); box-shadow: 0 0 10px var(--accent-cyan); }
-      50% { transform: scale(1.15); box-shadow: 0 0 24px var(--accent-cyan); }
-    }
-
-    /* Dual Mobile Frame Layout */
-    .dual-mobile-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 24px;
-      align-items: center;
-    }
-
-    .mobile-mockup-card {
-      background: rgba(10, 14, 22, 0.7);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-lg);
-      padding: 16px;
-      position: relative;
-      overflow: hidden;
-      transition: all 0.3s ease;
-    }
-
-    .mobile-mockup-card:hover {
-      border-color: rgba(139, 92, 246, 0.35);
-      transform: translateY(-4px);
-    }
-
-    .mobile-screen-bezel {
-      border-radius: var(--radius-md);
-      overflow: hidden;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8);
-      background: #000;
-      position: relative;
-      cursor: zoom-in;
-    }
-
-    .mobile-screen-bezel img {
-      width: 100%;
-      height: 480px;
-      object-fit: cover;
-      object-position: top;
-      display: block;
-      transition: transform 0.4s ease;
-    }
-
-    .mobile-screen-bezel:hover img {
-      transform: scale(1.03);
-    }
-
-    .mobile-card-caption {
-      margin-top: 14px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .mobile-caption-title {
-      font-size: 15px;
-      font-weight: 700;
-      color: #fff;
-    }
-
-    .mobile-caption-sub {
-      font-size: 12px;
-      color: var(--text-dim);
-    }
-
-    /* Bento Grid Ecosystem Section */
-    .section-wrap {
-      padding: 100px 0;
-      position: relative;
-    }
-
-    .section-header {
-      text-align: center;
-      max-width: 800px;
-      margin: 0 auto 60px auto;
-    }
-
-    .section-eyebrow {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      font-family: var(--font-mono);
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--accent-cyan);
-      text-transform: uppercase;
-      letter-spacing: 1.5px;
-      margin-bottom: 14px;
-      background: rgba(0, 240, 255, 0.08);
-      padding: 4px 12px;
-      border-radius: 20px;
-      border: 1px solid rgba(0, 240, 255, 0.2);
-    }
-
-    .section-title {
-      font-family: var(--font-display);
-      font-size: clamp(32px, 4.5vw, 52px);
-      font-weight: 800;
-      line-height: 1.15;
-      letter-spacing: -1px;
-      margin-bottom: 18px;
-    }
-
-    .section-desc {
-      font-size: 17px;
-      color: var(--text-dim);
-      line-height: 1.6;
-    }
-
-    /* Awwwards Inspired Bento Grid */
-    .bento-grid {
-      display: grid;
-      grid-template-columns: repeat(12, 1fr);
-      gap: 24px;
-    }
-
-    .bento-card {
-      background: var(--bg-card);
-      backdrop-filter: blur(24px);
-      -webkit-backdrop-filter: blur(24px);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-xl);
-      padding: 32px;
-      position: relative;
-      overflow: hidden;
+      min-height: 100vh;
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
-      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-
-    .bento-card:hover {
-      border-color: var(--border-hover);
-      background: var(--bg-card-hover);
-      transform: translateY(-5px);
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 30px rgba(0, 240, 255, 0.08);
-    }
-
-    .bento-card::after {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(255, 255, 255, 0.06), transparent 50%);
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 0.3s ease;
-    }
-
-    .bento-card:hover::after {
-      opacity: 1;
-    }
-
-    /* Bento Sizes */
-    .col-span-12 { grid-column: span 12; }
-    .col-span-8 { grid-column: span 8; }
-    .col-span-7 { grid-column: span 7; }
-    .col-span-6 { grid-column: span 6; }
-    .col-span-5 { grid-column: span 5; }
-    .col-span-4 { grid-column: span 4; }
-
-    @media (max-width: 1024px) {
-      .col-span-8, .col-span-7, .col-span-5, .col-span-4 {
-        grid-column: span 6;
-      }
+      align-items: center;
+      padding: 32px 20px 80px 20px;
     }
 
     @media (max-width: 768px) {
-      .col-span-8, .col-span-7, .col-span-6, .col-span-5, .col-span-4 {
-        grid-column: span 12;
+      .outer-wrapper {
+        padding: 12px 8px 40px 8px;
       }
     }
 
-    .bento-icon-box {
-      width: 48px;
-      height: 48px;
-      border-radius: var(--radius-md);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 20px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
-    }
-
-    .icon-box-cyan { background: rgba(0, 240, 255, 0.12); color: var(--accent-cyan); border-color: rgba(0, 240, 255, 0.3); }
-    .icon-box-emerald { background: rgba(16, 185, 129, 0.12); color: var(--accent-emerald); border-color: rgba(16, 185, 129, 0.3); }
-    .icon-box-violet { background: rgba(139, 92, 246, 0.12); color: var(--accent-violet); border-color: rgba(139, 92, 246, 0.3); }
-    .icon-box-amber { background: rgba(245, 158, 11, 0.12); color: var(--accent-amber); border-color: rgba(245, 158, 11, 0.3); }
-    .icon-box-rose { background: rgba(244, 63, 94, 0.12); color: var(--accent-rose); border-color: rgba(244, 63, 94, 0.3); }
-
-    .bento-tag {
-      font-family: var(--font-mono);
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      display: inline-block;
-      margin-bottom: 8px;
-      color: var(--accent-cyan);
-    }
-
-    .bento-title {
-      font-family: var(--font-display);
-      font-size: 24px;
-      font-weight: 800;
-      color: #fff;
-      line-height: 1.25;
-      margin-bottom: 12px;
-      letter-spacing: -0.3px;
-    }
-
-    .bento-desc {
-      font-size: 14.5px;
-      color: var(--text-dim);
-      line-height: 1.6;
-      margin-bottom: 24px;
-    }
-
-    .bento-visual-wrap {
-      border-radius: var(--radius-md);
-      overflow: hidden;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      background: #000;
-      position: relative;
-      cursor: zoom-in;
-    }
-
-    .bento-visual-wrap img {
+    /* The Central White Canvas (Inspired by Zettafleet / Dribbble Reference) */
+    .main-canvas {
       width: 100%;
-      height: 240px;
-      object-fit: cover;
-      display: block;
-      transition: transform 0.4s ease;
-    }
-
-    .bento-card:hover .bento-visual-wrap img {
-      transform: scale(1.03);
-    }
-
-    /* Radar Simulation Box inside Bento */
-    .radar-visual-box {
-      height: 240px;
+      max-width: 1240px;
+      background: #ffffff;
+      color: #000000;
       position: relative;
-      border-radius: var(--radius-md);
-      overflow: hidden;
-      background: #020617;
-      border: 1px solid rgba(0, 240, 255, 0.2);
+      box-shadow: 0 30px 100px rgba(0, 0, 0, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.15);
     }
 
-    .radar-satellite-bg {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      opacity: 0.75;
-      filter: saturate(1.2) contrast(1.1);
-    }
-
-    .radar-sweep-beam {
+    /* Reticle / Viewfinder Corner Crop Marks and Edge Ticks */
+    .reticle-corner-tl {
       position: absolute;
-      top: 50%;
+      top: -10px;
+      left: -10px;
+      width: 22px;
+      height: 22px;
+      border-top: 4px solid #ffffff;
+      border-left: 4px solid #ffffff;
+      pointer-events: none;
+      z-index: 20;
+    }
+    .reticle-corner-tr {
+      position: absolute;
+      top: -10px;
+      right: -10px;
+      width: 22px;
+      height: 22px;
+      border-top: 4px solid #ffffff;
+      border-right: 4px solid #ffffff;
+      pointer-events: none;
+      z-index: 20;
+    }
+    .reticle-corner-bl {
+      position: absolute;
+      bottom: -10px;
+      left: -10px;
+      width: 22px;
+      height: 22px;
+      border-bottom: 4px solid #ffffff;
+      border-left: 4px solid #ffffff;
+      pointer-events: none;
+      z-index: 20;
+    }
+    .reticle-corner-br {
+      position: absolute;
+      bottom: -10px;
+      right: -10px;
+      width: 22px;
+      height: 22px;
+      border-bottom: 4px solid #ffffff;
+      border-right: 4px solid #ffffff;
+      pointer-events: none;
+      z-index: 20;
+    }
+
+    /* Edge tick notches */
+    .reticle-tick-top {
+      position: absolute;
+      top: -6px;
       left: 50%;
-      width: 220px;
-      height: 220px;
-      margin-top: -110px;
-      margin-left: -110px;
-      border-radius: 50%;
-      border: 2px dashed rgba(0, 240, 255, 0.6);
-      box-shadow: 0 0 40px rgba(0, 240, 255, 0.3), inset 0 0 30px rgba(0, 240, 255, 0.2);
+      transform: translateX(-50%);
+      width: 16px;
+      height: 4px;
+      background: #ffffff;
+      pointer-events: none;
+    }
+    .reticle-tick-bottom {
+      position: absolute;
+      bottom: -6px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 16px;
+      height: 4px;
+      background: #ffffff;
+      pointer-events: none;
+    }
+    .reticle-tick-left {
+      position: absolute;
+      left: -6px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 4px;
+      height: 16px;
+      background: #ffffff;
+      pointer-events: none;
+    }
+    .reticle-tick-right {
+      position: absolute;
+      right: -6px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 4px;
+      height: 16px;
+      background: #ffffff;
       pointer-events: none;
     }
 
-    .radar-scanner-line {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 110px;
-      height: 2px;
-      background: linear-gradient(90deg, var(--accent-cyan), transparent);
-      transform-origin: 0 0;
-      animation: sweepRadar 4s infinite linear;
-    }
-
-    @keyframes sweepRadar {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    .radar-pin-badge {
-      position: absolute;
-      bottom: 12px;
-      left: 12px;
-      background: rgba(8, 11, 20, 0.9);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(0, 240, 255, 0.3);
-      padding: 6px 12px;
-      border-radius: 20px;
-      font-size: 11px;
-      font-family: var(--font-mono);
-      color: var(--accent-cyan);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    /* VoIP Waveform Canvas & Live Simulator */
-    .voip-live-box {
-      background: rgba(7, 10, 18, 0.95);
-      border: 1px solid rgba(16, 185, 129, 0.3);
-      border-radius: var(--radius-md);
-      padding: 16px;
-      margin-top: 16px;
-    }
-
-    .voip-status-row {
+    /* Top Navigation inside Canvas */
+    .canvas-nav {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 12px;
+      padding: 24px 36px;
+      border-bottom: 1px solid var(--border-line);
+      flex-wrap: wrap;
+      gap: 16px;
     }
 
-    .voip-status-badge {
-      font-family: var(--font-mono);
-      font-size: 11.5px;
-      color: var(--accent-emerald);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-weight: 600;
-    }
-
-    .voip-codec-tag {
-      font-size: 11px;
-      font-family: var(--font-mono);
-      color: var(--text-dim);
-      background: rgba(255, 255, 255, 0.05);
-      padding: 2px 8px;
-      border-radius: 4px;
-    }
-
-    .waveform-canvas {
-      width: 100%;
-      height: 64px;
-      display: block;
-      border-radius: 6px;
-      background: rgba(0, 0, 0, 0.3);
-    }
-
-    .voip-controls-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-top: 12px;
-      padding-top: 12px;
-      border-top: 1px solid rgba(255, 255, 255, 0.06);
-    }
-
-    .voip-btn-sim {
-      background: rgba(16, 185, 129, 0.15);
-      border: 1px solid rgba(16, 185, 129, 0.4);
-      color: var(--accent-emerald);
-      padding: 6px 14px;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      transition: all 0.2s ease;
-    }
-
-    .voip-btn-sim:hover {
-      background: rgba(16, 185, 129, 0.25);
-    }
-
-    /* Biometric Card Visual */
-    .biometric-box {
-      border-radius: var(--radius-md);
-      background: #030611;
-      border: 1px solid rgba(139, 92, 246, 0.3);
-      padding: 20px;
-      text-align: center;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .bio-scanner-frame {
-      width: 130px;
-      height: 130px;
-      margin: 0 auto 16px auto;
-      border: 2px solid var(--accent-violet);
-      border-radius: 50%;
-      position: relative;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 0 30px rgba(139, 92, 246, 0.25);
-    }
-
-    .bio-scanner-line {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 2px;
-      background: linear-gradient(90deg, transparent, #c084fc, transparent);
-      animation: scanVertical 2s infinite ease-in-out;
-    }
-
-    @keyframes scanVertical {
-      0%, 100% { top: 0%; opacity: 0.2; }
-      50% { top: 100%; opacity: 1; }
-    }
-
-    .bio-metric-row {
-      display: flex;
-      justify-content: space-around;
-      background: rgba(255, 255, 255, 0.03);
-      border-radius: 8px;
-      padding: 10px;
-      font-family: var(--font-mono);
-      font-size: 12px;
-    }
-
-    /* Specs & Comparison Matrix */
-    .specs-table-wrap {
-      border-radius: var(--radius-xl);
-      background: var(--bg-card);
-      border: 1px solid var(--border-subtle);
-      overflow-x: auto;
-      backdrop-filter: blur(20px);
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
-    }
-
-    .specs-table {
-      width: 100%;
-      border-collapse: collapse;
-      text-align: left;
-    }
-
-    .specs-table th {
-      background: rgba(10, 14, 22, 0.9);
-      padding: 20px 24px;
-      font-family: var(--font-display);
-      font-size: 15px;
-      font-weight: 700;
-      color: #fff;
-      border-bottom: 1px solid var(--border-subtle);
-    }
-
-    .specs-table td {
-      padding: 18px 24px;
-      font-size: 14.5px;
-      color: var(--text-dim);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-    }
-
-    .specs-table tr:hover td {
-      background: rgba(255, 255, 255, 0.02);
-      color: var(--text-main);
-    }
-
-    .feature-name-cell {
-      font-weight: 600;
-      color: #fff;
+    .brand-group {
       display: flex;
       align-items: center;
       gap: 10px;
+      text-decoration: none;
+      color: #000;
     }
 
-    .badge-check {
-      color: var(--accent-emerald);
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-weight: 600;
-    }
-
-    .badge-cross {
-      color: var(--text-muted);
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    /* Lightbox Modal */
-    .lightbox-modal {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: rgba(4, 6, 10, 0.94);
-      backdrop-filter: blur(25px);
-      z-index: 1000;
-      display: none;
+    .brand-icon-box {
+      width: 32px;
+      height: 32px;
+      background: #000;
+      color: #fff;
+      display: flex;
       align-items: center;
       justify-content: center;
-      padding: 30px;
+      border-radius: 6px;
+      font-weight: 900;
+      font-size: 16px;
     }
 
-    .lightbox-modal.active {
-      display: flex;
+    .brand-name {
+      font-family: var(--font-sans);
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
     }
 
-    .lightbox-content-box {
-      max-width: 1100px;
-      width: 100%;
-      background: rgba(14, 18, 28, 0.95);
-      border: 1px solid rgba(0, 240, 255, 0.3);
-      border-radius: var(--radius-xl);
-      overflow: hidden;
-      box-shadow: 0 30px 90px rgba(0, 0, 0, 0.9), 0 0 50px rgba(0, 240, 255, 0.2);
-      animation: modalZoom 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-
-    @keyframes modalZoom {
-      from { transform: scale(0.92); opacity: 0; }
-      to { transform: scale(1); opacity: 1; }
-    }
-
-    .lightbox-header {
+    .nav-menu-items {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      padding: 18px 24px;
-      background: rgba(8, 11, 18, 0.95);
-      border-bottom: 1px solid var(--border-subtle);
+      gap: 28px;
+      list-style: none;
     }
 
-    .lightbox-title {
-      font-family: var(--font-display);
-      font-size: 18px;
+    .nav-menu-link {
+      font-size: 13.5px;
+      font-weight: 500;
+      color: #333;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: color 0.15s ease;
+    }
+
+    .nav-menu-link:hover {
+      color: #000;
+    }
+
+    .nav-auth-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn-nav-ghost {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #000;
+      text-decoration: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      transition: background 0.15s ease;
+    }
+
+    .btn-nav-ghost:hover {
+      background: #f4f4f4;
+    }
+
+    .btn-nav-black {
+      font-size: 13.5px;
       font-weight: 700;
       color: #fff;
-    }
-
-    .lightbox-close-btn {
-      background: transparent;
-      border: none;
-      color: var(--text-dim);
-      font-size: 26px;
-      cursor: pointer;
+      background: #000;
+      text-decoration: none;
+      padding: 8px 18px;
+      border-radius: 6px;
+      transition: all 0.2s ease;
       display: flex;
       align-items: center;
-      justify-content: center;
-      transition: color 0.2s ease;
+      gap: 6px;
     }
 
-    .lightbox-close-btn:hover {
-      color: #fff;
+    .btn-nav-black:hover {
+      background: #222;
+      transform: translateY(-1px);
     }
 
-    .lightbox-img-wrap {
-      padding: 20px;
-      background: #000;
-      max-height: 75vh;
-      overflow-y: auto;
-      text-align: center;
+    /* Content Sections inside Canvas */
+    .canvas-section {
+      padding: 70px 48px;
+      border-bottom: 1px solid var(--border-line);
+      position: relative;
     }
 
-    .lightbox-img-wrap img {
-      max-width: 100%;
-      max-height: 70vh;
-      object-fit: contain;
-      border-radius: var(--radius-md);
-      box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+    @media (max-width: 768px) {
+      .canvas-section {
+        padding: 40px 20px;
+      }
+      .canvas-nav {
+        padding: 16px 20px;
+      }
     }
 
-    .lightbox-caption {
-      padding: 16px 24px;
-      background: rgba(10, 14, 22, 0.95);
-      font-size: 14px;
-      color: var(--text-dim);
-      border-top: 1px solid var(--border-subtle);
+    /* Technical Category Tag */
+    .tech-tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #666;
+      margin-bottom: 16px;
+      display: inline-block;
     }
 
-    /* Interactive 3D Robot Card */
-    .robot-showcase-box {
-      border-radius: var(--radius-xl);
-      background: linear-gradient(135deg, rgba(16, 21, 35, 0.8) 0%, rgba(9, 11, 18, 0.95) 100%);
-      border: 1px solid rgba(0, 240, 255, 0.25);
-      padding: 40px;
+    /* Hero Typography */
+    .hero-grid {
       display: grid;
-      grid-template-columns: 1fr 1.1fr;
+      grid-template-columns: 1.2fr 1fr;
       gap: 40px;
       align-items: center;
-      box-shadow: 0 25px 70px rgba(0, 0, 0, 0.8);
-      position: relative;
-      overflow: hidden;
     }
 
     @media (max-width: 900px) {
-      .robot-showcase-box {
+      .hero-grid {
         grid-template-columns: 1fr;
       }
     }
 
-    .robot-media-wrap {
-      border-radius: var(--radius-lg);
-      overflow: hidden;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
-      position: relative;
+    .hero-h1 {
+      font-size: clamp(34px, 4.4vw, 54px);
+      font-weight: 900;
+      line-height: 1.12;
+      letter-spacing: -1.8px;
+      color: #000000;
+      margin-bottom: 24px;
     }
 
-    .robot-media-wrap img {
+    .bracket-word {
+      position: relative;
+      display: inline-block;
+      font-weight: 900;
+    }
+
+    .bracket-word::before {
+      content: '[';
+      color: #999;
+      font-family: var(--font-mono);
+      font-weight: 400;
+      margin-right: 1px;
+    }
+
+    .bracket-word::after {
+      content: ']';
+      color: #999;
+      font-family: var(--font-mono);
+      font-weight: 400;
+      margin-left: 1px;
+    }
+
+    .hero-sub {
+      font-size: 16px;
+      line-height: 1.6;
+      color: var(--text-sub);
+      margin-bottom: 32px;
+    }
+
+    .hero-btn-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .btn-pill-solid {
+      background: #000000;
+      color: #ffffff;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 700;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      cursor: pointer;
+      border: 1px solid #000000;
+    }
+
+    .btn-pill-solid:hover {
+      background: #222;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+    }
+
+    .btn-pill-outline {
+      background: #ffffff;
+      color: #000000;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 700;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      cursor: pointer;
+      border: 1px solid #000000;
+    }
+
+    .btn-pill-outline:hover {
+      background: #f7f7f7;
+      transform: translateY(-2px);
+    }
+
+    /* Video Announcement Stage (Dribbble Video Replica) */
+    .video-stage-card {
+      position: relative;
+      background: #000000;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 30px;
+      border: 1px solid #000000;
+    }
+
+    .video-stage-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .video-pill-switch {
+      display: inline-flex;
+      background: #ffffff;
+      border: 1px solid #000000;
+      border-radius: 4px;
+      overflow: hidden;
+      padding: 2px;
+    }
+
+    .video-pill-btn {
+      background: transparent;
+      border: none;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 6px 14px;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .video-pill-btn.active {
+      background: #000000;
+      color: #ffffff;
+    }
+
+    .video-pill-btn:not(.active) {
+      color: #000000;
+    }
+
+    .video-screen-container {
+      position: relative;
       width: 100%;
-      height: 380px;
+      height: 520px;
+      background: #0a0a0a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    @media (max-width: 768px) {
+      .video-screen-container {
+        height: 280px;
+      }
+    }
+
+    .video-media-element {
+      width: 100%;
+      height: 100%;
       object-fit: cover;
       display: block;
     }
 
-    /* FAQ Section */
-    .faq-list {
-      max-width: 860px;
-      margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
+    /* Inset Reticle Viewfinder on the video container */
+    .video-reticle-tl {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      width: 16px;
+      height: 16px;
+      border-top: 2px solid #ffffff;
+      border-left: 2px solid #ffffff;
+      pointer-events: none;
+    }
+    .video-reticle-tr {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      width: 16px;
+      height: 16px;
+      border-top: 2px solid #ffffff;
+      border-right: 2px solid #ffffff;
+      pointer-events: none;
+    }
+    .video-reticle-bl {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      width: 16px;
+      height: 16px;
+      border-bottom: 2px solid #ffffff;
+      border-left: 2px solid #ffffff;
+      pointer-events: none;
+    }
+    .video-reticle-br {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      width: 16px;
+      height: 16px;
+      border-bottom: 2px solid #ffffff;
+      border-right: 2px solid #ffffff;
+      pointer-events: none;
     }
 
-    .faq-item {
-      background: var(--bg-card);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-lg);
-      overflow: hidden;
-      transition: all 0.3s ease;
+    .video-timecode-tl {
+      position: absolute;
+      top: 22px;
+      left: 38px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.7);
+      pointer-events: none;
+    }
+    .video-timecode-tr {
+      position: absolute;
+      top: 22px;
+      right: 38px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.7);
+      pointer-events: none;
     }
 
-    .faq-item:hover {
-      border-color: rgba(255, 255, 255, 0.18);
-    }
-
-    .faq-question {
-      padding: 22px 28px;
-      font-family: var(--font-display);
-      font-size: 18px;
-      font-weight: 700;
-      color: #fff;
-      cursor: pointer;
+    .play-button-center {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 76px;
+      height: 76px;
+      background: #ffffff;
+      border-radius: 50%;
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      user-select: none;
-    }
-
-    .faq-toggle-icon {
-      font-size: 24px;
-      color: var(--accent-cyan);
-      transition: transform 0.3s ease;
-    }
-
-    .faq-item.active .faq-toggle-icon {
-      transform: rotate(180deg);
-    }
-
-    .faq-answer {
-      padding: 0 28px 24px 28px;
-      font-size: 15px;
-      color: var(--text-dim);
-      line-height: 1.7;
-      display: none;
-    }
-
-    .faq-item.active .faq-answer {
-      display: block;
-    }
-
-    /* CTA Section */
-    .cta-banner {
-      border-radius: var(--radius-xl);
-      background: radial-gradient(circle at 50% 0%, rgba(0, 240, 255, 0.15) 0%, rgba(10, 14, 24, 0.95) 75%);
-      border: 1px solid rgba(0, 240, 255, 0.3);
-      padding: 80px 40px;
-      text-align: center;
-      position: relative;
-      overflow: hidden;
-      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.8), 0 0 60px rgba(0, 240, 255, 0.1);
-      margin-bottom: 60px;
-    }
-
-    .cta-title {
-      font-family: var(--font-display);
-      font-size: clamp(34px, 5vw, 56px);
-      font-weight: 900;
-      line-height: 1.12;
-      letter-spacing: -1.5px;
-      margin-bottom: 20px;
-      color: #fff;
-    }
-
-    .cta-desc {
-      font-size: 18px;
-      color: var(--text-dim);
-      max-width: 680px;
-      margin: 0 auto 40px auto;
-    }
-
-    /* Site Footer */
-    footer.site-footer {
-      border-top: 1px solid var(--border-subtle);
-      background: rgba(5, 7, 10, 0.95);
-      padding: 60px 0 30px 0;
-      font-size: 14px;
-      color: var(--text-dim);
-      position: relative;
+      justify-content: center;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
       z-index: 10;
     }
 
-    .footer-grid {
+    .play-button-center:hover {
+      transform: translate(-50%, -50%) scale(1.12);
+      box-shadow: 0 15px 50px rgba(0, 0, 0, 0.8);
+    }
+
+    .play-button-center span {
+      color: #000000;
+      font-size: 32px;
+      margin-left: 4px;
+    }
+
+    /* Section 3: Simple, yet extremely powerful (Principles Carousel) */
+    .principles-stage {
+      background: #fafafa;
+      border: 1px solid var(--border-line);
+      border-radius: 8px;
+      padding: 48px;
+      margin-top: 36px;
+      position: relative;
+    }
+
+    @media (max-width: 768px) {
+      .principles-stage {
+        padding: 24px;
+      }
+    }
+
+    .principles-grid {
       display: grid;
-      grid-template-columns: 2fr 1fr 1fr 1.5fr;
+      grid-template-columns: 260px 1fr;
       gap: 40px;
-      margin-bottom: 50px;
+      align-items: center;
+    }
+
+    @media (max-width: 768px) {
+      .principles-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .wireframe-box {
+      width: 220px;
+      height: 220px;
+      background: #ffffff;
+      border: 1px solid var(--border-line);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      margin: 0 auto;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.04);
+    }
+
+    .wireframe-reticle {
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      border-color: #000;
+    }
+    .w-tl { top: 8px; left: 8px; border-top: 1.5px solid #000; border-left: 1.5px solid #000; }
+    .w-tr { top: 8px; right: 8px; border-top: 1.5px solid #000; border-right: 1.5px solid #000; }
+    .w-bl { bottom: 8px; left: 8px; border-bottom: 1.5px solid #000; border-left: 1.5px solid #000; }
+    .w-br { bottom: 8px; right: 8px; border-bottom: 1.5px solid #000; border-right: 1.5px solid #000; }
+
+    .stepper-nav-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .stepper-label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      color: #777;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .stepper-counter {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 700;
+      color: #000;
+    }
+
+    .principle-title {
+      font-size: 28px;
+      font-weight: 800;
+      color: #000;
+      margin-bottom: 12px;
+      letter-spacing: -0.5px;
+    }
+
+    .principle-desc {
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--text-sub);
+      margin-bottom: 24px;
+    }
+
+    .principle-dots-nav {
+      display: flex;
+      gap: 8px;
+    }
+
+    .p-dot {
+      width: 28px;
+      height: 4px;
+      background: #e0e0e0;
+      border-radius: 2px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .p-dot.active {
+      background: #000000;
+      width: 44px;
+    }
+
+    /* All Modules Analysis & Screenshot Showcase Section */
+    .modules-nav-pills {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 12px;
+      margin-bottom: 30px;
+      scrollbar-width: none;
+    }
+    .modules-nav-pills::-webkit-scrollbar {
+      display: none;
+    }
+
+    .mod-pill-btn {
+      white-space: nowrap;
+      padding: 8px 16px;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 700;
+      background: #f4f4f4;
+      border: 1px solid #e0e0e0;
+      color: #333;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .mod-pill-btn.active {
+      background: #000000;
+      color: #ffffff;
+      border-color: #000000;
+    }
+
+    .module-detail-card {
+      border: 1px solid var(--border-line);
+      border-radius: 8px;
+      overflow: hidden;
+      background: #ffffff;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.05);
+    }
+
+    .module-detail-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
     }
 
     @media (max-width: 900px) {
-      .footer-grid {
-        grid-template-columns: 1fr 1fr;
+      .module-detail-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .mod-screenshot-frame {
+      background: #000;
+      position: relative;
+      cursor: zoom-in;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 440px;
+    }
+
+    .mod-screenshot-frame img {
+      width: 100%;
+      height: 100%;
+      max-height: 520px;
+      object-fit: cover;
+      object-position: top;
+      display: block;
+      transition: transform 0.4s ease;
+    }
+
+    .mod-screenshot-frame:hover img {
+      transform: scale(1.02);
+    }
+
+    .mod-info-content {
+      padding: 40px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .mod-feature-list {
+      list-style: none;
+      margin: 20px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .mod-feature-item {
+      font-size: 13.5px;
+      color: #444;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      line-height: 1.5;
+    }
+
+    .mod-feature-item span.icon {
+      color: #000;
+      font-size: 16px;
+      margin-top: 2px;
+    }
+
+    .mod-tech-badge-strip {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 20px;
+    }
+
+    .mod-tech-badge {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 4px 10px;
+      background: #f0f0f0;
+      border-radius: 4px;
+      color: #333;
+      font-weight: 600;
+    }
+
+    /* Vision 3-Column Spec Grid (Dribbble 00:23) */
+    .vision-spec-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      margin-top: 40px;
+      padding-top: 30px;
+      border-top: 1px solid var(--border-line);
+    }
+
+    @media (max-width: 768px) {
+      .vision-spec-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .vision-card {
+      text-align: center;
+      padding: 24px;
+    }
+
+    .vision-num {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 6px;
+    }
+
+    .vision-card-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #000;
+      margin-bottom: 16px;
+    }
+
+    .vision-art-box {
+      width: 90px;
+      height: 90px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Blog / Release Row (Dribbble 00:29) */
+    .blog-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-top: 30px;
+    }
+
+    @media (max-width: 1024px) {
+      .blog-grid {
+        grid-template-columns: repeat(2, 1fr);
       }
     }
 
     @media (max-width: 600px) {
-      .footer-grid {
+      .blog-grid {
         grid-template-columns: 1fr;
       }
     }
 
-    .footer-col-title {
-      font-family: var(--font-display);
-      font-size: 15px;
-      font-weight: 700;
-      color: #fff;
-      margin-bottom: 18px;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
+    .blog-card {
+      border: 1px solid var(--border-line);
+      border-radius: 6px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 200px;
+      background: #fff;
+      transition: all 0.2s ease;
     }
 
-    .footer-links {
+    .blog-card:hover {
+      border-color: #000;
+      transform: translateY(-2px);
+    }
+
+    .blog-card-tag {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      color: #666;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 12px;
+    }
+
+    .blog-card-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #000;
+      line-height: 1.4;
+      margin-bottom: 16px;
+    }
+
+    .blog-card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: #888;
+    }
+
+    .blog-read-link {
+      color: #000;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    /* CTA Section (Dribbble 00:31) */
+    .cta-canvas-section {
+      text-align: center;
+      padding: 90px 40px;
+    }
+
+    .cta-heading {
+      font-size: clamp(32px, 5vw, 56px);
+      font-weight: 900;
+      letter-spacing: -1.5px;
+      margin-bottom: 24px;
+    }
+
+    /* Minimalist Footer (Dribbble 00:32) */
+    .canvas-footer {
+      padding: 48px 36px 30px 36px;
+      border-top: 1px solid var(--border-line);
+      font-size: 13px;
+      color: #666;
+    }
+
+    .footer-columns-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr;
+      gap: 40px;
+      margin-bottom: 40px;
+    }
+
+    @media (max-width: 768px) {
+      .footer-columns-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .footer-col-head {
+      font-size: 12px;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: #000;
+      margin-bottom: 16px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .footer-nav-list {
       list-style: none;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 10px;
     }
 
-    .footer-link {
-      color: var(--text-dim);
+    .footer-nav-link {
+      color: #666;
       text-decoration: none;
-      transition: color 0.2s ease;
-      display: flex;
-      align-items: center;
-      gap: 6px;
+      transition: color 0.15s ease;
     }
 
-    .footer-link:hover {
-      color: var(--accent-cyan);
+    .footer-nav-link:hover {
+      color: #000;
     }
 
-    .footer-bottom {
-      border-top: 1px solid rgba(255, 255, 255, 0.05);
-      padding-top: 30px;
+    .footer-bottom-bar {
+      border-top: 1px solid var(--border-line);
+      padding-top: 24px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       flex-wrap: wrap;
       gap: 16px;
-      font-size: 13px;
+      font-size: 12px;
+    }
+
+    /* Lightbox Modal */
+    .lightbox-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.92);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .lightbox-box {
+      max-width: 1100px;
+      width: 100%;
+      background: #ffffff;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 30px 90px rgba(0,0,0,0.9);
+      animation: popIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes popIn {
+      from { transform: scale(0.94); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    .lightbox-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border-line);
+    }
+
+    .lightbox-title {
+      font-weight: 800;
+      font-size: 16px;
+    }
+
+    .lightbox-close {
+      background: transparent;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+    }
+
+    .lightbox-body {
+      padding: 20px;
+      background: #050505;
+      text-align: center;
+      max-height: 75vh;
+      overflow-y: auto;
+    }
+
+    .lightbox-body img {
+      max-width: 100%;
+      max-height: 70vh;
+      object-fit: contain;
+    }
+
+    .lightbox-foot {
+      padding: 14px 24px;
+      font-size: 13.5px;
+      color: #666;
+      border-top: 1px solid var(--border-line);
     }
   </style>
 </head>
 <body>
 
-  <!-- Ambient Lights & Grid -->
-  <div class="ambient-glow">
-    <div class="glow-sphere-1"></div>
-    <div class="glow-sphere-2"></div>
-    <div class="glow-sphere-3"></div>
-  </div>
-  <div class="cyber-grid"></div>
+  <!-- Halftone Dot Matrix Texture Background -->
+  <div class="halftone-bg"></div>
 
-  <!-- Navigation Bar -->
-  <header class="site-header">
-    <div class="nav-inner">
-      <a href="/educore.html" class="brand-mark">
-        <img src="/educore-assets/educore_logo.png" alt="EduCore Logo" class="brand-logo-img">
-        <span class="brand-text">EduCore <span class="brand-pill">SaaS ERP</span></span>
-      </a>
+  <!-- React Root -->
+  <div id="root"></div>
 
-      <ul class="nav-links">
-        <li><a href="#showcase" class="nav-link">Ecosystem</a></li>
-        <li><a href="#matrix" class="nav-link">Features</a></li>
-        <li><a href="#hardware" class="nav-link">Hardware Engine</a></li>
-        <li><a href="#specs" class="nav-link">Architecture</a></li>
-        <li><a href="#faq" class="nav-link">FAQ</a></li>
-      </ul>
+  <!-- React Application Implementation -->
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
 
-      <div class="nav-actions">
-        <div class="status-badge">
-          <span class="pulse-dot"></span>
-          <span>99.98% SLA Live</span>
-        </div>
-        <a href="/" class="btn-secondary" title="Open School Management Portal">
-          <span class="material-symbols-outlined" style="font-size: 18px;">dashboard</span>
-          <span>Launch ERP</span>
-        </a>
-        <a href="/TPS-Original-App.apk" class="btn-primary" download title="Download Android Mobile App">
-          <span class="material-symbols-outlined" style="font-size: 18px;">android</span>
-          <span>Download APK</span>
-        </a>
-      </div>
-    </div>
-  </header>
+    // Real Modules Data extracted from the App & Web Platform
+    const modulesData = [
+      {
+        id: 'erp',
+        name: 'Web ERP Command',
+        tag: 'CORE PORTAL',
+        title: 'Central Institutional ERP & Live Executive Command',
+        desc: 'The mission-control dashboard for school principals, administrators, and accountants. Provides real-time financial tracking, revenue versus dues breakdown, active student directories, instant thermal receipt issuance, and multi-term academic scheduling.',
+        image: '/educore-assets/erp_dashboard_real.png',
+        features: [
+          'Real-time metrics: Total active students, collected tuition, outstanding dues, and daily attendance.',
+          'Autonomous monthly fee generator executing on the 1st of every calendar month.',
+          'Automated ₹50 late fee calculation applied on unpaid student ledgers on the 11th.',
+          'Instant thermal paper receipt generation with encrypted cryptographic verification links.'
+        ],
+        tech: ['Turso Cloud libSQL', 'Zero-Secret Edge Proxy', 'Sub-15ms Edge Queries']
+      },
+      {
+        id: 'geofence',
+        name: '50m Geofence Radar',
+        tag: 'HARDWARE TELEMETRY',
+        title: 'Hardware-Fused 50m Auto-Attendance Radar',
+        desc: 'Ultra-low battery geofencing engine deployed at Prem Nagar Campus (23.8209682° N, 85.5119629° E). Utilizes Google Play Services Fused Location Provider sensor hub. Passive cell tower monitoring far away; GPS wakes for only 2 seconds upon crossing the 50m gate, consuming under 1% daily battery.',
+        image: '/educore-assets/geofence_satellite_50m.jpg',
+        features: [
+          'Strict 50.0m radius enclosing classrooms and courtyard while excluding surrounding residential areas.',
+          'One-time morning arrival lock: prevents subsequent entries from overwriting the initial arrival timestamp.',
+          '2-Hour Departure Guardrail: departures 2+ hours after arrival update departure time automatically.',
+          'Offline SQLite persistence: arrival timestamps safely store in SharedPreferences if mobile data is OFF.'
+        ],
+        tech: ['Fused Location Provider', '<1% Battery Drain', '50m Precision Gate']
+      },
+      {
+        id: 'voip',
+        name: 'WebRTC VoIP Telephony',
+        tag: 'NATIVE AUDIO',
+        title: 'Native WebRTC VoIP Calling & Closed-App Ringing',
+        desc: 'Dedicated hardware VoIP audio engine implemented directly in JavaScript with react-native-webrtc without WebViews. Features hardware Acoustic Echo Cancellation (AEC), Android VoipAudioManager speaker/mic routing, and high-priority FCM wakeups that ring even when the app is killed.',
+        image: '/educore-assets/app_screen_mobile_view.png',
+        features: [
+          'Direct hardware microphone activation (green dot status indicator) with AUDIOFOCUS_GAIN_EXCLUSIVE.',
+          'Instant high-priority notification channel with custom ringtones waking the phone on cold boot.',
+          'Institutional Access Control: Student-to-student direct calls permanently blocked (HTTP 403 Forbidden).',
+          'Live class doubt clearing voice rooms for teachers to host interactive audio sessions.'
+        ],
+        tech: ['48 kHz Opus Codec', 'VoipAudioManager', 'Acoustic Echo Cancellation']
+      },
+      {
+        id: 'analytics',
+        name: 'Academic Analytics',
+        tag: 'EXAMS & GRADING',
+        title: '360° Academic Analytics & Exam Marks Entry',
+        desc: 'Dedicated teacher suite for entering practical and theoretical marks across classes I-A to X-A. Generates dynamic auto-grading remarks, bell-curve distribution charts, student subject rankings, and printable CBSE report cards.',
+        image: '/educore-assets/app_screen_analytics.png',
+        features: [
+          'Dynamic auto-grading remarks: Automatically flags scores as Excellent, Very Good, Good, or Needs Help.',
+          'Batch sync to app_exam_marks table in Turso Cloud DB with zero latency.',
+          'Top performers ranking leaderboard highlighting subject toppers across all terms.',
+          'Exportable PDF & Excel report cards with custom school seal and QR authenticity code.'
+        ],
+        tech: ['Auto-Grading Engine', 'Multi-Term Aggregation', 'CBSE Report Cards']
+      },
+      {
+        id: 'reels',
+        name: '18,000+ NCERT Reels',
+        tag: 'ACADEMIC FEED',
+        title: '18,035+ Curated CBSE Video Reels & Daily AI Quiz',
+        desc: 'A safe, distraction-free educational video feed replacing unstructured social media algorithms. Strictly features verified lessons from Physics Wallah (Alakh Pandey), Magnet Brains, Dear Sir, and CodeWithHarry. Paired with daily AI Quiz challenges.',
+        image: '/educore-assets/quiz_3d_art.jpg',
+        features: [
+          'Full NCERT Class 6–10 coverage across Science, Mathematics, English, Hindi, and Social Science.',
+          'Zero YouTube Shorts or vertical entertainment clips; purely academic chapters and topic deep-dives.',
+          'Daily AI Quiz competition with 4-choice questions and instant explanation feedback.',
+          'School-wide daily quiz leaderboard encouraging friendly academic rivalry.'
+        ],
+        tech: ['18,035+ Verified Videos', 'Class 6-10 NCERT', 'Daily AI Quiz Engine']
+      },
+      {
+        id: 'biometrics',
+        name: 'Face Biometrics',
+        tag: 'BIOMETRIC AI',
+        title: 'Strict 1:1 Euclidean Face Biometric Scanner',
+        desc: 'Mobile biometric attendance scanner utilizing 128-dimensional facial embeddings. Verifies student identity against enrolled photos using Euclidean distance metric (d <= 0.48) with multi-frame optical stabilization to eliminate lighting anomalies.',
+        image: '/educore-assets/app_modal_attendance.png',
+        features: [
+          'Euclidean vector comparison (d <= 0.48) ensures rigorous mathematical identity matching.',
+          'Multi-frame optical averaging eliminates lighting glare and accidental cross-student false positives.',
+          'Works seamlessly in conjunction with the 50m geofence for multi-factor attendance verification.',
+          'Integrated Aadhaar face authentication protocol for government reporting compliance.'
+        ],
+        tech: ['Euclidean d <= 0.48', '128-D Embeddings', 'Anti-Spoofing Averaging']
+      },
+      {
+        id: 'billing',
+        name: 'FinTech Ledger',
+        tag: 'FINANCIAL AUTOMATION',
+        title: 'Automated Fee Management & Digital Receipts',
+        desc: 'Real-time billing ledger syncing student fee structures, partial tuition payments, cash counter receipts, and online UPI verification. Automatically reconciles dues upon payment recording.',
+        image: '/educore-assets/app_screen_recent_activity.png',
+        features: [
+          'Auto-generates Tuition Fee of Month on the 1st of every month in duemanagement.',
+          'Auto-generates Late Fee of Month on the 11th for any outstanding balances.',
+          'Reconciles duemanagement table automatically when payment is collected in fees table.',
+          'Instant digital slips with receipt QR code for parent mobile verification.'
+        ],
+        tech: ['Automated Reconciliation', 'Cron Dues Engine', 'QR Code Receipts']
+      },
+      {
+        id: 'ai-vidya',
+        name: 'AI Vidya 3D',
+        tag: 'AI ASSISTANT',
+        title: 'AI Vidya — 3D Voice & Academic Chatbot',
+        desc: 'Interactive 3D avatar assistant rendered using Three.js on web and mobile. Speaks dynamically using Text-to-Speech (TTS), resolves student doubts from the NCERT syllabus, and helps parents check fee balances instantly.',
+        image: '/educore-assets/ai_vidya_robot.jpg',
+        features: [
+          'Multilingual Speech Synthesis: Reads explanations aloud in Hindi and English.',
+          'Context-aware answers: Trained on the complete Tapowan Public School curriculum.',
+          'Draggable, non-intrusive 3D floating widget with interactive orbital camera controls.',
+          'Instant homework solver and study card generator.'
+        ],
+        tech: ['Three.js WebGL', 'Voice Text-To-Speech', 'Curriculum NLP']
+      },
+      {
+        id: 'ota',
+        name: 'Silent OTA Push',
+        tag: 'DEVOPS INFRASTRUCTURE',
+        title: 'Two-Stage Silent Background OTA Deployment',
+        desc: 'Bypasses Google Play Store review latency by deploying React Native JavaScript bundles over high-priority FCM messages directly to installed devices in the background.',
+        image: '/educore-assets/erp_login_real.png',
+        features: [
+          'Background FCM push triggers silent bundle download into filesDir/ota_bundle/.',
+          'Writes new version code to internal storage and reloads React context dynamically.',
+          'Zero interruption to active student or teacher calling sessions.',
+          'Ensures 100% fleet version consistency across all teacher and student devices.'
+        ],
+        tech: ['FCM Silent Push', 'Instant React Reload', 'Zero Play Store Delay']
+      },
+      {
+        id: 'saas',
+        name: 'Super Admin SaaS',
+        tag: 'MULTI-TENANT ORCHESTRATION',
+        title: 'EduCore Multi-Tenant SaaS Platform',
+        desc: 'Global administration control panel (tps-erp-saas.vercel.app) for managing tenant schools, auto-provisioning Turso SQLite cloud databases, configuring feature flags, and tracking security audit logs.',
+        image: '/educore-assets/erp_dashboard_real.png',
+        features: [
+          'Auto-provisions independent Turso SQLite cloud databases for new schools in seconds.',
+          'Fine-grained module entitlements: Toggle VoIP, Geofencing, Reels, or Billing per campus.',
+          'Centralized security audit logs tracking admin actions, IPs, and failed login attempts.',
+          'Ed25519 JWT session rotation and automated subscription billing cycles.'
+        ],
+        tech: ['Turso Multi-Tenant', 'Ed25519 Authentication', 'Instant DB Provisioning']
+      }
+    ];
 
-  <!-- Hero Section -->
-  <section class="hero-section">
-    <div class="container">
-      
-      <div class="hero-badge-wrap">
-        <div class="hero-pill">
-          <span class="hero-pill-sparkle">✦</span>
-          <span>The Next-Generation Institutional Operating System</span>
-          <span class="hero-pill-tag">v3.2.9 Release</span>
-        </div>
-      </div>
+    // Interactive Principle Stepper Data (Dribbble 00:08 - 00:19)
+    const principlesData = [
+      {
+        num: '01 / 04',
+        label: 'DATA PROCESSING',
+        title: 'Zero-Secret Cloud Database Proxy',
+        desc: 'Process, query, and synchronize school records with sub-15ms edge latency. All client mobile queries route through a zero-secret authenticated proxy (/api/db/query), permanently protecting database credentials and blocking hazardous DDL operations.',
+        icon: 'database'
+      },
+      {
+        num: '02 / 04',
+        label: 'HARDWARE TELEMETRY',
+        title: 'Hardware 50m Geofence Auto-Attendance',
+        desc: 'Google Play Services Fused Location Provider monitors the 50-meter school gate. High-precision GPS activates for only 2 seconds when entering campus, achieving <1% daily battery consumption with automated 2-hour departure guardrails.',
+        icon: 'radar'
+      },
+      {
+        num: '03 / 04',
+        label: 'NATIVE TELEPHONY',
+        title: 'Native WebRTC Audio Engine',
+        desc: 'Eliminates audio lag and hidden WebViews by running react-native-webrtc directly in native threads. Integrated with Android VoipAudioManager for hardware Echo Cancellation, Noise Suppression, and high-priority closed-app ringing.',
+        icon: 'call'
+      },
+      {
+        num: '04 / 04',
+        label: 'ACADEMIC FEEDS',
+        title: '18,035+ Curated Reels & Daily AI Quiz',
+        desc: 'Curated distraction-free NCERT video lessons from verified educators across CBSE Classes 6–10. Paired with daily AI-generated quiz competitions that record student scores to school-wide leaderboards.',
+        icon: 'smart_display'
+      }
+    ];
 
-      <h1 class="hero-headline">
-        One Unified Ecosystem.<br>
-        <span class="gradient-text-cyan">Infinite Educational Scale.</span>
-      </h1>
+    function App() {
+      const [videoMode, setVideoMode] = useState('overview');
+      const [isPlayingVideo, setIsPlayingVideo] = useState(false);
+      const [activePrinciple, setActivePrinciple] = useState(0);
+      const [activeModIndex, setActiveModIndex] = useState(0);
+      const [lightboxImg, setLightboxImg] = useState(null);
+      const videoRef = useRef(null);
 
-      <p class="hero-subtitle">
-        EduCore unifies cloud school operations, native WebRTC VoIP telephony, hardware 50-meter geofenced attendance, 1:1 Euclidean face biometrics, and 18,000+ CBSE NCERT interactive reels into an ultra-low-latency zero-secret architecture.
-      </p>
+      const activeModule = modulesData[activeModIndex];
 
-      <div class="hero-actions">
-        <a href="/" class="btn-hero-main">
-          <span class="material-symbols-outlined">rocket_launch</span>
-          <span>Explore Live Portal</span>
-        </a>
-        <a href="/TPS-Original-App.apk" class="btn-hero-ghost" download>
-          <span class="material-symbols-outlined">install_mobile</span>
-          <span>Download Android App (v3.2.9)</span>
-        </a>
-        <a href="https://tps-erp-saas.vercel.app" target="_blank" class="btn-hero-ghost">
-          <span class="material-symbols-outlined">admin_panel_settings</span>
-          <span>Super Admin SaaS</span>
-        </a>
-      </div>
+      const toggleVideoPlay = () => {
+        if (!videoRef.current) return;
+        if (isPlayingVideo) {
+          videoRef.current.pause();
+          setIsPlayingVideo(false);
+        } else {
+          videoRef.current.play();
+          setIsPlayingVideo(true);
+        }
+      };
 
-      <!-- Live Metric Strip -->
-      <div class="hero-stat-strip">
-        <div class="stat-pill-card">
-          <div class="stat-val stat-val-cyan"><span class="counter" data-target="18035">0</span>+</div>
-          <div class="stat-lbl">Curated NCERT Video Reels</div>
-        </div>
-        <div class="stat-pill-card">
-          <div class="stat-val stat-val-emerald"><span class="counter" data-target="50">0</span>m</div>
-          <div class="stat-lbl">Hardware Geofence Radius</div>
-        </div>
-        <div class="stat-pill-card">
-          <div class="stat-val stat-val-violet">&lt; <span class="counter" data-target="1">0</span>%</div>
-          <div class="stat-lbl">Daily Battery Consumption</div>
-        </div>
-        <div class="stat-pill-card">
-          <div class="stat-val stat-val-cyan"><span class="counter" data-target="0">0</span></div>
-          <div class="stat-lbl">Hardcoded Secrets in APK</div>
-        </div>
-        <div class="stat-pill-card">
-          <div class="stat-val stat-val-amber">99.98%</div>
-          <div class="stat-lbl">Turso Cloud Edge Uptime</div>
-        </div>
-      </div>
+      const handleVideoEnd = () => {
+        setIsPlayingVideo(false);
+      };
 
-      <!-- Dynamic Interactive Showcase Viewport -->
-      <div class="showcase-viewport-wrap" id="showcase">
-        <div class="viewport-tab-header">
-          <div class="viewport-window-dots">
-            <span class="win-dot win-dot-red"></span>
-            <span class="win-dot win-dot-yellow"></span>
-            <span class="win-dot win-dot-green"></span>
-          </div>
-
-          <div class="viewport-tabs-list">
-            <button class="viewport-tab-btn active" onclick="switchHeroTab('erp-tab', this)">
-              <span class="material-symbols-outlined" style="font-size: 16px;">desktop_windows</span>
-              <span>Web ERP Command</span>
-            </button>
-            <button class="viewport-tab-btn" onclick="switchHeroTab('mobile-tab', this)">
-              <span class="material-symbols-outlined" style="font-size: 16px;">phone_iphone</span>
-              <span>Mobile App (iOS/Android)</span>
-            </button>
-            <button class="viewport-tab-btn" onclick="switchHeroTab('geofence-tab', this)">
-              <span class="material-symbols-outlined" style="font-size: 16px;">radar</span>
-              <span>50m Geofence Radar</span>
-            </button>
-            <button class="viewport-tab-btn" onclick="switchHeroTab('voip-tab', this)">
-              <span class="material-symbols-outlined" style="font-size: 16px;">call</span>
-              <span>WebRTC VoIP Telephony</span>
-            </button>
-            <button class="viewport-tab-btn" onclick="switchHeroTab('ai-tab', this)">
-              <span class="material-symbols-outlined" style="font-size: 16px;">smart_toy</span>
-              <span>3D AI Assistant</span>
-            </button>
-          </div>
-
-          <div class="viewport-url-bar">
-            <span class="material-symbols-outlined" style="font-size: 14px; color: var(--accent-emerald);">lock</span>
-            <span>https://tapowan-school.vercel.app/dashboard</span>
-          </div>
-        </div>
-
-        <div class="viewport-body">
+      return (
+        <div className="outer-wrapper">
           
-          <!-- TAB 1: Web ERP Central Command -->
-          <div id="erp-tab" class="tab-content-panel active">
-            <div class="screen-stage-wrapper" onclick="openLightbox('/educore-assets/erp_dashboard_real.png', 'EduCore Web ERP Command — Live Dashboard showing Revenue, Real-Time Student Metrics, Due Management, and Instant Receipt Generator')">
-              <img src="/educore-assets/erp_dashboard_real.png" alt="EduCore Real Web ERP Dashboard">
-              <div class="screen-overlay-badge">
-                <span class="pulse-dot"></span>
-                <span>Live ERP Dashboard View (Tap to Zoom)</span>
-              </div>
+          {/* Main White Canvas with Viewfinder Reticle Corners */}
+          <div className="main-canvas">
+            
+            {/* Corner Reticle Crop Marks */}
+            <div className="reticle-corner-tl"></div>
+            <div className="reticle-corner-tr"></div>
+            <div className="reticle-corner-bl"></div>
+            <div className="reticle-corner-br"></div>
+            
+            <div className="reticle-tick-top"></div>
+            <div className="reticle-tick-bottom"></div>
+            <div className="reticle-tick-left"></div>
+            <div className="reticle-tick-right"></div>
 
-              <!-- Hotspot 1: Real-time Dues -->
-              <div class="screen-hotspot" style="top: 22%; left: 18%;">
-                <span class="material-symbols-outlined" style="font-size: 16px; color: #fff;">attach_money</span>
-                <div class="hotspot-tooltip">Automated Monthly Fee & ₹50 Late Fee Engine</div>
-              </div>
+            {/* Top Navigation inside Canvas */}
+            <header className="canvas-nav">
+              <a href="/educore.html" className="brand-group">
+                <div className="brand-icon-box">E</div>
+                <div className="brand-name">EduCore</div>
+              </a>
 
-              <!-- Hotspot 2: Real-time Attendance -->
-              <div class="screen-hotspot" style="top: 22%; left: 52%;">
-                <span class="material-symbols-outlined" style="font-size: 16px; color: #fff;">fact_check</span>
-                <div class="hotspot-tooltip">50m Geofence & Face Biometric Auto-Sync</div>
-              </div>
+              <ul className="nav-menu-items">
+                <li><a href="#video-announcement" className="nav-menu-link">Launch Event</a></li>
+                <li><a href="#principles" className="nav-menu-link">Architecture</a></li>
+                <li><a href="#modules-explorer" className="nav-menu-link">All Modules</a></li>
+                <li><a href="#vision" className="nav-menu-link">Platform Vision</a></li>
+              </ul>
 
-              <!-- Hotspot 3: Class Roster & Timetable -->
-              <div class="screen-hotspot" style="top: 55%; left: 82%;">
-                <span class="material-symbols-outlined" style="font-size: 16px; color: #fff;">schedule</span>
-                <div class="hotspot-tooltip">Real-time Timetable & Teacher Assignment Matrix</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- TAB 2: Mobile App Experience -->
-          <div id="mobile-tab" class="tab-content-panel">
-            <div class="dual-mobile-grid">
-              
-              <div class="mobile-mockup-card">
-                <div class="mobile-screen-bezel" onclick="openLightbox('/educore-assets/app_screen_dashboard.png', 'EduCore Mobile App — Student & Teacher Home Dashboard with live quick actions and timetable')">
-                  <img src="/educore-assets/app_screen_dashboard.png" alt="Mobile Home Dashboard">
-                </div>
-                <div class="mobile-card-caption">
-                  <div>
-                    <div class="mobile-caption-title">Teacher & Student Dashboard</div>
-                    <div class="mobile-caption-sub">Live schedule, assignments, and quick actions</div>
-                  </div>
-                  <span class="bento-tag">Android / iOS</span>
-                </div>
-              </div>
-
-              <div class="mobile-mockup-card">
-                <div class="mobile-screen-bezel" onclick="openLightbox('/educore-assets/app_screen_analytics.png', 'EduCore Mobile App — Performance Analytics and Class Marks Matrix')">
-                  <img src="/educore-assets/app_screen_analytics.png" alt="Mobile App Analytics">
-                </div>
-                <div class="mobile-card-caption">
-                  <div>
-                    <div class="mobile-caption-title">Academic Analytics & Marks</div>
-                    <div class="mobile-caption-sub">Real-time performance distribution & 360° student reports</div>
-                  </div>
-                  <span class="bento-tag" style="color: var(--accent-violet);">Analytics</span>
-                </div>
-              </div>
-
-              <div class="mobile-mockup-card">
-                <div class="mobile-screen-bezel" onclick="openLightbox('/educore-assets/app_screen_recent_activity.png', 'EduCore Mobile App — Live Transaction & Activity Feed with Instant Slip Generator')">
-                  <img src="/educore-assets/app_screen_recent_activity.png" alt="Recent Activity Card">
-                </div>
-                <div class="mobile-card-caption">
-                  <div>
-                    <div class="mobile-caption-title">Live Transaction Ledger</div>
-                    <div class="mobile-caption-sub">Instant digital slips, dues status, and fee clearance</div>
-                  </div>
-                  <span class="bento-tag" style="color: var(--accent-emerald);">FinTech</span>
-                </div>
-              </div>
-
-            </div>
-          </div>
-
-          <!-- TAB 3: 50m Geofence Radar -->
-          <div id="geofence-tab" class="tab-content-panel">
-            <div class="screen-stage-wrapper" onclick="openLightbox('/educore-assets/geofence_satellite_50m.jpg', '50m Google Satellite Campus Perimeter — Ultra-low-power Fused Location geofence (23.8209682° N, 85.5119629° E)')">
-              <img src="/educore-assets/geofence_satellite_50m.jpg" alt="Real School 50m Geofence Perimeter">
-              <div class="screen-overlay-badge">
-                <span class="pulse-dot"></span>
-                <span>Prem Nagar Campus • 23.8209682° N, 85.5119629° E • Radius: 50.0m</span>
-              </div>
-            </div>
-            <div style="margin-top: 16px; display: flex; gap: 12px; flex-wrap: wrap;">
-              <div class="stat-pill-card" style="flex: 1; text-align: left; padding: 14px 20px;">
-                <div style="font-family: var(--font-mono); font-size: 11px; color: var(--accent-cyan);">GEOFENCE ENGINE</div>
-                <div style="font-weight: 700; color: #fff; font-size: 15px;">Google Play Fused Location Provider</div>
-                <div style="font-size: 12px; color: var(--text-dim);">GPS runs for only 2 seconds when crossing the 50m gate. &lt;1% daily battery consumption.</div>
-              </div>
-              <div class="stat-pill-card" style="flex: 1; text-align: left; padding: 14px 20px;">
-                <div style="font-family: var(--font-mono); font-size: 11px; color: var(--accent-emerald);">ONE-TIME LOCK</div>
-                <div style="font-weight: 700; color: #fff; font-size: 15px;">Morning Arrival Lock &amp; 2-Hour Departure Guard</div>
-                <div style="font-size: 12px; color: var(--text-dim);">Attendance locks during morning hours; departures after 2 hours update departure timestamp automatically.</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- TAB 4: WebRTC VoIP Telephony -->
-          <div id="voip-tab" class="tab-content-panel">
-            <div class="bento-card" style="background: rgba(8, 11, 20, 0.95); border: 1px solid rgba(16, 185, 129, 0.3);">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
-                <div>
-                  <span class="bento-tag" style="color: var(--accent-emerald);">Hardware WebRTC Audio Engine</span>
-                  <h3 class="bento-title" style="font-size: 26px; margin-bottom: 6px;">Native VoIP Calling &amp; Closed-App Ringing</h3>
-                  <p class="bento-desc" style="margin-bottom: 0;">Direct Android VoipAudioManager integration with hardware Acoustic Echo Cancellation (AEC), Noise Suppression, and high-priority FCM wakeups.</p>
-                </div>
-                <div class="status-badge" style="background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.4);">
-                  <span class="pulse-dot"></span>
-                  <span>Audio Pipeline: 48 kHz Opus</span>
-                </div>
-              </div>
-
-              <!-- Interactive Waveform Canvas -->
-              <div class="voip-live-box">
-                <div class="voip-status-row">
-                  <div class="voip-status-badge">
-                    <span class="material-symbols-outlined" style="font-size: 18px;">graphic_eq</span>
-                    <span id="voipStatusText">Live WebRTC Session: Connected (Bidirectional HD Audio)</span>
-                  </div>
-                  <div class="voip-codec-tag">AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE</div>
-                </div>
-                <canvas id="waveformCanvas" class="waveform-canvas"></canvas>
-                <div class="voip-controls-row">
-                  <button class="voip-btn-sim" onclick="toggleWaveformSimulation()">
-                    <span class="material-symbols-outlined" id="voipSimIcon" style="font-size: 16px;">pause</span>
-                    <span id="voipSimLabel">Pause Audio Stream</span>
-                  </button>
-                  <div style="font-size: 12px; color: var(--text-dim); font-family: var(--font-mono);">
-                    Latency: <strong>24 ms</strong> • Packet Loss: <strong>0.00%</strong> • Mic: <strong>Hardware Green Dot Active</strong>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- TAB 5: 3D AI Assistant -->
-          <div id="ai-tab" class="tab-content-panel">
-            <div class="robot-showcase-box">
-              <div class="robot-media-wrap">
-                <img src="/educore-assets/ai_vidya_robot.jpg" alt="AI Vidya Robot Avatar">
-              </div>
-              <div>
-                <span class="bento-tag">Institutional Artificial Intelligence</span>
-                <h3 class="bento-title" style="font-size: 32px; margin-bottom: 16px;">AI Vidya — 3D Voice &amp; Academic Chatbot</h3>
-                <p class="bento-desc">
-                  Integrated directly into the Web ERP and Mobile App, AI Vidya answers academic queries, helps parents check student fee balances, generates instant exam study flashcards, and speaks dynamically using real-time Text-to-Speech (TTS).
-                </p>
-                <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px;">
-                  <div class="status-badge" style="background: rgba(0, 240, 255, 0.1); border-color: rgba(0, 240, 255, 0.3); color: var(--accent-cyan);">
-                    <span class="material-symbols-outlined" style="font-size: 16px;">record_voice_over</span>
-                    <span>Multilingual Voice TTS</span>
-                  </div>
-                  <div class="status-badge" style="background: rgba(139, 92, 246, 0.1); border-color: rgba(139, 92, 246, 0.3); color: var(--accent-violet);">
-                    <span class="material-symbols-outlined" style="font-size: 16px;">drag_indicator</span>
-                    <span>Draggable 3D Floating Avatar</span>
-                  </div>
-                </div>
-                <a href="/" class="btn-primary" style="display: inline-flex;">
-                  <span class="material-symbols-outlined">chat</span>
-                  <span>Interact With Vidya on Portal</span>
+              <div className="nav-auth-actions">
+                <a href="/" className="btn-nav-ghost">Log in</a>
+                <a href="/" className="btn-nav-black">
+                  <span className="material-symbols-outlined" style={{fontSize: '16px'}}>rocket_launch</span>
+                  <span>Launch ERP</span>
                 </a>
               </div>
-            </div>
-          </div>
+            </header>
 
-        </div>
-      </div>
-
-    </div>
-  </section>
-
-  <!-- Bento Grid Ecosystem Matrix -->
-  <section class="section-wrap" id="matrix">
-    <div class="container">
-      
-      <div class="section-header">
-        <div class="section-eyebrow">
-          <span class="material-symbols-outlined" style="font-size: 16px;">grid_view</span>
-          <span>The Ecosystem Architecture</span>
-        </div>
-        <h2 class="section-title">
-          Engineered for Institutions That<br>
-          <span class="gradient-text-cyan">Refuse to Compromise.</span>
-        </h2>
-        <p class="section-desc">
-          Every layer of EduCore is purpose-built with zero legacy bloat, sub-second edge queries, and deep Android hardware integration.
-        </p>
-      </div>
-
-      <div class="bento-grid">
-        
-        <!-- CARD 1: Web ERP Central Command (Span 8) -->
-        <div class="bento-card col-span-8">
-          <div>
-            <div class="bento-icon-box icon-box-cyan">
-              <span class="material-symbols-outlined">dashboard</span>
-            </div>
-            <span class="bento-tag">Central Command Portal</span>
-            <h3 class="bento-title">Enterprise Cloud ERP &amp; Billing Command</h3>
-            <p class="bento-desc">
-              Manage admissions, automated fee collections, student &amp; teacher profiles, automated monthly dues, instant digital thermal receipts, and multi-term academic report cards from one lightning-fast interface.
-            </p>
-          </div>
-          <div class="bento-visual-wrap" onclick="openLightbox('/educore-assets/erp_dashboard_real.png', 'EduCore Cloud ERP — Live Central Dashboard with Financial Analytics and Staff Management')">
-            <img src="/educore-assets/erp_dashboard_real.png" alt="Cloud ERP Dashboard">
-          </div>
-        </div>
-
-        <!-- CARD 2: 50m Geofence Auto-Attendance (Span 4) -->
-        <div class="bento-card col-span-4" id="hardware">
-          <div>
-            <div class="bento-icon-box icon-box-emerald">
-              <span class="material-symbols-outlined">radar</span>
-            </div>
-            <span class="bento-tag" style="color: var(--accent-emerald);">Hardware Telemetry</span>
-            <h3 class="bento-title">50m Geofence Radar</h3>
-            <p class="bento-desc">
-              Android Fused Location Provider triggers attendance when teachers and students step within the 50-meter perimeter. Uses &lt;1% battery.
-            </p>
-          </div>
-          <div class="radar-visual-box" onclick="openLightbox('/educore-assets/geofence_satellite_50m.jpg', '50m Satellite Geofence Radar View')">
-            <img src="/educore-assets/geofence_satellite_50m.jpg" alt="Geofence Satellite Map" class="radar-satellite-bg">
-            <div class="radar-sweep-beam">
-              <div class="radar-scanner-line"></div>
-            </div>
-            <div class="radar-pin-badge">
-              <span class="pulse-dot"></span>
-              <span>50.0m Campus Perimeter</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- CARD 3: Native WebRTC VoIP Telephony (Span 4) -->
-        <div class="bento-card col-span-4">
-          <div>
-            <div class="bento-icon-box icon-box-emerald">
-              <span class="material-symbols-outlined">call</span>
-            </div>
-            <span class="bento-tag" style="color: var(--accent-emerald);">Native Telephony</span>
-            <h3 class="bento-title">VoIP Engine &amp; Ringing</h3>
-            <p class="bento-desc">
-              Zero-WebView WebRTC implementation with hardware Echo Cancellation (AEC), Android VoipAudioManager speaker routing, and high-priority heads-up ringing notifications even when the app is killed.
-            </p>
-          </div>
-          <div class="stat-pill-card" style="text-align: left; padding: 16px;">
-            <div style="font-family: var(--font-mono); font-size: 11px; color: var(--accent-emerald); margin-bottom: 4px;">ACCESS CONTROL POLICY</div>
-            <div style="font-size: 13px; color: #fff; font-weight: 600;">Student-to-Teacher Bidirectional Calls</div>
-            <div style="font-size: 12px; color: var(--text-dim); margin-top: 4px;">Student-to-student direct calling strictly blocked client &amp; server-side (HTTP 403) for institution safety.</div>
-          </div>
-        </div>
-
-        <!-- CARD 4: 1:1 Euclidean Face Biometrics (Span 4) -->
-        <div class="bento-card col-span-4">
-          <div>
-            <div class="bento-icon-box icon-box-violet">
-              <span class="material-symbols-outlined">face_unlock</span>
-            </div>
-            <span class="bento-tag" style="color: var(--accent-violet);">Biometric Security</span>
-            <h3 class="bento-title">1:1 Euclidean Biometrics</h3>
-            <p class="bento-desc">
-              Strict Euclidean vector comparison (\(d \le 0.48\)) with multi-frame optical averaging eliminates lighting artifacts and prevents attendance spoofing.
-            </p>
-          </div>
-          <div class="biometric-box">
-            <div class="bio-scanner-frame">
-              <div class="bio-scanner-line"></div>
-              <span class="material-symbols-outlined" style="font-size: 48px; color: var(--accent-violet);">face</span>
-            </div>
-            <div class="bio-metric-row">
-              <span style="color: var(--accent-violet);">Threshold: d &le; 0.48</span>
-              <span style="color: var(--accent-emerald);">Status: VERIFIED</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- CARD 5: Automated Billing & Late Fee Engine (Span 4) -->
-        <div class="bento-card col-span-4">
-          <div>
-            <div class="bento-icon-box icon-box-amber">
-              <span class="material-symbols-outlined">payments</span>
-            </div>
-            <span class="bento-tag" style="color: var(--accent-amber);">FinTech Automation</span>
-            <h3 class="bento-title">Auto Monthly Billing</h3>
-            <p class="bento-desc">
-              Cron triggers generate tuition dues on the 1st of every month and auto-calculate ₹50 late fees after the 10th. Records auto-clear upon fee payment.
-            </p>
-          </div>
-          <div class="bento-visual-wrap" onclick="openLightbox('/educore-assets/app_modal_fees.png', 'Class-wise automated fee tracking modal with payment reconciliation')">
-            <img src="/educore-assets/app_modal_fees.png" alt="Automated Fee Status Modal" style="object-position: center;">
-          </div>
-        </div>
-
-        <!-- CARD 6: 18,000+ Curated CBSE NCERT Reels & Daily Quiz (Span 7) -->
-        <div class="bento-card col-span-7">
-          <div>
-            <div class="bento-icon-box icon-box-cyan">
-              <span class="material-symbols-outlined">smart_display</span>
-            </div>
-            <span class="bento-tag">Academic Content Feed</span>
-            <h3 class="bento-title">18,035+ Curated CBSE Reels &amp; Daily AI Quiz</h3>
-            <p class="bento-desc">
-              Full NCERT Class 6–10 coverage curated from verified educators (Physics Wallah, Magnet Brains, Dear Sir). Zero YouTube Shorts distraction. Daily AI Quiz competitions foster healthy academic rivalry with live school-wide leaderboards.
-            </p>
-          </div>
-          <div class="bento-visual-wrap" onclick="openLightbox('/educore-assets/quiz_3d_art.jpg', 'Daily AI Quiz Competition — 3D Art and Academic Challenge Engine')">
-            <img src="/educore-assets/quiz_3d_art.jpg" alt="Quiz 3D Art Banner" style="height: 200px;">
-          </div>
-        </div>
-
-        <!-- CARD 7: Two-Stage Silent Background OTA Push (Span 5) -->
-        <div class="bento-card col-span-5">
-          <div>
-            <div class="bento-icon-box icon-box-rose">
-              <span class="material-symbols-outlined">system_update_alt</span>
-            </div>
-            <span class="bento-tag" style="color: var(--accent-rose);">Zero-Friction DevOps</span>
-            <h3 class="bento-title">Two-Stage Silent OTA Push</h3>
-            <p class="bento-desc">
-              Deploy React Native updates directly into student &amp; teacher phones over FCM in the background. No Google Play Store review delays.
-            </p>
-          </div>
-          <div class="stat-pill-card" style="text-align: left; padding: 18px;">
-            <div style="font-family: var(--font-mono); font-size: 11px; color: var(--accent-rose); margin-bottom: 4px;">SILENT FCM PIPELINE</div>
-            <div style="font-weight: 700; color: #fff; font-size: 14px;">Instant React Context Reload</div>
-            <div style="font-size: 12px; color: var(--text-dim); margin-top: 4px;">Downloads 5.99 MB bundle into internal storage and silently updates bundle index without interrupting active sessions.</div>
-          </div>
-        </div>
-
-        <!-- CARD 8: Zero-Secret Turso Cloud libSQL Proxy (Span 6) -->
-        <div class="bento-card col-span-6">
-          <div>
-            <div class="bento-icon-box icon-box-cyan">
-              <span class="material-symbols-outlined">security</span>
-            </div>
-            <span class="bento-tag">Edge Security</span>
-            <h3 class="bento-title">Zero-Secret Cloud Database Proxy</h3>
-            <p class="bento-desc">
-              All client queries route through a hardened Vercel edge proxy (<code style="color: var(--accent-cyan); font-family: var(--font-mono);">/api/db/query</code>). Zero Turso database tokens or sensitive URLs are compiled inside the APK. Dangerous DDL commands (<code style="color: var(--accent-rose);">DROP</code>, <code style="color: var(--accent-rose);">ALTER</code>) are permanently blocked.
-            </p>
-          </div>
-          <div style="background: rgba(0, 0, 0, 0.4); border-radius: var(--radius-sm); border: 1px solid var(--border-subtle); padding: 14px; font-family: var(--font-mono); font-size: 12px; color: var(--accent-cyan);">
-            <div>// Client Request: src/turso.js</div>
-            <div style="color: var(--text-dim); margin-top: 4px;">POST https://tapowan-school.vercel.app/api/db/query</div>
-            <div style="color: var(--accent-emerald); margin-top: 2px;">200 OK • Response time: 14ms • DDL Filter: Passed</div>
-          </div>
-        </div>
-
-        <!-- CARD 9: Multi-Tenant Super Admin Control (Span 6) -->
-        <div class="bento-card col-span-6">
-          <div>
-            <div class="bento-icon-box icon-box-violet">
-              <span class="material-symbols-outlined">hub</span>
-            </div>
-            <span class="bento-tag" style="color: var(--accent-violet);">SaaS Orchestration</span>
-            <h3 class="bento-title">EduCore Multi-Tenant SaaS Platform</h3>
-            <p class="bento-desc">
-              Auto-provision independent Turso SQLite cloud databases for new schools in seconds. Manage module entitlements, global subscription billing, and inspect security audit logs across all tenant institutions from one dashboard.
-            </p>
-          </div>
-          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <a href="https://tps-erp-saas.vercel.app" target="_blank" class="btn-secondary" style="flex: 1; justify-content: center;">
-              <span class="material-symbols-outlined" style="font-size: 16px;">shield_person</span>
-              <span>Open Super Admin Console</span>
-            </a>
-          </div>
-        </div>
-
-      </div>
-
-    </div>
-  </section>
-
-  <!-- Architectural Comparison Matrix -->
-  <section class="section-wrap" id="specs" style="background: rgba(9, 12, 19, 0.5);">
-    <div class="container">
-      
-      <div class="section-header">
-        <div class="section-eyebrow">
-          <span class="material-symbols-outlined" style="font-size: 16px;">compare_arrows</span>
-          <span>Architectural Superiority</span>
-        </div>
-        <h2 class="section-title">
-          How EduCore Outclasses<br>
-          <span class="gradient-text-cyan">Legacy School ERPs.</span>
-        </h2>
-        <p class="section-desc">
-          Compare the technical engineering behind EduCore with traditional bloated school portals.
-        </p>
-      </div>
-
-      <div class="specs-table-wrap">
-        <table class="specs-table">
-          <thead>
-            <tr>
-              <th style="width: 35%;">Feature / Capability</th>
-              <th style="width: 35%; color: var(--accent-cyan);">EduCore Operating System</th>
-              <th style="width: 30%;">Legacy School ERPs</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>
-                <div class="feature-name-cell">
-                  <span class="material-symbols-outlined" style="color: var(--accent-cyan);">phone_forwarded</span>
-                  <span>VoIP Calling Architecture</span>
+            {/* HERO SECTION (Dribbble 00:00 - 00:01) */}
+            <section className="canvas-section">
+              <div className="hero-grid">
+                <div>
+                  <h1 className="hero-h1">
+                    Turn <span className="bracket-word">your institution</span> into a state-of-the-art <span className="bracket-word">educational ecosystem</span>.
+                  </h1>
+                  <p className="hero-sub">
+                    EduCore enables you to unify school management, automated monthly billing, native WebRTC VoIP, 50m geofence auto-attendance, and 18,000+ NCERT reels for a fraction of traditional ERP cost. No complex server setups — EduCore handles it automatically.
+                  </p>
+                  <div className="hero-btn-row">
+                    <a href="/" className="btn-pill-solid">
+                      <span className="material-symbols-outlined" style={{fontSize: '18px'}}>dashboard</span>
+                      <span>Start ERP Demo</span>
+                    </a>
+                    <a href="/TPS-Original-App.apk" download className="btn-pill-outline">
+                      <span className="material-symbols-outlined" style={{fontSize: '18px'}}>download</span>
+                      <span>Download Android APK</span>
+                    </a>
+                  </div>
                 </div>
-              </td>
-              <td><span class="badge-check"><span class="material-symbols-outlined">check_circle</span> Native WebRTC + Hardware Echo Cancellation</span></td>
-              <td><span class="badge-cross"><span class="material-symbols-outlined">cancel</span> No VoIP / 3rd Party WebViews</span></td>
-            </tr>
 
-            <tr>
-              <td>
-                <div class="feature-name-cell">
-                  <span class="material-symbols-outlined" style="color: var(--accent-emerald);">location_searching</span>
-                  <span>Geofence Attendance Engine</span>
+                {/* Isometric Architecture Diagram */}
+                <div>
+                  <div style={{background: '#fafafa', border: '1px solid #e5e5e5', borderRadius: '8px', padding: '24px', textAlign: 'center'}}>
+                    <div style={{fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#888', marginBottom: '16px', letterSpacing: '1px', textTransform: 'uppercase'}}>
+                      SYSTEM TOPOLOGY // EDGE MESH
+                    </div>
+                    
+                    {/* Clean SVG Isometric Architectural Blueprint */}
+                    <svg viewBox="0 0 380 260" style={{width: '100%', height: 'auto', maxHeight: '240px', display: 'block', margin: '0 auto'}}>
+                      {/* Grid plane */}
+                      <path d="M 190 20 L 350 100 L 190 180 L 30 100 Z" fill="none" stroke="#e0e0e0" strokeWidth="1" strokeDasharray="4 4" />
+                      <path d="M 190 60 L 310 120 L 190 180 L 70 120 Z" fill="none" stroke="#ebebeb" strokeWidth="1" />
+                      
+                      {/* Center Node: Cloud DB Proxy */}
+                      <g transform="translate(190, 80)">
+                        <polygon points="0,-25 35,-5 0,15 -35,-5" fill="#f8fafc" stroke="#000" strokeWidth="1.5" />
+                        <polygon points="-35,-5 0,15 0,45 -35,25" fill="#e2e8f0" stroke="#000" strokeWidth="1.5" />
+                        <polygon points="35,-5 0,15 0,45 35,25" fill="#cbd5e1" stroke="#000" strokeWidth="1.5" />
+                        <text x="0" y="2" textAnchor="middle" fontSize="9" fontFamily="var(--font-mono)" fontWeight="700" fill="#000">Turso libSQL</text>
+                      </g>
+
+                      {/* Left Node: Web ERP */}
+                      <g transform="translate(85, 125)">
+                        <polygon points="0,-20 28,-4 0,12 -28,-4" fill="#ffffff" stroke="#000" strokeWidth="1.5" />
+                        <polygon points="-28,-4 0,12 0,36 -28,20" fill="#f1f5f9" stroke="#000" strokeWidth="1.5" />
+                        <polygon points="28,-4 0,12 0,36 28,20" fill="#e2e8f0" stroke="#000" strokeWidth="1.5" />
+                        <text x="0" y="2" textAnchor="middle" fontSize="8" fontFamily="var(--font-mono)" fontWeight="700" fill="#000">Web ERP</text>
+                      </g>
+
+                      {/* Right Node: Mobile App & VoIP */}
+                      <g transform="translate(295, 125)">
+                        <polygon points="0,-20 28,-4 0,12 -28,-4" fill="#ffffff" stroke="#000" strokeWidth="1.5" />
+                        <polygon points="-28,-4 0,12 0,36 -28,20" fill="#f1f5f9" stroke="#000" strokeWidth="1.5" />
+                        <polygon points="28,-4 0,12 0,36 28,20" fill="#e2e8f0" stroke="#000" strokeWidth="1.5" />
+                        <text x="0" y="2" textAnchor="middle" fontSize="8" fontFamily="var(--font-mono)" fontWeight="700" fill="#000">VoIP &amp; App</text>
+                      </g>
+
+                      {/* Bottom Node: 50m Geofence Radar */}
+                      <g transform="translate(190, 185)">
+                        <polygon points="0,-20 28,-4 0,12 -28,-4" fill="#ffffff" stroke="#000" strokeWidth="1.5" />
+                        <polygon points="-28,-4 0,12 0,36 -28,20" fill="#f1f5f9" stroke="#000" strokeWidth="1.5" />
+                        <polygon points="28,-4 0,12 0,36 28,20" fill="#e2e8f0" stroke="#000" strokeWidth="1.5" />
+                        <text x="0" y="2" textAnchor="middle" fontSize="8" fontFamily="var(--font-mono)" fontWeight="700" fill="#000">50m Radar</text>
+                      </g>
+
+                      {/* Connecting Isometric Vector Lines */}
+                      <line x1="165" y1="100" x2="110" y2="120" stroke="#000" strokeWidth="1.2" strokeDasharray="3 3" />
+                      <line x1="215" y1="100" x2="270" y2="120" stroke="#000" strokeWidth="1.2" strokeDasharray="3 3" />
+                      <line x1="110" y1="145" x2="165" y2="180" stroke="#000" strokeWidth="1.2" strokeDasharray="3 3" />
+                      <line x1="270" y1="145" x2="215" y2="180" stroke="#000" strokeWidth="1.2" strokeDasharray="3 3" />
+                    </svg>
+
+                    <div style={{fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#555', marginTop: '12px'}}>
+                      100% Zero-Secret Client APK Architecture • 99.98% Edge SLA
+                    </div>
+                  </div>
                 </div>
-              </td>
-              <td><span class="badge-check"><span class="material-symbols-outlined">check_circle</span> Hardware 50m Fused Location (&lt;1% battery)</span></td>
-              <td><span class="badge-cross"><span class="material-symbols-outlined">cancel</span> Manual Paper Roll Call or High-Drain GPS</span></td>
-            </tr>
+              </div>
+            </section>
 
-            <tr>
-              <td>
-                <div class="feature-name-cell">
-                  <span class="material-symbols-outlined" style="color: var(--accent-violet);">fingerprint</span>
-                  <span>Biometric Face Verification</span>
+            {/* VIDEO ANNOUNCEMENT STAGE (Dribbble 00:02 - 00:07 & Screenshot media_1792336657819_735451fe.png) */}
+            <section className="canvas-section" id="video-announcement">
+              <div className="tech-tag">[PRODUCT ANNOUNCEMENT]</div>
+              
+              <div style={{maxWidth: '820px', marginBottom: '28px'}}>
+                <h2 style={{fontSize: '24px', fontWeight: '800', lineHeight: '1.4', letterSpacing: '-0.5px', color: '#000'}}>
+                  On the 23rd of October 2026, we unveiled EduCore. Watch our product announcement of the world's first unified school platform combining zero-secret cloud DB, 50m hardware geofencing, and native WebRTC VoIP telephony.
+                </h2>
+              </div>
+
+              {/* Pill Switcher */}
+              <div className="video-stage-header">
+                <div className="video-pill-switch">
+                  <button 
+                    className={`video-pill-btn ${videoMode === 'overview' ? 'active' : ''}`}
+                    onClick={() => setVideoMode('overview')}
+                  >
+                    Quick product overview
+                  </button>
+                  <button 
+                    className={`video-pill-btn ${videoMode === 'event' ? 'active' : ''}`}
+                    onClick={() => setVideoMode('event')}
+                  >
+                    Full launch event
+                  </button>
                 </div>
-              </td>
-              <td><span class="badge-check"><span class="material-symbols-outlined">check_circle</span> 1:1 Euclidean Vector (\(d \le 0.48\)) Anti-Spoof</span></td>
-              <td><span class="badge-cross"><span class="material-symbols-outlined">cancel</span> Vulnerable Thumb Scanner or None</span></td>
-            </tr>
-
-            <tr>
-              <td>
-                <div class="feature-name-cell">
-                  <span class="material-symbols-outlined" style="color: var(--accent-cyan);">security</span>
-                  <span>APK Credential Security</span>
+                <div style={{fontFamily: 'var(--font-mono)', fontSize: '12px', color: '#666'}}>
+                  STATUS: <strong>RECORDED AT 1080P HD • TAP TO PLAY</strong>
                 </div>
-              </td>
-              <td><span class="badge-check"><span class="material-symbols-outlined">check_circle</span> Zero Hardcoded Secrets (Vercel Edge Proxy)</span></td>
-              <td><span class="badge-cross"><span class="material-symbols-outlined">cancel</span> Hardcoded DB URLs decompilable via apktool</span></td>
-            </tr>
+              </div>
 
-            <tr>
-              <td>
-                <div class="feature-name-cell">
-                  <span class="material-symbols-outlined" style="color: var(--accent-amber);">receipt_long</span>
-                  <span>Automated Fee &amp; Late Fee Engine</span>
+              {/* Video Player Card Frame (Exact Replica) */}
+              <div className="video-stage-card">
+                <div className="video-screen-container">
+                  <video 
+                    ref={videoRef}
+                    className="video-media-element" 
+                    src="/educore-assets/dribbble_reference.mp4" 
+                    playsInline 
+                    loop 
+                    onEnded={handleVideoEnd}
+                    onClick={toggleVideoPlay}
+                  />
+
+                  {/* Corner Reticle Viewfinder Marks */}
+                  <div className="video-reticle-tl"></div>
+                  <div className="video-reticle-tr"></div>
+                  <div className="video-reticle-bl"></div>
+                  <div className="video-reticle-br"></div>
+
+                  <div className="video-timecode-tl">[00]</div>
+                  <div className="video-timecode-tr">[1:27]</div>
+
+                  {/* Circular White Play Button in Center */}
+                  {!isPlayingVideo && (
+                    <div className="play-button-center" onClick={toggleVideoPlay}>
+                      <span className="material-symbols-outlined">play_arrow</span>
+                    </div>
+                  )}
                 </div>
-              </td>
-              <td><span class="badge-check"><span class="material-symbols-outlined">check_circle</span> 1st/11th Autonomous Cron + Instant Clearing</span></td>
-              <td><span class="badge-cross"><span class="material-symbols-outlined">cancel</span> Manual Accountant Spreadsheet Calculations</span></td>
-            </tr>
+              </div>
+            </section>
 
-            <tr>
-              <td>
-                <div class="feature-name-cell">
-                  <span class="material-symbols-outlined" style="color: var(--accent-rose);">system_update</span>
-                  <span>App Update Distribution</span>
+            {/* SIMPLE YET EXTREMELY POWERFUL - PRINCIPLES CAROUSEL (Dribbble 00:08 - 00:19) */}
+            <section className="canvas-section" id="principles">
+              <div style={{textAlign: 'center', maxWidth: '780px', margin: '0 auto 40px auto'}}>
+                <div className="tech-tag">[FEATURES]</div>
+                <h2 style={{fontSize: '36px', fontWeight: '900', letterSpacing: '-1px', marginBottom: '14px'}}>
+                  Simple, yet extremely powerful
+                </h2>
+                <p style={{fontSize: '16px', color: 'var(--text-sub)'}}>
+                  Everything you need to create your own model and manage your institution, whether you are just getting started or a multi-campus educational trust.
+                </p>
+              </div>
+
+              {/* Stepper Card */}
+              <div className="principles-stage">
+                <div className="principles-grid">
+                  
+                  {/* Left Wireframe Isometric Diagram */}
+                  <div className="wireframe-box">
+                    <div className="wireframe-reticle w-tl"></div>
+                    <div className="wireframe-reticle w-tr"></div>
+                    <div className="wireframe-reticle w-bl"></div>
+                    <div className="wireframe-reticle w-br"></div>
+
+                    <span className="material-symbols-outlined" style={{fontSize: '64px', color: '#000000'}}>
+                      {principlesData[activePrinciple].icon}
+                    </span>
+                  </div>
+
+                  {/* Right Content */}
+                  <div>
+                    <div className="stepper-nav-row">
+                      <div className="stepper-label">{principlesData[activePrinciple].label}</div>
+                      <div className="stepper-counter">{principlesData[activePrinciple].num}</div>
+                    </div>
+
+                    <h3 className="principle-title">{principlesData[activePrinciple].title}</h3>
+                    <p className="principle-desc">{principlesData[activePrinciple].desc}</p>
+
+                    <div className="principle-dots-nav">
+                      {principlesData.map((p, idx) => (
+                        <div 
+                          key={idx}
+                          className={`p-dot ${activePrinciple === idx ? 'active' : ''}`}
+                          onClick={() => setActivePrinciple(idx)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
                 </div>
-              </td>
-              <td><span class="badge-check"><span class="material-symbols-outlined">check_circle</span> Two-Stage Silent Background FCM OTA Push</span></td>
-              <td><span class="badge-cross"><span class="material-symbols-outlined">cancel</span> 3-Day Google Play Store Review Delays</span></td>
-            </tr>
+              </div>
+            </section>
 
-            <tr>
-              <td>
-                <div class="feature-name-cell">
-                  <span class="material-symbols-outlined" style="color: var(--accent-cyan);">play_lesson</span>
-                  <span>Curated Academic Reels</span>
+            {/* COMPREHENSIVE MODULES EXPLORER (With Real Screenshots & Features Breakdown) */}
+            <section className="canvas-section" id="modules-explorer">
+              <div className="tech-tag">[ALL MODULES DEEP-DIVE]</div>
+              <h2 style={{fontSize: '32px', fontWeight: '900', letterSpacing: '-0.8px', marginBottom: '8px'}}>
+                The Complete Operating System Roster
+              </h2>
+              <p style={{fontSize: '15px', color: 'var(--text-sub)', marginBottom: '28px'}}>
+                Click through each real module below to analyze features, architecture, and live screenshots.
+              </p>
+
+              {/* Horizontal Module Selectors */}
+              <div className="modules-nav-pills">
+                {modulesData.map((m, idx) => (
+                  <button 
+                    key={m.id}
+                    className={`mod-pill-btn ${activeModIndex === idx ? 'active' : ''}`}
+                    onClick={() => setActiveModIndex(idx)}
+                  >
+                    <span>{m.name}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Active Module Detail Card */}
+              <div className="module-detail-card">
+                <div className="module-detail-grid">
+                  
+                  {/* Left: Real Screenshot */}
+                  <div 
+                    className="mod-screenshot-frame" 
+                    onClick={() => setLightboxImg({ src: activeModule.image, caption: activeModule.title })}
+                  >
+                    <img src={activeModule.image} alt={activeModule.title} />
+                    <div style={{position: 'absolute', bottom: '12px', right: '12px', background: 'rgba(0,0,0,0.8)', color: '#fff', fontSize: '11px', fontFamily: 'var(--font-mono)', padding: '4px 10px', borderRadius: '4px'}}>
+                      TAP TO ZOOM
+                    </div>
+                  </div>
+
+                  {/* Right: Technical Explanation */}
+                  <div className="mod-info-content">
+                    <div>
+                      <div className="tech-tag">[{activeModule.tag}]</div>
+                      <h3 style={{fontSize: '22px', fontWeight: '800', marginBottom: '12px', letterSpacing: '-0.3px'}}>
+                        {activeModule.title}
+                      </h3>
+                      <p style={{fontSize: '14px', lineHeight: '1.6', color: 'var(--text-sub)'}}>
+                        {activeModule.desc}
+                      </p>
+
+                      <ul className="mod-feature-list">
+                        {activeModule.features.map((feat, fIdx) => (
+                          <li key={fIdx} className="mod-feature-item">
+                            <span className="icon material-symbols-outlined">check_circle</span>
+                            <span>{feat}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div>
+                      <div className="mod-tech-badge-strip">
+                        {activeModule.tech.map((t, tIdx) => (
+                          <span key={tIdx} className="mod-tech-badge">{t}</span>
+                        ))}
+                      </div>
+
+                      <div style={{marginTop: '24px', display: 'flex', gap: '10px'}}>
+                        <a href="/" className="btn-pill-solid" style={{fontSize: '13px', padding: '10px 18px'}}>
+                          <span>Open Module in ERP</span>
+                        </a>
+                      </div>
+                    </div>
+
+                  </div>
+
                 </div>
-              </td>
-              <td><span class="badge-check"><span class="material-symbols-outlined">check_circle</span> 18,035+ Grade-Aware NCERT Video Lessons</span></td>
-              <td><span class="badge-cross"><span class="material-symbols-outlined">cancel</span> No Integrated Educational Feeds</span></td>
-            </tr>
+              </div>
+            </section>
 
-            <tr>
-              <td>
-                <div class="feature-name-cell">
-                  <span class="material-symbols-outlined" style="color: var(--accent-violet);">smart_toy</span>
-                  <span>Interactive AI Assistant</span>
+            {/* VISION & GLOBAL CAPACITY (Dribbble 00:20 - 00:25) */}
+            <section className="canvas-section" id="vision">
+              <div style={{textAlign: 'center', maxWidth: '780px', margin: '0 auto 40px auto'}}>
+                <div className="tech-tag">[OUR VISION]</div>
+                <h2 style={{fontSize: '32px', fontWeight: '900', letterSpacing: '-0.8px', marginBottom: '14px'}}>
+                  State-of-the-art institutional capabilities
+                </h2>
+                <div style={{fontSize: '18px', color: '#999', marginBottom: '16px'}}>• • •</div>
+                <p style={{fontSize: '16px', lineHeight: '1.6', color: '#000', fontWeight: '600', marginBottom: '16px'}}>
+                  EduCore sources compute from multiple edge cloud providers, enabling lightning-fast sync across web, mobile, and hardware gateways.
+                </p>
+                <p style={{fontSize: '14px', lineHeight: '1.6', color: 'var(--text-sub)'}}>
+                  Unlike any other school software, EduCore supports both tightly coupled real-time operations (VoIP telephony, 50m geofence auto-attendance) and zero-secret edge database proxying.
+                </p>
+              </div>
+
+              {/* 3-Column Specs Grid */}
+              <div className="vision-spec-grid">
+                <div className="vision-card">
+                  <div className="vision-num">[01]</div>
+                  <div className="vision-card-title">Any device</div>
+                  <div className="vision-art-box">
+                    <span className="material-symbols-outlined" style={{fontSize: '44px', color: '#000'}}>devices</span>
+                  </div>
+                  <p style={{fontSize: '13px', color: 'var(--text-sub)', marginTop: '12px'}}>Web dashboard, Android APK, iOS, and Electron desktop cross-compatible.</p>
                 </div>
-              </td>
-              <td><span class="badge-check"><span class="material-symbols-outlined">check_circle</span> AI Vidya 3D Voice TTS &amp; Doubt Resolver</span></td>
-              <td><span class="badge-cross"><span class="material-symbols-outlined">cancel</span> Basic Keyword Search or None</span></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
 
-    </div>
-  </section>
+                <div className="vision-card">
+                  <div className="vision-num">[02]</div>
+                  <div className="vision-card-title">Any campus</div>
+                  <div className="vision-art-box">
+                    <span className="material-symbols-outlined" style={{fontSize: '44px', color: '#000'}}>location_city</span>
+                  </div>
+                  <p style={{fontSize: '13px', color: 'var(--text-sub)', marginTop: '12px'}}>50m Geofence sensor hub with offline SQLite sync for zero data loss.</p>
+                </div>
 
-  <!-- Real Institutional Case Study Showcase -->
-  <section class="section-wrap">
-    <div class="container">
-      <div class="bento-card col-span-12" style="background: radial-gradient(circle at 80% 20%, rgba(0, 240, 255, 0.08), rgba(12, 16, 26, 0.95) 60%); padding: 48px;">
-        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px; margin-bottom: 30px;">
-          <div style="display: flex; align-items: center; gap: 16px;">
-            <img src="/educore-assets/tps_logo.png" alt="Tapowan Public School Logo" style="width: 56px; height: 56px; border-radius: 12px; object-fit: contain; background: #fff; padding: 4px;">
-            <div>
-              <span class="bento-tag" style="color: var(--accent-emerald);">Verified Production Deployment</span>
-              <h3 style="font-family: var(--font-display); font-size: 26px; font-weight: 800; color: #fff;">Tapowan Public School, Prem Nagar</h3>
-              <p style="color: var(--text-dim); font-size: 14px;">Affiliation Standard CBSE Curriculum • Classes Nursery to X-A</p>
+                <div className="vision-card">
+                  <div className="vision-num">[03]</div>
+                  <div className="vision-card-title">Any scale</div>
+                  <div className="vision-art-box">
+                    <span className="material-symbols-outlined" style={{fontSize: '44px', color: '#000'}}>cloud_done</span>
+                  </div>
+                  <p style={{fontSize: '13px', color: 'var(--text-sub)', marginTop: '12px'}}>Auto-provisioning independent Turso SQLite databases for new schools.</p>
+                </div>
+              </div>
+
+              {/* Institution Partner Logos Bar */}
+              <div style={{marginTop: '40px', paddingTop: '30px', borderTop: '1px solid var(--border-line)', display: 'flex', alignItems: 'center', justifyContent: 'space-around', flexWrap: 'wrap', gap: '20px'}}>
+                <div style={{display: 'flex', alignItems: 'center', gap: '8px', color: '#666', fontWeight: '700', fontSize: '13px'}}>
+                  <img src="/educore-assets/tps_logo.png" style={{width: '28px', height: '28px', objectFit: 'contain'}} />
+                  <span>Tapowan Public School</span>
+                </div>
+                <div style={{display: 'flex', alignItems: 'center', gap: '8px', color: '#666', fontWeight: '700', fontSize: '13px'}}>
+                  <span className="material-symbols-outlined">storage</span>
+                  <span>Turso libSQL Cloud</span>
+                </div>
+                <div style={{display: 'flex', alignItems: 'center', gap: '8px', color: '#666', fontWeight: '700', fontSize: '13px'}}>
+                  <span className="material-symbols-outlined">cloud</span>
+                  <span>Cloudflare R2</span>
+                </div>
+                <div style={{display: 'flex', alignItems: 'center', gap: '8px', color: '#666', fontWeight: '700', fontSize: '13px'}}>
+                  <span className="material-symbols-outlined">bolt</span>
+                  <span>Vercel Edge Platform</span>
+                </div>
+              </div>
+            </section>
+
+            {/* ENGINEERING BLOG & RELEASES (Dribbble 00:29) */}
+            <section className="canvas-section">
+              <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '12px'}}>
+                <div>
+                  <div className="tech-tag">[ENGINEERING UPDATES]</div>
+                  <h2 style={{fontSize: '28px', fontWeight: '900', letterSpacing: '-0.5px'}}>Our technical notes</h2>
+                </div>
+                <a href="#video-announcement" className="btn-nav-ghost" style={{border: '1px solid #ddd'}}>View all articles</a>
+              </div>
+
+              <div className="blog-grid">
+                
+                <div className="blog-card">
+                  <div>
+                    <span className="blog-card-tag">[HARDWARE]</span>
+                    <h4 className="blog-card-title">How we achieved &lt;1% battery drain with 50m Fused Location Geofencing</h4>
+                  </div>
+                  <div className="blog-card-footer">
+                    <span>OCT 18, 2026</span>
+                    <a href="#principles" className="blog-read-link">Read ↗</a>
+                  </div>
+                </div>
+
+                <div className="blog-card">
+                  <div>
+                    <span className="blog-card-tag">[VOIP AUDIO]</span>
+                    <h4 className="blog-card-title">Eliminating WebViews: Native WebRTC VoIP audio pipeline on Android</h4>
+                  </div>
+                  <div className="blog-card-footer">
+                    <span>OCT 14, 2026</span>
+                    <a href="#principles" className="blog-read-link">Read ↗</a>
+                  </div>
+                </div>
+
+                <div className="blog-card">
+                  <div>
+                    <span className="blog-card-tag">[SECURITY]</span>
+                    <h4 className="blog-card-title">Zero-Secret Architecture: Securing Turso Cloud DB Proxies against extraction</h4>
+                  </div>
+                  <div className="blog-card-footer">
+                    <span>OCT 08, 2026</span>
+                    <a href="#principles" className="blog-read-link">Read ↗</a>
+                  </div>
+                </div>
+
+                <div className="blog-card">
+                  <div>
+                    <span className="blog-card-tag">[BIOMETRICS]</span>
+                    <h4 className="blog-card-title">1:1 Euclidean Distance Vector Verification (d &le; 0.48) for School Attendance</h4>
+                  </div>
+                  <div className="blog-card-footer">
+                    <span>SEP 28, 2026</span>
+                    <a href="#principles" className="blog-read-link">Read ↗</a>
+                  </div>
+                </div>
+
+              </div>
+            </section>
+
+            {/* CALL TO ACTION (Dribbble 00:31) */}
+            <section className="cta-canvas-section">
+              <h2 className="cta-heading">
+                Let's build together<br />something new.
+              </h2>
+              <div style={{display: 'flex', gap: '14px', justifyContent: 'center', flexWrap: 'wrap'}}>
+                <a href="/" className="btn-pill-solid">
+                  <span>Launch Live School ERP</span>
+                </a>
+                <a href="https://tps-erp-saas.vercel.app" target="_blank" className="btn-pill-outline">
+                  <span>Super Admin SaaS Console</span>
+                </a>
+              </div>
+            </section>
+
+            {/* MINIMALIST FOOTER (Dribbble 00:32 - 00:34) */}
+            <footer className="canvas-footer">
+              <div className="footer-columns-grid">
+                <div>
+                  <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px'}}>
+                    <div className="brand-icon-box" style={{width: '24px', height: '24px', fontSize: '13px'}}>E</div>
+                    <span style={{fontWeight: '800', fontSize: '16px', color: '#000'}}>EduCore</span>
+                  </div>
+                  <p style={{fontSize: '13px', lineHeight: '1.6', color: '#777', maxWidth: '280px'}}>
+                    Join our technical newsletter to stay up to date on new hardware features and releases.
+                  </p>
+                </div>
+
+                <div>
+                  <div className="footer-col-head">Platform</div>
+                  <ul className="footer-nav-list">
+                    <li><a href="/" className="footer-nav-link">Web ERP Command</a></li>
+                    <li><a href="/TPS-Original-App.apk" className="footer-nav-link">Mobile App (v3.2.9)</a></li>
+                    <li><a href="#geofence" className="footer-nav-link">50m Geofence Radar</a></li>
+                    <li><a href="#voip" className="footer-nav-link">WebRTC Telephony</a></li>
+                  </ul>
+                </div>
+
+                <div>
+                  <div className="footer-col-head">Architecture</div>
+                  <ul className="footer-nav-list">
+                    <li><a href="#principles" className="footer-nav-link">Zero-Secret Proxy</a></li>
+                    <li><a href="#modules-explorer" className="footer-nav-link">1:1 Biometrics</a></li>
+                    <li><a href="#modules-explorer" className="footer-nav-link">18,000+ NCERT Reels</a></li>
+                    <li><a href="https://tps-erp-saas.vercel.app" target="_blank" className="footer-nav-link">Super Admin SaaS</a></li>
+                  </ul>
+                </div>
+
+                <div>
+                  <div className="footer-col-head">Deployment</div>
+                  <ul className="footer-nav-list">
+                    <li><a href="/" className="footer-nav-link">Tapowan Prem Nagar</a></li>
+                    <li><a href="/" className="footer-nav-link">CBSE Standard Roster</a></li>
+                    <li><a href="/" className="footer-nav-link">Production APK v3.2.9</a></li>
+                  </ul>
+                </div>
+              </div>
+
+              <div className="footer-bottom-bar">
+                <div>&copy; 2026 EduCore Technologies. All rights reserved.</div>
+                <div style={{display: 'flex', gap: '20px'}}>
+                  <a href="/" className="footer-nav-link">Privacy Policy</a>
+                  <a href="/" className="footer-nav-link">Terms of Service</a>
+                  <a href="/" className="footer-nav-link">EduCore Open License</a>
+                </div>
+              </div>
+            </footer>
+
+          </div>
+
+          {/* Lightbox Modal */}
+          {lightboxImg && (
+            <div className="lightbox-overlay" onClick={() => setLightboxImg(null)}>
+              <div className="lightbox-box" onClick={e => e.stopPropagation()}>
+                <div className="lightbox-head">
+                  <div className="lightbox-title">{lightboxImg.caption}</div>
+                  <button className="lightbox-close" onClick={() => setLightboxImg(null)}>&times;</button>
+                </div>
+                <div className="lightbox-body">
+                  <img src={lightboxImg.src} alt="Enlarged view" />
+                </div>
+                <div className="lightbox-foot">
+                  High-Resolution Component Screenshot • EduCore Production Environment
+                </div>
+              </div>
             </div>
-          </div>
-          <div class="status-badge" style="background: rgba(16, 185, 129, 0.12); border-color: rgba(16, 185, 129, 0.35);">
-            <span class="pulse-dot"></span>
-            <span>Active Tenant: 266+ Students • 15+ Faculty</span>
-          </div>
+          )}
+
         </div>
-
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px;">
-          <div class="stat-pill-card" style="text-align: left; padding: 20px;">
-            <div style="font-size: 28px; font-weight: 800; color: var(--accent-cyan); font-family: var(--font-display); margin-bottom: 4px;">100%</div>
-            <div style="font-weight: 700; color: #fff; font-size: 14px;">Paperless Fee Slips</div>
-            <div style="font-size: 12px; color: var(--text-dim); margin-top: 4px;">Zero paper receipt books; instant thermal receipts with encrypted verify links.</div>
-          </div>
-
-          <div class="stat-pill-card" style="text-align: left; padding: 20px;">
-            <div style="font-size: 28px; font-weight: 800; color: var(--accent-emerald); font-family: var(--font-display); margin-bottom: 4px;">0.2s</div>
-            <div style="font-weight: 700; color: #fff; font-size: 14px;">Geofence Attendance Sweep</div>
-            <div style="font-size: 12px; color: var(--text-dim); margin-top: 4px;">Automatic morning arrival detection as students cross the 50m school gate.</div>
-          </div>
-
-          <div class="stat-pill-card" style="text-align: left; padding: 20px;">
-            <div style="font-size: 28px; font-weight: 800; color: var(--accent-violet); font-family: var(--font-display); margin-bottom: 4px;">18,000+</div>
-            <div style="font-weight: 700; color: #fff; font-size: 14px;">Safe Educational Lessons</div>
-            <div style="font-size: 12px; color: var(--text-dim); margin-top: 4px;">Distraction-free learning feed completely replaces unstructured social media.</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- FAQ Section -->
-  <section class="section-wrap" id="faq">
-    <div class="container">
-      
-      <div class="section-header">
-        <div class="section-eyebrow">
-          <span class="material-symbols-outlined" style="font-size: 16px;">quiz</span>
-          <span>Frequently Asked Questions</span>
-        </div>
-        <h2 class="section-title">
-          Clear Answers for<br>
-          <span class="gradient-text-cyan">School Administrators.</span>
-        </h2>
-      </div>
-
-      <div class="faq-list">
-        
-        <div class="faq-item active">
-          <div class="faq-question" onclick="toggleFaq(this)">
-            <span>How does the 50m Geofence function with less than 1% battery drain?</span>
-            <span class="material-symbols-outlined faq-toggle-icon">expand_more</span>
-          </div>
-          <div class="faq-answer">
-            EduCore uses Android's Fused Location Provider sensor hub. When a user is more than 1 km away, the GPS chip remains 100% OFF and location is passively monitored via cell towers. Wi-Fi router beacons monitor the 200m–500m vicinity. Only when the device crosses the 50m school boundary does high-precision GPS wake for 2 seconds to log coordinates, after which it immediately powers back OFF.
-          </div>
-        </div>
-
-        <div class="faq-item">
-          <div class="faq-question" onclick="toggleFaq(this)">
-            <span>What happens if attendance is marked while mobile data is disconnected?</span>
-            <span class="material-symbols-outlined faq-toggle-icon">expand_more</span>
-          </div>
-          <div class="faq-answer">
-            EduCore includes an offline SQLite persistence queue. If mobile data is disabled, the arrival timestamp and biometric vector are safely stored locally in encrypted SharedPreferences. As soon as the device reconnects to Wi-Fi or mobile network, the background sync engine pushes records to the Turso cloud database automatically.
-          </div>
-        </div>
-
-        <div class="faq-item">
-          <div class="faq-question" onclick="toggleFaq(this)">
-            <span>How does EduCore protect database credentials inside the Android APK?</span>
-            <span class="material-symbols-outlined faq-toggle-icon">expand_more</span>
-          </div>
-          <div class="faq-answer">
-            Unlike traditional apps where database tokens are compiled into the binary, EduCore features a Zero-Secret Mobile Architecture (<code style="color: var(--accent-cyan);">src/turso.js</code>). All queries route via an authenticated Vercel Edge proxy. The mobile app contains zero database secrets. Furthermore, dangerous operations such as <code style="color: var(--accent-rose);">DROP</code> or <code style="color: var(--accent-rose);">ALTER</code> are blocked server-side.
-          </div>
-        </div>
-
-        <div class="faq-item">
-          <div class="faq-question" onclick="toggleFaq(this)">
-            <span>Can students call each other directly on the VoIP engine?</span>
-            <span class="material-symbols-outlined faq-toggle-icon">expand_more</span>
-          </div>
-          <div class="faq-answer">
-            No. EduCore enforces a strict Institutional Access Policy. Student-to-student direct calling is permanently blocked client-side and server-side with an HTTP 403 Forbidden check. Voice calls are strictly permitted between Students and Teachers, or inside teacher-moderated Class Doubt Clearing voice rooms.
-          </div>
-        </div>
-
-        <div class="faq-item">
-          <div class="faq-question" onclick="toggleFaq(this)">
-            <span>How do updates deploy without waiting for Google Play Store review?</span>
-            <span class="material-symbols-outlined faq-toggle-icon">expand_more</span>
-          </div>
-          <div class="faq-answer">
-            EduCore utilizes a Two-Stage Silent Background OTA Push Engine. Critical bug fixes and UI upgrades are packaged as optimized React Native JavaScript bundles and broadcast via high-priority FCM. Devices download the bundle silently in the background and reload the React context on next wake without requiring user intervention.
-          </div>
-        </div>
-
-      </div>
-
-    </div>
-  </section>
-
-  <!-- Call To Action Banner -->
-  <section class="section-wrap">
-    <div class="container">
-      <div class="cta-banner">
-        <h2 class="cta-title">
-          Ready to Modernize Your<br>
-          <span class="gradient-text-cyan">Institution’s Entire Operations?</span>
-        </h2>
-        <p class="cta-desc">
-          Deploy EduCore in less than 24 hours. Experience automated fee clearing, 50m geofence auto-attendance, and crystal-clear VoIP communications.
-        </p>
-        <div style="display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;">
-          <a href="/" class="btn-hero-main">
-            <span class="material-symbols-outlined">launch</span>
-            <span>Launch School ERP</span>
-          </a>
-          <a href="/TPS-Original-App.apk" class="btn-hero-ghost" download>
-            <span class="material-symbols-outlined">android</span>
-            <span>Download APK (v3.2.9)</span>
-          </a>
-          <a href="https://tps-erp-saas.vercel.app" target="_blank" class="btn-hero-ghost">
-            <span class="material-symbols-outlined">domain_add</span>
-            <span>Onboard New Institution</span>
-          </a>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Site Footer -->
-  <footer class="site-footer">
-    <div class="container">
-      <div class="footer-grid">
-        <div>
-          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
-            <img src="/educore-assets/educore_logo.png" alt="EduCore Logo" style="width: 36px; height: 36px; border-radius: 8px;">
-            <span style="font-family: var(--font-display); font-size: 18px; font-weight: 800; color: #fff;">EduCore</span>
-          </div>
-          <p style="font-size: 14px; color: var(--text-dim); line-height: 1.6; max-width: 320px;">
-            The award-winning multi-tenant educational operating system and SaaS ERP empowering institutions across India.
-          </p>
-        </div>
-
-        <div>
-          <div class="footer-col-title">Platform</div>
-          <ul class="footer-links">
-            <li><a href="/" class="footer-link">Web ERP Command</a></li>
-            <li><a href="/TPS-Original-App.apk" class="footer-link">Android App (v3.2.9)</a></li>
-            <li><a href="https://tps-erp-saas.vercel.app" target="_blank" class="footer-link">Super Admin SaaS</a></li>
-            <li><a href="#hardware" class="footer-link">50m Geofence Radar</a></li>
-          </ul>
-        </div>
-
-        <div>
-          <div class="footer-col-title">Architecture</div>
-          <ul class="footer-links">
-            <li><a href="#specs" class="footer-link">Zero-Secret Proxy</a></li>
-            <li><a href="#voip-tab" class="footer-link">WebRTC VoIP Engine</a></li>
-            <li><a href="#matrix" class="footer-link">1:1 Biometrics</a></li>
-            <li><a href="#matrix" class="footer-link">18k NCERT Reels</a></li>
-          </ul>
-        </div>
-
-        <div>
-          <div class="footer-col-title">Live Node Telemetry</div>
-          <div style="font-family: var(--font-mono); font-size: 12px; color: var(--text-dim); line-height: 1.8;">
-            <div>Cluster: <strong>aws-ap-south-1</strong></div>
-            <div>Edge Engine: <strong>Turso Cloud libSQL</strong></div>
-            <div>Signaling: <strong>VoIP WebRTC Gateway</strong></div>
-            <div style="color: var(--accent-emerald); display: flex; align-items: center; gap: 6px; margin-top: 6px;">
-              <span class="pulse-dot"></span>
-              <span>All Systems Operational</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="footer-bottom">
-        <div>&copy; 2026 EduCore Technologies. Designed &amp; Engineered for Tapowan Public School.</div>
-        <div style="display: flex; gap: 20px;">
-          <a href="/" class="footer-link">Privacy Policy</a>
-          <a href="/" class="footer-link">Terms of Service</a>
-          <a href="/" class="footer-link">Security Audits</a>
-        </div>
-      </div>
-    </div>
-  </footer>
-
-  <!-- Lightbox Modal -->
-  <div id="lightboxModal" class="lightbox-modal" onclick="closeLightbox(event)">
-    <div class="lightbox-content-box" onclick="event.stopPropagation()">
-      <div class="lightbox-header">
-        <div id="lightboxTitle" class="lightbox-title">Image Preview</div>
-        <button class="lightbox-close-btn" onclick="closeLightbox()">&times;</button>
-      </div>
-      <div class="lightbox-img-wrap">
-        <img id="lightboxImg" src="" alt="Full view preview">
-      </div>
-      <div id="lightboxCaption" class="lightbox-caption"></div>
-    </div>
-  </div>
-
-  <!-- Interactive JavaScript -->
-  <script>
-    // Tab Switcher for Hero Showcase
-    function switchHeroTab(tabId, btn) {
-      document.querySelectorAll('.tab-content-panel').forEach(panel => {
-        panel.classList.remove('active');
-      });
-      document.querySelectorAll('.viewport-tab-btn').forEach(b => {
-        b.classList.remove('active');
-      });
-
-      const target = document.getElementById(tabId);
-      if (target) {
-        target.classList.add('active');
-      }
-      if (btn) {
-        btn.classList.add('active');
-      }
+      );
     }
 
-    // Lightbox Modal Functions
-    function openLightbox(imgSrc, caption) {
-      const modal = document.getElementById('lightboxModal');
-      const img = document.getElementById('lightboxImg');
-      const cap = document.getElementById('lightboxCaption');
-      const title = document.getElementById('lightboxTitle');
-
-      img.src = imgSrc;
-      cap.textContent = caption || 'High-Resolution Architecture Screenshot';
-      title.textContent = caption ? caption.split('—')[0].trim() : 'System Component Preview';
-      modal.classList.add('active');
-      document.body.style.overflow = 'hidden';
-    }
-
-    function closeLightbox() {
-      const modal = document.getElementById('lightboxModal');
-      modal.classList.remove('active');
-      document.body.style.overflow = '';
-    }
-
-    // Escape key closes modal
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closeLightbox();
-    });
-
-    // FAQ Accordion
-    function toggleFaq(el) {
-      const parent = el.parentElement;
-      const wasActive = parent.classList.contains('active');
-      
-      document.querySelectorAll('.faq-item').forEach(item => {
-        item.classList.remove('active');
-      });
-
-      if (!wasActive) {
-        parent.classList.add('active');
-      }
-    }
-
-    // Animated Metric Counters
-    function animateCounters() {
-      const counters = document.querySelectorAll('.counter');
-      counters.forEach(counter => {
-        const target = +counter.getAttribute('data-target');
-        let count = 0;
-        const step = Math.max(1, Math.ceil(target / 80));
-        
-        const update = () => {
-          count += step;
-          if (count > target) count = target;
-          counter.textContent = count.toLocaleString();
-          if (count < target) {
-            requestAnimationFrame(update);
-          }
-        };
-        update();
-      });
-    }
-
-    // Bento Card Dynamic Mouse Spotlight
-    document.querySelectorAll('.bento-card').forEach(card => {
-      card.addEventListener('mousemove', e => {
-        const rect = card.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        card.style.setProperty('--mouse-x', `${x}px`);
-        card.style.setProperty('--mouse-y', `${y}px`);
-      });
-    });
-
-    // Live WebRTC Audio Waveform Simulator
-    let isWaveformRunning = true;
-    let animFrameId = null;
-
-    function initWaveform() {
-      const canvas = document.getElementById('waveformCanvas');
-      if (!canvas) return;
-      const ctx = canvas.getContext('2d');
-      
-      function resize() {
-        canvas.width = canvas.parentElement.clientWidth;
-        canvas.height = 64;
-      }
-      resize();
-      window.addEventListener('resize', resize);
-
-      let phase = 0;
-      function render() {
-        if (!isWaveformRunning) return;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        const bars = Math.floor(canvas.width / 8);
-        const barWidth = 4;
-        const centerY = canvas.height / 2;
-
-        for (let i = 0; i < bars; i++) {
-          const x = i * 8;
-          // Harmonic wave equation simulating voice spectrum
-          const h = (Math.sin(i * 0.15 + phase) * 0.5 + Math.cos(i * 0.25 - phase * 0.8) * 0.3 + 0.4) * (canvas.height * 0.42);
-          
-          const grad = ctx.createLinearGradient(0, centerY - h, 0, centerY + h);
-          grad.addColorStop(0, '#10b981');
-          grad.addColorStop(0.5, '#00f0ff');
-          grad.addColorStop(1, '#8b5cf6');
-
-          ctx.fillStyle = grad;
-          ctx.beginPath();
-          ctx.roundRect(x, centerY - h, barWidth, h * 2, [3]);
-          ctx.fill();
-        }
-
-        phase += 0.08;
-        animFrameId = requestAnimationFrame(render);
-      }
-      render();
-    }
-
-    function toggleWaveformSimulation() {
-      isWaveformRunning = !isWaveformRunning;
-      const icon = document.getElementById('voipSimIcon');
-      const label = document.getElementById('voipSimLabel');
-      const statusText = document.getElementById('voipStatusText');
-
-      if (isWaveformRunning) {
-        icon.textContent = 'pause';
-        label.textContent = 'Pause Audio Stream';
-        statusText.textContent = 'Live WebRTC Session: Connected (Bidirectional HD Audio)';
-        initWaveform();
-      } else {
-        icon.textContent = 'play_arrow';
-        label.textContent = 'Resume Audio Stream';
-        statusText.textContent = 'WebRTC Session: Paused';
-        if (animFrameId) cancelAnimationFrame(animFrameId);
-      }
-    }
-
-    // Initialize on Page Load
-    window.addEventListener('DOMContentLoaded', () => {
-      animateCounters();
-      initWaveform();
-    });
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   </script>
 </body>
 </html>
