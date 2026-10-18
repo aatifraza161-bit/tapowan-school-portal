@@ -257,16 +257,40 @@
           <p id="moduleSubtitle">School overview and quick statistics</p>
         </div>
         <div class="topbar-actions">
-          <div class="user-profile-menu">
-            <div class="user-avatar" id="userAvatarIcon">
-              <span class="material-symbols-outlined">person</span>
+          <div class="user-profile-wrapper" style="position:relative;">
+            <div class="user-profile-menu" id="userProfileMenuBtn" role="button" tabindex="0" title="Account profile & options" aria-haspopup="true" aria-expanded="false" style="cursor:pointer;user-select:none;">
+              <div class="user-avatar" id="userAvatarIcon">
+                <span class="material-symbols-outlined">person</span>
+              </div>
+              <div class="user-info">
+                <div id="activeUserBadgeName">Guest</div>
+                <div id="activeUserBadgeRole">Unknown</div>
+              </div>
+              <span class="material-symbols-outlined dropdown-arrow" style="font-size:18px;color:#64748b;margin-left:2px;transition:transform 0.2s;">expand_more</span>
             </div>
-            <div class="user-info">
-              <div id="activeUserBadgeName">Guest</div>
-              <div id="activeUserBadgeRole">Unknown</div>
+
+            <!-- Profile Dropdown Menu -->
+            <div id="userProfileDropdown" class="user-profile-dropdown" style="display:none;position:absolute;top:calc(100% + 8px);right:0;width:230px;background:#ffffff;border-radius:16px;box-shadow:0 12px 28px -4px rgba(0,0,0,0.12), 0 8px 12px -6px rgba(0,0,0,0.08);border:1px solid #e2e8f0;z-index:99999;overflow:hidden;">
+              <!-- User Summary Header in Dropdown -->
+              <div style="padding:14px 16px;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:12px;">
+                <div class="user-avatar" id="userDropdownAvatarIcon" style="width:38px;height:38px;border-radius:50%;background:#ef4444;color:#fff;display:grid;place-items:center;flex-shrink:0;">
+                  <span class="material-symbols-outlined" style="font-size:22px;">person</span>
+                </div>
+                <div style="min-width:0;flex:1;">
+                  <div id="userDropdownName" style="font-size:0.88rem;font-weight:800;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Guest</div>
+                  <div id="userDropdownRole" style="font-size:0.68rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;margin-top:2px;">Unknown</div>
+                </div>
+              </div>
+
+              <!-- Menu Actions -->
+              <div style="padding:6px;">
+                <button type="button" id="logoutBtn" style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 14px;border:none;background:transparent;color:#dc2626;border-radius:10px;font-weight:700;font-size:0.86rem;cursor:pointer;text-align:left;transition:all 0.15s;" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='transparent'">
+                  <span class="material-symbols-outlined" style="font-size:18px;color:#dc2626;">logout</span>
+                  Logout
+                </button>
+              </div>
             </div>
           </div>
-          <button id="logoutBtn" class="dark">Logout</button>
         </div>
       </header>
 

@@ -1260,10 +1260,18 @@ function applyAuthUI(session) {
   const activeName = document.getElementById("activeUserBadgeName");
   const activeRole = document.getElementById("activeUserBadgeRole");
   const avatarIcon = document.getElementById("userAvatarIcon");
+  const ddName = document.getElementById("userDropdownName");
+  const ddRole = document.getElementById("userDropdownRole");
+  const ddAvatar = document.getElementById("userDropdownAvatarIcon");
 
   if (loggedIn) {
-    if (activeName) activeName.textContent = session.fullName || session.username;
-    if (activeRole) activeRole.textContent = session.role;
+    const dispName = session.fullName || session.username || "User";
+    const dispRole = session.role || "Member";
+    if (activeName) activeName.textContent = dispName;
+    if (activeRole) activeRole.textContent = dispRole;
+    if (ddName) ddName.textContent = dispName;
+    if (ddRole) ddRole.textContent = dispRole;
+
     const role = String(session.role || "").toLowerCase().trim().replace(/[\s-]+/g, "_");
     const roleColors = {
       super_admin: "#ef4444",
@@ -1278,14 +1286,23 @@ function applyAuthUI(session) {
       teacher: "#10b981",
       student: "#f59e0b"
     };
+    const chosenColor = roleColors[role] || "linear-gradient(135deg, var(--brand), var(--brand-dark))";
     if (avatarIcon) {
-      avatarIcon.style.background = roleColors[role] || "linear-gradient(135deg, var(--brand), var(--brand-dark))";
+      avatarIcon.style.background = chosenColor;
+    }
+    if (ddAvatar) {
+      ddAvatar.style.background = chosenColor;
     }
   } else {
     if (activeName) activeName.textContent = "Guest";
     if (activeRole) activeRole.textContent = "Unknown";
+    if (ddName) ddName.textContent = "Guest";
+    if (ddRole) ddRole.textContent = "Unknown";
     if (avatarIcon) {
       avatarIcon.style.background = "linear-gradient(135deg, var(--brand), var(--brand-dark))";
+    }
+    if (ddAvatar) {
+      ddAvatar.style.background = "#ef4444";
     }
   }
 }
@@ -11055,7 +11072,34 @@ window.addEventListener("resize", () => {
   if (!isMobileLayout()) setMobileSidebarOpen(false);
 });
 
-refs.logoutBtn.addEventListener("click", async () => {
+// User Profile Dropdown Toggle
+const userProfileMenuBtn = document.getElementById("userProfileMenuBtn");
+const userProfileDropdown = document.getElementById("userProfileDropdown");
+
+if (userProfileMenuBtn && userProfileDropdown) {
+  userProfileMenuBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const isShowing = userProfileDropdown.style.display === "block";
+    userProfileDropdown.style.display = isShowing ? "none" : "block";
+    const arrow = userProfileMenuBtn.querySelector(".dropdown-arrow");
+    if (arrow) arrow.style.transform = isShowing ? "rotate(0deg)" : "rotate(180deg)";
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!userProfileDropdown.contains(e.target) && !userProfileMenuBtn.contains(e.target)) {
+      userProfileDropdown.style.display = "none";
+      const arrow = userProfileMenuBtn.querySelector(".dropdown-arrow");
+      if (arrow) arrow.style.transform = "rotate(0deg)";
+    }
+  });
+}
+
+refs.logoutBtn?.addEventListener("click", async () => {
+  if (userProfileDropdown) {
+    userProfileDropdown.style.display = "none";
+    const arrow = userProfileMenuBtn?.querySelector(".dropdown-arrow");
+    if (arrow) arrow.style.transform = "rotate(0deg)";
+  }
   await logout();
   applyAuthUI(null);
   refs.tableBody.innerHTML = "";
