@@ -1224,6 +1224,26 @@ button:active::after{animation:ripple 0.4s ease;}
 .stat-label{font-size:0.76rem;color:var(--muted);font-weight:600;letter-spacing:0.02em;}
 .stat-trend{font-size:0.72rem;margin-top:8px;color:var(--accent2);font-weight:700;}
 
+/* ─── CLASS-WISE FEE & PENDING DUES STAT CARD ─── */
+.stat-card-pending-fees {
+  background: linear-gradient(135deg, #faf5ff, #ffffff) !important;
+  border: 1px solid #e9d5ff !important;
+  min-height: 240px;
+}
+.stat-card-pending-fees .pending-fee-bar-col {
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+.stat-card-pending-fees .pending-fee-bar-col:hover {
+  transform: translateY(-3px);
+}
+.stat-card-pending-fees .pending-fee-bar-col:hover div[style*="background:linear-gradient"] {
+  filter: brightness(1.15);
+}
+@keyframes modalFadeIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
 /* ─── PANELS ─── */
 .panel{
   background:var(--card-bg);border-radius:var(--radius);

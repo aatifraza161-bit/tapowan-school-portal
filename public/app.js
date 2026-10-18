@@ -4820,6 +4820,349 @@ window.closeImageViewer = function() {
 
 window.currentFeeFilter = window.currentFeeFilter || 'all';
 
+// ═══════════════════════════════════════════════════════════════
+// CLASS-WISE FEE & PENDING DUES AGGREGATION ENGINE (100% Real Data)
+// ═══════════════════════════════════════════════════════════════
+window.getClassWiseFeeStats = function(store) {
+  store = store || (typeof getStore === "function" ? getStore() : (window.serverStore || {}));
+  const fees = store.fees || [];
+  const dueMgmt = store.dueManagement || [];
+  const students = store.students || [];
+
+  const studentClassMap = {};
+  students.forEach(s => {
+    const adm = s.admissionNo || s.admissionno;
+    const cls = s.className || s.classname;
+    if (adm) studentClassMap[String(adm).trim().toLowerCase()] = cls || 'Unassigned';
+  });
+
+  const classMap = {};
+  function getClsEntry(rawCls) {
+    let c = String(rawCls || '').trim();
+    if (!c || c.toLowerCase() === 'null' || c.toLowerCase() === 'undefined') c = 'Unassigned';
+    c = c.replace(/^Class\s+/i, '').trim();
+    if (!classMap[c]) {
+      classMap[c] = {
+        className: c,
+        totalFee: 0,
+        paidFee: 0,
+        pendingFee: 0,
+        pendingAccounts: new Set(),
+        totalStudents: 0
+      };
+    }
+    return classMap[c];
+  }
+
+  // Count enrolled students per class
+  students.forEach(s => {
+    const cls = s.className || s.classname;
+    if (cls) getClsEntry(cls).totalStudents++;
+  });
+
+  // Aggregate dueManagement (Monthly tuition fees, bus, annual dues)
+  dueMgmt.forEach(d => {
+    const adm = d.admissionNo || d.admissionno;
+    let cls = d.className || d.classname;
+    if (!cls && adm) cls = studentClassMap[String(adm).trim().toLowerCase()];
+    const entry = getClsEntry(cls);
+    const bal = Number(d.balance || d.dueAmount || d.dueamount || 0);
+    const paid = Number(d.paidAmount || d.paidamount || 0);
+    const st = String(d.status || '').toLowerCase();
+    const isUnpaid = st !== 'paid' && bal > 0;
+
+    if (isUnpaid) {
+      entry.pendingFee += bal;
+      if (adm) entry.pendingAccounts.add(String(adm).trim());
+      else if (d.studentName || d.studentname) entry.pendingAccounts.add(String(d.studentName || d.studentname).trim());
+    }
+    entry.paidFee += paid;
+    entry.totalFee += (bal + paid);
+  });
+
+  // Aggregate fees table (Fee receipts & outstanding balances)
+  fees.forEach(f => {
+    const adm = f.admissionNo || f.admissionno;
+    let cls = f.className || f.classname;
+    if (!cls && adm) cls = studentClassMap[String(adm).trim().toLowerCase()];
+    const entry = getClsEntry(cls);
+    const bal = Number(f.balance || 0);
+    const paid = Number(f.paidAmount || f.paidamount || 0);
+    const st = String(f.status || '').toLowerCase();
+    const isUnpaid = st !== 'paid' && bal > 0;
+
+    if (isUnpaid) {
+      entry.pendingFee += bal;
+      if (adm) entry.pendingAccounts.add(String(adm).trim());
+      else if (f.studentName || f.studentname) entry.pendingAccounts.add(String(f.studentName || f.studentname).trim());
+    }
+    entry.paidFee += paid;
+    const recTot = Math.max(bal + paid, Number(f.tuitionFee || f.tuitionfee || f.totalFee || f.totalfee || 0));
+    entry.totalFee += recTot;
+  });
+
+  // Ensure totalFee reflects at least all pending + paid amounts
+  Object.values(classMap).forEach(entry => {
+    if (entry.totalFee < entry.pendingFee + entry.paidFee) {
+      entry.totalFee = entry.pendingFee + entry.paidFee;
+    }
+  });
+
+  const classOrderRank = (clsName) => {
+    const raw = String(clsName || '').trim();
+    const base = raw.split(/[-\s]/)[0].toUpperCase();
+    const map = {
+      'NURSERY': 1, 'NUR': 1,
+      'LKG': 2, 'L.K.G': 2,
+      'UKG': 3, 'U.K.G': 3,
+      'I': 4, '1': 4,
+      'II': 5, '2': 5,
+      'III': 6, '3': 6,
+      'IV': 7, '4': 7,
+      'V': 8, '5': 8,
+      'VI': 9, '6': 9,
+      'VII': 10, '7': 10,
+      'VIII': 11, '8': 11,
+      'IX': 12, '9': 12,
+      'X': 13, '10': 13,
+      'XI': 14, '11': 14,
+      'XII': 15, '12': 15
+    };
+    return map[base] !== undefined ? map[base] : 99;
+  };
+
+  const sorted = Object.values(classMap)
+    .filter(x => x.className !== 'Unassigned' || (x.totalFee > 0 || x.pendingFee > 0))
+    .sort((a, b) => {
+      const rA = classOrderRank(a.className);
+      const rB = classOrderRank(b.className);
+      if (rA !== rB) return rA - rB;
+      return a.className.localeCompare(b.className);
+    });
+
+  let grandTotalFee = 0;
+  let grandTotalPending = 0;
+  let grandTotalPaid = 0;
+  const allPendingSet = new Set();
+
+  sorted.forEach(c => {
+    grandTotalFee += c.totalFee;
+    grandTotalPending += c.pendingFee;
+    grandTotalPaid += c.paidFee;
+    c.pendingAccounts.forEach(adm => allPendingSet.add(adm));
+  });
+
+  return {
+    classes: sorted,
+    grandTotalFee,
+    grandTotalPending,
+    grandTotalPaid,
+    grandTotalPendingAccounts: allPendingSet.size
+  };
+};
+
+window.filterDuesByClass = function(clsName) {
+  const modal = document.getElementById("classWiseFeeModal");
+  if (modal) modal.remove();
+
+  if (typeof window.navigateModule === "function") {
+    window.navigateModule("dueManagement");
+  } else {
+    const btn = document.querySelector('button[data-module="dueManagement"]');
+    if (btn) btn.click();
+  }
+
+  setTimeout(() => {
+    const cf = document.getElementById("classFilter");
+    if (cf) {
+      cf.value = clsName;
+      cf.dispatchEvent(new Event("change"));
+    }
+  }, 250);
+};
+
+window.showClassWiseFeeModal = function(targetClass = null) {
+  const store = typeof getStore === "function" ? getStore() : (window.serverStore || {});
+  const feeData = window.getClassWiseFeeStats(store);
+  const classes = feeData.classes || [];
+  const maxFee = Math.max(1, ...(classes.map(c => Math.max(c.totalFee, c.pendingFee))));
+
+  let existing = document.getElementById("classWiseFeeModal");
+  if (existing) existing.remove();
+
+  const modal = document.createElement("div");
+  modal.id = "classWiseFeeModal";
+  modal.style.cssText = `
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(6px);
+    z-index: 999999; display: flex; align-items: center; justify-content: center;
+    padding: 16px; box-sizing: border-box; font-family: inherit;
+  `;
+
+  let rowsHtml = classes.map(c => {
+    const isTarget = targetClass && (c.className === targetClass || targetClass.includes(c.className));
+    const recRate = c.totalFee > 0 ? Math.round((c.paidFee / c.totalFee) * 100) : 0;
+    const highlightBg = isTarget ? 'background:#faf5ff; border-left:4px solid #9333ea;' : '';
+
+    return `
+      <tr style="${highlightBg} border-bottom:1px solid #f1f5f9; transition:background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='${isTarget ? '#faf5ff' : 'transparent'}'">
+        <td style="padding:10px 14px; font-weight:800; color:#1e293b; display:flex; align-items:center; gap:8px;">
+          <span style="width:10px; height:10px; border-radius:50%; background:${c.pendingFee > 100000 ? '#ef4444' : (c.pendingFee > 50000 ? '#f59e0b' : '#3b82f6')};"></span>
+          ${c.className}
+        </td>
+        <td style="padding:10px 14px; text-align:center; color:#475569; font-weight:600;">${c.totalStudents}</td>
+        <td style="padding:10px 14px; text-align:center;">
+          <span style="background:#fef2f2; color:#dc2626; padding:3px 8px; border-radius:12px; font-weight:700; font-size:0.75rem; border:1px solid #fecaca;">
+            ${c.pendingAccounts.size}
+          </span>
+        </td>
+        <td style="padding:10px 14px; text-align:right; font-weight:700; color:#4338ca;">₹${c.totalFee.toLocaleString('en-IN')}</td>
+        <td style="padding:10px 14px; text-align:right; font-weight:700; color:#16a34a;">₹${c.paidFee.toLocaleString('en-IN')}</td>
+        <td style="padding:10px 14px; text-align:right; font-weight:800; color:#9333ea;">₹${c.pendingFee.toLocaleString('en-IN')}</td>
+        <td style="padding:10px 14px; text-align:center;">
+          <div style="display:inline-flex; align-items:center; gap:6px;">
+            <div style="width:50px; height:6px; background:#e2e8f0; border-radius:3px; overflow:hidden;">
+              <div style="width:${recRate}%; height:100%; background:#10b981;"></div>
+            </div>
+            <span style="font-size:0.72rem; font-weight:700; color:#64748b;">${recRate}%</span>
+          </div>
+        </td>
+        <td style="padding:10px 14px; text-align:center;">
+          <button type="button" onclick="window.filterDuesByClass('${c.className}')" style="padding:4px 10px; background:#f3e8ff; color:#7e22ce; border:1px solid #d8b4fe; border-radius:6px; font-size:0.72rem; font-weight:700; cursor:pointer;" title="View in Due Management">
+            View Dues →
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  const chartColsHtml = classes.map(c => {
+    const tH = Math.max(12, Math.round((c.totalFee / maxFee) * 120));
+    const pH = Math.max(8, Math.round((c.pendingFee / maxFee) * 120));
+    const isTarget = targetClass && (c.className === targetClass || targetClass.includes(c.className));
+
+    return `
+      <div style="display:flex; flex-direction:column; align-items:center; flex:1; min-width:38px; cursor:pointer;" title="${c.className}&#10;Total Fee: ₹${c.totalFee.toLocaleString('en-IN')}&#10;Pending Fee: ₹${c.pendingFee.toLocaleString('en-IN')}">
+        <div style="height:130px; display:flex; align-items:flex-end; gap:4px; position:relative; padding-bottom:4px;">
+          <!-- Total Fee Bar -->
+          <div style="width:12px; height:${tH}px; background:linear-gradient(180deg, #818cf8, #4f46e5); border-radius:4px 4px 0 0; box-shadow:0 2px 6px rgba(79,70,229,0.2);"></div>
+          <!-- Pending Fee Bar -->
+          <div style="width:12px; height:${pH}px; background:linear-gradient(180deg, #c084fc, #9333ea); border-radius:4px 4px 0 0; box-shadow:0 2px 6px rgba(147,51,234,0.25);"></div>
+        </div>
+        <span style="font-size:0.72rem; font-weight:${isTarget ? '900' : '700'}; color:${isTarget ? '#9333ea' : '#475569'}; margin-top:6px; text-align:center;">
+          ${c.className.replace(/Nursery/i, 'Nur').replace(/-A$/, '')}
+        </span>
+      </div>
+    `;
+  }).join('');
+
+  modal.innerHTML = `
+    <div style="background:#fff; width:100%; max-width:880px; max-height:90vh; border-radius:18px; box-shadow:0 20px 40px rgba(0,0,0,0.25); display:flex; flex-direction:column; overflow:hidden; border:1px solid #e2e8f0;">
+      
+      <!-- Modal Header -->
+      <div style="padding:18px 22px; background:linear-gradient(135deg, #faf5ff, #f3e8ff); border-bottom:1px solid #e9d5ff; display:flex; align-items:center; justify-content:space-between;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="width:42px; height:42px; border-radius:12px; background:#ede9fe; color:#7e22ce; display:grid; place-items:center;">
+            <span class="material-symbols-outlined" style="font-size:24px;">bar_chart</span>
+          </div>
+          <div>
+            <h3 style="margin:0; font-size:1.15rem; font-weight:800; color:#581c87;">Class-Wise Fee &amp; Pending Dues Analysis</h3>
+            <p style="margin:2px 0 0; font-size:0.75rem; color:#7e22ce;">Institutional comparison of total billed fees vs outstanding dues per class</p>
+          </div>
+        </div>
+        <button type="button" onclick="document.getElementById('classWiseFeeModal').remove()" style="width:36px; height:36px; border-radius:50%; border:none; background:#ede9fe; color:#6b21a8; cursor:pointer; display:grid; place-items:center; font-weight:bold; transition:all 0.15s;" onmouseover="this.style.background='#e9d5ff'" onmouseout="this.style.background='#ede9fe'">
+          <span class="material-symbols-outlined" style="font-size:20px;">close</span>
+        </button>
+      </div>
+
+      <!-- Modal Body (Scrollable) -->
+      <div style="padding:20px 22px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:20px;">
+        
+        <!-- Summary Cards -->
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px;">
+          <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:12px; padding:12px 14px;">
+            <div style="font-size:0.68rem; font-weight:700; color:#2563eb; text-transform:uppercase; letter-spacing:0.04em;">Total Fee Billed</div>
+            <div style="font-size:1.35rem; font-weight:900; color:#1e40af; margin-top:2px;">₹${feeData.grandTotalFee.toLocaleString('en-IN')}</div>
+            <div style="font-size:0.7rem; color:#3b82f6; margin-top:2px;">Across ${classes.length} Academic Classes</div>
+          </div>
+          <div style="background:#faf5ff; border:1px solid #e9d5ff; border-radius:12px; padding:12px 14px;">
+            <div style="font-size:0.68rem; font-weight:700; color:#7e22ce; text-transform:uppercase; letter-spacing:0.04em;">Total Pending Dues</div>
+            <div style="font-size:1.35rem; font-weight:900; color:#6b21a8; margin-top:2px;">₹${feeData.grandTotalPending.toLocaleString('en-IN')}</div>
+            <div style="font-size:0.7rem; color:#9333ea; margin-top:2px;">${feeData.grandTotalPendingAccounts} Defaulter Accounts</div>
+          </div>
+          <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px; padding:12px 14px;">
+            <div style="font-size:0.68rem; font-weight:700; color:#16a34a; text-transform:uppercase; letter-spacing:0.04em;">Total Fee Collected</div>
+            <div style="font-size:1.35rem; font-weight:900; color:#15803d; margin-top:2px;">₹${feeData.grandTotalPaid.toLocaleString('en-IN')}</div>
+            <div style="font-size:0.7rem; color:#16a34a; margin-top:2px;">Direct Receipts Cleared</div>
+          </div>
+          <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:12px; padding:12px 14px;">
+            <div style="font-size:0.68rem; font-weight:700; color:#d97706; text-transform:uppercase; letter-spacing:0.04em;">Recovery Rate</div>
+            <div style="font-size:1.35rem; font-weight:900; color:#b45309; margin-top:2px;">
+              ${feeData.grandTotalFee > 0 ? Math.round((feeData.grandTotalPaid / feeData.grandTotalFee) * 100) : 0}%
+            </div>
+            <div style="font-size:0.7rem; color:#d97706; margin-top:2px;">${feeData.grandTotalFee > 0 ? Math.round((feeData.grandTotalPending / feeData.grandTotalFee) * 100) : 0}% Pending Recovery</div>
+          </div>
+        </div>
+
+        <!-- Comparative Chart Box -->
+        <div style="background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:16px; box-shadow:0 2px 8px rgba(0,0,0,0.02);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <div style="font-size:0.85rem; font-weight:800; color:#1e293b;">Comparative Chart: Total Fee vs Pending Dues</div>
+            <div style="display:flex; gap:12px; font-size:0.72rem; font-weight:700;">
+              <span style="display:inline-flex; align-items:center; gap:4px; color:#4f46e5;"><span style="width:8px; height:8px; border-radius:50%; background:#4f46e5;"></span>Total Fee Billed</span>
+              <span style="display:inline-flex; align-items:center; gap:4px; color:#9333ea;"><span style="width:8px; height:8px; border-radius:50%; background:#9333ea;"></span>Pending Dues</span>
+            </div>
+          </div>
+          <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:6px; overflow-x:auto; padding-bottom:6px; scrollbar-width:thin;">
+            ${chartColsHtml}
+          </div>
+        </div>
+
+        <!-- Full Breakdown Table -->
+        <div style="background:#fff; border:1px solid #e2e8f0; border-radius:14px; overflow:hidden;">
+          <div style="padding:12px 16px; background:#f8fafc; border-bottom:1px solid #e2e8f0; font-size:0.82rem; font-weight:800; color:#1e293b; display:flex; justify-content:space-between; align-items:center;">
+            <span>Class-Wise Detailed Ledger</span>
+            <span style="font-size:0.72rem; font-weight:600; color:#64748b;">${classes.length} classes listed</span>
+          </div>
+          <div style="overflow-x:auto;">
+            <table style="width:100%; border-collapse:collapse; font-size:0.82rem;">
+              <thead>
+                <tr style="background:#f1f5f9; color:#475569; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.04em; border-bottom:1px solid #e2e8f0;">
+                  <th style="padding:8px 14px; text-align:left;">Class</th>
+                  <th style="padding:8px 14px; text-align:center;">Students</th>
+                  <th style="padding:8px 14px; text-align:center;">Defaulters</th>
+                  <th style="padding:8px 14px; text-align:right;">Total Fee</th>
+                  <th style="padding:8px 14px; text-align:right;">Paid</th>
+                  <th style="padding:8px 14px; text-align:right;">Pending Dues</th>
+                  <th style="padding:8px 14px; text-align:center;">Recovery</th>
+                  <th style="padding:8px 14px; text-align:center;">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rowsHtml}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div style="padding:12px 22px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size:0.72rem; color:#64748b;">Data synchronized with Turso Cloud school database</span>
+        <button type="button" onclick="document.getElementById('classWiseFeeModal').remove()" style="padding:8px 18px; background:#2563eb; color:#fff; border:none; border-radius:8px; font-weight:700; font-size:0.8rem; cursor:pointer;">Close</button>
+      </div>
+
+    </div>
+  `;
+
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) modal.remove();
+  });
+
+  document.body.appendChild(modal);
+};
+
 function getDashboardStats(store) {
   const fees = store.fees || [];
   
@@ -4871,22 +5214,11 @@ function getDashboardStats(store) {
     date: displayDate(f.paymentDate) || "No Date"
   }));
 
-  // Accurate pending fee calculation across duemanagement and fees
-  const dueStudentSet = new Set();
-  let totalPendingFeeBal = 0;
-  (store.dueManagement || []).forEach(d => {
-    if (String(d.status).toLowerCase() !== "paid" && (Number(d.balance) > 0 || Number(d.dueAmount) > 0)) {
-      if (d.admissionNo) dueStudentSet.add(d.admissionNo);
-      totalPendingFeeBal += Number(d.balance || d.dueAmount || 0);
-    }
-  });
-  (store.fees || []).forEach(f => {
-    if (String(f.status).toLowerCase() !== "paid" && Number(f.balance) > 0) {
-      if (f.admissionNo) dueStudentSet.add(f.admissionNo);
-      totalPendingFeeBal += Number(f.balance || 0);
-    }
-  });
-  const pendingFeeAccountsCount = dueStudentSet.size || (store.fees || []).filter(x => String(x.status).toLowerCase() !== "paid").length;
+  // Accurate class-wise and global pending fee calculation across duemanagement and fees
+  const classFeeStats = window.getClassWiseFeeStats ? window.getClassWiseFeeStats(store) : null;
+  const pendingFeeAccountsCount = classFeeStats ? classFeeStats.grandTotalPendingAccounts : (store.fees || []).filter(x => String(x.status).toLowerCase() !== "paid").length;
+  const totalPendingFeeBal = classFeeStats ? classFeeStats.grandTotalPending : 0;
+  const totalBilledFee = classFeeStats ? classFeeStats.grandTotalFee : 0;
 
   return {
     "Today's System Date": displayDate(today),
@@ -5124,6 +5456,13 @@ function renderStatsCards(forceFullRebuild = false) {
           `).join('');
           recListEl.innerHTML = recentHtml || '<div style="font-size:0.7rem; color:#9ca3af;">No recent payments</div>';
         }
+      } else if (k === "Pending Fee Accounts") {
+        const valEl = card.querySelector(".stat-value");
+        if (valEl && valEl.textContent !== String(v)) valEl.textContent = v;
+        const classFeeData = window.getClassWiseFeeStats ? window.getClassWiseFeeStats(store) : null;
+        const totalPendingFmt = classFeeData ? '₹' + classFeeData.grandTotalPending.toLocaleString('en-IN') : '';
+        const pendingAmountEl = card.querySelector(".stat-pending-dues-amount");
+        if (pendingAmountEl && totalPendingFmt) pendingAmountEl.textContent = totalPendingFmt;
       } else {
         const valEl = card.querySelector(".stat-value");
         if (valEl && valEl.textContent !== String(v)) {
@@ -5201,6 +5540,84 @@ function renderStatsCards(forceFullRebuild = false) {
             <button onclick="window.currentFeeFilter='month'; renderStatsCards(true);" class="tbl-btn" style="flex:1; padding:4px; font-size:0.65rem; ${window.currentFeeFilter==='month'?'background:#16a34a;color:#fff;':'background:#f0fdf4;color:#16a34a;'}">MONTH</button>
             <button onclick="window.currentFeeFilter='year'; renderStatsCards(true);" class="tbl-btn" style="flex:1; padding:4px; font-size:0.65rem; ${window.currentFeeFilter==='year'?'background:#16a34a;color:#fff;':'background:#f0fdf4;color:#16a34a;'}">YEAR</button>
             <button onclick="window.currentFeeFilter='all'; renderStatsCards(true);" class="tbl-btn" style="flex:1; padding:4px; font-size:0.65rem; ${window.currentFeeFilter==='all'?'background:#16a34a;color:#fff;':'background:#f0fdf4;color:#16a34a;'}">ALL</button>
+          </div>
+        `;
+      } else if (k === "Pending Fee Accounts") {
+        card.style.background = "linear-gradient(135deg, #faf5ff, #ffffff)";
+        card.style.border = "1px solid #e9d5ff";
+        card.style.minHeight = "240px";
+        card.classList.add("stat-card-pending-fees");
+
+        const classFeeData = window.getClassWiseFeeStats ? window.getClassWiseFeeStats(store) : null;
+        const classes = classFeeData ? classFeeData.classes : [];
+        const maxFee = Math.max(1, ...(classes.map(c => Math.max(c.totalFee, c.pendingFee))));
+        const totalPendingFmt = classFeeData ? '₹' + classFeeData.grandTotalPending.toLocaleString('en-IN') : '';
+        const totalFeeFmt = classFeeData ? '₹' + classFeeData.grandTotalFee.toLocaleString('en-IN') : '';
+        const pendingPct = classFeeData && classFeeData.grandTotalFee > 0 
+          ? Math.round((classFeeData.grandTotalPending / classFeeData.grandTotalFee) * 100) 
+          : 0;
+
+        const barsHtml = classes.map(c => {
+          const tH = Math.max(8, Math.round((c.totalFee / maxFee) * 65));
+          const pH = Math.max(6, Math.round((c.pendingFee / maxFee) * 65));
+          const pPct = c.totalFee > 0 ? Math.round((c.pendingFee / c.totalFee) * 100) : 0;
+          const shortName = c.className.replace(/Nursery/i, 'Nur').replace(/-A$/, '');
+
+          return `
+            <div class="pending-fee-bar-col" data-class="${c.className}" onclick="window.showClassWiseFeeModal('${c.className}')" title="${c.className}&#10;Pending Fee: ₹${c.pendingFee.toLocaleString('en-IN')} (${pPct}%)&#10;Total Fee: ₹${c.totalFee.toLocaleString('en-IN')}&#10;Paid: ₹${c.paidFee.toLocaleString('en-IN')}&#10;Pending Accounts: ${c.pendingAccounts.size}" style="display:flex; flex-direction:column; align-items:center; cursor:pointer; flex:1; min-width:18px;">
+              <div style="height:70px; display:flex; align-items:flex-end; gap:2px; position:relative;">
+                <!-- Total Fee Bar (Blue/Indigo) -->
+                <div style="width:6px; height:${tH}px; background:linear-gradient(180deg, #818cf8, #6366f1); border-radius:3px 3px 0 0;" title="Total Fee: ₹${c.totalFee.toLocaleString('en-IN')}"></div>
+                <!-- Pending Fee Bar (Purple) -->
+                <div style="width:6px; height:${pH}px; background:linear-gradient(180deg, #c084fc, #9333ea); border-radius:3px 3px 0 0;" title="Pending Fee: ₹${c.pendingFee.toLocaleString('en-IN')} (${pPct}%)"></div>
+              </div>
+              <span style="font-size:0.6rem; font-weight:700; color:#64748b; margin-top:4px; white-space:nowrap;">${shortName}</span>
+            </div>
+          `;
+        }).join('');
+
+        card.innerHTML = `
+          <div class="stat-top">
+            <h4 style="color:#6b21a8;">${k}</h4>
+            <div class="stat-icon-bubble" style="background:#f3e8ff; color:#9333ea;">
+              <span class="material-symbols-outlined" style="font-size:22px; color:#9333ea;">pending_actions</span>
+            </div>
+          </div>
+          <div style="display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:6px;">
+            <div class="stat-value" style="color:#7e22ce; font-size:1.8rem; margin:0;">${v}</div>
+            <div class="stat-pending-dues-amount" style="font-size:0.88rem; font-weight:800; color:#9333ea;">${totalPendingFmt}</div>
+          </div>
+          <div style="font-size:0.72rem; color:#7e22ce; font-weight:600; margin-top:2px; display:flex; justify-content:space-between;">
+            <span>Total Fee: ${totalFeeFmt}</span>
+            <span style="color:#9333ea; font-weight:700;">${pendingPct}% Pending</span>
+          </div>
+
+          <!-- Class-wise Graph Section -->
+          <div style="margin-top:14px; background:#fff; border-radius:12px; padding:10px 8px; box-shadow:0 2px 8px rgba(126,34,206,0.06); border:1px solid #f3e8ff;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; padding:0 4px;">
+              <span style="font-size:0.65rem; font-weight:800; color:#6b21a8; text-transform:uppercase; letter-spacing:0.04em;">Class-wise Fee &amp; Dues</span>
+              <div style="display:flex; align-items:center; gap:8px; font-size:0.62rem; font-weight:600;">
+                <span style="display:inline-flex; align-items:center; gap:3px; color:#4f46e5;"><span style="width:6px; height:6px; border-radius:50%; background:#6366f1;"></span>Total</span>
+                <span style="display:inline-flex; align-items:center; gap:3px; color:#9333ea;"><span style="width:6px; height:6px; border-radius:50%; background:#9333ea;"></span>Pending</span>
+              </div>
+            </div>
+
+            <!-- Scrollable Bar Chart Plot -->
+            <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:4px; overflow-x:auto; padding-bottom:2px; scrollbar-width:thin;">
+              ${barsHtml}
+            </div>
+          </div>
+
+          <!-- Bottom Action Buttons -->
+          <div style="margin-top:12px; display:flex; gap:6px;">
+            <button type="button" onclick="window.showClassWiseFeeModal()" class="tbl-btn" style="flex:1; padding:6px; font-size:0.7rem; font-weight:700; background:#f3e8ff; color:#7e22ce; border:1px solid #d8b4fe; border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; transition:all 0.15s;" onmouseover="this.style.background='#ede9fe'" onmouseout="this.style.background='#f3e8ff'">
+              <span class="material-symbols-outlined" style="font-size:14px;">bar_chart</span>
+              Class Breakdown
+            </button>
+            <button type="button" onclick="window.navigateModule ? window.navigateModule('dueManagement') : document.querySelector('button[data-module=dueManagement]')?.click()" class="tbl-btn" style="padding:6px 10px; font-size:0.7rem; font-weight:700; background:#fff; color:#6b21a8; border:1px solid #e9d5ff; border-radius:8px; cursor:pointer; display:flex; align-items:center; gap:3px; transition:all 0.15s;" onmouseover="this.style.background='#faf5ff'" onmouseout="this.style.background='#fff'">
+              <span class="material-symbols-outlined" style="font-size:14px;">receipt_long</span>
+              Dues
+            </button>
           </div>
         `;
       } else {
@@ -5712,6 +6129,13 @@ window.getRealAnalyticsSuiteHTML = function(d) {
                 </div>
                 <span class="breakdown-pct">${duePct} %</span>
               </div>
+            </div>
+
+            <div style="margin-top:14px;">
+              <button type="button" onclick="window.showClassWiseFeeModal()" style="width:100%; padding:7px 12px; background:#faf5ff; color:#7e22ce; border:1px solid #e9d5ff; border-radius:10px; font-size:0.75rem; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; transition:all 0.15s;" onmouseover="this.style.background='#f3e8ff'" onmouseout="this.style.background='#faf5ff'">
+                <span class="material-symbols-outlined" style="font-size:16px;">bar_chart</span>
+                View Class-wise Fee &amp; Dues Graph →
+              </button>
             </div>
           </div>
         </div>
