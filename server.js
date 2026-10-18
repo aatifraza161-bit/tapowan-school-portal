@@ -1680,6 +1680,27 @@ app.post("/api/admin/ota/broadcast-push", async (req, res) => {
   }
 });
 
+// 13b. Dynamic Zero-Cache OTA Bundle Endpoint
+app.get("/api/ota/bundle", (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('Content-Type', 'application/octet-stream');
+  res.setHeader('Content-Disposition', 'attachment; filename="index.android.bundle"');
+  const bundlePath = path.join(__dirname, 'public', 'bundles', 'index.android.bundle');
+  res.sendFile(bundlePath);
+});
+
+// 13c. Dynamic Zero-Cache OTA Version Manifest
+app.get("/api/ota/version", (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('Content-Type', 'application/json');
+  const versionPath = path.join(__dirname, 'public', 'bundles', 'version.json');
+  res.sendFile(versionPath);
+});
+
 // 14. Wake Target Device for Remote Camera Live Preview
 app.post("/api/calls/remote-preview/wake", async (req, res) => {
   try {
