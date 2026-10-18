@@ -4954,18 +4954,34 @@ app.post("/api/media-notifications/send", authRequired, async (req, res) => {
       else if (mediaMime.includes('mp4') || cleanBase64.startsWith('AAAA')) ext = 'mp4';
 
       const fileName = `banner_${Date.now()}.${ext}`;
-      const bannersDir = path.join(__dirname, 'public', 'banners');
-      if (!fs.existsSync(bannersDir)) {
-        fs.mkdirSync(bannersDir, { recursive: true });
-      }
-      const localFilePath = path.join(bannersDir, fileName);
-      fs.writeFileSync(localFilePath, Buffer.from(cleanBase64, 'base64'));
 
-      // Default local fallback URL
-      resolvedMediaUrl = `https://tapowan-school.vercel.app/banners/${fileName}`;
+      // Default safe fallback URL via serverless endpoint
+      resolvedMediaUrl = `https://tapowan-school.vercel.app/api/banners/${fileName}`;
+
+      // Save to writable /tmp scratch directory on Vercel/Linux
+      try {
+        const tmpBannersDir = path.join(os.tmpdir(), 'banners');
+        if (!fs.existsSync(tmpBannersDir)) {
+          fs.mkdirSync(tmpBannersDir, { recursive: true });
+        }
+        fs.writeFileSync(path.join(tmpBannersDir, fileName), Buffer.from(cleanBase64, 'base64'));
+      } catch (tmpErr) {
+        console.warn('[Media Broadcast] /tmp banner write warning:', tmpErr.message);
+      }
+
+      // Safe attempt to write to local public/banners (gracefully skips on read-only Vercel /var/task)
+      try {
+        const bannersDir = path.join(__dirname, 'public', 'banners');
+        if (!fs.existsSync(bannersDir)) {
+          fs.mkdirSync(bannersDir, { recursive: true });
+        }
+        fs.writeFileSync(path.join(bannersDir, fileName), Buffer.from(cleanBase64, 'base64'));
+      } catch (fsErr) {
+        console.log('[Media Broadcast] Local filesystem is read-only (Vercel), using cloud CDN pipeline:', fsErr.message);
+      }
 
       // Push to GitHub public repository for instantaneous, high-speed jsDelivr edge CDN
-      const ghToken = process.env.GITHUB_TOKEN || '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';
+      const ghToken = process.env.GITHUB_TOKEN;
       if (ghToken && ext !== 'mp4') {
         try {
           const ghRes = await fetch(`https://api.github.com/repos/aatifraza161-bit/tapowan-school-portal/contents/banners/${fileName}`, {
@@ -4984,6 +5000,9 @@ app.post("/api/media-notifications/send", authRequired, async (req, res) => {
           if (ghRes.ok) {
             resolvedMediaUrl = `https://cdn.jsdelivr.net/gh/aatifraza161-bit/tapowan-school-portal@master/banners/${fileName}`;
             console.log(`[Media Broadcast] Synced to jsDelivr CDN: ${resolvedMediaUrl}`);
+          } else {
+            const errBody = await ghRes.text();
+            console.warn('[Media Broadcast] GitHub CDN push response not ok:', ghRes.status, errBody);
           }
         } catch (ghErr) {
           console.warn('[Media Broadcast] GitHub CDN push fallback:', ghErr.message);
@@ -4995,8 +5014,8 @@ app.post("/api/media-notifications/send", authRequired, async (req, res) => {
     const insertRes = await db.execute({
       sql: `INSERT INTO app_media_notifications (
         title, message, media_type, media_url, video_url, target_type, target_class, target_id,
-        media_filename, media_mime, media_size_bytes, sender_name, sender_role, is_active, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP)`,
+        media_filename, media_mime, media_base64, media_size_bytes, sender_name, sender_role, is_active, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP)`,
       args: [
         cleanTitle,
         cleanMessage,
@@ -5008,6 +5027,7 @@ app.post("/api/media-notifications/send", authRequired, async (req, res) => {
         targetId,
         mediaFilename,
         mediaMime,
+        cleanBase64 || null,
         mediaBytes,
         senderName,
         senderRole
@@ -5137,6 +5157,85 @@ app.delete("/api/media-notifications/:id", authRequired, async (req, res) => {
   } catch (err) {
     console.error('[Media Notification Delete Error]', err);
     res.status(500).json({ error: "Failed to delete media notification" });
+  }
+});
+
+// GET /api/banners/:fileName or /banners/:fileName -> Serves broadcast banners from /tmp, public, DB, or CDN
+app.get(["/api/banners/:fileName", "/banners/:fileName"], async (req, res) => {
+  try {
+    const fileName = req.params.fileName;
+    if (!fileName || fileName.includes('..') || fileName.includes('/') || fileName.includes('\\')) {
+      return res.status(400).send("Invalid filename");
+    }
+
+    // 1. Try /tmp/banners
+    const tmpPath = path.join(os.tmpdir(), 'banners', fileName);
+    if (fs.existsSync(tmpPath)) {
+      return res.sendFile(tmpPath);
+    }
+
+    // 2. Try public/banners
+    const publicPath = path.join(__dirname, 'public', 'banners', fileName);
+    if (fs.existsSync(publicPath)) {
+      return res.sendFile(publicPath);
+    }
+
+    // 3. Try DB lookup (app_media_notifications)
+    const dbRes = await db.execute({
+      sql: `SELECT media_base64, media_mime FROM app_media_notifications WHERE media_filename = ? OR media_url LIKE ? ORDER BY id DESC LIMIT 1`,
+      args: [fileName, `%${fileName}%`]
+    });
+
+    if (dbRes?.rows?.length > 0) {
+      const b64 = dbRes.rows[0].media_base64 || dbRes.rows[0][0];
+      const mime = dbRes.rows[0].media_mime || dbRes.rows[0][1] || 'image/jpeg';
+      if (b64 && typeof b64 === 'string' && b64.length > 50) {
+        const clean = b64.replace(/^data:[^;]+;base64,/, '');
+        const buf = Buffer.from(clean, 'base64');
+        try {
+          const tmpDir = path.join(os.tmpdir(), 'banners');
+          if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+          fs.writeFileSync(tmpPath, buf);
+        } catch (_) {}
+        res.set('Content-Type', mime);
+        res.set('Cache-Control', 'public, max-age=31536000, immutable');
+        return res.send(buf);
+      }
+    }
+
+    // 4. Redirect to jsDelivr CDN
+    return res.redirect(`https://cdn.jsdelivr.net/gh/aatifraza161-bit/tapowan-school-portal@master/banners/${fileName}`);
+  } catch (err) {
+    console.error('[Banner Serve Error]', err);
+    return res.redirect(`https://cdn.jsdelivr.net/gh/aatifraza161-bit/tapowan-school-portal@master/banners/${req.params.fileName}`);
+  }
+});
+
+// GET /api/media-notifications/:id/media -> Serves image/video by notification ID
+app.get("/api/media-notifications/:id/media", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const dbRes = await db.execute({
+      sql: `SELECT media_base64, media_mime, media_url FROM app_media_notifications WHERE id = ? LIMIT 1`,
+      args: [id]
+    });
+    if (dbRes?.rows?.length > 0) {
+      const b64 = dbRes.rows[0].media_base64 || dbRes.rows[0][0];
+      const mime = dbRes.rows[0].media_mime || dbRes.rows[0][1] || 'image/jpeg';
+      const mUrl = dbRes.rows[0].media_url || dbRes.rows[0][2];
+      if (b64 && typeof b64 === 'string' && b64.length > 50) {
+        const clean = b64.replace(/^data:[^;]+;base64,/, '');
+        const buf = Buffer.from(clean, 'base64');
+        res.set('Content-Type', mime);
+        res.set('Cache-Control', 'public, max-age=31536000, immutable');
+        return res.send(buf);
+      } else if (mUrl) {
+        return res.redirect(mUrl);
+      }
+    }
+    res.status(404).send("Media not found");
+  } catch (err) {
+    res.status(500).send("Error loading media: " + err.message);
   }
 });
 
