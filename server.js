@@ -2661,10 +2661,29 @@ Keep it encouraging, constructive, and strictly one short sentence. Do not wrap 
   }
 });
 
-// ── Heuristic Fallback Parser for Raw OCR Text ──
-function parseOcrTextToChapters(rawText, className, subject) {
+// Helper to check if subject is Hindi, Sanskrit, or Devanagari script
+const isHindiSubject = (sub = '') => {
+  const s = String(sub).toLowerCase().trim();
+  return (
+    s.includes('hin') || 
+    s.includes('हिन्') || 
+    s.includes('हिंदी') || 
+    s.includes('हिन्दी') || 
+    s.includes('sans') || 
+    s.includes('संस्कृ') || 
+    s.includes('संस्कृत')
+  );
+};
+
+// ── High-Precision Multilingual (Hindi & English) OCR Parser ──
+function parseOcrTextToChapters(rawText, className = '', subject = '') {
   if (!rawText || typeof rawText !== 'string') return [];
-  const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  
+  // Convert Devanagari numerals (०-९) to standard Arabic digits (0-9)
+  const devMap = {'०':'0','१':'1','२':'2','३':'3','४':'4','५':'5','६':'6','७':'7','८':'8','९':'9'};
+  const normalizedText = rawText.replace(/[०-९]/g, d => devMap[d]);
+
+  const lines = normalizedText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   const chapters = [];
   let currentUnit = '';
 
@@ -2672,68 +2691,87 @@ function parseOcrTextToChapters(rawText, className, subject) {
 
   const cleanTitle = (str) => {
     return str
-      .replace(/[…\.\s•·\-–—]+$/, '')
+      .replace(/[…\.\s•·\-–—:]+$/, '')
       .replace(/\s*[…\.\s•·\-–—]+\s*\d+$/, '')
       .replace(/\s+\d+$/, '')
-      .replace(/^[…\.\s•·\-–—]+/, '')
+      .replace(/^[…\.\s•·\-–—:]+/, '')
       .trim();
   };
+
+  // Hindi & English Unit header regex (Unit, इकाई, खण्ड, खंड, भाग, theme, विषय सूची, अनुक्रमणिका)
+  const unitRegex = /^(?:unit|इकाई|खण्ड|खंड|भाग|theme|विषय[\s\-_]*सूची|अनुक्रमणिका)[\s\-_:]*(.*)$/i;
+
+  // Chapter header regex (Chapter, Ch, Lesson, पाठ, अध्याय, प्रकरण, क्रमांक) or plain number prefix
+  const chapterRegex = /^(?:chapter|ch\.?|lesson|part|पाठ|अध्याय|प्रकरण|क्रमांक)?\s*(\d+)[\.\-\):\\/\s]+(.*)$/i;
+  const standalonePaathRegex = /^(?:पाठ|अध्याय|chapter)\s*(\d+)$/i;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    // Detect Unit header (e.g. Unit-1 : History, Unit-2: Geography, Unit-3: Civics)
-    if (/^unit[\s\-_:]/i.test(line)) {
+    // Detect Unit / Section header
+    const unitMatch = line.match(unitRegex);
+    if (unitMatch && !line.match(chapterRegex)) {
       currentUnit = cleanTitle(line);
       continue;
     }
 
-    // Detect chapter numbers like "1. Introduction to History", "1.", "Ch 1", "Chapter 1"
-    const chMatch = line.match(/^(?:chapter|ch\.?|lesson|part)?\s*(\d+)[\.\-\)]\s*(.*)$/i);
+    let chMatch = line.match(chapterRegex);
+    let chNum = null;
+    let title = '';
 
     if (chMatch) {
-      const chNum = parseInt(chMatch[1], 10);
-      let title = cleanTitle(chMatch[2]);
+      chNum = parseInt(chMatch[1], 10);
+      title = cleanTitle(chMatch[2]);
+    } else {
+      const paathMatch = line.match(standalonePaathRegex);
+      if (paathMatch) {
+        chNum = parseInt(paathMatch[1], 10);
+        title = '';
+      }
+    }
 
-      // If title is on the next line (e.g. "2." on its own line)
+    if (chNum !== null && !isNaN(chNum)) {
+      // If title is on next line (e.g. 'पाठ 1' on line i, title on line i+1)
       if (!title && i + 1 < lines.length) {
         const nextLine = lines[i + 1];
-        if (!/^\d+[\.\-\)]/.test(nextLine) && !/^unit/i.test(nextLine) && !/^\d+$/.test(nextLine)) {
+        if (!nextLine.match(chapterRegex) && !nextLine.match(unitRegex) && !/^\d+$/.test(nextLine)) {
           title = cleanTitle(nextLine);
           i++;
         }
       }
 
-      // Check for multi-line continuation of title
+      // Check for multi-line continuation of title or author/subtopics
+      const subtopics = [];
       while (i + 1 < lines.length) {
         const nextLine = lines[i + 1];
         if (
-          !/^\d+[\.\-\)]/.test(nextLine) && 
-          !/^unit/i.test(nextLine) && 
+          !nextLine.match(chapterRegex) && 
+          !nextLine.match(unitRegex) && 
           !/^\d+$/.test(nextLine) && 
-          !/^model\s+test/i.test(nextLine) &&
           !/^page/i.test(nextLine) &&
+          !/^पृष्ठ/i.test(nextLine) &&
+          !/^model\s+test/i.test(nextLine) &&
           nextLine.length < 80
         ) {
-          title += ' ' + cleanTitle(nextLine);
+          subtopics.push(cleanTitle(nextLine));
           i++;
         } else {
           break;
         }
       }
 
-      if (title && !title.toLowerCase().startsWith('page') && !title.toLowerCase().startsWith('model test')) {
+      if (title && !title.toLowerCase().startsWith('page') && !title.startsWith('पृष्ठ') && !title.toLowerCase().startsWith('model test')) {
         chapters.push({
           id: 'ocr_' + Date.now() + '_' + chNum,
           class_name: className || 'VI-A',
-          subject: subject || 'Social Science',
+          subject: subject || (isHindiSubject(subject) ? 'Hindi' : 'General'),
           chapter_no: chNum,
           chapter_title: title.trim(),
           unit: currentUnit,
-          topics: currentUnit 
-            ? [`Part of ${currentUnit}`, `Key concepts and textbook exercises`] 
-            : [`Core textbook concepts and exercises`],
-          term: chNum <= 11 ? 'Term 1' : 'Term 2',
+          topics: subtopics.length > 0 
+            ? subtopics 
+            : (currentUnit ? [`Part of ${currentUnit}`, `Key concepts and textbook exercises`] : [`Core textbook concepts and exercises`]),
+          term: chNum <= 6 ? 'Term 1' : 'Term 2',
           target_month: MONTHS[(chNum - 1) % MONTHS.length] || 'July',
           expected_marks: (chNum % 2 === 0) ? 6 : 5,
           status: 'upcoming',
@@ -2746,7 +2784,7 @@ function parseOcrTextToChapters(rawText, className, subject) {
   return chapters;
 }
 
-// ── Google Document-Grade OCR Syllabus Extractor ──
+// ── Google Document-Grade Multilingual OCR Syllabus Extractor ──
 app.post("/api/ocr/syllabus", async (req, res) => {
   try {
     const { imageBase64, mimeType = 'image/jpeg', className = '', subject = '', rawText = '' } = req.body || {};
@@ -2757,45 +2795,56 @@ app.post("/api/ocr/syllabus", async (req, res) => {
 
     let chapters = [];
     let methodUsed = "OCR.space High-Speed Document Engine";
+    const isHindi = isHindiSubject(subject);
 
-    // 1. Primary: Ultra-Fast OCR.Space Engine 2 (600ms latency, high precision for textbook indexes)
+    // 1. Primary: Ultra-Fast Dual-Pass OCR.space Engine (hin Engine 3 for Devanagari, eng Engine 2 for Latin)
     if (imageBase64) {
-      try {
-        const pureBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
-        const formParams = new URLSearchParams();
-        formParams.append('base64Image', `data:${mimeType};base64,${pureBase64}`);
-        formParams.append('apikey', 'K87899142388957'); // Registered free key (with fallback to helloworld)
-        formParams.append('language', 'eng');
-        formParams.append('isOverlayRequired', 'false');
-        formParams.append('detectOrientation', 'true');
-        formParams.append('scale', 'true');
-        formParams.append('OCREngine', '2'); // Engine 2 is optimized for numbers, multi-columns, and book indices
+      const pureBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+      const passes = isHindi 
+        ? [{ lang: 'hin', engine: '3' }, { lang: 'eng', engine: '2' }]
+        : [{ lang: 'eng', engine: '2' }, { lang: 'hin', engine: '3' }];
 
-        let ocrResp = await fetch('https://api.ocr.space/parse/image', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: formParams.toString()
-        });
+      for (const pass of passes) {
+        try {
+          const formParams = new URLSearchParams();
+          formParams.append('base64Image', `data:${mimeType};base64,${pureBase64}`);
+          formParams.append('apikey', 'K87899142388957');
+          formParams.append('language', pass.lang);
+          formParams.append('isOverlayRequired', 'false');
+          formParams.append('detectOrientation', 'true');
+          formParams.append('scale', 'true');
+          formParams.append('OCREngine', pass.engine);
 
-        if (!ocrResp.ok) {
-          // Retry with helloworld key
-          formParams.set('apikey', 'helloworld');
-          ocrResp = await fetch('https://api.ocr.space/parse/image', {
+          let ocrResp = await fetch('https://api.ocr.space/parse/image', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: formParams.toString()
           });
-        }
 
-        if (ocrResp.ok) {
-          const ocrData = await ocrResp.json();
-          const parsedText = ocrData.ParsedResults?.[0]?.ParsedText || '';
-          if (parsedText.trim()) {
-            chapters = parseOcrTextToChapters(parsedText, className, subject);
+          if (!ocrResp.ok) {
+            formParams.set('apikey', 'helloworld');
+            ocrResp = await fetch('https://api.ocr.space/parse/image', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: formParams.toString()
+            });
           }
+
+          if (ocrResp.ok) {
+            const ocrData = await ocrResp.json();
+            const parsedText = ocrData.ParsedResults?.[0]?.ParsedText || '';
+            if (parsedText.trim()) {
+              const extracted = parseOcrTextToChapters(parsedText, className, subject);
+              if (extracted.length > 0) {
+                chapters = extracted;
+                methodUsed = `OCR.space (${pass.lang.toUpperCase()} Engine ${pass.engine})`;
+                break;
+              }
+            }
+          }
+        } catch (ocrErr) {
+          console.warn(`[OCR Syllabus] ${pass.lang} engine error:`, ocrErr.message);
         }
-      } catch (ocrErr) {
-        console.warn('[OCR Syllabus] OCR.space primary error:', ocrErr.message);
       }
     }
 
