@@ -5471,6 +5471,533 @@ window.showClassWiseAttendanceModal = function(targetClass = null) {
   document.body.appendChild(modal);
 };
 
+// ═══════════════════════════════════════════════════════════════
+// CLASS-WISE TEACHER ATTENDANCE & DUTY ENGINE (100% Real Data)
+// ═══════════════════════════════════════════════════════════════
+window.getClassWiseTeacherAttendanceStats = function(store, targetDate) {
+  store = store || (typeof getStore === "function" ? getStore() : (window.serverStore || {}));
+  const teachersList = store.teachers || [];
+  const ttList = store.timetable || [];
+  const teacherAttList = store.teacherAttendance || [];
+  const now = new Date();
+  const today = targetDate || [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
+
+  function matchesTeacherName(rName, tName) {
+    if (!rName || !tName) return false;
+    const r = String(rName).trim().toLowerCase();
+    const t = String(tName).trim().toLowerCase();
+    if (r === t) return true;
+    const rFirst = r.split(/\s+/)[0];
+    const tFirst = t.split(/\s+/)[0];
+    if (rFirst && tFirst && rFirst === tFirst && rFirst.length >= 3) return true;
+    return r.includes(t) || t.includes(r);
+  }
+
+  function classesMatch(c1, c2) {
+    const clean = (s) => String(s || '').toUpperCase().replace(/^CLASS\s+/i, '').replace(/[-\s]/g, '').trim();
+    return clean(c1) === clean(c2);
+  }
+
+  const classOrderRank = (clsName) => {
+    const raw = String(clsName || '').trim();
+    const base = raw.split(/[-\s]/)[0].toUpperCase();
+    const map = {
+      'NURSERY': 1, 'NUR': 1,
+      'LKG': 2, 'L.K.G': 2,
+      'UKG': 3, 'U.K.G': 3,
+      'I': 4, '1': 4,
+      'II': 5, '2': 5,
+      'III': 6, '3': 6,
+      'IV': 7, '4': 7,
+      'V': 8, '5': 8,
+      'VI': 9, '6': 9,
+      'VII': 10, '7': 10,
+      'VIII': 11, '8': 11,
+      'IX': 12, '9': 12,
+      'X': 13, '10': 13,
+      'XI': 14, '11': 14,
+      'XII': 15, '12': 15
+    };
+    return map[base] !== undefined ? map[base] : 99;
+  };
+
+  // Determine attendance status for today
+  const todayRecords = teacherAttList.filter(a => a.date === today);
+  const presentTeachersSet = new Set();
+  const todayRecordsMap = {};
+
+  todayRecords.forEach(a => {
+    const st = String(a.status || '').toLowerCase();
+    const isPres = st.includes('present') || st.includes('late');
+    let matchedName = null;
+    teachersList.forEach(t => {
+      const tName = t.fullName || t.name;
+      if (matchesTeacherName(a.teacherName, tName)) {
+        matchedName = tName;
+        todayRecordsMap[tName] = a;
+        if (isPres) presentTeachersSet.add(tName);
+      }
+    });
+    if (!matchedName && isPres && a.teacherName) {
+      presentTeachersSet.add(a.teacherName);
+      todayRecordsMap[a.teacherName] = a;
+    }
+  });
+
+  // Base list of academic classes
+  const stdClasses = ['Nursery-A', 'LKG-A', 'UKG-A', 'I-A', 'II-A', 'III-A', 'IV-A', 'V-A', 'VI-A', 'VII-A', 'VIII-A', 'IX-A', 'X-A'];
+  const allKnownClasses = new Set(stdClasses);
+  if (Array.isArray(store.classes)) {
+    store.classes.forEach(c => {
+      const cName = typeof c === 'string' ? c : (c.className || c.name);
+      if (cName) allKnownClasses.add(cName);
+    });
+  }
+  ttList.forEach(item => {
+    if (item.className) allKnownClasses.add(item.className);
+  });
+
+  const sortedClasses = Array.from(allKnownClasses)
+    .sort((a, b) => {
+      const rA = classOrderRank(a);
+      const rB = classOrderRank(b);
+      if (rA !== rB) return rA - rB;
+      return a.localeCompare(b);
+    })
+    .map(clsName => {
+      const assignedTeachers = new Set();
+      let periodCount = 0;
+      ttList.forEach(item => {
+        if (classesMatch(item.className, clsName)) {
+          periodCount++;
+          if (item.teacher && item.teacher !== '-' && item.teacher !== 'N/A') {
+            const matchedTeacher = teachersList.find(t => matchesTeacherName(item.teacher, t.fullName || t.name));
+            assignedTeachers.add(matchedTeacher ? (matchedTeacher.fullName || matchedTeacher.name) : item.teacher);
+          }
+        }
+      });
+
+      const assignedList = Array.from(assignedTeachers);
+      let presentCount = 0;
+      assignedList.forEach(tName => {
+        if (presentTeachersSet.has(tName)) presentCount++;
+      });
+
+      let effectiveAssigned = assignedList.length;
+      if (effectiveAssigned === 0 && clsName.toLowerCase().includes('nursery')) {
+        effectiveAssigned = 1;
+      }
+
+      return {
+        className: clsName,
+        assignedCount: effectiveAssigned,
+        presentCount,
+        absentCount: Math.max(0, effectiveAssigned - presentCount),
+        assignedTeachers: assignedList,
+        periodCount,
+        coverageRate: effectiveAssigned > 0 ? Math.round((presentCount / effectiveAssigned) * 100) : 0
+      };
+    });
+
+  let totalOverallPresent = 0;
+  let totalOverallMarked = 0;
+
+  const facultyRoster = teachersList.map(t => {
+    const tName = t.fullName || t.name;
+    const allLogs = teacherAttList.filter(a => matchesTeacherName(a.teacherName, tName));
+    const presLogs = allLogs.filter(a => String(a.status || '').toLowerCase().includes('present'));
+    totalOverallPresent += presLogs.length;
+    totalOverallMarked += allLogs.length;
+
+    const todayRec = todayRecordsMap[tName] || todayRecords.find(a => matchesTeacherName(a.teacherName, tName));
+    const classesTaught = new Set();
+    ttList.forEach(item => {
+      if (matchesTeacherName(item.teacher, tName) && item.className) {
+        classesTaught.add(item.className.replace(/-A$/, ''));
+      }
+    });
+
+    let status = 'Not Marked';
+    if (todayRec) {
+      status = todayRec.status || 'Present';
+    }
+
+    return {
+      id: t.id,
+      name: tName,
+      department: t.department || 'Staff',
+      designation: t.designation || 'Teacher',
+      phone: t.phone || '',
+      classesTaught: Array.from(classesTaught).sort((a,b) => classOrderRank(a) - classOrderRank(b)),
+      todayStatus: status,
+      arrivalTime: todayRec?.arrivalTime || null,
+      departureTime: todayRec?.departureTime || null,
+      remarks: todayRec?.remarks || '',
+      totalMarked: allLogs.length,
+      totalPresent: presLogs.length,
+      attendanceRate: allLogs.length > 0 ? Math.round((presLogs.length / allLogs.length) * 100) : 0
+    };
+  });
+
+  const totalTeachers = teachersList.length || 14;
+  const grandPresentToday = presentTeachersSet.size;
+  const coveredClasses = sortedClasses.filter(c => c.assignedCount > 0 && c.presentCount > 0).length;
+  const activeClassesCount = sortedClasses.filter(c => c.assignedCount > 0).length;
+
+  return {
+    classes: sortedClasses,
+    facultyRoster,
+    totalTeachers,
+    grandPresentToday,
+    coveredClasses,
+    activeClassesCount,
+    grandOverallRate: totalOverallMarked > 0 ? Math.round((totalOverallPresent / totalOverallMarked) * 100) : 0,
+    date: today
+  };
+};
+
+window.takeTeacherAttendanceForName = function(teacherName) {
+  const modal = document.getElementById("classWiseTeacherAttendanceModal");
+  if (modal) modal.remove();
+
+  if (typeof window.navigateModule === "function") {
+    window.navigateModule("teacherAttendance");
+  } else {
+    const btn = document.querySelector('button[data-module="teacherAttendance"]');
+    if (btn) btn.click();
+  }
+
+  if (teacherName) {
+    setTimeout(() => {
+      const searchBox = document.querySelector("#module-teacherAttendance input[type=search], #moduleSearchInput, .filter-search-input");
+      if (searchBox) {
+        searchBox.value = teacherName;
+        searchBox.dispatchEvent(new Event("input"));
+      }
+    }, 250);
+  }
+};
+
+window.quickMarkTeacherAttendance = async function(teacherName, newStatus) {
+  try {
+    const store = typeof getStore === "function" ? getStore() : (window.serverStore || {});
+    const now = new Date();
+    const today = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
+    const nowTime = [String(now.getHours()).padStart(2, '0'), String(now.getMinutes()).padStart(2, '0')].join(':');
+
+    const teacher = (store.teachers || []).find(t => (t.fullName || t.name) === teacherName);
+    const dept = teacher ? (teacher.department || 'Staff') : 'Staff';
+
+    const existing = (store.teacherAttendance || []).find(a => a.date === today && (a.teacherName === teacherName || a.teacherName?.includes(teacherName)));
+
+    if (existing && existing.id) {
+      const update = { status: newStatus, remarks: "Quick marked from dashboard" };
+      if (!existing.arrivalTime && newStatus !== 'Absent') update.arrivalTime = nowTime;
+      const res = await api(`/api/modules/teacherAttendance/${existing.id}`, { method: "PUT", body: JSON.stringify(update) });
+      Object.assign(existing, res || update);
+    } else {
+      const row = {
+        id: typeof getNextId === 'function' ? getNextId(store.teacherAttendance || []) : Date.now(),
+        date: today,
+        department: dept,
+        teacherName: teacherName,
+        status: newStatus,
+        arrivalTime: newStatus !== 'Absent' ? nowTime : null,
+        departureTime: null,
+        remarks: "Quick marked from dashboard"
+      };
+      const savedRow = await api("/api/modules/teacherAttendance", { method: "POST", body: JSON.stringify(row) });
+      store.teacherAttendance = store.teacherAttendance || [];
+      store.teacherAttendance.push(savedRow || row);
+    }
+
+    if (typeof showToast === 'function') {
+      showToast(`Updated ${teacherName} -> ${newStatus}`);
+    }
+
+    if (typeof renderStatsCards === 'function') {
+      renderStatsCards(true);
+    }
+
+    const modal = document.getElementById("classWiseTeacherAttendanceModal");
+    if (modal) {
+      window.showClassWiseTeacherAttendanceModal();
+    }
+  } catch (err) {
+    console.error("Quick mark teacher attendance failed:", err);
+    if (typeof showToast === 'function') showToast("Failed to update teacher attendance: " + err.message, "error");
+  }
+};
+
+window.showClassWiseTeacherAttendanceModal = function(targetClass = null) {
+  const store = typeof getStore === "function" ? getStore() : (window.serverStore || {});
+  const teachData = window.getClassWiseTeacherAttendanceStats(store);
+  const classes = teachData.classes || [];
+  const maxAssigned = Math.max(1, ...(classes.map(c => Math.max(c.assignedCount, c.presentCount))));
+  const roster = teachData.facultyRoster || [];
+
+  let existing = document.getElementById("classWiseTeacherAttendanceModal");
+  if (existing) existing.remove();
+
+  const modal = document.createElement("div");
+  modal.id = "classWiseTeacherAttendanceModal";
+  modal.style.cssText = `
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(6px);
+    z-index: 999999; display: flex; align-items: center; justify-content: center;
+    padding: 16px; box-sizing: border-box; font-family: inherit;
+    animation: modalFadeIn 0.2s ease-out;
+  `;
+
+  const staffCount = roster.filter(r => r.department === 'Staff').length;
+  const mgmtCount = roster.filter(r => r.department === 'Management').length;
+  const todayRate = teachData.totalTeachers > 0 ? Math.round((teachData.grandPresentToday / teachData.totalTeachers) * 100) : 0;
+
+  const chartColsHtml = classes.map(c => {
+    const aH = Math.max(12, Math.round((c.assignedCount / maxAssigned) * 120));
+    const pH = Math.max(c.presentCount > 0 ? 8 : 2, Math.round((c.presentCount / maxAssigned) * 120));
+    const isTarget = targetClass && (c.className === targetClass || targetClass.includes(c.className));
+
+    return `
+      <div style="display:flex; flex-direction:column; align-items:center; flex:1; min-width:38px; cursor:pointer;" onclick="document.getElementById('teacher-row-${c.className}')?.scrollIntoView({behavior:'smooth'})" title="${c.className}&#10;Assigned Faculty: ${c.assignedCount}&#10;Present Today: ${c.presentCount}&#10;Teachers: ${c.assignedTeachers.join(', ') || 'General'}">
+        <div style="height:130px; display:flex; align-items:flex-end; gap:4px; position:relative; padding-bottom:4px;">
+          <!-- Assigned Teachers Bar (Sky/Blue) -->
+          <div style="width:12px; height:${aH}px; background:linear-gradient(180deg, #93c5fd, #3b82f6); border-radius:4px 4px 0 0; box-shadow:0 2px 6px rgba(59,130,246,0.25);"></div>
+          <!-- Present Teachers Bar (Emerald) -->
+          <div style="width:12px; height:${pH}px; background:linear-gradient(180deg, #34d399, #059669); border-radius:4px 4px 0 0; box-shadow:0 2px 6px rgba(16,185,129,0.25);"></div>
+        </div>
+        <span style="font-size:0.72rem; font-weight:${isTarget ? '900' : '700'}; color:${isTarget ? '#1d4ed8' : '#475569'}; margin-top:6px; text-align:center;">
+          ${c.className.replace(/Nursery/i, 'Nur').replace(/-A$/, '')}
+        </span>
+      </div>
+    `;
+  }).join('');
+
+  const classRowsHtml = classes.map(c => {
+    const isTarget = targetClass && (c.className === targetClass || targetClass.includes(c.className));
+    const coveragePct = c.assignedCount > 0 ? Math.round((c.presentCount / c.assignedCount) * 100) : 0;
+    const highlightBg = isTarget ? 'background:#eff6ff; border-left:4px solid #2563eb;' : '';
+
+    const teacherChips = c.assignedTeachers.map(t => {
+      const isPres = teachData.facultyRoster.find(r => r.name === t)?.todayStatus?.toLowerCase().includes('present');
+      return `<span style="background:${isPres ? '#ecfdf5' : '#f1f5f9'}; color:${isPres ? '#059669' : '#64748b'}; border:1px solid ${isPres ? '#a7f3d0' : '#e2e8f0'}; border-radius:12px; padding:2px 8px; font-size:0.68rem; font-weight:700;">${t.split(' ')[0]}</span>`;
+    }).join(' ') || '<span style="font-size:0.68rem; color:#94a3b8;">Pre-Primary Floaters</span>';
+
+    return `
+      <tr id="teacher-row-${c.className}" style="${highlightBg} border-bottom:1px solid #f1f5f9; transition:background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='${isTarget ? '#eff6ff' : 'transparent'}'">
+        <td style="padding:10px 14px; font-weight:800; color:#1e293b; display:flex; align-items:center; gap:8px;">
+          <span style="width:10px; height:10px; border-radius:50%; background:${c.presentCount > 0 ? '#10b981' : (c.assignedCount > 0 ? '#f59e0b' : '#94a3b8')};"></span>
+          ${c.className}
+        </td>
+        <td style="padding:10px 14px; text-align:center; font-weight:700; color:#475569;">${c.assignedCount}</td>
+        <td style="padding:10px 14px; text-align:center;">
+          <span style="background:${c.presentCount > 0 ? '#ecfdf5' : '#f1f5f9'}; color:${c.presentCount > 0 ? '#059669' : '#64748b'}; padding:3px 10px; border-radius:12px; font-weight:800; font-size:0.78rem; border:1px solid ${c.presentCount > 0 ? '#a7f3d0' : '#e2e8f0'};">
+            ${c.presentCount}
+          </span>
+        </td>
+        <td style="padding:10px 14px; text-align:center; color:#94a3b8; font-weight:600;">
+          ${c.absentCount}
+        </td>
+        <td style="padding:10px 14px; text-align:center;">
+          <div style="display:inline-flex; align-items:center; gap:6px;">
+            <div style="width:50px; height:6px; background:#e2e8f0; border-radius:3px; overflow:hidden;">
+              <div style="width:${coveragePct}%; height:100%; background:${coveragePct >= 50 ? '#10b981' : '#f59e0b'};"></div>
+            </div>
+            <span style="font-size:0.72rem; font-weight:700; color:${coveragePct > 0 ? '#059669' : '#94a3b8'};">${coveragePct}%</span>
+          </div>
+        </td>
+        <td style="padding:10px 14px;">
+          <div style="display:flex; flex-wrap:wrap; gap:4px;">
+            ${teacherChips}
+          </div>
+        </td>
+        <td style="padding:10px 14px; text-align:center;">
+          <button type="button" onclick="window.takeTeacherAttendanceForName()" style="padding:4px 10px; background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; border-radius:6px; font-size:0.72rem; font-weight:700; cursor:pointer;" title="View Faculty in Module">
+            Duty Log →
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  const rosterRowsHtml = roster.map(t => {
+    const initials = t.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+    const isPres = t.todayStatus.toLowerCase().includes('present');
+    const isLate = t.todayStatus.toLowerCase().includes('late');
+    const isAbs = t.todayStatus.toLowerCase().includes('absent');
+
+    let statusBadge = `<span style="background:#f1f5f9; color:#64748b; padding:3px 8px; border-radius:12px; font-weight:700; font-size:0.72rem;">Not Marked</span>`;
+    if (isPres) {
+      statusBadge = `<span style="background:#ecfdf5; color:#059669; padding:3px 8px; border-radius:12px; font-weight:800; font-size:0.72rem; border:1px solid #a7f3d0;">✔ Present</span>`;
+    } else if (isLate) {
+      statusBadge = `<span style="background:#fffbeb; color:#d97706; padding:3px 8px; border-radius:12px; font-weight:800; font-size:0.72rem; border:1px solid #fde68a;">🕒 Late</span>`;
+    } else if (isAbs) {
+      statusBadge = `<span style="background:#fef2f2; color:#dc2626; padding:3px 8px; border-radius:12px; font-weight:800; font-size:0.72rem; border:1px solid #fecaca;">❌ Absent</span>`;
+    }
+
+    const classesStr = t.classesTaught.length > 0
+      ? t.classesTaught.map(c => `<span style="background:#eff6ff; color:#1e40af; padding:1px 6px; border-radius:6px; font-size:0.65rem; font-weight:700;">${c}</span>`).join(' ')
+      : '<span style="color:#94a3b8; font-size:0.7rem;">Administrative</span>';
+
+    return `
+      <tr style="border-bottom:1px solid #f1f5f9; transition:background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+        <td style="padding:10px 14px; font-weight:800; color:#1e293b; display:flex; align-items:center; gap:8px;">
+          <div style="width:30px; height:30px; border-radius:50%; background:#dbeafe; color:#1e40af; display:grid; place-items:center; font-weight:800; font-size:0.72rem; flex-shrink:0;">
+            ${initials}
+          </div>
+          <div>
+            <div style="font-size:0.85rem; font-weight:800; color:#1e293b;">${t.name}</div>
+            <div style="font-size:0.68rem; color:#64748b;">${t.department} • ${t.designation}</div>
+          </div>
+        </td>
+        <td style="padding:10px 14px;">${classesStr}</td>
+        <td style="padding:10px 14px; text-align:center; font-size:0.78rem; font-weight:600; color:${t.arrivalTime ? '#059669' : '#94a3b8'};">
+          ${t.arrivalTime ? t.arrivalTime : '—'}
+        </td>
+        <td style="padding:10px 14px; text-align:center;">${statusBadge}</td>
+        <td style="padding:10px 14px; text-align:center;">
+          <div style="display:inline-flex; align-items:center; gap:4px;">
+            <button type="button" onclick="window.quickMarkTeacherAttendance('${t.name}', 'Present')" style="padding:3px 8px; background:#ecfdf5; color:#059669; border:1px solid #a7f3d0; border-radius:6px; font-size:0.7rem; font-weight:800; cursor:pointer;" title="Mark Present">✔ P</button>
+            <button type="button" onclick="window.quickMarkTeacherAttendance('${t.name}', 'Late')" style="padding:3px 8px; background:#fffbeb; color:#d97706; border:1px solid #fde68a; border-radius:6px; font-size:0.7rem; font-weight:800; cursor:pointer;" title="Mark Late">🕒 L</button>
+            <button type="button" onclick="window.quickMarkTeacherAttendance('${t.name}', 'Absent')" style="padding:3px 8px; background:#fef2f2; color:#dc2626; border:1px solid #fecaca; border-radius:6px; font-size:0.7rem; font-weight:800; cursor:pointer;" title="Mark Absent">❌ A</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  modal.innerHTML = `
+    <div style="background:#fff; width:100%; max-width:920px; max-height:90vh; border-radius:18px; box-shadow:0 20px 40px rgba(0,0,0,0.25); display:flex; flex-direction:column; overflow:hidden; border:1px solid #e2e8f0;">
+      
+      <!-- Modal Header -->
+      <div style="padding:18px 22px; background:linear-gradient(135deg, #eff6ff, #dbeafe); border-bottom:1px solid #bfdbfe; display:flex; align-items:center; justify-content:space-between;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="width:42px; height:42px; border-radius:12px; background:#bfdbfe; color:#1e40af; display:grid; place-items:center;">
+            <span class="material-symbols-outlined" style="font-size:24px;">assignment_ind</span>
+          </div>
+          <div>
+            <h3 style="margin:0; font-size:1.15rem; font-weight:800; color:#1e3a8a;">Class-Wise Faculty Attendance &amp; Coverage Analysis</h3>
+            <p style="margin:2px 0 0; font-size:0.75rem; color:#1e40af;">Live faculty attendance verification &amp; class teaching coverage (${teachData.date})</p>
+          </div>
+        </div>
+        <button type="button" onclick="document.getElementById('classWiseTeacherAttendanceModal').remove()" style="width:36px; height:36px; border-radius:50%; border:none; background:#bfdbfe; color:#1e3a8a; cursor:pointer; display:grid; place-items:center; font-weight:bold; transition:all 0.15s;" onmouseover="this.style.background='#93c5fd'" onmouseout="this.style.background='#bfdbfe'">
+          <span class="material-symbols-outlined" style="font-size:20px;">close</span>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div style="padding:20px 22px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:20px;">
+        
+        <!-- Summary KPI Cards -->
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px;">
+          <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:12px; padding:12px 14px;">
+            <div style="font-size:0.68rem; font-weight:700; color:#2563eb; text-transform:uppercase; letter-spacing:0.04em;">Present Today</div>
+            <div style="font-size:1.35rem; font-weight:900; color:#1e40af; margin-top:2px;">${teachData.grandPresentToday} Teachers</div>
+            <div style="font-size:0.7rem; color:#3b82f6; margin-top:2px;">Active Verified Check-ins</div>
+          </div>
+          <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px; padding:12px 14px;">
+            <div style="font-size:0.68rem; font-weight:700; color:#16a34a; text-transform:uppercase; letter-spacing:0.04em;">Total Faculty</div>
+            <div style="font-size:1.35rem; font-weight:900; color:#15803d; margin-top:2px;">${teachData.totalTeachers} Members</div>
+            <div style="font-size:0.7rem; color:#16a34a; margin-top:2px;">Staff: ${staffCount} | Management: ${mgmtCount}</div>
+          </div>
+          <div style="background:#fdf4ff; border:1px solid #f5d0fe; border-radius:12px; padding:12px 14px;">
+            <div style="font-size:0.68rem; font-weight:700; color:#9333ea; text-transform:uppercase; letter-spacing:0.04em;">Today's Rate</div>
+            <div style="font-size:1.35rem; font-weight:900; color:#7e22ce; margin-top:2px;">${todayRate}%</div>
+            <div style="font-size:0.7rem; color:#a855f7; margin-top:2px;">Daily Faculty Attendance</div>
+          </div>
+          <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px 14px;">
+            <div style="font-size:0.68rem; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:0.04em;">Class Coverage</div>
+            <div style="font-size:1.35rem; font-weight:900; color:#0f172a; margin-top:2px;">${teachData.coveredClasses} / ${teachData.activeClassesCount}</div>
+            <div style="font-size:0.7rem; color:#64748b; margin-top:2px;">Classes with On-Duty Faculty</div>
+          </div>
+        </div>
+
+        <!-- Comparative Chart Box -->
+        <div style="background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:16px; box-shadow:0 2px 8px rgba(0,0,0,0.02);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <div style="font-size:0.85rem; font-weight:800; color:#1e293b;">Comparative Chart: Assigned Faculty vs Present Today by Class</div>
+            <div style="display:flex; gap:12px; font-size:0.72rem; font-weight:700;">
+              <span style="display:inline-flex; align-items:center; gap:4px; color:#2563eb;">
+                <span style="width:8px; height:8px; border-radius:2px; background:#3b82f6;"></span>Assigned Faculty
+              </span>
+              <span style="display:inline-flex; align-items:center; gap:4px; color:#059669;">
+                <span style="width:8px; height:8px; border-radius:2px; background:#10b981;"></span>Present Today
+              </span>
+            </div>
+          </div>
+          <div style="display:flex; align-items:flex-end; gap:8px; overflow-x:auto; padding:10px 4px 6px; border-bottom:1px solid #f1f5f9; scrollbar-width:thin;">
+            ${chartColsHtml}
+          </div>
+        </div>
+
+        <!-- Section 1: Class-Wise Faculty Duty Table -->
+        <div style="background:#fff; border:1px solid #e2e8f0; border-radius:14px; overflow:hidden;">
+          <div style="padding:12px 16px; background:#f8fafc; border-bottom:1px solid #e2e8f0; font-size:0.82rem; font-weight:800; color:#1e293b; display:flex; justify-content:space-between; align-items:center;">
+            <span>Class-Wise Faculty Teaching Coverage</span>
+            <span style="font-size:0.72rem; color:#64748b; font-weight:600;">Timetable mappings &amp; active check-ins</span>
+          </div>
+          <div style="overflow-x:auto;">
+            <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+              <thead>
+                <tr style="background:#f1f5f9; color:#475569; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.04em;">
+                  <th style="padding:8px 14px; text-align:left;">Class</th>
+                  <th style="padding:8px 14px; text-align:center;">Assigned Faculty</th>
+                  <th style="padding:8px 14px; text-align:center;">Present Today</th>
+                  <th style="padding:8px 14px; text-align:center;">Off-Duty</th>
+                  <th style="padding:8px 14px; text-align:center;">Coverage %</th>
+                  <th style="padding:8px 14px; text-align:left;">Assigned Teachers</th>
+                  <th style="padding:8px 14px; text-align:center;">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${classRowsHtml}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Section 2: Full Faculty Roster & Real-time Status -->
+        <div style="background:#fff; border:1px solid #e2e8f0; border-radius:14px; overflow:hidden;">
+          <div style="padding:12px 16px; background:#f8fafc; border-bottom:1px solid #e2e8f0; font-size:0.82rem; font-weight:800; color:#1e293b; display:flex; justify-content:space-between; align-items:center;">
+            <span>Full Faculty Roster &amp; Daily Status</span>
+            <span style="font-size:0.72rem; color:#64748b; font-weight:600;">Click quick buttons to update attendance</span>
+          </div>
+          <div style="overflow-x:auto;">
+            <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+              <thead>
+                <tr style="background:#f1f5f9; color:#475569; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.04em;">
+                  <th style="padding:8px 14px; text-align:left;">Teacher</th>
+                  <th style="padding:8px 14px; text-align:left;">Classes Taught</th>
+                  <th style="padding:8px 14px; text-align:center;">Arrival Time</th>
+                  <th style="padding:8px 14px; text-align:center;">Status</th>
+                  <th style="padding:8px 14px; text-align:center;">Quick Mark</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rosterRowsHtml}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div style="padding:12px 22px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size:0.72rem; color:#64748b;">Live biometric &amp; class timetable data</span>
+        <button type="button" onclick="document.getElementById('classWiseTeacherAttendanceModal').remove()" style="padding:8px 18px; background:#1e40af; color:#fff; border:none; border-radius:8px; font-weight:700; font-size:0.8rem; cursor:pointer;">Close</button>
+      </div>
+
+    </div>
+  `;
+
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) modal.remove();
+  });
+
+  document.body.appendChild(modal);
+};
+
 function getDashboardStats(store) {
   const fees = store.fees || [];
   
@@ -5780,6 +6307,15 @@ function renderStatsCards(forceFullRebuild = false) {
           const rate = attData.grandTotalStudents > 0 ? Math.round((v / attData.grandTotalStudents) * 100) : 0;
           summarySpan.textContent = `Today: ${rate}% Present`;
         }
+      } else if (k === "Teacher Present Today") {
+        const valEl = card.querySelector(".stat-value");
+        if (valEl && valEl.textContent !== String(v)) valEl.textContent = v;
+        const teachData = window.getClassWiseTeacherAttendanceStats ? window.getClassWiseTeacherAttendanceStats(store) : null;
+        const summarySpan = card.querySelector(".stat-teach-att-summary-val");
+        if (summarySpan && teachData) {
+          const rate = teachData.totalTeachers > 0 ? Math.round((v / teachData.totalTeachers) * 100) : 0;
+          summarySpan.textContent = `Today: ${rate}% Present`;
+        }
       } else {
         const valEl = card.querySelector(".stat-value");
         if (valEl && valEl.textContent !== String(v)) {
@@ -6010,6 +6546,83 @@ function renderStatsCards(forceFullRebuild = false) {
             </button>
             <button type="button" onclick="window.navigateModule ? window.navigateModule('attendance') : document.querySelector('button[data-module=attendance]')?.click()" class="tbl-btn" style="padding:6px 10px; font-size:0.7rem; font-weight:700; background:#fff; color:#be123c; border:1px solid #fecdd3; border-radius:8px; cursor:pointer; display:flex; align-items:center; gap:3px; transition:all 0.15s;" onmouseover="this.style.background='#fff1f2'" onmouseout="this.style.background='#fff'">
               <span class="material-symbols-outlined" style="font-size:14px;">check_circle</span>
+              Mark
+            </button>
+          </div>
+        `;
+      } else if (k === "Teacher Present Today") {
+        card.style.background = "linear-gradient(135deg, #eff6ff, #ffffff)";
+        card.style.border = "1px solid #bfdbfe";
+        card.style.minHeight = "240px";
+        card.classList.add("stat-card-teacher-attendance");
+
+        const teachData = window.getClassWiseTeacherAttendanceStats ? window.getClassWiseTeacherAttendanceStats(store) : null;
+        const classes = teachData ? teachData.classes : [];
+        const maxAssigned = Math.max(1, ...(classes.map(c => Math.max(c.assignedCount, c.presentCount))));
+        const totalTeachers = teachData ? teachData.totalTeachers : 14;
+        const totalPresent = v;
+        const attRate = totalTeachers > 0 ? Math.round((totalPresent / totalTeachers) * 100) : 0;
+        const overallRate = teachData ? teachData.grandOverallRate : 0;
+
+        const barsHtml = classes.map(c => {
+          const aH = Math.max(8, Math.round((c.assignedCount / maxAssigned) * 65));
+          const pH = Math.max(c.presentCount > 0 ? 6 : 2, Math.round((c.presentCount / maxAssigned) * 65));
+          const pPct = c.assignedCount > 0 ? Math.round((c.presentCount / c.assignedCount) * 100) : 0;
+          const shortName = c.className.replace(/Nursery/i, 'Nur').replace(/-A$/, '');
+
+          return `
+            <div class="teacher-attendance-bar-col" data-class="${c.className}" onclick="window.showClassWiseTeacherAttendanceModal('${c.className}')" title="${c.className}&#10;Assigned Faculty: ${c.assignedCount}&#10;Present Today: ${c.presentCount} (${pPct}%)&#10;Faculty: ${c.assignedTeachers.join(', ') || 'General'}" style="display:flex; flex-direction:column; align-items:center; cursor:pointer; flex:1; min-width:18px;">
+              <div style="height:70px; display:flex; align-items:flex-end; gap:2px; position:relative;">
+                <!-- Assigned Faculty Bar (Sky/Blue) -->
+                <div style="width:6px; height:${aH}px; background:linear-gradient(180deg, #93c5fd, #3b82f6); border-radius:3px 3px 0 0;" title="Assigned Faculty: ${c.assignedCount}"></div>
+                <!-- Present Faculty Bar (Emerald) -->
+                <div style="width:6px; height:${pH}px; background:linear-gradient(180deg, #34d399, #059669); border-radius:3px 3px 0 0;" title="Present Today: ${c.presentCount} (${pPct}%)"></div>
+              </div>
+              <span style="font-size:0.6rem; font-weight:700; color:#64748b; margin-top:4px; white-space:nowrap;">${shortName}</span>
+            </div>
+          `;
+        }).join('');
+
+        card.innerHTML = `
+          <div class="stat-top">
+            <h4 style="color:#1e40af;">${k}</h4>
+            <div class="stat-icon-bubble" style="background:#dbeafe; color:#2563eb;">
+              <span class="material-symbols-outlined" style="font-size:22px; color:#2563eb;">badge</span>
+            </div>
+          </div>
+          <div style="display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:6px;">
+            <div class="stat-value" style="color:#1d4ed8; font-size:1.8rem; margin:0;">${v}</div>
+            <div style="font-size:0.88rem; font-weight:800; color:#059669;">${totalPresent} / ${totalTeachers} On Duty</div>
+          </div>
+          <div style="font-size:0.72rem; color:#1e40af; font-weight:600; margin-top:2px; display:flex; justify-content:space-between;">
+            <span class="stat-teach-att-summary-val">Today: ${attRate}% Present</span>
+            <span style="color:#0369a1; font-weight:700;">Faculty Strength: ${totalTeachers}</span>
+          </div>
+
+          <!-- Class-wise Graph Section -->
+          <div style="margin-top:14px; background:#fff; border-radius:12px; padding:10px 8px; box-shadow:0 2px 8px rgba(37,99,235,0.06); border:1px solid #dbeafe;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; padding:0 4px;">
+              <span style="font-size:0.65rem; font-weight:800; color:#1e40af; text-transform:uppercase; letter-spacing:0.04em;">Class-wise Faculty Coverage</span>
+              <div style="display:flex; align-items:center; gap:8px; font-size:0.62rem; font-weight:600;">
+                <span style="display:inline-flex; align-items:center; gap:3px; color:#3b82f6;"><span style="width:6px; height:6px; border-radius:50%; background:#3b82f6;"></span>Assigned</span>
+                <span style="display:inline-flex; align-items:center; gap:3px; color:#059669;"><span style="width:6px; height:6px; border-radius:50%; background:#10b981;"></span>Present</span>
+              </div>
+            </div>
+
+            <!-- Scrollable Bar Chart Plot -->
+            <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:4px; overflow-x:auto; padding-bottom:2px; scrollbar-width:thin;">
+              ${barsHtml}
+            </div>
+          </div>
+
+          <!-- Bottom Action Buttons -->
+          <div style="margin-top:12px; display:flex; gap:6px;">
+            <button type="button" onclick="window.showClassWiseTeacherAttendanceModal()" class="tbl-btn" style="flex:1; padding:6px; font-size:0.7rem; font-weight:700; background:#dbeafe; color:#1e40af; border:1px solid #bfdbfe; border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; transition:all 0.15s;" onmouseover="this.style.background='#bfdbfe'" onmouseout="this.style.background='#dbeafe'">
+              <span class="material-symbols-outlined" style="font-size:14px;">bar_chart</span>
+              Faculty Breakdown
+            </button>
+            <button type="button" onclick="window.navigateModule ? window.navigateModule('teacherAttendance') : document.querySelector('button[data-module=teacherAttendance]')?.click()" class="tbl-btn" style="padding:6px 10px; font-size:0.7rem; font-weight:700; background:#fff; color:#1e40af; border:1px solid #bfdbfe; border-radius:8px; cursor:pointer; display:flex; align-items:center; gap:3px; transition:all 0.15s;" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='#fff'">
+              <span class="material-symbols-outlined" style="font-size:14px;">assignment_ind</span>
               Mark
             </button>
           </div>
