@@ -2661,6 +2661,207 @@ Keep it encouraging, constructive, and strictly one short sentence. Do not wrap 
   }
 });
 
+// ── Heuristic Fallback Parser for Raw OCR Text ──
+function parseOcrTextToChapters(rawText, className, subject) {
+  if (!rawText || typeof rawText !== 'string') return [];
+  const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const chapters = [];
+  let currentChapter = null;
+
+  const MONTHS = ['April', 'May', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February'];
+
+  const chapterRegex = /^(?:chapter|unit|ch\.?|lesson|part)\s*(\d+)[:.\-\s]*(.*)$/i;
+  const numPrefixRegex = /^(\d+)[\.\-\)]\s+(.*)$/;
+
+  for (const line of lines) {
+    let match = line.match(chapterRegex);
+    let chNum = null;
+    let chTitle = '';
+
+    if (match) {
+      chNum = parseInt(match[1], 10);
+      chTitle = match[2].trim();
+    } else {
+      const numMatch = line.match(numPrefixRegex);
+      if (numMatch && numMatch[2].length > 3 && !numMatch[2].toLowerCase().startsWith('page')) {
+        chNum = parseInt(numMatch[1], 10);
+        chTitle = numMatch[2].trim();
+      }
+    }
+
+    if (chNum !== null) {
+      if (currentChapter) chapters.push(currentChapter);
+      currentChapter = {
+        chapter_no: chNum,
+        chapter_title: chTitle || `Chapter ${chNum}`,
+        topics: [],
+        term: chapters.length < 6 ? 'Term 1' : 'Term 2',
+        target_month: MONTHS[chapters.length % MONTHS.length] || 'July',
+        expected_marks: 6
+      };
+    } else if (currentChapter) {
+      const cleanLine = line.replace(/^[\-•*–>]\s*/, '').trim();
+      if (cleanLine.length > 2 && cleanLine.length < 90) {
+        currentChapter.topics.push(cleanLine);
+      }
+    }
+  }
+
+  if (currentChapter) chapters.push(currentChapter);
+  return chapters;
+}
+
+// ── Google Document-Grade OCR Syllabus Extractor ──
+app.post("/api/ocr/syllabus", async (req, res) => {
+  try {
+    const { imageBase64, mimeType = 'image/jpeg', className = '', subject = '', rawText = '' } = req.body || {};
+
+    if (!imageBase64 && !rawText) {
+      return res.status(400).json({ success: false, error: "Please provide an image (imageBase64) or scanned text (rawText)" });
+    }
+
+    const systemPrompt = `You are an expert Document OCR and Curriculum Extraction Engine with Google Document AI precision.
+Analyze this syllabus document, textbook table of contents, or curriculum image.
+The target class is "${className}" and subject is "${subject}".
+Extract ALL chapters, units, topics, term classifications (Term 1 / Term 2), target months, and expected marks weightage.
+
+STRICT RULES:
+1. Output MUST be ONLY a valid JSON array of objects.
+2. Each object must follow this exact schema:
+   [
+     {
+       "chapter_no": 1,
+       "chapter_title": "Title of Chapter",
+       "topics": ["Topic 1", "Topic 2", "Topic 3"],
+       "term": "Term 1" or "Term 2",
+       "target_month": "April",
+       "expected_marks": 6
+     }
+   ]
+3. If term is unspecified, assign the first half of chapters to "Term 1" and second half to "Term 2".
+4. If month is unspecified, assign appropriate school academic months (April, May, July, August, September, October, November, December, January, February).
+5. If marks are unspecified, assign 4 to 8 marks based on chapter depth.
+6. Do NOT include markdown backticks (e.g. \`\`\`json) or conversational text. Return ONLY the raw JSON array.`;
+
+    let chapters = [];
+    let methodUsed = "OpenRouter Vision AI (NVIDIA Super-VL)";
+
+    // 1. Primary: Vision AI Model via OpenRouter
+    if (imageBase64 && process.env.OPENROUTER_API_KEY) {
+      try {
+        const formattedDataUri = imageBase64.startsWith('data:') 
+          ? imageBase64 
+          : `data:${mimeType};base64,${imageBase64}`;
+
+        const visionResp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + process.env.OPENROUTER_API_KEY,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: 'nvidia/nemotron-3.5-super-vl:free',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              {
+                role: 'user',
+                content: [
+                  { type: 'text', text: `Please extract the full syllabus for Class ${className} ${subject} from this document image.` },
+                  { type: 'image_url', image_url: { url: formattedDataUri } }
+                ]
+              }
+            ],
+            temperature: 0.2
+          })
+        });
+
+        if (visionResp.ok) {
+          const vData = await visionResp.json();
+          const rawReply = vData.choices?.[0]?.message?.content || '';
+          const cleaned = rawReply.replace(/```json/gi, '').replace(/```/g, '').trim();
+          const match = cleaned.match(/\[[\s\S]*\]/);
+          if (match) {
+            chapters = JSON.parse(match[0]);
+          }
+        }
+      } catch (visionErr) {
+        console.warn('[OCR Syllabus] Vision API error, falling back:', visionErr.message);
+      }
+    }
+
+    // 2. Secondary: OCR.space Engine Fallback
+    if ((!chapters || chapters.length === 0) && imageBase64) {
+      try {
+        const pureBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+        const formParams = new URLSearchParams();
+        formParams.append('base64Image', `data:${mimeType};base64,${pureBase64}`);
+        formParams.append('apikey', 'helloworld');
+        formParams.append('language', 'eng');
+        formParams.append('isOverlayRequired', 'false');
+        formParams.append('detectOrientation', 'true');
+        formParams.append('scale', 'true');
+
+        const ocrResp = await fetch('https://api.ocr.space/parse/image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: formParams.toString()
+        });
+
+        if (ocrResp.ok) {
+          const ocrData = await ocrResp.json();
+          const parsedText = ocrData.ParsedResults?.[0]?.ParsedText || '';
+          if (parsedText.trim()) {
+            methodUsed = "OCR.space + Engine";
+            chapters = parseOcrTextToChapters(parsedText, className, subject);
+          }
+        }
+      } catch (ocrErr) {
+        console.warn('[OCR Syllabus] OCR.space fallback error:', ocrErr.message);
+      }
+    }
+
+    // 3. Raw text fallback
+    if ((!chapters || chapters.length === 0) && rawText) {
+      chapters = parseOcrTextToChapters(rawText, className, subject);
+      methodUsed = "Text Engine";
+    }
+
+    if (Array.isArray(chapters) && chapters.length > 0) {
+      const sanitized = chapters.map((ch, idx) => ({
+        id: 'ocr_' + Date.now() + '_' + idx,
+        class_name: className || 'VI-A',
+        subject: subject || 'Science',
+        chapter_no: Number(ch.chapter_no) || (idx + 1),
+        chapter_title: String(ch.chapter_title || `Unit ${idx + 1}`).trim(),
+        topics: Array.isArray(ch.topics) 
+          ? ch.topics.map(t => String(t).trim()).filter(Boolean)
+          : String(ch.topics || '').split(/[,\n•;]/).map(t => t.trim()).filter(Boolean),
+        term: ch.term === 'Term 2' ? 'Term 2' : 'Term 1',
+        target_month: ch.target_month || 'July',
+        expected_marks: Number(ch.expected_marks) || 6,
+        status: 'upcoming',
+        isCustomSaved: false
+      }));
+
+      return res.json({
+        success: true,
+        chapters: sanitized,
+        count: sanitized.length,
+        method: methodUsed
+      });
+    }
+
+    return res.status(422).json({
+      success: false,
+      error: "Could not detect distinct chapters or units in the uploaded image. Please ensure the camera is focused directly on the syllabus page with good lighting."
+    });
+  } catch (err) {
+    console.error("[OCR Syllabus] Fatal Error:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+
 //  Vidya AI Logs Endpoint 
 app.get("/api/vidya-logs", authRequired, async (req, res) => {
   try {
