@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>EduCore — The Operating System for Modern Education</title>
   <meta name="description" content="EduCore is the unified educational SaaS operating system combining zero-secret cloud ERP, native WebRTC VoIP telephony, 50m hardware geofencing, 1:1 Euclidean face biometrics, and 18,000+ CBSE NCERT interactive lessons.">
-  <link rel="icon" type="image/png" href="/educore-assets/educore_logo.png">
+  <link rel="icon" type="image/png" href="educore-assets/educore_logo.png">
   
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -49,11 +49,6 @@
       position: relative;
     }
 
-    /* Halftone Dot Matrix Texture Removed */
-    .halftone-bg {
-      display: none;
-    }
-
     /* Outer Wrapper with Seamless White Canvas */
     .outer-wrapper {
       position: relative;
@@ -77,18 +72,6 @@
       position: relative;
       box-shadow: none;
       border: none;
-    }
-
-    /* Reticle Corner Crop Marks and Edge Ticks Removed */
-    .reticle-corner-tl,
-    .reticle-corner-tr,
-    .reticle-corner-bl,
-    .reticle-corner-br,
-    .reticle-tick-top,
-    .reticle-tick-bottom,
-    .reticle-tick-left,
-    .reticle-tick-right {
-      display: none !important;
     }
 
     /* Top Navigation inside Canvas */
@@ -303,7 +286,7 @@
     .btn-pill-solid:hover {
       background: #222;
       transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.18);
     }
 
     .btn-pill-outline {
@@ -327,166 +310,314 @@
       transform: translateY(-2px);
     }
 
-    /* Video Announcement Stage (Dribbble Video Replica) */
-    .video-stage-card {
+    /* Live Platform Showcase Stage (Replacing video with Real Captured Images) */
+    .showcase-stage-card {
       position: relative;
-      background: #000000;
-      border-radius: 4px;
+      background: #ffffff;
+      border-radius: 12px;
       overflow: hidden;
-      margin-top: 30px;
-      border: 1px solid #000000;
+      margin-top: 24px;
+      border: 1px solid #d4d4d8;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.06);
     }
 
-    .video-stage-header {
+    .showcase-stage-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 24px;
+      margin-bottom: 20px;
       flex-wrap: wrap;
       gap: 16px;
     }
 
-    .video-pill-switch {
-      display: inline-flex;
-      background: #ffffff;
-      border: 1px solid #000000;
-      border-radius: 4px;
-      overflow: hidden;
-      padding: 2px;
+    .showcase-pills-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
     }
 
-    .video-pill-btn {
-      background: transparent;
-      border: none;
-      font-size: 12px;
-      font-weight: 700;
-      padding: 6px 14px;
-      border-radius: 3px;
+    .showcase-pill-btn {
+      background: #ffffff;
+      border: 1px solid #d4d4d8;
+      font-size: 12.5px;
+      font-weight: 600;
+      padding: 8px 16px;
+      border-radius: 20px;
       cursor: pointer;
       transition: all 0.2s ease;
+      color: #4b5563;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
     }
 
-    .video-pill-btn.active {
+    .showcase-pill-btn:hover {
+      background: #f4f4f5;
+      color: #000000;
+      border-color: #a1a1aa;
+    }
+
+    .showcase-pill-btn.active {
       background: #000000;
       color: #ffffff;
+      border-color: #000000;
+      font-weight: 700;
     }
 
-    .video-pill-btn:not(.active) {
-      color: #000000;
+    /* Chrome / Mac-Style Frame */
+    .showcase-window-bar {
+      height: 42px;
+      background: #f4f4f5;
+      border-bottom: 1px solid #e4e4e7;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
     }
 
-    .video-screen-container {
+    .window-dots {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .window-dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+    }
+
+    .dot-red { background: #ef4444; }
+    .dot-yellow { background: #f59e0b; }
+    .dot-green { background: #10b981; }
+
+    .window-address-pill {
+      background: #ffffff;
+      border: 1px solid #e4e4e7;
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 4px 14px;
+      color: #52525b;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      max-width: 460px;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .window-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      color: #71717a;
+    }
+
+    /* Screenshot Presentation Viewport */
+    .showcase-viewport {
       position: relative;
       width: 100%;
-      height: 520px;
-      background: #0a0a0a;
+      min-height: 480px;
+      max-height: 680px;
+      background: #f8fafc;
       display: flex;
       align-items: center;
       justify-content: center;
       overflow: hidden;
+      cursor: zoom-in;
     }
 
-    @media (max-width: 768px) {
-      .video-screen-container {
-        height: 280px;
-      }
-    }
-
-    .video-media-element {
+    .showcase-img-desktop {
       width: 100%;
       height: 100%;
+      max-height: 640px;
       object-fit: cover;
+      object-position: top center;
       display: block;
+      transition: transform 0.3s ease;
     }
 
-    /* Inset Reticle Viewfinder on the video container */
-    .video-reticle-tl {
-      position: absolute;
-      top: 16px;
-      left: 16px;
-      width: 16px;
-      height: 16px;
-      border-top: 2px solid #ffffff;
-      border-left: 2px solid #ffffff;
-      pointer-events: none;
-    }
-    .video-reticle-tr {
-      position: absolute;
-      top: 16px;
-      right: 16px;
-      width: 16px;
-      height: 16px;
-      border-top: 2px solid #ffffff;
-      border-right: 2px solid #ffffff;
-      pointer-events: none;
-    }
-    .video-reticle-bl {
-      position: absolute;
-      bottom: 16px;
-      left: 16px;
-      width: 16px;
-      height: 16px;
-      border-bottom: 2px solid #ffffff;
-      border-left: 2px solid #ffffff;
-      pointer-events: none;
-    }
-    .video-reticle-br {
-      position: absolute;
-      bottom: 16px;
-      right: 16px;
-      width: 16px;
-      height: 16px;
-      border-bottom: 2px solid #ffffff;
-      border-right: 2px solid #ffffff;
-      pointer-events: none;
-    }
-
-    .video-timecode-tl {
-      position: absolute;
-      top: 22px;
-      left: 38px;
-      font-family: var(--font-mono);
-      font-size: 11px;
-      color: rgba(255, 255, 255, 0.7);
-      pointer-events: none;
-    }
-    .video-timecode-tr {
-      position: absolute;
-      top: 22px;
-      right: 38px;
-      font-family: var(--font-mono);
-      font-size: 11px;
-      color: rgba(255, 255, 255, 0.7);
-      pointer-events: none;
-    }
-
-    .play-button-center {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 76px;
-      height: 76px;
-      background: #ffffff;
-      border-radius: 50%;
+    .showcase-img-mobile-wrap {
+      padding: 30px 20px;
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
-      cursor: pointer;
-      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-      z-index: 10;
+      width: 100%;
+      background: radial-gradient(circle at center, #f1f5f9 0%, #e2e8f0 100%);
     }
 
-    .play-button-center:hover {
-      transform: translate(-50%, -50%) scale(1.12);
-      box-shadow: 0 15px 50px rgba(0, 0, 0, 0.8);
+    .showcase-img-mobile {
+      max-height: 580px;
+      width: auto;
+      border-radius: 28px;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.16), 0 0 0 8px #0f172a;
+      display: block;
+      transition: transform 0.3s ease;
     }
 
-    .play-button-center span {
-      color: #000000;
-      font-size: 32px;
-      margin-left: 4px;
+    .showcase-viewport:hover .showcase-img-desktop {
+      transform: scale(1.015);
+    }
+
+    .showcase-viewport:hover .showcase-img-mobile {
+      transform: translateY(-4px) scale(1.02);
+    }
+
+    /* Floating Viewfinder Overlays */
+    .showcase-reticle-tl {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      width: 16px;
+      height: 16px;
+      border-top: 2px solid #000;
+      border-left: 2px solid #000;
+      pointer-events: none;
+      z-index: 5;
+    }
+    .showcase-reticle-tr {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      width: 16px;
+      height: 16px;
+      border-top: 2px solid #000;
+      border-right: 2px solid #000;
+      pointer-events: none;
+      z-index: 5;
+    }
+    .showcase-reticle-bl {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      width: 16px;
+      height: 16px;
+      border-bottom: 2px solid #000;
+      border-left: 2px solid #000;
+      pointer-events: none;
+      z-index: 5;
+    }
+    .showcase-reticle-br {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      width: 16px;
+      height: 16px;
+      border-bottom: 2px solid #000;
+      border-right: 2px solid #000;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .showcase-badge-live {
+      position: absolute;
+      top: 18px;
+      left: 36px;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(8px);
+      padding: 5px 12px;
+      border-radius: 4px;
+      border: 1px solid #d4d4d8;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      color: #000;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      z-index: 6;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    }
+
+    .pulse-green {
+      width: 7px;
+      height: 7px;
+      background: #10b981;
+      border-radius: 50%;
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+      animation: pulseGreen 1.8s infinite;
+    }
+
+    @keyframes pulseGreen {
+      0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+
+    .showcase-expand-hint {
+      position: absolute;
+      bottom: 18px;
+      right: 36px;
+      background: rgba(0, 0, 0, 0.85);
+      color: #ffffff;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      z-index: 6;
+      pointer-events: none;
+    }
+
+    /* Showcase Bottom Details Bar */
+    .showcase-info-bar {
+      background: #ffffff;
+      border-top: 1px solid #e4e4e7;
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .showcase-info-title {
+      font-size: 16px;
+      font-weight: 800;
+      color: #000;
+      margin-bottom: 4px;
+    }
+
+    .showcase-info-desc {
+      font-size: 13.5px;
+      color: #52525b;
+      max-width: 780px;
+      line-height: 1.5;
+    }
+
+    .showcase-stats-strip {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      border-left: 2px solid #e4e4e7;
+      padding-left: 20px;
+    }
+
+    .showcase-stat-unit {
+      text-align: right;
+    }
+
+    .stat-val {
+      font-size: 18px;
+      font-weight: 800;
+      color: #000;
+      font-family: var(--font-mono);
+    }
+
+    .stat-lbl {
+      font-size: 11px;
+      font-weight: 600;
+      color: #71717a;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
     /* Section 3: Simple, yet extremely powerful (Principles Carousel) */
@@ -552,10 +683,9 @@
 
     .stepper-label {
       font-family: var(--font-mono);
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 700;
-      color: #777;
-      text-transform: uppercase;
+      color: #666;
       letter-spacing: 1px;
     }
 
@@ -567,85 +697,96 @@
     }
 
     .principle-title {
-      font-size: 28px;
+      font-size: 26px;
       font-weight: 800;
-      color: #000;
-      margin-bottom: 12px;
       letter-spacing: -0.5px;
+      margin-bottom: 16px;
+      line-height: 1.25;
     }
 
     .principle-desc {
       font-size: 15px;
-      line-height: 1.7;
+      line-height: 1.6;
       color: var(--text-sub);
-      margin-bottom: 24px;
+      margin-bottom: 30px;
     }
 
     .principle-dots-nav {
       display: flex;
-      gap: 8px;
+      align-items: center;
+      gap: 10px;
     }
 
     .p-dot {
       width: 28px;
       height: 4px;
-      background: #e0e0e0;
+      background: #ddd;
       border-radius: 2px;
       cursor: pointer;
       transition: all 0.2s ease;
     }
 
     .p-dot.active {
-      background: #000000;
-      width: 44px;
+      background: #000;
+      width: 48px;
     }
 
-    /* All Modules Analysis & Screenshot Showcase Section */
+    /* Section 4: All Modules Deep-Dive Explorer */
     .modules-nav-pills {
       display: flex;
+      align-items: center;
       gap: 8px;
       overflow-x: auto;
       padding-bottom: 12px;
       margin-bottom: 30px;
       scrollbar-width: none;
     }
+
     .modules-nav-pills::-webkit-scrollbar {
       display: none;
     }
 
     .mod-pill-btn {
-      white-space: nowrap;
-      padding: 8px 16px;
-      border-radius: 4px;
+      background: #ffffff;
+      border: 1px solid var(--border-line);
+      border-radius: 20px;
+      padding: 8px 18px;
       font-size: 13px;
-      font-weight: 700;
-      background: #f4f4f4;
-      border: 1px solid #e0e0e0;
-      color: #333;
+      font-weight: 600;
+      color: #444;
       cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s ease;
       display: flex;
       align-items: center;
       gap: 6px;
-      transition: all 0.2s ease;
+    }
+
+    .mod-pill-btn:hover {
+      background: #f8fafc;
+      color: #000;
+      border-color: #999;
     }
 
     .mod-pill-btn.active {
       background: #000000;
       color: #ffffff;
       border-color: #000000;
+      font-weight: 700;
     }
 
     .module-detail-card {
-      border: 1px solid var(--border-line);
-      border-radius: 8px;
-      overflow: hidden;
       background: #ffffff;
-      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.05);
+      border: 1px solid var(--border-line);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.03);
     }
 
     .module-detail-grid {
       display: grid;
-      grid-template-columns: 1.1fr 1fr;
+      grid-template-columns: 1.25fr 1fr;
+      min-height: 480px;
     }
 
     @media (max-width: 900px) {
@@ -655,24 +796,25 @@
     }
 
     .mod-screenshot-frame {
-      background: #000;
+      background: #f8fafc;
       position: relative;
-      cursor: zoom-in;
+      border-right: 1px solid var(--border-line);
       overflow: hidden;
       display: flex;
       align-items: center;
       justify-content: center;
-      min-height: 440px;
+      padding: 20px;
+      cursor: zoom-in;
     }
 
     .mod-screenshot-frame img {
       width: 100%;
       height: 100%;
-      max-height: 520px;
-      object-fit: cover;
-      object-position: top;
-      display: block;
-      transition: transform 0.4s ease;
+      max-height: 440px;
+      object-fit: contain;
+      border-radius: 8px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+      transition: transform 0.25s ease;
     }
 
     .mod-screenshot-frame:hover img {
@@ -680,7 +822,7 @@
     }
 
     .mod-info-content {
-      padding: 40px;
+      padding: 36px 32px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
@@ -695,45 +837,45 @@
     }
 
     .mod-feature-item {
-      font-size: 13.5px;
-      color: #444;
       display: flex;
       align-items: flex-start;
-      gap: 8px;
+      gap: 10px;
+      font-size: 13.5px;
       line-height: 1.5;
+      color: #333;
     }
 
-    .mod-feature-item span.icon {
+    .mod-feature-item .icon {
       color: #000;
-      font-size: 16px;
-      margin-top: 2px;
+      font-size: 18px;
+      margin-top: 1px;
+      flex-shrink: 0;
     }
 
     .mod-tech-badge-strip {
       display: flex;
-      gap: 8px;
       flex-wrap: wrap;
-      margin-top: 20px;
+      gap: 8px;
+      margin-top: 14px;
     }
 
     .mod-tech-badge {
       font-family: var(--font-mono);
       font-size: 11px;
+      background: #f1f5f9;
+      color: #0f172a;
       padding: 4px 10px;
-      background: #f0f0f0;
       border-radius: 4px;
-      color: #333;
       font-weight: 600;
+      border: 1px solid #e2e8f0;
     }
 
-    /* Vision 3-Column Spec Grid (Dribbble 00:23) */
+    /* Vision 3-Column Specs Grid */
     .vision-spec-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 24px;
-      margin-top: 40px;
-      padding-top: 30px;
-      border-top: 1px solid var(--border-line);
+      margin-top: 36px;
     }
 
     @media (max-width: 768px) {
@@ -743,108 +885,112 @@
     }
 
     .vision-card {
-      text-align: center;
-      padding: 24px;
+      background: #ffffff;
+      border: 1px solid var(--border-line);
+      border-radius: 8px;
+      padding: 28px;
+      position: relative;
+      transition: all 0.2s ease;
+    }
+
+    .vision-card:hover {
+      border-color: #000;
+      transform: translateY(-2px);
     }
 
     .vision-num {
       font-family: var(--font-mono);
       font-size: 12px;
       color: #888;
-      margin-bottom: 6px;
+      margin-bottom: 14px;
     }
 
     .vision-card-title {
-      font-size: 16px;
-      font-weight: 700;
-      color: #000;
+      font-size: 18px;
+      font-weight: 800;
       margin-bottom: 16px;
     }
 
     .vision-art-box {
-      width: 90px;
-      height: 90px;
-      margin: 0 auto;
+      height: 120px;
+      background: #fbfbfb;
+      border: 1px solid #eee;
+      border-radius: 6px;
       display: flex;
       align-items: center;
       justify-content: center;
+      margin-bottom: 16px;
     }
 
-    /* Blog / Release Row (Dribbble 00:29) */
+    /* Technical Notes Grid */
     .blog-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 16px;
-      margin-top: 30px;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
     }
 
-    @media (max-width: 1024px) {
-      .blog-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-    }
-
-    @media (max-width: 600px) {
+    @media (max-width: 768px) {
       .blog-grid {
         grid-template-columns: 1fr;
       }
     }
 
     .blog-card {
+      background: #ffffff;
       border: 1px solid var(--border-line);
-      border-radius: 6px;
-      padding: 20px;
+      border-radius: 8px;
+      padding: 24px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      min-height: 200px;
-      background: #fff;
-      transition: all 0.2s ease;
+      min-height: 160px;
+      transition: border-color 0.2s ease;
     }
 
     .blog-card:hover {
       border-color: #000;
-      transform: translateY(-2px);
     }
 
     .blog-card-tag {
       font-family: var(--font-mono);
-      font-size: 10px;
+      font-size: 11px;
       font-weight: 700;
-      color: #666;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      margin-bottom: 12px;
+      color: #888;
+      margin-bottom: 8px;
+      display: inline-block;
     }
 
     .blog-card-title {
-      font-size: 14px;
+      font-size: 15.5px;
       font-weight: 700;
-      color: #000;
       line-height: 1.4;
-      margin-bottom: 16px;
+      color: #000;
     }
 
     .blog-card-footer {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      font-size: 11px;
       font-family: var(--font-mono);
+      font-size: 11px;
       color: #888;
+      margin-top: 20px;
+      padding-top: 14px;
+      border-top: 1px solid #f0f0f0;
     }
 
     .blog-read-link {
       color: #000;
-      font-weight: 700;
       text-decoration: none;
+      font-weight: 700;
     }
 
-    /* CTA Section (Dribbble 00:31) */
+    /* Call To Action */
     .cta-canvas-section {
+      background: #fafafa;
+      padding: 80px 48px;
       text-align: center;
-      padding: 90px 40px;
+      border-bottom: 1px solid var(--border-line);
     }
 
     .cta-heading {
@@ -854,7 +1000,7 @@
       margin-bottom: 24px;
     }
 
-    /* Minimalist Footer (Dribbble 00:32) */
+    /* Minimalist Footer */
     .canvas-footer {
       padding: 48px 36px 30px 36px;
       border-top: 1px solid var(--border-line);
@@ -965,7 +1111,7 @@
 
     .lightbox-body {
       padding: 20px;
-      background: #050505;
+      background: #0f172a;
       text-align: center;
       max-height: 75vh;
       overflow-y: auto;
@@ -975,6 +1121,7 @@
       max-width: 100%;
       max-height: 70vh;
       object-fit: contain;
+      border-radius: 4px;
     }
 
     .lightbox-foot {
@@ -992,7 +1139,115 @@
 
   <!-- React Application Implementation -->
   <script type="text/babel">
-    const { useState, useEffect, useRef } = React;
+    const { useState, useEffect } = React;
+
+    // Real Showcase Items for the Hero Interactive Stage
+    const showcaseViews = [
+      {
+        id: 'web-dashboard',
+        label: 'Web ERP Dashboard',
+        icon: 'dashboard',
+        isMobile: false,
+        url: 'https://tapowan-app.vercel.app/ — Dashboard Command',
+        image: 'educore-assets/real_web_dashboard.png',
+        title: 'Institutional Operations Dashboard & Financial Health',
+        desc: 'Live telemetry displaying ₹17.2K school balance, 285 enrolled students, 14 faculty members, 12 active grade divisions, real-time fee dues distribution, and 6-row transaction stream.',
+        stat1: { val: '₹17.2K', lbl: 'Available Balance' },
+        stat2: { val: '285', lbl: 'Active Students' },
+        stat3: { val: '14 Staff', lbl: 'Faculty Count' }
+      },
+      {
+        id: 'mobile-student',
+        label: 'Student Mobile App',
+        icon: 'smartphone',
+        isMobile: true,
+        url: 'TPS Mobile Engine • Student: ALIMA PERWEEN (VII-A)',
+        image: 'educore-assets/real_mobile_student_home.png',
+        title: 'Student Mobile App — Homework, Syllabus & EduReels',
+        desc: 'React Native mobile application featuring personalized student greetings, Quick Access cards (Homework, Syllabus, Quiz, Attendance, Fee Record, EduReel), and instant exam paper downloads.',
+        stat1: { val: 'VII-A', lbl: 'Class Division' },
+        stat2: { val: 'Roll 01', lbl: 'Student Roll' },
+        stat3: { val: '100%', lbl: 'Sync Coverage' }
+      },
+      {
+        id: 'mobile-teacher',
+        label: 'Teacher Faculty Suite',
+        icon: 'badge',
+        isMobile: true,
+        url: 'TPS Mobile Engine • Faculty Portal: Aatif Raza',
+        image: 'educore-assets/real_mobile_teacher_home.png',
+        title: 'Teacher Mobile Suite — Periods, Attendance & Marks',
+        desc: 'Dedicated teacher operating interface showcasing 259 enrolled students, 8 scheduled daily periods, 50.2% class average, dynamic 3-way attendance marking, and OCR syllabus plans.',
+        stat1: { val: '259', lbl: 'Total Students' },
+        stat2: { val: '8 Periods', lbl: 'Today Schedule' },
+        stat3: { val: '50.2%', lbl: 'Avg Performance' }
+      },
+      {
+        id: 'web-fees',
+        label: 'Fees & Digital Ledger',
+        icon: 'payments',
+        isMobile: false,
+        url: 'https://tapowan-app.vercel.app/ — Fees & Billing Ledger',
+        image: 'educore-assets/real_web_fees.png',
+        title: 'Automated Monthly Billing & Cryptographic Receipts',
+        desc: 'Complete fee ledger tracking verified payment IDs (5U2VKO, IQVPOV, LOE57A), student balances, automated monthly tuition generation on the 1st, and ₹50 late fees on the 11th.',
+        stat1: { val: '1st of Mo.', lbl: 'Auto Fee Gen' },
+        stat2: { val: '₹50/mo', lbl: 'Late Fee Policy' },
+        stat3: { val: 'QR Coded', lbl: 'Digital Receipts' }
+      },
+      {
+        id: 'student-quiz',
+        label: 'Student Quiz & Leaderboard',
+        icon: 'emoji_events',
+        isMobile: true,
+        url: 'TPS Mobile Engine • Daily AI Quiz Competition',
+        image: 'educore-assets/real_mobile_student_quiz.png',
+        title: 'Daily AI Quiz Competition & School-Wide Leaderboards',
+        desc: 'Curated 4-choice academic challenges with instant explanations, 650 earned points, daily streaks, #1 class ranking, and school-wide leaderboard integration.',
+        stat1: { val: '#1 Rank', lbl: 'Class Leaderboard' },
+        stat2: { val: '650 Pts', lbl: 'Earned Score' },
+        stat3: { val: '15/15', lbl: 'Completed Quizzes' }
+      },
+      {
+        id: 'web-timetable',
+        label: 'Timetable & Routine',
+        icon: 'calendar_month',
+        isMobile: false,
+        url: 'https://tapowan-app.vercel.app/ — Academic Timetable Matrix',
+        image: 'educore-assets/real_web_timetable.png',
+        title: 'Class-Wise Academic Period Scheduling Matrix',
+        desc: 'Comprehensive period grid across Periods 1 to 5 with lunch break intervals, automated faculty teacher conflict detection, and room allocations.',
+        stat1: { val: '5 Periods', lbl: 'Daily Schedule' },
+        stat2: { val: '12 Classes', lbl: 'Division Grids' },
+        stat3: { val: 'Zero', lbl: 'Teacher Conflicts' }
+      },
+      {
+        id: 'web-attendance',
+        label: 'Attendance Register',
+        icon: 'fact_check',
+        isMobile: false,
+        url: 'https://tapowan-app.vercel.app/ — Daily Attendance Register',
+        image: 'educore-assets/real_web_attendance.png',
+        title: 'Daily Attendance Telemetry & Exact Arrival Timestamps',
+        desc: 'Master daily attendance register logging student names, roll numbers, status (Present/Absent/Late), arrival timestamps, and departure telemetry.',
+        stat1: { val: '07:15 AM', lbl: 'Late Cutoff' },
+        stat2: { val: '2-Hour', lbl: 'Departure Guard' },
+        stat3: { val: 'Turso Cloud', lbl: 'Instant Sync' }
+      },
+      {
+        id: 'geofence-radar',
+        label: '50m Hardware Radar',
+        icon: 'radar',
+        isMobile: false,
+        url: 'Google Satellite Telemetry • Campus Coordinates 23.8209682° N, 85.5119629° E',
+        image: 'educore-assets/geofence_satellite_50m.jpg',
+        title: 'Hardware 50m Geofence Perimeter & Satellite Telemetry',
+        desc: 'Google Play Services Fused Location sensor hub with exact 50-meter perimeter enclosing classrooms, courtyard, and main gate, consuming <1% daily battery.',
+        stat1: { val: '50.0m', lbl: 'Strict Radius' },
+        stat2: { val: '< 1%', lbl: 'Daily Battery' },
+        stat3: { val: '7,854 m²', lbl: 'Monitored Ground' }
+      }
+    ];
 
     // Real Modules Data extracted from the App & Web Platform
     const modulesData = [
@@ -1002,9 +1257,9 @@
         tag: 'CORE PORTAL',
         title: 'Central Institutional ERP & Live Executive Command',
         desc: 'The mission-control dashboard for school principals, administrators, and accountants. Provides real-time financial tracking, revenue versus dues breakdown, active student directories, instant thermal receipt issuance, and multi-term academic scheduling.',
-        image: '/educore-assets/erp_dashboard_real.png',
+        image: 'educore-assets/real_web_dashboard.png',
         features: [
-          'Real-time metrics: Total active students, collected tuition, outstanding dues, and daily attendance.',
+          'Real-time metrics: ₹17.2K live balance, 285 active students, 14 faculty members, and 12 class divisions.',
           'Autonomous monthly fee generator executing on the 1st of every calendar month.',
           'Automated ₹50 late fee calculation applied on unpaid student ledgers on the 11th.',
           'Instant thermal paper receipt generation with encrypted cryptographic verification links.'
@@ -1012,87 +1267,42 @@
         tech: ['Turso Cloud libSQL', 'Zero-Secret Edge Proxy', 'Sub-15ms Edge Queries']
       },
       {
-        id: 'geofence',
-        name: '50m Geofence Radar',
-        tag: 'HARDWARE TELEMETRY',
-        title: 'Hardware-Fused 50m Auto-Attendance Radar',
-        desc: 'Ultra-low battery geofencing engine deployed at Prem Nagar Campus (23.8209682° N, 85.5119629° E). Utilizes Google Play Services Fused Location Provider sensor hub. Passive cell tower monitoring far away; GPS wakes for only 2 seconds upon crossing the 50m gate, consuming under 1% daily battery.',
-        image: '/educore-assets/geofence_satellite_50m.jpg',
+        id: 'student-mobile',
+        name: 'Student Mobile App',
+        tag: 'STUDENT PORTAL',
+        title: 'Student Learning Hub, Homework & Verified EduReels',
+        desc: 'Production React Native application built for students and parents. Provides instant homework access, syllabus tracking, fee receipts, 18,000+ NCERT curated reels, and push notifications for urgent school updates.',
+        image: 'educore-assets/real_mobile_student_home.png',
         features: [
-          'Strict 50.0m radius enclosing classrooms and courtyard while excluding surrounding residential areas.',
-          'One-time morning arrival lock: prevents subsequent entries from overwriting the initial arrival timestamp.',
-          '2-Hour Departure Guardrail: departures 2+ hours after arrival update departure time automatically.',
-          'Offline SQLite persistence: arrival timestamps safely store in SharedPreferences if mobile data is OFF.'
+          'Student profile with roll number, division, enrolled photo, and fee ledger status.',
+          'Quick Access cards: Homework, Syllabus, Quiz, Attendance, Fee Record, Due Record, EduReels.',
+          'Interactive bottom navigation linking Home, Time Table, Central Video Reel Hub, and Chats.',
+          'Encrypted zero-secret query proxy preventing any credentials extraction from APK.'
         ],
-        tech: ['Fused Location Provider', '<1% Battery Drain', '50m Precision Gate']
+        tech: ['React Native 0.73', 'Zero-Secret Client', 'Expo Bare Workflow']
       },
       {
-        id: 'voip',
-        name: 'WebRTC VoIP Telephony',
-        tag: 'NATIVE AUDIO',
-        title: 'Native WebRTC VoIP Calling & Closed-App Ringing',
-        desc: 'Dedicated hardware VoIP audio engine implemented directly in JavaScript with react-native-webrtc without WebViews. Features hardware Acoustic Echo Cancellation (AEC), Android VoipAudioManager speaker/mic routing, and high-priority FCM wakeups that ring even when the app is killed.',
-        image: '/educore-assets/app_screen_mobile_view.png',
+        id: 'teacher-suite',
+        name: 'Teacher Mobile Suite',
+        tag: 'FACULTY SUITE',
+        title: 'Teacher Mobile Suite & 3-Way Live Attendance',
+        desc: 'Specialized mobile portal empowering teachers to manage daily classroom operations. Features 3-way segmented attendance marking [Present | Absent | Late], exam marks entry, and assignment broadcasting.',
+        image: 'educore-assets/real_mobile_teacher_home.png',
         features: [
-          'Direct hardware microphone activation (green dot status indicator) with AUDIOFOCUS_GAIN_EXCLUSIVE.',
-          'Instant high-priority notification channel with custom ringtones waking the phone on cold boot.',
-          'Institutional Access Control: Student-to-student direct calls permanently blocked (HTTP 403 Forbidden).',
-          'Live class doubt clearing voice rooms for teachers to host interactive audio sessions.'
+          'Live faculty dashboard: Total enrolled students (259), today periods (8), and class average (50.2%).',
+          '3-way instant attendance toggle marking rolls with single-tap batch cloud sync.',
+          'Practical and theoretical marks entry with dynamic auto-grading remarks.',
+          'Curriculum planner with OCR syllabus scanning and homework task broadcasting.'
         ],
-        tech: ['48 kHz Opus Codec', 'VoipAudioManager', 'Acoustic Echo Cancellation']
-      },
-      {
-        id: 'analytics',
-        name: 'Academic Analytics',
-        tag: 'EXAMS & GRADING',
-        title: '360° Academic Analytics & Exam Marks Entry',
-        desc: 'Dedicated teacher suite for entering practical and theoretical marks across classes I-A to X-A. Generates dynamic auto-grading remarks, bell-curve distribution charts, student subject rankings, and printable CBSE report cards.',
-        image: '/educore-assets/app_screen_analytics.png',
-        features: [
-          'Dynamic auto-grading remarks: Automatically flags scores as Excellent, Very Good, Good, or Needs Help.',
-          'Batch sync to app_exam_marks table in Turso Cloud DB with zero latency.',
-          'Top performers ranking leaderboard highlighting subject toppers across all terms.',
-          'Exportable PDF & Excel report cards with custom school seal and QR authenticity code.'
-        ],
-        tech: ['Auto-Grading Engine', 'Multi-Term Aggregation', 'CBSE Report Cards']
-      },
-      {
-        id: 'reels',
-        name: '18,000+ NCERT Reels',
-        tag: 'ACADEMIC FEED',
-        title: '18,035+ Curated CBSE Video Reels & Daily AI Quiz',
-        desc: 'A safe, distraction-free educational video feed replacing unstructured social media algorithms. Strictly features verified lessons from Physics Wallah (Alakh Pandey), Magnet Brains, Dear Sir, and CodeWithHarry. Paired with daily AI Quiz challenges.',
-        image: '/educore-assets/quiz_3d_art.jpg',
-        features: [
-          'Full NCERT Class 6–10 coverage across Science, Mathematics, English, Hindi, and Social Science.',
-          'Zero YouTube Shorts or vertical entertainment clips; purely academic chapters and topic deep-dives.',
-          'Daily AI Quiz competition with 4-choice questions and instant explanation feedback.',
-          'School-wide daily quiz leaderboard encouraging friendly academic rivalry.'
-        ],
-        tech: ['18,035+ Verified Videos', 'Class 6-10 NCERT', 'Daily AI Quiz Engine']
-      },
-      {
-        id: 'biometrics',
-        name: 'Face Biometrics',
-        tag: 'BIOMETRIC AI',
-        title: 'Strict 1:1 Euclidean Face Biometric Scanner',
-        desc: 'Mobile biometric attendance scanner utilizing 128-dimensional facial embeddings. Verifies student identity against enrolled photos using Euclidean distance metric (d <= 0.48) with multi-frame optical stabilization to eliminate lighting anomalies.',
-        image: '/educore-assets/app_modal_attendance.png',
-        features: [
-          'Euclidean vector comparison (d <= 0.48) ensures rigorous mathematical identity matching.',
-          'Multi-frame optical averaging eliminates lighting glare and accidental cross-student false positives.',
-          'Works seamlessly in conjunction with the 50m geofence for multi-factor attendance verification.',
-          'Integrated Aadhaar face authentication protocol for government reporting compliance.'
-        ],
-        tech: ['Euclidean d <= 0.48', '128-D Embeddings', 'Anti-Spoofing Averaging']
+        tech: ['3-Way Toggle Engine', 'Batch SQLite Sync', 'Faculty Schedule Grid']
       },
       {
         id: 'billing',
-        name: 'FinTech Ledger',
+        name: 'Fees & FinTech Ledger',
         tag: 'FINANCIAL AUTOMATION',
-        title: 'Automated Fee Management & Digital Receipts',
+        title: 'Automated Fee Management & Digital QR Receipts',
         desc: 'Real-time billing ledger syncing student fee structures, partial tuition payments, cash counter receipts, and online UPI verification. Automatically reconciles dues upon payment recording.',
-        image: '/educore-assets/app_screen_recent_activity.png',
+        image: 'educore-assets/real_web_fees.png',
         features: [
           'Auto-generates Tuition Fee of Month on the 1st of every month in duemanagement.',
           'Auto-generates Late Fee of Month on the 11th for any outstanding balances.',
@@ -1102,53 +1312,98 @@
         tech: ['Automated Reconciliation', 'Cron Dues Engine', 'QR Code Receipts']
       },
       {
-        id: 'ai-vidya',
-        name: 'AI Vidya 3D',
-        tag: 'AI ASSISTANT',
-        title: 'AI Vidya — 3D Voice & Academic Chatbot',
-        desc: 'Interactive 3D avatar assistant rendered using Three.js on web and mobile. Speaks dynamically using Text-to-Speech (TTS), resolves student doubts from the NCERT syllabus, and helps parents check fee balances instantly.',
-        image: '/educore-assets/ai_vidya_robot.jpg',
+        id: 'timetable',
+        name: 'Academic Timetable',
+        tag: 'SCHEDULING ENGINE',
+        title: 'Class-Wise Master Timetable & Teacher Allocation',
+        desc: 'Comprehensive period grid across Periods 1 to 5 with lunch break intervals, automated faculty teacher conflict detection, and classroom designations.',
+        image: 'educore-assets/real_web_timetable.png',
         features: [
-          'Multilingual Speech Synthesis: Reads explanations aloud in Hindi and English.',
-          'Context-aware answers: Trained on the complete Tapowan Public School curriculum.',
-          'Draggable, non-intrusive 3D floating widget with interactive orbital camera controls.',
-          'Instant homework solver and study card generator.'
+          'Full class-wise period grid covering English, Hindi, Mathematics, Science, and Social Science.',
+          'Conflict-free teacher scheduling ensuring zero duplicate faculty allocations.',
+          'Integrated lunch break schedules and room number designations.',
+          'Direct synchronization with teacher and student mobile app timetable tabs.'
         ],
-        tech: ['Three.js WebGL', 'Voice Text-To-Speech', 'Curriculum NLP']
+        tech: ['Conflict-Free Matrix', 'Multi-Class View', 'Sub-Second DB Update']
       },
       {
-        id: 'ota',
-        name: 'Silent OTA Push',
-        tag: 'DEVOPS INFRASTRUCTURE',
-        title: 'Two-Stage Silent Background OTA Deployment',
-        desc: 'Bypasses Google Play Store review latency by deploying React Native JavaScript bundles over high-priority FCM messages directly to installed devices in the background.',
-        image: '/educore-assets/erp_login_real.png',
+        id: 'exams',
+        name: 'Exams & Grading',
+        tag: 'EXAMS & GRADING',
+        title: '360° Academic Analytics & Exam Marks Entry',
+        desc: 'Dedicated teacher suite for entering practical and theoretical marks across classes I-A to X-A. Generates dynamic auto-grading remarks, bell-curve distribution charts, student subject rankings, and printable CBSE report cards.',
+        image: 'educore-assets/real_web_exams.png',
         features: [
-          'Background FCM push triggers silent bundle download into filesDir/ota_bundle/.',
-          'Writes new version code to internal storage and reloads React context dynamically.',
-          'Zero interruption to active student or teacher calling sessions.',
-          'Ensures 100% fleet version consistency across all teacher and student devices.'
+          'Dynamic auto-grading remarks: Automatically flags scores as Excellent, Very Good, Good, or Needs Help.',
+          'Batch sync to app_exam_marks table in Turso Cloud DB with zero latency.',
+          'Top performers ranking leaderboard highlighting subject toppers across all terms.',
+          'Exportable PDF & Excel report cards with custom school seal and QR authenticity code.'
         ],
-        tech: ['FCM Silent Push', 'Instant React Reload', 'Zero Play Store Delay']
+        tech: ['Auto-Grading Engine', 'Multi-Term Aggregation', 'CBSE Report Cards']
       },
       {
-        id: 'saas',
-        name: 'Super Admin SaaS',
-        tag: 'MULTI-TENANT ORCHESTRATION',
-        title: 'EduCore Multi-Tenant SaaS Platform',
-        desc: 'Global administration control panel (tps-erp-saas.vercel.app) for managing tenant schools, auto-provisioning Turso SQLite cloud databases, configuring feature flags, and tracking security audit logs.',
-        image: '/educore-assets/erp_dashboard_real.png',
+        id: 'quiz',
+        name: 'AI Quiz & Ranks',
+        tag: 'GAMIFIED LEARNING',
+        title: 'Daily AI Quiz Competition & Student Leaderboards',
+        desc: 'Curated 4-choice academic challenges with instant explanations, streak tracking, and school-wide leaderboard integration that fosters healthy learning habits.',
+        image: 'educore-assets/real_mobile_student_quiz.png',
         features: [
-          'Auto-provisions independent Turso SQLite cloud databases for new schools in seconds.',
-          'Fine-grained module entitlements: Toggle VoIP, Geofencing, Reels, or Billing per campus.',
-          'Centralized security audit logs tracking admin actions, IPs, and failed login attempts.',
-          'Ed25519 JWT session rotation and automated subscription billing cycles.'
+          'Daily AI Quiz generation based on active CBSE NCERT curriculum chapters.',
+          'Instant explanation feedback upon selecting option choices.',
+          'Real-time points accumulator and consecutive streak tracker.',
+          'Class and school-wide leaderboards ranking top performers.'
         ],
-        tech: ['Turso Multi-Tenant', 'Ed25519 Authentication', 'Instant DB Provisioning']
+        tech: ['AI Question Generator', 'Leaderboard Algorithm', 'Points & Streaks']
+      },
+      {
+        id: 'geofence',
+        name: '50m Geofence Radar',
+        tag: 'HARDWARE TELEMETRY',
+        title: 'Hardware-Fused 50m Auto-Attendance Radar',
+        desc: 'Ultra-low battery geofencing engine deployed at Prem Nagar Campus (23.8209682° N, 85.5119629° E). Utilizes Google Play Services Fused Location Provider sensor hub. Passive cell tower monitoring far away; GPS wakes for only 2 seconds upon crossing the 50m gate, consuming under 1% daily battery.',
+        image: 'educore-assets/geofence_satellite_50m.jpg',
+        features: [
+          'Strict 50.0m radius enclosing classrooms and courtyard while excluding surrounding residential areas.',
+          'One-time morning arrival lock: prevents subsequent entries from overwriting the initial arrival timestamp.',
+          '2-Hour Departure Guardrail: departures 2+ hours after arrival update departure time automatically.',
+          'Offline SQLite persistence: arrival timestamps safely store in SharedPreferences if mobile data is OFF.'
+        ],
+        tech: ['Fused Location Provider', '<1% Battery Drain', '50m Precision Gate']
+      },
+      {
+        id: 'biometrics',
+        name: 'Face Biometrics',
+        tag: 'BIOMETRIC AI',
+        title: 'Strict 1:1 Euclidean Face Biometric Scanner',
+        desc: 'Mobile biometric attendance scanner utilizing 128-dimensional facial embeddings. Verifies student identity against enrolled photos using Euclidean distance metric (d <= 0.48) with multi-frame optical stabilization to eliminate lighting anomalies.',
+        image: 'educore-assets/real_mobile_login_student.png',
+        features: [
+          'Euclidean vector comparison (d <= 0.48) ensures rigorous mathematical identity matching.',
+          'Multi-frame optical averaging eliminates lighting glare and accidental cross-student false positives.',
+          'Works seamlessly in conjunction with the 50m geofence for multi-factor attendance verification.',
+          'Integrated Aadhaar face authentication protocol for government reporting compliance.'
+        ],
+        tech: ['Euclidean d <= 0.48', '128-D Embeddings', 'Anti-Spoofing Averaging']
+      },
+      {
+        id: 'devices',
+        name: 'Device Registry',
+        tag: 'SECURITY & MDM',
+        title: 'Mobile Device Registry & Push Token Tracking',
+        desc: 'Live telemetry tracking active mobile devices, push notification tokens, OS versions, hardware camera/mic status, and last heartbeat timestamps.',
+        image: 'educore-assets/real_web_mobile_students.png',
+        features: [
+          'Real-time push token registry linking devices to student admission numbers and staff IDs.',
+          'Hardware camera and mic status telemetry for remote preview verification.',
+          'Network connection indicator (Wi-Fi vs Cellular) and heartbeat monitoring.',
+          'Automatic token invalidation and device deduplication.'
+        ],
+        tech: ['FCM Push Registry', 'Heartbeat Telemetry', 'Multi-Device Sync']
       }
     ];
 
-    // Interactive Principle Stepper Data (Dribbble 00:08 - 00:19)
+    // Interactive Architecture Stepper Data
     const principlesData = [
       {
         num: '01 / 04',
@@ -1181,34 +1436,18 @@
     ];
 
     function App() {
-      const [videoMode, setVideoMode] = useState('overview');
-      const [isPlayingVideo, setIsPlayingVideo] = useState(false);
+      const [activeShowcaseId, setActiveShowcaseId] = useState('web-dashboard');
       const [activePrinciple, setActivePrinciple] = useState(0);
       const [activeModIndex, setActiveModIndex] = useState(0);
       const [lightboxImg, setLightboxImg] = useState(null);
-      const videoRef = useRef(null);
 
+      const currentShowcase = showcaseViews.find(s => s.id === activeShowcaseId) || showcaseViews[0];
       const activeModule = modulesData[activeModIndex];
-
-      const toggleVideoPlay = () => {
-        if (!videoRef.current) return;
-        if (isPlayingVideo) {
-          videoRef.current.pause();
-          setIsPlayingVideo(false);
-        } else {
-          videoRef.current.play();
-          setIsPlayingVideo(true);
-        }
-      };
-
-      const handleVideoEnd = () => {
-        setIsPlayingVideo(false);
-      };
 
       return (
         <div className="outer-wrapper">
           
-          {/* Main White Canvas with Viewfinder Reticle Corners */}
+          {/* Main White Canvas */}
           <div className="main-canvas">
             {/* Top Navigation inside Canvas */}
             <header className="canvas-nav">
@@ -1218,10 +1457,10 @@
               </a>
 
               <ul className="nav-menu-items">
-                <li><a href="#video-announcement" className="nav-menu-link">Launch Event</a></li>
+                <li><a href="#showcase" className="nav-menu-link">Live Platform</a></li>
                 <li><a href="#principles" className="nav-menu-link">Architecture</a></li>
                 <li><a href="#modules-explorer" className="nav-menu-link">All Modules</a></li>
-                <li><a href="#vision" className="nav-menu-link">Platform Vision</a></li>
+                <li><a href="#vision" className="nav-menu-link">Capabilities</a></li>
               </ul>
 
               <div className="nav-auth-actions">
@@ -1233,7 +1472,7 @@
               </div>
             </header>
 
-            {/* HERO SECTION (Dribbble 00:00 - 00:01) */}
+            {/* HERO SECTION */}
             <section className="canvas-section">
               <div className="hero-grid">
                 <div>
@@ -1241,12 +1480,12 @@
                     Turn <span className="bracket-word">your institution</span> into a state-of-the-art <span className="bracket-word">educational ecosystem</span>.
                   </h1>
                   <p className="hero-sub">
-                    EduCore enables you to unify school management, automated monthly billing, native WebRTC VoIP, 50m geofence auto-attendance, and 18,000+ NCERT reels for a fraction of traditional ERP cost. No complex server setups — EduCore handles it automatically.
+                    EduCore unifies central school management, automated monthly billing, native WebRTC VoIP, 50m geofence auto-attendance, and 18,000+ NCERT reels for a fraction of traditional ERP cost. Pure white modern interface — zero server setup required.
                   </p>
                   <div className="hero-btn-row">
                     <a href="/" className="btn-pill-solid">
                       <span className="material-symbols-outlined" style={{fontSize: '18px'}}>dashboard</span>
-                      <span>Start ERP Demo</span>
+                      <span>Launch Live ERP</span>
                     </a>
                     <a href="/TPS-Original-App.apk" download className="btn-pill-outline">
                       <span className="material-symbols-outlined" style={{fontSize: '18px'}}>download</span>
@@ -1308,85 +1547,139 @@
                     </svg>
 
                     <div style={{fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#555', marginTop: '12px'}}>
-                      100% Zero-Secret Client APK Architecture • 99.98% Edge SLA
+                      100% Zero-Secret Client APK Architecture • Sub-15ms Edge Latency
                     </div>
                   </div>
                 </div>
               </div>
             </section>
 
-            {/* VIDEO ANNOUNCEMENT STAGE (Dribbble 00:02 - 00:07 & Screenshot media_1792336657819_735451fe.png) */}
-            <section className="canvas-section" id="video-announcement">
-              <div className="tech-tag">[PRODUCT ANNOUNCEMENT]</div>
+            {/* LIVE PLATFORM SHOWCASE STAGE (REAL SCREENSHOTS OF WEB ERP & MOBILE APP) */}
+            <section className="canvas-section" id="showcase">
+              <div className="tech-tag">[LIVE PLATFORM SHOWCASE // REAL SYSTEM CAPTURE]</div>
               
-              <div style={{maxWidth: '820px', marginBottom: '28px'}}>
-                <h2 style={{fontSize: '24px', fontWeight: '800', lineHeight: '1.4', letterSpacing: '-0.5px', color: '#000'}}>
-                  On the 23rd of October 2026, we unveiled EduCore. Watch our product announcement of the world's first unified school platform combining zero-secret cloud DB, 50m hardware geofencing, and native WebRTC VoIP telephony.
+              <div style={{maxWidth: '860px', marginBottom: '24px'}}>
+                <h2 style={{fontSize: '26px', fontWeight: '900', lineHeight: '1.35', letterSpacing: '-0.6px', color: '#000'}}>
+                  Explore the real, live EduCore environment powering Tapowan Public School. Toggle between the administrative Web ERP and native mobile student &amp; teacher apps.
                 </h2>
               </div>
 
-              {/* Pill Switcher */}
-              <div className="video-stage-header">
-                <div className="video-pill-switch">
-                  <button 
-                    className={`video-pill-btn ${videoMode === 'overview' ? 'active' : ''}`}
-                    onClick={() => setVideoMode('overview')}
-                  >
-                    Quick product overview
-                  </button>
-                  <button 
-                    className={`video-pill-btn ${videoMode === 'event' ? 'active' : ''}`}
-                    onClick={() => setVideoMode('event')}
-                  >
-                    Full launch event
-                  </button>
+              {/* Interactive Module Selectors */}
+              <div className="showcase-stage-header">
+                <div className="showcase-pills-row">
+                  {showcaseViews.map(view => (
+                    <button
+                      key={view.id}
+                      className={`showcase-pill-btn ${activeShowcaseId === view.id ? 'active' : ''}`}
+                      onClick={() => setActiveShowcaseId(view.id)}
+                    >
+                      <span className="material-symbols-outlined" style={{fontSize: '16px'}}>{view.icon}</span>
+                      <span>{view.label}</span>
+                    </button>
+                  ))}
                 </div>
-                <div style={{fontFamily: 'var(--font-mono)', fontSize: '12px', color: '#666'}}>
-                  STATUS: <strong>RECORDED AT 1080P HD • TAP TO PLAY</strong>
+                
+                <div style={{fontFamily: 'var(--font-mono)', fontSize: '12px', color: '#666', display: 'flex', alignItems: 'center', gap: '8px'}}>
+                  <span className="pulse-green"></span>
+                  <span>LIVE DATABASE CONNECTED</span>
                 </div>
               </div>
 
-              {/* Video Player Card Frame (Exact Replica) */}
-              <div className="video-stage-card">
-                <div className="video-screen-container">
-                  <video 
-                    ref={videoRef}
-                    className="video-media-element" 
-                    src="/educore-assets/dribbble_reference.mp4" 
-                    playsInline 
-                    loop 
-                    onEnded={handleVideoEnd}
-                    onClick={toggleVideoPlay}
-                  />
+              {/* Showcase Window Frame */}
+              <div className="showcase-stage-card">
+                
+                {/* macOS / Application Header Bar */}
+                <div className="showcase-window-bar">
+                  <div className="window-dots">
+                    <div className="window-dot dot-red"></div>
+                    <div className="window-dot dot-yellow"></div>
+                    <div className="window-dot dot-green"></div>
+                  </div>
 
+                  <div className="window-address-pill">
+                    <span className="material-symbols-outlined" style={{fontSize: '13px', color: '#10b981'}}>lock</span>
+                    <span>{currentShowcase.url}</span>
+                  </div>
+
+                  <div className="window-actions">
+                    <span className="material-symbols-outlined" style={{fontSize: '16px'}}>verified</span>
+                    <span>1080P HD</span>
+                  </div>
+                </div>
+
+                {/* Viewport Displaying the Real Screenshot */}
+                <div 
+                  className="showcase-viewport" 
+                  onClick={() => setLightboxImg({ src: currentShowcase.image, caption: currentShowcase.title })}
+                >
                   {/* Corner Reticle Viewfinder Marks */}
-                  <div className="video-reticle-tl"></div>
-                  <div className="video-reticle-tr"></div>
-                  <div className="video-reticle-bl"></div>
-                  <div className="video-reticle-br"></div>
+                  <div className="showcase-reticle-tl"></div>
+                  <div className="showcase-reticle-tr"></div>
+                  <div className="showcase-reticle-bl"></div>
+                  <div className="showcase-reticle-br"></div>
 
-                  <div className="video-timecode-tl">[00]</div>
-                  <div className="video-timecode-tr">[1:27]</div>
+                  <div className="showcase-badge-live">
+                    <span className="pulse-green"></span>
+                    <span>{currentShowcase.label.toUpperCase()}</span>
+                  </div>
 
-                  {/* Circular White Play Button in Center */}
-                  {!isPlayingVideo && (
-                    <div className="play-button-center" onClick={toggleVideoPlay}>
-                      <span className="material-symbols-outlined">play_arrow</span>
+                  <div className="showcase-expand-hint">
+                    <span className="material-symbols-outlined" style={{fontSize: '14px'}}>zoom_in</span>
+                    <span>TAP TO ZOOM</span>
+                  </div>
+
+                  {currentShowcase.isMobile ? (
+                    <div className="showcase-img-mobile-wrap">
+                      <img 
+                        src={currentShowcase.image} 
+                        alt={currentShowcase.title}
+                        className="showcase-img-mobile" 
+                      />
                     </div>
+                  ) : (
+                    <img 
+                      src={currentShowcase.image} 
+                      alt={currentShowcase.title}
+                      className="showcase-img-desktop" 
+                    />
                   )}
                 </div>
+
+                {/* Inset Metadata Strip */}
+                <div className="showcase-info-bar">
+                  <div>
+                    <h3 className="showcase-info-title">{currentShowcase.title}</h3>
+                    <p className="showcase-info-desc">{currentShowcase.desc}</p>
+                  </div>
+
+                  <div className="showcase-stats-strip">
+                    <div className="showcase-stat-unit">
+                      <div className="stat-val">{currentShowcase.stat1.val}</div>
+                      <div className="stat-lbl">{currentShowcase.stat1.lbl}</div>
+                    </div>
+                    <div className="showcase-stat-unit">
+                      <div className="stat-val">{currentShowcase.stat2.val}</div>
+                      <div className="stat-lbl">{currentShowcase.stat2.lbl}</div>
+                    </div>
+                    <div className="showcase-stat-unit">
+                      <div className="stat-val">{currentShowcase.stat3.val}</div>
+                      <div className="stat-lbl">{currentShowcase.stat3.lbl}</div>
+                    </div>
+                  </div>
+                </div>
+
               </div>
             </section>
 
-            {/* SIMPLE YET EXTREMELY POWERFUL - PRINCIPLES CAROUSEL (Dribbble 00:08 - 00:19) */}
+            {/* ARCHITECTURAL PRINCIPLES CAROUSEL */}
             <section className="canvas-section" id="principles">
               <div style={{textAlign: 'center', maxWidth: '780px', margin: '0 auto 40px auto'}}>
-                <div className="tech-tag">[FEATURES]</div>
+                <div className="tech-tag">[CORE ARCHITECTURE]</div>
                 <h2 style={{fontSize: '36px', fontWeight: '900', letterSpacing: '-1px', marginBottom: '14px'}}>
                   Simple, yet extremely powerful
                 </h2>
                 <p style={{fontSize: '16px', color: 'var(--text-sub)'}}>
-                  Everything you need to create your own model and manage your institution, whether you are just getting started or a multi-campus educational trust.
+                  Everything you need to orchestrate and manage your institution, whether you are running a single campus or a multi-campus educational trust.
                 </p>
               </div>
 
@@ -1510,10 +1803,10 @@
               </div>
             </section>
 
-            {/* VISION & GLOBAL CAPACITY (Dribbble 00:20 - 00:25) */}
+            {/* VISION & GLOBAL CAPACITY */}
             <section className="canvas-section" id="vision">
               <div style={{textAlign: 'center', maxWidth: '780px', margin: '0 auto 40px auto'}}>
-                <div className="tech-tag">[OUR VISION]</div>
+                <div className="tech-tag">[PLATFORM CAPABILITIES]</div>
                 <h2 style={{fontSize: '32px', fontWeight: '900', letterSpacing: '-0.8px', marginBottom: '14px'}}>
                   State-of-the-art institutional capabilities
                 </h2>
@@ -1522,7 +1815,7 @@
                   EduCore sources compute from multiple edge cloud providers, enabling lightning-fast sync across web, mobile, and hardware gateways.
                 </p>
                 <p style={{fontSize: '14px', lineHeight: '1.6', color: 'var(--text-sub)'}}>
-                  Unlike any other school software, EduCore supports both tightly coupled real-time operations (VoIP telephony, 50m geofence auto-attendance) and zero-secret edge database proxying.
+                  Unlike legacy school software, EduCore supports both tightly coupled real-time operations (VoIP telephony, 50m geofence auto-attendance) and zero-secret edge database proxying.
                 </p>
               </div>
 
@@ -1559,7 +1852,7 @@
               {/* Institution Partner Logos Bar */}
               <div style={{marginTop: '40px', paddingTop: '30px', borderTop: '1px solid var(--border-line)', display: 'flex', alignItems: 'center', justifyContent: 'space-around', flexWrap: 'wrap', gap: '20px'}}>
                 <div style={{display: 'flex', alignItems: 'center', gap: '8px', color: '#666', fontWeight: '700', fontSize: '13px'}}>
-                  <img src="/educore-assets/tps_logo.png" style={{width: '28px', height: '28px', objectFit: 'contain'}} />
+                  <img src="educore-assets/tps_logo.png" style={{width: '28px', height: '28px', objectFit: 'contain'}} />
                   <span>Tapowan Public School</span>
                 </div>
                 <div style={{display: 'flex', alignItems: 'center', gap: '8px', color: '#666', fontWeight: '700', fontSize: '13px'}}>
@@ -1577,14 +1870,14 @@
               </div>
             </section>
 
-            {/* ENGINEERING BLOG & RELEASES (Dribbble 00:29) */}
+            {/* ENGINEERING BLOG & RELEASES */}
             <section className="canvas-section">
               <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '12px'}}>
                 <div>
                   <div className="tech-tag">[ENGINEERING UPDATES]</div>
                   <h2 style={{fontSize: '28px', fontWeight: '900', letterSpacing: '-0.5px'}}>Our technical notes</h2>
                 </div>
-                <a href="#video-announcement" className="btn-nav-ghost" style={{border: '1px solid #ddd'}}>View all articles</a>
+                <a href="#showcase" className="btn-nav-ghost" style={{border: '1px solid #ddd'}}>View all articles</a>
               </div>
 
               <div className="blog-grid">
@@ -1636,7 +1929,7 @@
               </div>
             </section>
 
-            {/* CALL TO ACTION (Dribbble 00:31) */}
+            {/* CALL TO ACTION */}
             <section className="cta-canvas-section">
               <h2 className="cta-heading">
                 Let's build together<br />something new.
@@ -1651,7 +1944,7 @@
               </div>
             </section>
 
-            {/* MINIMALIST FOOTER (Dribbble 00:32 - 00:34) */}
+            {/* MINIMALIST FOOTER */}
             <footer className="canvas-footer">
               <div className="footer-columns-grid">
                 <div>
@@ -1669,8 +1962,8 @@
                   <ul className="footer-nav-list">
                     <li><a href="/" className="footer-nav-link">Web ERP Command</a></li>
                     <li><a href="/TPS-Original-App.apk" className="footer-nav-link">Mobile App (v3.2.9)</a></li>
-                    <li><a href="#geofence" className="footer-nav-link">50m Geofence Radar</a></li>
-                    <li><a href="#voip" className="footer-nav-link">WebRTC Telephony</a></li>
+                    <li><a href="#showcase" className="footer-nav-link">Live Platform</a></li>
+                    <li><a href="#principles" className="footer-nav-link">WebRTC Telephony</a></li>
                   </ul>
                 </div>
 
