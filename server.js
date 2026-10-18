@@ -4904,15 +4904,15 @@ app.post("/api/media-notifications/send", authRequired, async (req, res) => {
       return res.status(403).json({ error: "Only administrators and staff can broadcast media notifications" });
     }
 
-    const {
+    let {
       title,
       message,
       mediaType = 'image', // 'image' | 'video' | 'gif'
       mediaUrl: inputMediaUrl,
       videoUrl: inputVideoUrl,
       mediaBase64,
-      mediaFilename = 'banner.jpg',
-      mediaMime = 'image/jpeg',
+      mediaFilename = 'banner.webp',
+      mediaMime = 'image/webp',
       targetType = 'all',
       targetClass = '',
       targetId = '',
@@ -4948,11 +4948,22 @@ app.post("/api/media-notifications/send", authRequired, async (req, res) => {
       mediaBytes = Buffer.byteLength(cleanBase64, 'base64');
 
       let ext = 'webp';
-      if (mediaMime.includes('gif') || cleanBase64.startsWith('R0lGOD')) ext = 'gif';
-      else if (mediaMime.includes('mp4') || cleanBase64.startsWith('AAAA')) ext = 'mp4';
-      else if (mediaMime.includes('webp') || cleanBase64.startsWith('UklGR')) ext = 'webp';
-      else if (mediaMime.includes('png') || cleanBase64.startsWith('iVBOR')) ext = 'png';
-      else if (mediaMime.includes('jpeg') || mediaMime.includes('jpg') || cleanBase64.startsWith('/9j/')) ext = 'jpg';
+      if (mediaMime.includes('gif') || cleanBase64.startsWith('R0lGOD')) {
+        ext = 'gif';
+        mediaMime = 'image/gif';
+      } else if (mediaMime.includes('mp4') || cleanBase64.startsWith('AAAA')) {
+        ext = 'mp4';
+        mediaMime = 'video/mp4';
+      } else if (mediaMime.includes('webp') || cleanBase64.startsWith('UklGR')) {
+        ext = 'webp';
+        mediaMime = 'image/webp';
+      } else if (mediaMime.includes('png') || cleanBase64.startsWith('iVBOR')) {
+        ext = 'png';
+        mediaMime = 'image/png';
+      } else if (mediaMime.includes('jpeg') || mediaMime.includes('jpg') || cleanBase64.startsWith('/9j/')) {
+        ext = 'jpg';
+        mediaMime = 'image/jpeg';
+      }
 
       // Server-side WebP conversion pipeline:
       // If media is ANY raster image (not mp4, not animated gif), convert to WebP format via sharp!
@@ -4973,7 +4984,7 @@ app.post("/api/media-notifications/send", authRequired, async (req, res) => {
           console.log(`[Media Broadcast] Server converted to WebP: ${rawBuf.length} -> ${mediaBytes} bytes`);
         } catch (sharpErr) {
           console.log('[Media Broadcast] Server sharp WebP conversion notice:', sharpErr.message);
-          if (cleanBase64.startsWith('UklGR')) {
+          if (cleanBase64.startsWith('UklGR') || (mediaMime && mediaMime.includes('webp'))) {
             ext = 'webp';
             mediaMime = 'image/webp';
           }
@@ -4981,6 +4992,7 @@ app.post("/api/media-notifications/send", authRequired, async (req, res) => {
       }
 
       const fileName = `banner_${Date.now()}.${ext}`;
+      mediaFilename = fileName;
 
       // Default safe fallback URL via serverless endpoint
       resolvedMediaUrl = `https://tapowan-school.vercel.app/api/banners/${fileName}`;
