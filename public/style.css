@@ -4323,6 +4323,244 @@ img[src*="student-photos"],
   font-weight: 700;
 }
 
+/* Card 5: Class with Total Student Distribution (Wide Bar Chart) */
+.class-graph-container {
+  position: relative;
+  width: 100%;
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+}
+
+.class-graph-scroll-wrap {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.class-graph-scroll-wrap::-webkit-scrollbar {
+  height: 5px;
+}
+.class-graph-scroll-wrap::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.class-graph-plot {
+  position: relative;
+  min-width: 620px;
+  height: 185px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 10px 4px 10px;
+}
+
+.class-avg-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1.5px dashed #cbd5e1;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.class-avg-pill {
+  position: absolute;
+  left: 8px;
+  transform: translateY(-50%);
+  background: #0f172a;
+  color: #ffffff;
+  padding: 2.5px 8px;
+  border-radius: 6px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+  z-index: 3;
+}
+
+.class-bar-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  min-width: 40px;
+  max-width: 54px;
+  cursor: pointer;
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.class-bar-count-badge {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #475569;
+  margin-bottom: 6px;
+  transition: color 0.15s, transform 0.15s;
+}
+
+.class-bar-col:hover .class-bar-count-badge,
+.class-bar-col.active .class-bar-count-badge {
+  color: #2563eb;
+  transform: translateY(-2px);
+  font-weight: 900;
+}
+
+.class-bar-pillar {
+  width: 100%;
+  background: #e2e8f0;
+  border-radius: 10px 10px 4px 4px;
+  position: relative;
+  transition: height 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s, background 0.2s;
+  overflow: hidden;
+  transform-origin: bottom;
+  animation: barGrow 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.class-bar-pillar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 255, 255, 0.2),
+    rgba(255, 255, 255, 0.2) 4px,
+    transparent 4px,
+    transparent 8px
+  );
+  border-radius: inherit;
+  opacity: 0.6;
+}
+
+.class-bar-pillar.gradient-blue {
+  background: linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
+}
+
+.class-bar-pillar.gradient-cyan {
+  background: linear-gradient(180deg, #06b6d4 0%, #0284c7 100%);
+  box-shadow: 0 4px 14px rgba(6, 182, 212, 0.25);
+}
+
+.class-bar-pillar.gradient-indigo {
+  background: linear-gradient(180deg, #6366f1 0%, #4338ca 100%);
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.25);
+}
+
+.class-bar-col:hover .class-bar-pillar,
+.class-bar-col.active .class-bar-pillar {
+  transform: scaleY(1.04);
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.45);
+  filter: brightness(1.08);
+}
+
+.class-bar-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #64748b;
+  margin-top: 8px;
+  text-align: center;
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+  transition: color 0.15s;
+}
+
+.class-bar-col:hover .class-bar-label,
+.class-bar-col.active .class-bar-label {
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.class-bar-tooltip {
+  position: absolute;
+  top: -46px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #0f172a;
+  color: #ffffff;
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.25);
+  pointer-events: none;
+  z-index: 10;
+  animation: tooltipPop 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.class-bar-tooltip::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 8px;
+  height: 8px;
+  background: #0f172a;
+}
+
+/* Category Summary Strip below chart */
+.class-summary-strip {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px dashed #e2e8f0;
+}
+
+.class-summary-item {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  transition: all 0.2s;
+}
+
+.class-summary-item:hover {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+}
+
+.class-summary-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.class-summary-num {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+
+.class-summary-sub {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+@media (max-width: 768px) {
+  .class-summary-strip {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
+
 /* Animations */
 @keyframes barGrow {
   from { transform: scaleY(0); }

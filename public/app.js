@@ -5574,10 +5574,89 @@ window.getRealAnalyticsSuiteHTML = function(d) {
   const partialPct = Math.round((partialCount / Math.max(1, feesList.length)) * 100) || 15;
   const duePct = Math.max(0, 100 - collectionPct);
 
-  // Card 5: Institutional growth
-  const c5Val = `₹${Math.round(totalPaid * 1.15).toLocaleString('en-IN')}`;
-  const c5Avg = `Avg ₹${Math.round(totalPaid / 7).toLocaleString('en-IN')}`;
-  const c5Tip = c1Bars[4].vStr;
+  // Card 5: Class with Total Student Graph (100% Real Database Records)
+  const allStudents = d.students || (window.serverStore && window.serverStore.students ? window.serverStore.students : []);
+  let classCounts = {};
+  if (d.classDist && Object.keys(d.classDist).length > 0) {
+    classCounts = { ...d.classDist };
+  } else {
+    allStudents.forEach(s => {
+      const cls = s.className || "Unassigned";
+      classCounts[cls] = (classCounts[cls] || 0) + 1;
+    });
+  }
+
+  // Academic progression rank
+  const classOrderRank = (clsName) => {
+    const raw = String(clsName || '').trim();
+    const base = raw.split(/[-\s]/)[0].toUpperCase();
+    const map = {
+      'NURSERY': 1, 'NUR': 1,
+      'LKG': 2, 'L.K.G': 2,
+      'UKG': 3, 'U.K.G': 3,
+      'I': 4, '1': 4,
+      'II': 5, '2': 5,
+      'III': 6, '3': 6,
+      'IV': 7, '4': 7,
+      'V': 8, '5': 8,
+      'VI': 9, '6': 9,
+      'VII': 10, '7': 10,
+      'VIII': 11, '8': 11,
+      'IX': 12, '9': 12,
+      'X': 13, '10': 13,
+      'XI': 14, '11': 14,
+      'XII': 15, '12': 15
+    };
+    return map[base] !== undefined ? map[base] : 99;
+  };
+
+  const sortedClassNames = Object.keys(classCounts).sort((a, b) => {
+    const rA = classOrderRank(a);
+    const rB = classOrderRank(b);
+    if (rA !== rB) return rA - rB;
+    return a.localeCompare(b);
+  });
+
+  const totalEnrolledStudents = (allStudents.length || d.totalStud || Object.values(classCounts).reduce((a, b) => a + b, 0)) || 1;
+  const numClasses = Math.max(1, sortedClassNames.length);
+  const avgStudentsPerClass = Math.round(totalEnrolledStudents / numClasses);
+  const maxClassCount = Math.max(1, ...Object.values(classCounts));
+
+  let prePrimaryCount = 0; // Nursery, LKG, UKG
+  let primaryCount = 0;    // I - V
+  let secondaryCount = 0;  // VI - XII
+
+  const classBarItems = sortedClassNames.map((cls) => {
+    const cnt = classCounts[cls] || 0;
+    const rank = classOrderRank(cls);
+    if (rank <= 3) prePrimaryCount += cnt;
+    else if (rank <= 8) primaryCount += cnt;
+    else secondaryCount += cnt;
+
+    const h = Math.max(22, Math.round((cnt / maxClassCount) * 135));
+    const pct = Math.round((cnt / totalEnrolledStudents) * 100);
+
+    let gradientClass = 'gradient-blue';
+    if (rank <= 3) gradientClass = 'gradient-cyan';
+    else if (rank >= 9) gradientClass = 'gradient-indigo';
+
+    const shortLabel = cls.replace(/Nursery/i, 'Nur');
+
+    return {
+      className: cls,
+      shortLabel: shortLabel,
+      count: cnt,
+      height: h,
+      pct: pct,
+      gradientClass: gradientClass,
+      active: cnt === maxClassCount
+    };
+  });
+
+  const prePrimaryPct = Math.round((prePrimaryCount / totalEnrolledStudents) * 100) || 0;
+  const primaryPct = Math.round((primaryCount / totalEnrolledStudents) * 100) || 0;
+  const secondaryPct = Math.round((secondaryCount / totalEnrolledStudents) * 100) || 0;
+  const avgLineBottom = Math.round((avgStudentsPerClass / maxClassCount) * 135) + 4;
 
   let calHtml = window.renderDashboardCalendarHTML ? window.renderDashboardCalendarHTML() : '';
 
@@ -5800,52 +5879,73 @@ window.getRealAnalyticsSuiteHTML = function(d) {
           </div>
         </div>
 
-        <!-- ── CARD 5: Institutional Growth Statistics (Wide Spline) ── -->
+        <!-- ── CARD 5: Class with Total Student Graph (Wide Bar Chart) ── -->
         <div class="dribbble-card card-wide">
           <div class="dribbble-card-header">
             <div class="dribbble-card-title-wrap">
-              <span class="material-symbols-outlined dribbble-card-icon">trending_up</span>
-              <span class="dribbble-card-title">Institutional Growth Statistics</span>
-              <span class="material-symbols-outlined dribbble-info-icon" title="Historical school revenue and performance trends">info</span>
+              <span class="material-symbols-outlined dribbble-card-icon" style="color:#2563eb;">groups</span>
+              <span class="dribbble-card-title">Class-wise Student Distribution</span>
+              <span class="material-symbols-outlined dribbble-info-icon" title="Total enrolled student count per academic class">info</span>
             </div>
-            <button class="dribbble-more-btn" type="button">···</button>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="dribbble-badge-sub" style="font-weight:700; color:#2563eb; background:#eff6ff; padding:3px 10px; border-radius:12px; border:1px solid #bfdbfe;">
+                ${numClasses} Active Classes
+              </span>
+            </div>
           </div>
 
           <div class="dribbble-stat-row">
-            <div class="dribbble-main-value" id="valIncomeStats">${c5Val}</div>
-            <span class="dribbble-pill-badge">↗ 14.8%</span>
-            <span class="dribbble-badge-sub">session growth</span>
+            <div class="dribbble-main-value" id="valTotalStudentsCount">${totalEnrolledStudents} <span style="font-size:1.05rem; font-weight:700; color:#64748b;">Total Students</span></div>
+            <span class="dribbble-pill-badge">Avg ${avgStudentsPerClass}</span>
+            <span class="dribbble-badge-sub">per class</span>
           </div>
 
-          <div class="spline-chart-wrap">
-            <div class="spline-avg-badge">${c5Avg}</div>
-            <div class="spline-tooltip-box">${c5Tip}</div>
+          <div class="class-graph-container">
+            <div class="class-graph-scroll-wrap">
+              <div class="class-graph-plot">
+                <!-- Average Line -->
+                <div class="class-avg-line" style="bottom: ${avgLineBottom}px;">
+                  <span class="class-avg-pill">Avg ${avgStudentsPerClass}</span>
+                </div>
 
-            <svg class="spline-svg" viewBox="0 0 760 160" preserveAspectRatio="none">
-              <line class="spline-avg-line" x1="40" y1="95" x2="750" y2="95" />
-              <path class="spline-area-fill"
-                    d="M 20,105 
-                       L 45,86 L 70,98 L 95,84 L 125,87 L 160,70 L 205,100 L 225,93 L 245,95 L 260,102 L 275,85 L 290,110 
-                       L 305,96 L 315,86 L 330,60 L 360,72 L 375,64 L 400,80 L 420,62 L 440,78 L 470,64 L 500,100 L 515,112 
-                       L 530,95 L 555,82 L 580,72 L 605,86 L 630,76 L 655,92 L 685,84 L 715,74 L 745,80 
-                       L 745,150 L 20,150 Z" />
-              <path class="spline-curve-line"
-                    d="M 20,105 
-                       L 45,86 L 70,98 L 95,84 L 125,87 L 160,70 L 205,100 L 225,93 L 245,95 L 260,102 L 275,85 L 290,110 
-                       L 305,96 L 315,86 L 330,60 L 360,72 L 375,64 L 400,80 L 420,62 L 440,78 L 470,64 L 500,100 L 515,112 
-                       L 530,95 L 555,82 L 580,72 L 605,86 L 630,76 L 655,92 L 685,84 L 715,74 L 745,80" />
-              <circle class="spline-point" cx="420" cy="62" />
-            </svg>
-          </div>
+                <!-- Class Columns -->
+                ${classBarItems.map(b => `
+                  <div class="class-bar-col ${b.active ? 'active' : ''}" data-class="${b.className}" data-count="${b.count}" data-pct="${b.pct}">
+                    <div class="class-bar-count-badge">${b.count}</div>
+                    <div class="class-bar-pillar ${b.gradientClass}" style="height: ${b.height}px;"></div>
+                    <div class="class-bar-label">${b.shortLabel}</div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
 
-          <div class="spline-month-strip">
-            <span class="spline-month-item">Jan</span>
-            <span class="spline-month-item">Feb</span>
-            <span class="spline-month-item">Mar</span>
-            <span class="spline-month-item">Apr</span>
-            <span class="spline-month-item active">May</span>
-            <span class="spline-month-item">Jun</span>
-            <span class="spline-month-item">Jul</span>
+            <!-- Category Summary Strip -->
+            <div class="class-summary-strip">
+              <div class="class-summary-item">
+                <span class="class-summary-title">
+                  <span class="material-symbols-outlined" style="font-size:1rem; color:#06b6d4;">child_care</span>
+                  Pre-Primary (Nur - UKG)
+                </span>
+                <span class="class-summary-num">${prePrimaryCount} <span style="font-size:0.75rem; font-weight:700; color:#06b6d4;">(${prePrimaryPct}%)</span></span>
+                <span class="class-summary-sub">Foundational Wing</span>
+              </div>
+              <div class="class-summary-item">
+                <span class="class-summary-title">
+                  <span class="material-symbols-outlined" style="font-size:1rem; color:#2563eb;">menu_book</span>
+                  Primary Wing (Class I - V)
+                </span>
+                <span class="class-summary-num">${primaryCount} <span style="font-size:0.75rem; font-weight:700; color:#2563eb;">(${primaryPct}%)</span></span>
+                <span class="class-summary-sub">Preparatory Wing</span>
+              </div>
+              <div class="class-summary-item">
+                <span class="class-summary-title">
+                  <span class="material-symbols-outlined" style="font-size:1rem; color:#6366f1;">biotech</span>
+                  Middle & High (Class VI - X)
+                </span>
+                <span class="class-summary-num">${secondaryCount} <span style="font-size:0.75rem; font-weight:700; color:#6366f1;">(${secondaryPct}%)</span></span>
+                <span class="class-summary-sub">Middle & Secondary Wing</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -5879,16 +5979,21 @@ window.initRealAnalyticsInteractions = function(d) {
   const totalPaid = Number(d.totalPaidAmount || 0);
   animateCount(document.getElementById('valTotalBalance'), totalPaid, 1400, "₹");
   animateCount(document.getElementById('valSubscriptions'), totalPaid, 1200, "₹");
-  animateCount(document.getElementById('valIncomeStats'), Math.round(totalPaid * 1.15), 1400, "₹");
+  const incEl = document.getElementById('valIncomeStats');
+  if (incEl) animateCount(incEl, Math.round(totalPaid * 1.15), 1400, "₹");
+
+  const totalStudents = (d.students || []).length || d.totalStud || 0;
+  const studCountEl = document.getElementById('valTotalStudentsCount');
+  if (studCountEl) animateCount(studCountEl, totalStudents, 1200, "", 0);
 
   // Speedometer 14 segments
   const archContainer = document.getElementById('speedoArch');
   if (archContainer) {
     archContainer.innerHTML = '';
     const totalSegments = 14;
-    const totalStudents = (d.students || []).length || d.totalStud || 1;
+    const totalStudentsCount = (d.students || []).length || d.totalStud || 1;
     const presentCount = Number(d.presentToday || 0); // 100% Real - Zero Fake Fallback!
-    const activeSegments = presentCount > 0 ? Math.max(1, Math.min(14, Math.round((presentCount / totalStudents) * 14))) : 0;
+    const activeSegments = presentCount > 0 ? Math.max(1, Math.min(14, Math.round((presentCount / totalStudentsCount) * 14))) : 0;
     const startAngle = -90;
     const endAngle = 90;
     const angleStep = (endAngle - startAngle) / (totalSegments - 1);
@@ -5943,14 +6048,43 @@ window.initRealAnalyticsInteractions = function(d) {
     });
   });
 
-  // Spline Months Click
-  const splineMonths = document.querySelectorAll('.spline-month-item');
-  splineMonths.forEach(m => {
-    m.addEventListener('click', () => {
-      splineMonths.forEach(x => x.classList.remove('active'));
-      m.classList.add('active');
+  // Class bar columns hover & interactive tooltips
+  const classCols = document.querySelectorAll('.class-bar-col');
+  classCols.forEach(col => {
+    col.addEventListener('mouseenter', () => {
+      classCols.forEach(c => {
+        c.classList.remove('active');
+        const oldTip = c.querySelector('.class-bar-tooltip');
+        if (oldTip) oldTip.remove();
+      });
+      col.classList.add('active');
+
+      const clsName = col.getAttribute('data-class') || '';
+      const count = col.getAttribute('data-count') || '0';
+      const pct = col.getAttribute('data-pct') || '0';
+
+      const tip = document.createElement('div');
+      tip.className = 'class-bar-tooltip';
+      tip.textContent = `${clsName}: ${count} (${pct}%)`;
+      col.appendChild(tip);
+    });
+
+    col.addEventListener('mouseleave', () => {
+      const tip = col.querySelector('.class-bar-tooltip');
+      if (tip) tip.remove();
     });
   });
+
+  // Spline Months Click (if present)
+  const splineMonths = document.querySelectorAll('.spline-month-item');
+  if (splineMonths.length > 0) {
+    splineMonths.forEach(m => {
+      m.addEventListener('click', () => {
+        splineMonths.forEach(x => x.classList.remove('active'));
+        m.classList.add('active');
+      });
+    });
+  }
 };
 
 function renderHeader() {
