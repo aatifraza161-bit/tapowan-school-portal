@@ -6554,12 +6554,67 @@
       if (file.type.includes('gif')) {
         const gifBtn = modal.querySelector('.mn-type-btn[data-type="gif"]');
         if (gifBtn) gifBtn.click();
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          selectedMediaBase64 = ev.target.result;
+          updatePreview(selectedMediaBase64);
+        };
+        reader.readAsDataURL(file);
+        return;
       }
 
+      // For standard images (PNG, JPG, WebP), auto-compress via HTML5 Canvas
+      // Ensures banner is < 200 KB so Android FCM BigPictureStyle never drops it or times out
       const reader = new FileReader();
       reader.onload = (ev) => {
-        selectedMediaBase64 = ev.target.result;
-        updatePreview(selectedMediaBase64);
+        const rawDataUrl = ev.target.result;
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const maxW = 1200;
+            const maxH = 900;
+            let w = img.width;
+            let h = img.height;
+
+            if (w > maxW || h > maxH) {
+              const ratio = Math.min(maxW / w, maxH / h);
+              w = Math.round(w * ratio);
+              h = Math.round(h * ratio);
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+
+            // Pure white background for transparent PNGs
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, w, h);
+            ctx.drawImage(img, 0, 0, w, h);
+
+            let compressed = canvas.toDataURL('image/jpeg', 0.82);
+            if (compressed.length > 500000) {
+              compressed = canvas.toDataURL('image/jpeg', 0.70);
+            }
+
+            selectedMediaBase64 = compressed;
+            selectedMediaMime = 'image/jpeg';
+            selectedMediaFilename = file.name.replace(/\.[^.]+$/, '') + '.jpg';
+            updatePreview(selectedMediaBase64);
+
+            const sizeKb = Math.round((selectedMediaBase64.length * 3 / 4) / 1024);
+            console.log(`[Media Broadcast] Auto-compressed ${(file.size / 1024).toFixed(0)} KB -> ${sizeKb} KB (${w}x${h})`);
+          } catch (err) {
+            console.warn('[Media Broadcast] Canvas compression fallback:', err);
+            selectedMediaBase64 = rawDataUrl;
+            updatePreview(selectedMediaBase64);
+          }
+        };
+        img.onerror = () => {
+          selectedMediaBase64 = rawDataUrl;
+          updatePreview(selectedMediaBase64);
+        };
+        img.src = rawDataUrl;
       };
       reader.readAsDataURL(file);
     }
@@ -6583,7 +6638,8 @@
           return;
         }
 
-        const message = document.getElementById('mnInputMessage')?.value?.trim() || '';
+        const rawMsg = document.getElementById('mnInputMessage')?.value?.trim() || '';
+        const message = rawMsg || title;
         const targetType = modal.querySelector('input[name="mnTargetType"]:checked')?.value || 'all';
         let targetClass = '';
         let targetId = '';

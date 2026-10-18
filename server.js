@@ -4953,6 +4953,27 @@ app.post("/api/media-notifications/send", authRequired, async (req, res) => {
       else if (mediaMime.includes('gif') || cleanBase64.startsWith('R0lGOD')) ext = 'gif';
       else if (mediaMime.includes('mp4') || cleanBase64.startsWith('AAAA')) ext = 'mp4';
 
+      // Server-side fallback optimization: if image is > 500 KB, compress via sharp if available
+      if (mediaBytes > 500000 && ext !== 'mp4' && ext !== 'gif') {
+        try {
+          const sharp = require('sharp');
+          const rawBuf = Buffer.from(cleanBase64, 'base64');
+          const optBuf = await sharp(rawBuf)
+            .resize(1200, 1200, { fit: 'inside', withoutEnlargement: true })
+            .jpeg({ quality: 80 })
+            .toBuffer();
+          if (optBuf.length < mediaBytes) {
+            cleanBase64 = optBuf.toString('base64');
+            mediaBytes = optBuf.length;
+            ext = 'jpg';
+            mediaMime = 'image/jpeg';
+            console.log(`[Media Broadcast] Server sharp optimized: ${rawBuf.length} -> ${mediaBytes} bytes`);
+          }
+        } catch (sharpErr) {
+          console.log('[Media Broadcast] Server sharp optimization skipped:', sharpErr.message);
+        }
+      }
+
       const fileName = `banner_${Date.now()}.${ext}`;
 
       // Default safe fallback URL via serverless endpoint

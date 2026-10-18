@@ -2160,7 +2160,7 @@ async function dispatchMediaNotificationPush({
       if (accessToken) {
         const notifPayload = {
           title: title,
-          body: message || 'Tap to view school media broadcast.'
+          body: message || title || 'Tap to view school media broadcast.'
         };
         if (mediaUrl) notifPayload.image = mediaUrl;
 
@@ -2230,7 +2230,7 @@ async function dispatchMediaNotificationPush({
           to: token,
           sound: 'default',
           title: title,
-          body: message || 'Tap to view school media broadcast',
+          body: message || title || 'Tap to view school media broadcast',
           channelId: 'default',
           priority: 'high',
           richContent: mediaUrl ? { image: mediaUrl } : undefined,
