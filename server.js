@@ -435,6 +435,15 @@ app.get("/", (req, res) => {
   res.send("✅ Backend is live");
 });
 
+app.get(["/educore", "/ecosystem"], (req, res) => {
+  const educorePath = path.join(__dirname, "public", "educore.html");
+  if (fs.existsSync(educorePath)) {
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    return res.send(fs.readFileSync(educorePath));
+  }
+  res.redirect("/educore.html");
+});
+
 // ── Universal APK Server (Direct Vercel / Local Host) ──
 app.get([
   "/TPS-Original-App.apk",
