@@ -4981,6 +4981,54 @@ window.filterDuesByClass = function(clsName) {
   }, 250);
 };
 
+// ═══════════════════════════════════════════════════════════════
+// UNIVERSAL HORIZONTAL & DRAG SCROLL ENGINE
+// ═══════════════════════════════════════════════════════════════
+window.makeHorizontallyScrollable = function(container) {
+  if (!container || container._hasHScrollInit) return;
+  container._hasHScrollInit = true;
+
+  // 1. Mouse wheel translation: vertical mouse wheel -> horizontal scroll
+  container.addEventListener('wheel', function(e) {
+    if (e.deltaY !== 0 && container.scrollWidth > container.clientWidth) {
+      e.preventDefault();
+      container.scrollLeft += (e.deltaY * 1.2);
+    }
+  }, { passive: false });
+
+  // 2. Mouse Drag-to-Scroll (Desktop grab and drag)
+  let isDown = false;
+  let startX;
+  let scrollLeft;
+
+  container.style.cursor = 'grab';
+  container.addEventListener('mousedown', function(e) {
+    if (e.target.tagName === 'BUTTON' || e.target.closest('button') || e.target.closest('a')) return;
+    isDown = true;
+    container.style.cursor = 'grabbing';
+    container.style.userSelect = 'none';
+    startX = e.pageX - container.offsetLeft;
+    scrollLeft = container.scrollLeft;
+  });
+
+  const stopDrag = function() {
+    isDown = false;
+    container.style.cursor = 'grab';
+    container.style.removeProperty('user-select');
+  };
+
+  container.addEventListener('mouseleave', stopDrag);
+  container.addEventListener('mouseup', stopDrag);
+
+  container.addEventListener('mousemove', function(e) {
+    if (!isDown) return;
+    e.preventDefault();
+    const x = e.pageX - container.offsetLeft;
+    const walk = (x - startX) * 1.5;
+    container.scrollLeft = scrollLeft - walk;
+  });
+};
+
 window.showClassWiseFeeModal = function(targetClass = null) {
   const store = typeof getStore === "function" ? getStore() : (window.serverStore || {});
   const feeData = window.getClassWiseFeeStats(store);
@@ -4997,6 +5045,7 @@ window.showClassWiseFeeModal = function(targetClass = null) {
     background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(6px);
     z-index: 999999; display: flex; align-items: center; justify-content: center;
     padding: 16px; box-sizing: border-box; font-family: inherit;
+    animation: modalFadeIn 0.2s ease-out;
   `;
 
   let rowsHtml = classes.map(c => {
@@ -5042,7 +5091,7 @@ window.showClassWiseFeeModal = function(targetClass = null) {
     const isTarget = targetClass && (c.className === targetClass || targetClass.includes(c.className));
 
     return `
-      <div style="display:flex; flex-direction:column; align-items:center; flex:1; min-width:38px; cursor:pointer;" title="${c.className}&#10;Total Fee: ₹${c.totalFee.toLocaleString('en-IN')}&#10;Pending Fee: ₹${c.pendingFee.toLocaleString('en-IN')}">
+      <div style="display:flex; flex-direction:column; align-items:center; flex:0 0 auto; min-width:48px; cursor:pointer;" title="${c.className}&#10;Total Fee: ₹${c.totalFee.toLocaleString('en-IN')}&#10;Pending Fee: ₹${c.pendingFee.toLocaleString('en-IN')}">
         <div style="height:130px; display:flex; align-items:flex-end; gap:4px; position:relative; padding-bottom:4px;">
           <!-- Total Fee Bar -->
           <div style="width:12px; height:${tH}px; background:linear-gradient(180deg, #818cf8, #4f46e5); border-radius:4px 4px 0 0; box-shadow:0 2px 6px rgba(79,70,229,0.2);"></div>
@@ -5057,10 +5106,10 @@ window.showClassWiseFeeModal = function(targetClass = null) {
   }).join('');
 
   modal.innerHTML = `
-    <div style="background:#fff; width:100%; max-width:880px; max-height:90vh; border-radius:18px; box-shadow:0 20px 40px rgba(0,0,0,0.25); display:flex; flex-direction:column; overflow:hidden; border:1px solid #e2e8f0;">
+    <div style="background:#fff; width:100%; max-width:880px; max-height:90vh; height:90vh; border-radius:18px; box-shadow:0 20px 40px rgba(0,0,0,0.25); display:flex; flex-direction:column; overflow:hidden; border:1px solid #e2e8f0;">
       
       <!-- Modal Header -->
-      <div style="padding:18px 22px; background:linear-gradient(135deg, #faf5ff, #f3e8ff); border-bottom:1px solid #e9d5ff; display:flex; align-items:center; justify-content:space-between;">
+      <div style="padding:18px 22px; flex-shrink:0; background:linear-gradient(135deg, #faf5ff, #f3e8ff); border-bottom:1px solid #e9d5ff; display:flex; align-items:center; justify-content:space-between;">
         <div style="display:flex; align-items:center; gap:12px;">
           <div style="width:42px; height:42px; border-radius:12px; background:#ede9fe; color:#7e22ce; display:grid; place-items:center;">
             <span class="material-symbols-outlined" style="font-size:24px;">bar_chart</span>
@@ -5076,7 +5125,7 @@ window.showClassWiseFeeModal = function(targetClass = null) {
       </div>
 
       <!-- Modal Body (Scrollable) -->
-      <div style="padding:20px 22px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:20px;">
+      <div style="padding:20px 22px; overflow-y:auto; overflow-x:hidden; flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:20px; overscroll-behavior:contain; -webkit-overflow-scrolling:touch;">
         
         <!-- Summary Cards -->
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px;">
@@ -5113,7 +5162,7 @@ window.showClassWiseFeeModal = function(targetClass = null) {
               <span style="display:inline-flex; align-items:center; gap:4px; color:#9333ea;"><span style="width:8px; height:8px; border-radius:50%; background:#9333ea;"></span>Pending Dues</span>
             </div>
           </div>
-          <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:6px; overflow-x:auto; padding-bottom:6px; scrollbar-width:thin;">
+          <div class="modal-h-scroll" style="display:flex; align-items:flex-end; gap:8px; overflow-x:auto; padding:10px 4px 6px; border-bottom:1px solid #f1f5f9; scrollbar-width:thin; touch-action:pan-x;">
             ${chartColsHtml}
           </div>
         </div>
@@ -5124,7 +5173,7 @@ window.showClassWiseFeeModal = function(targetClass = null) {
             <span>Class-Wise Detailed Ledger</span>
             <span style="font-size:0.72rem; font-weight:600; color:#64748b;">${classes.length} classes listed</span>
           </div>
-          <div style="overflow-x:auto;">
+          <div class="modal-h-scroll" style="overflow-x:auto; touch-action:pan-x;">
             <table style="width:100%; border-collapse:collapse; font-size:0.82rem;">
               <thead>
                 <tr style="background:#f1f5f9; color:#475569; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.04em; border-bottom:1px solid #e2e8f0;">
@@ -5148,7 +5197,7 @@ window.showClassWiseFeeModal = function(targetClass = null) {
       </div>
 
       <!-- Modal Footer -->
-      <div style="padding:12px 22px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+      <div style="padding:12px 22px; flex-shrink:0; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
         <span style="font-size:0.72rem; color:#64748b;">Data synchronized with Turso Cloud school database</span>
         <button type="button" onclick="document.getElementById('classWiseFeeModal').remove()" style="padding:8px 18px; background:#2563eb; color:#fff; border:none; border-radius:8px; font-weight:700; font-size:0.8rem; cursor:pointer;">Close</button>
       </div>
@@ -5161,6 +5210,7 @@ window.showClassWiseFeeModal = function(targetClass = null) {
   });
 
   document.body.appendChild(modal);
+  modal.querySelectorAll('.modal-h-scroll').forEach(window.makeHorizontallyScrollable);
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -5351,7 +5401,7 @@ window.showClassWiseAttendanceModal = function(targetClass = null) {
     const isTarget = targetClass && (c.className === targetClass || targetClass.includes(c.className));
 
     return `
-      <div style="display:flex; flex-direction:column; align-items:center; flex:1; min-width:38px; cursor:pointer;" title="${c.className}&#10;Enrolled: ${c.totalStudents}&#10;Present Today: ${c.presentCount}">
+      <div style="display:flex; flex-direction:column; align-items:center; flex:0 0 auto; min-width:48px; cursor:pointer;" title="${c.className}&#10;Enrolled: ${c.totalStudents}&#10;Present Today: ${c.presentCount}">
         <div style="height:130px; display:flex; align-items:flex-end; gap:4px; position:relative; padding-bottom:4px;">
           <!-- Enrolled Students Bar (Rose/Slate) -->
           <div style="width:12px; height:${tH}px; background:linear-gradient(180deg, #fda4af, #f43f5e); border-radius:4px 4px 0 0; box-shadow:0 2px 6px rgba(244,63,94,0.2);"></div>
@@ -5366,10 +5416,10 @@ window.showClassWiseAttendanceModal = function(targetClass = null) {
   }).join('');
 
   modal.innerHTML = `
-    <div style="background:#fff; width:100%; max-width:880px; max-height:90vh; border-radius:18px; box-shadow:0 20px 40px rgba(0,0,0,0.25); display:flex; flex-direction:column; overflow:hidden; border:1px solid #e2e8f0;">
+    <div style="background:#fff; width:100%; max-width:880px; max-height:90vh; height:90vh; border-radius:18px; box-shadow:0 20px 40px rgba(0,0,0,0.25); display:flex; flex-direction:column; overflow:hidden; border:1px solid #e2e8f0;">
       
       <!-- Modal Header -->
-      <div style="padding:18px 22px; background:linear-gradient(135deg, #fff1f2, #ffe4e6); border-bottom:1px solid #fecdd3; display:flex; align-items:center; justify-content:space-between;">
+      <div style="padding:18px 22px; flex-shrink:0; background:linear-gradient(135deg, #fff1f2, #ffe4e6); border-bottom:1px solid #fecdd3; display:flex; align-items:center; justify-content:space-between;">
         <div style="display:flex; align-items:center; gap:12px;">
           <div style="width:42px; height:42px; border-radius:12px; background:#fecdd3; color:#be123c; display:grid; place-items:center;">
             <span class="material-symbols-outlined" style="font-size:24px;">how_to_reg</span>
@@ -5384,8 +5434,8 @@ window.showClassWiseAttendanceModal = function(targetClass = null) {
         </button>
       </div>
 
-      <!-- Modal Body -->
-      <div style="padding:20px 22px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:20px;">
+      <!-- Modal Body (Scrollable) -->
+      <div style="padding:20px 22px; overflow-y:auto; overflow-x:hidden; flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:20px; overscroll-behavior:contain; -webkit-overflow-scrolling:touch;">
         
         <!-- Summary Cards -->
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px;">
@@ -5422,7 +5472,7 @@ window.showClassWiseAttendanceModal = function(targetClass = null) {
               <span style="display:inline-flex; align-items:center; gap:4px; color:#10b981;"><span style="width:8px; height:8px; border-radius:50%; background:#10b981;"></span>Present Today</span>
             </div>
           </div>
-          <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:6px; overflow-x:auto; padding-bottom:6px; scrollbar-width:thin;">
+          <div class="modal-h-scroll" style="display:flex; align-items:flex-end; gap:8px; overflow-x:auto; padding:10px 4px 6px; border-bottom:1px solid #f1f5f9; scrollbar-width:thin; touch-action:pan-x;">
             ${chartColsHtml}
           </div>
         </div>
@@ -5433,7 +5483,7 @@ window.showClassWiseAttendanceModal = function(targetClass = null) {
             <span>Class-Wise Attendance Roster</span>
             <span style="font-size:0.72rem; font-weight:600; color:#64748b;">${classes.length} classes listed</span>
           </div>
-          <div style="overflow-x:auto;">
+          <div class="modal-h-scroll" style="overflow-x:auto; touch-action:pan-x;">
             <table style="width:100%; border-collapse:collapse; font-size:0.82rem;">
               <thead>
                 <tr style="background:#f1f5f9; color:#475569; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.04em; border-bottom:1px solid #e2e8f0;">
@@ -5456,7 +5506,7 @@ window.showClassWiseAttendanceModal = function(targetClass = null) {
       </div>
 
       <!-- Modal Footer -->
-      <div style="padding:12px 22px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+      <div style="padding:12px 22px; flex-shrink:0; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
         <span style="font-size:0.72rem; color:#64748b;">Live biometric &amp; class register data</span>
         <button type="button" onclick="document.getElementById('classWiseAttendanceModal').remove()" style="padding:8px 18px; background:#be123c; color:#fff; border:none; border-radius:8px; font-weight:700; font-size:0.8rem; cursor:pointer;">Close</button>
       </div>
@@ -5469,6 +5519,7 @@ window.showClassWiseAttendanceModal = function(targetClass = null) {
   });
 
   document.body.appendChild(modal);
+  modal.querySelectorAll('.modal-h-scroll').forEach(window.makeHorizontallyScrollable);
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -5759,7 +5810,7 @@ window.showClassWiseTeacherAttendanceModal = function(targetClass = null) {
     const isTarget = targetClass && (c.className === targetClass || targetClass.includes(c.className));
 
     return `
-      <div style="display:flex; flex-direction:column; align-items:center; flex:1; min-width:38px; cursor:pointer;" onclick="document.getElementById('teacher-row-${c.className}')?.scrollIntoView({behavior:'smooth'})" title="${c.className}&#10;Assigned Faculty: ${c.assignedCount}&#10;Present Today: ${c.presentCount}&#10;Teachers: ${c.assignedTeachers.join(', ') || 'General'}">
+      <div style="display:flex; flex-direction:column; align-items:center; flex:0 0 auto; min-width:48px; cursor:pointer;" onclick="document.getElementById('teacher-row-${c.className}')?.scrollIntoView({behavior:'smooth'})" title="${c.className}&#10;Assigned Faculty: ${c.assignedCount}&#10;Present Today: ${c.presentCount}&#10;Teachers: ${c.assignedTeachers.join(', ') || 'General'}">
         <div style="height:130px; display:flex; align-items:flex-end; gap:4px; position:relative; padding-bottom:4px;">
           <!-- Assigned Teachers Bar (Sky/Blue) -->
           <div style="width:12px; height:${aH}px; background:linear-gradient(180deg, #93c5fd, #3b82f6); border-radius:4px 4px 0 0; box-shadow:0 2px 6px rgba(59,130,246,0.25);"></div>
@@ -5867,10 +5918,10 @@ window.showClassWiseTeacherAttendanceModal = function(targetClass = null) {
   }).join('');
 
   modal.innerHTML = `
-    <div style="background:#fff; width:100%; max-width:920px; max-height:90vh; border-radius:18px; box-shadow:0 20px 40px rgba(0,0,0,0.25); display:flex; flex-direction:column; overflow:hidden; border:1px solid #e2e8f0;">
+    <div style="background:#fff; width:100%; max-width:920px; max-height:90vh; height:90vh; border-radius:18px; box-shadow:0 20px 40px rgba(0,0,0,0.25); display:flex; flex-direction:column; overflow:hidden; border:1px solid #e2e8f0;">
       
       <!-- Modal Header -->
-      <div style="padding:18px 22px; background:linear-gradient(135deg, #eff6ff, #dbeafe); border-bottom:1px solid #bfdbfe; display:flex; align-items:center; justify-content:space-between;">
+      <div style="padding:18px 22px; flex-shrink:0; background:linear-gradient(135deg, #eff6ff, #dbeafe); border-bottom:1px solid #bfdbfe; display:flex; align-items:center; justify-content:space-between;">
         <div style="display:flex; align-items:center; gap:12px;">
           <div style="width:42px; height:42px; border-radius:12px; background:#bfdbfe; color:#1e40af; display:grid; place-items:center;">
             <span class="material-symbols-outlined" style="font-size:24px;">assignment_ind</span>
@@ -5885,8 +5936,8 @@ window.showClassWiseTeacherAttendanceModal = function(targetClass = null) {
         </button>
       </div>
 
-      <!-- Modal Body -->
-      <div style="padding:20px 22px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:20px;">
+      <!-- Modal Body (Scrollable) -->
+      <div style="padding:20px 22px; overflow-y:auto; overflow-x:hidden; flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:20px; overscroll-behavior:contain; -webkit-overflow-scrolling:touch;">
         
         <!-- Summary KPI Cards -->
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px;">
@@ -5925,7 +5976,7 @@ window.showClassWiseTeacherAttendanceModal = function(targetClass = null) {
               </span>
             </div>
           </div>
-          <div style="display:flex; align-items:flex-end; gap:8px; overflow-x:auto; padding:10px 4px 6px; border-bottom:1px solid #f1f5f9; scrollbar-width:thin;">
+          <div class="modal-h-scroll" style="display:flex; align-items:flex-end; gap:8px; overflow-x:auto; padding:10px 4px 6px; border-bottom:1px solid #f1f5f9; scrollbar-width:thin; touch-action:pan-x;">
             ${chartColsHtml}
           </div>
         </div>
@@ -5936,7 +5987,7 @@ window.showClassWiseTeacherAttendanceModal = function(targetClass = null) {
             <span>Class-Wise Faculty Teaching Coverage</span>
             <span style="font-size:0.72rem; color:#64748b; font-weight:600;">Timetable mappings &amp; active check-ins</span>
           </div>
-          <div style="overflow-x:auto;">
+          <div class="modal-h-scroll" style="overflow-x:auto; touch-action:pan-x;">
             <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
               <thead>
                 <tr style="background:#f1f5f9; color:#475569; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.04em;">
@@ -5962,7 +6013,7 @@ window.showClassWiseTeacherAttendanceModal = function(targetClass = null) {
             <span>Full Faculty Roster &amp; Daily Status</span>
             <span style="font-size:0.72rem; color:#64748b; font-weight:600;">Click quick buttons to update attendance</span>
           </div>
-          <div style="overflow-x:auto;">
+          <div class="modal-h-scroll" style="overflow-x:auto; touch-action:pan-x;">
             <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
               <thead>
                 <tr style="background:#f1f5f9; color:#475569; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.04em;">
@@ -5983,7 +6034,7 @@ window.showClassWiseTeacherAttendanceModal = function(targetClass = null) {
       </div>
 
       <!-- Modal Footer -->
-      <div style="padding:12px 22px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+      <div style="padding:12px 22px; flex-shrink:0; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
         <span style="font-size:0.72rem; color:#64748b;">Live biometric &amp; class timetable data</span>
         <button type="button" onclick="document.getElementById('classWiseTeacherAttendanceModal').remove()" style="padding:8px 18px; background:#1e40af; color:#fff; border:none; border-radius:8px; font-weight:700; font-size:0.8rem; cursor:pointer;">Close</button>
       </div>
@@ -5996,6 +6047,7 @@ window.showClassWiseTeacherAttendanceModal = function(targetClass = null) {
   });
 
   document.body.appendChild(modal);
+  modal.querySelectorAll('.modal-h-scroll').forEach(window.makeHorizontallyScrollable);
 };
 
 function getDashboardStats(store) {
@@ -6417,7 +6469,7 @@ function renderStatsCards(forceFullRebuild = false) {
           const shortName = c.className.replace(/Nursery/i, 'Nur').replace(/-A$/, '');
 
           return `
-            <div class="pending-fee-bar-col" data-class="${c.className}" onclick="window.showClassWiseFeeModal('${c.className}')" title="${c.className}&#10;Pending Fee: ₹${c.pendingFee.toLocaleString('en-IN')} (${pPct}%)&#10;Total Fee: ₹${c.totalFee.toLocaleString('en-IN')}&#10;Paid: ₹${c.paidFee.toLocaleString('en-IN')}&#10;Pending Accounts: ${c.pendingAccounts.size}" style="display:flex; flex-direction:column; align-items:center; cursor:pointer; flex:1; min-width:18px;">
+            <div class="pending-fee-bar-col" data-class="${c.className}" onclick="window.showClassWiseFeeModal('${c.className}')" title="${c.className}&#10;Pending Fee: ₹${c.pendingFee.toLocaleString('en-IN')} (${pPct}%)&#10;Total Fee: ₹${c.totalFee.toLocaleString('en-IN')}&#10;Paid: ₹${c.paidFee.toLocaleString('en-IN')}&#10;Pending Accounts: ${c.pendingAccounts.size}" style="display:flex; flex-direction:column; align-items:center; cursor:pointer; flex:0 0 auto; min-width:28px;">
               <div style="height:70px; display:flex; align-items:flex-end; gap:2px; position:relative;">
                 <!-- Total Fee Bar (Blue/Indigo) -->
                 <div style="width:6px; height:${tH}px; background:linear-gradient(180deg, #818cf8, #6366f1); border-radius:3px 3px 0 0;" title="Total Fee: ₹${c.totalFee.toLocaleString('en-IN')}"></div>
@@ -6456,7 +6508,7 @@ function renderStatsCards(forceFullRebuild = false) {
             </div>
 
             <!-- Scrollable Bar Chart Plot -->
-            <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:4px; overflow-x:auto; padding-bottom:2px; scrollbar-width:thin;">
+            <div class="stat-h-scroll" style="display:flex; align-items:flex-end; gap:6px; overflow-x:auto; padding-bottom:4px; scrollbar-width:thin; -webkit-overflow-scrolling:touch; cursor:grab;">
               ${barsHtml}
             </div>
           </div>
@@ -6494,7 +6546,7 @@ function renderStatsCards(forceFullRebuild = false) {
           const shortName = c.className.replace(/Nursery/i, 'Nur').replace(/-A$/, '');
 
           return `
-            <div class="attendance-bar-col" data-class="${c.className}" onclick="window.showClassWiseAttendanceModal('${c.className}')" title="${c.className}&#10;Present Today: ${c.presentCount} / ${c.totalStudents} (${pPct}%)&#10;Historical Rate: ${c.overallMarkedCount > 0 ? Math.round((c.overallPresentSum / c.overallMarkedCount) * 100) : 0}%&#10;Enrolled: ${c.totalStudents}" style="display:flex; flex-direction:column; align-items:center; cursor:pointer; flex:1; min-width:18px;">
+            <div class="attendance-bar-col" data-class="${c.className}" onclick="window.showClassWiseAttendanceModal('${c.className}')" title="${c.className}&#10;Present Today: ${c.presentCount} / ${c.totalStudents} (${pPct}%)&#10;Historical Rate: ${c.overallMarkedCount > 0 ? Math.round((c.overallPresentSum / c.overallMarkedCount) * 100) : 0}%&#10;Enrolled: ${c.totalStudents}" style="display:flex; flex-direction:column; align-items:center; cursor:pointer; flex:0 0 auto; min-width:28px;">
               <div style="height:70px; display:flex; align-items:flex-end; gap:2px; position:relative;">
                 <!-- Enrolled Students Bar (Rose/Slate) -->
                 <div style="width:6px; height:${eH}px; background:linear-gradient(180deg, #fda4af, #f43f5e); border-radius:3px 3px 0 0;" title="Enrolled: ${c.totalStudents}"></div>
@@ -6533,7 +6585,7 @@ function renderStatsCards(forceFullRebuild = false) {
             </div>
 
             <!-- Scrollable Bar Chart Plot -->
-            <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:4px; overflow-x:auto; padding-bottom:2px; scrollbar-width:thin;">
+            <div class="stat-h-scroll" style="display:flex; align-items:flex-end; gap:6px; overflow-x:auto; padding-bottom:4px; scrollbar-width:thin; -webkit-overflow-scrolling:touch; cursor:grab;">
               ${barsHtml}
             </div>
           </div>
@@ -6571,7 +6623,7 @@ function renderStatsCards(forceFullRebuild = false) {
           const shortName = c.className.replace(/Nursery/i, 'Nur').replace(/-A$/, '');
 
           return `
-            <div class="teacher-attendance-bar-col" data-class="${c.className}" onclick="window.showClassWiseTeacherAttendanceModal('${c.className}')" title="${c.className}&#10;Assigned Faculty: ${c.assignedCount}&#10;Present Today: ${c.presentCount} (${pPct}%)&#10;Faculty: ${c.assignedTeachers.join(', ') || 'General'}" style="display:flex; flex-direction:column; align-items:center; cursor:pointer; flex:1; min-width:18px;">
+            <div class="teacher-attendance-bar-col" data-class="${c.className}" onclick="window.showClassWiseTeacherAttendanceModal('${c.className}')" title="${c.className}&#10;Assigned Faculty: ${c.assignedCount}&#10;Present Today: ${c.presentCount} (${pPct}%)&#10;Faculty: ${c.assignedTeachers.join(', ') || 'General'}" style="display:flex; flex-direction:column; align-items:center; cursor:pointer; flex:0 0 auto; min-width:28px;">
               <div style="height:70px; display:flex; align-items:flex-end; gap:2px; position:relative;">
                 <!-- Assigned Faculty Bar (Sky/Blue) -->
                 <div style="width:6px; height:${aH}px; background:linear-gradient(180deg, #93c5fd, #3b82f6); border-radius:3px 3px 0 0;" title="Assigned Faculty: ${c.assignedCount}"></div>
@@ -6610,7 +6662,7 @@ function renderStatsCards(forceFullRebuild = false) {
             </div>
 
             <!-- Scrollable Bar Chart Plot -->
-            <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:4px; overflow-x:auto; padding-bottom:2px; scrollbar-width:thin;">
+            <div class="stat-h-scroll" style="display:flex; align-items:flex-end; gap:6px; overflow-x:auto; padding-bottom:4px; scrollbar-width:thin; -webkit-overflow-scrolling:touch; cursor:grab;">
               ${barsHtml}
             </div>
           </div>
@@ -6647,6 +6699,14 @@ function renderStatsCards(forceFullRebuild = false) {
     if (typeof window.injectDashboardCard === 'function') {
       window.injectDashboardCard();
     }
+  }
+
+  // Attach smooth drag & mouse-wheel horizontal scrolling to in-card charts & plots
+  if (typeof window.makeHorizontallyScrollable === 'function') {
+    if (refs.statsCards) {
+      refs.statsCards.querySelectorAll('.stat-h-scroll').forEach(window.makeHorizontallyScrollable);
+    }
+    document.querySelectorAll('.class-graph-scroll-wrap').forEach(window.makeHorizontallyScrollable);
   }
 
   // Calculate chart statistics from store
@@ -7359,6 +7419,12 @@ window.initRealAnalyticsInteractions = function(d) {
         m.classList.add('active');
       });
     });
+  }
+
+  // Enable smooth horizontal wheel translation & mouse drag on class distribution graph
+  const classGraphWrap = document.querySelector('.class-graph-scroll-wrap');
+  if (classGraphWrap && typeof window.makeHorizontallyScrollable === 'function') {
+    window.makeHorizontallyScrollable(classGraphWrap);
   }
 };
 
