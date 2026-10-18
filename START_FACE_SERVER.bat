@@ -1,13 +1,26 @@
 @echo off
 title Face Recognition Server
-cd /d "%~dp0face_server"
+cd /d "%~dp0"
+if exist "face_server\dist\face_server.exe" cd /d "%~dp0face_server"
+if exist "%~dp0face_server" cd /d "%~dp0face_server"
+
 echo Starting Face Recognition Server (InsightFace)...
 echo.
 
 :: Priority 1: Use the pre-compiled exe (works on any PC without Python)
 if exist "dist\face_server.exe" (
-    echo [System] Using compiled face_server.exe...
+    echo [System] Using compiled face_server.exe in dist...
     "dist\face_server.exe"
+    goto :end
+)
+if exist "face_server.exe" (
+    echo [System] Using compiled face_server.exe...
+    "face_server.exe"
+    goto :end
+)
+if exist "%~dp0face_server\dist\face_server.exe" (
+    echo [System] Using compiled face_server.exe from dp0...
+    "%~dp0face_server\dist\face_server.exe"
     goto :end
 )
 

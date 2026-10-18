@@ -134,11 +134,14 @@ async function startBaileys() {
     }
 }
 
-// Auto-start if session exists
-const autoStartAuthFolder = process.env.USER_DATA_PATH ? path.join(process.env.USER_DATA_PATH, 'baileys_auth_info') : path.join(__dirname, 'baileys_auth_info');
-if (fs.existsSync(autoStartAuthFolder)) {
-    // Delay WhatsApp initialization so the main Node server loads instantly
-    setTimeout(startBaileys, 1000);
+// Auto-start WhatsApp Gateway on local desktop / electron
+if (!process.env.VERCEL && !process.env.AWS_LAMBDA_FUNCTION_NAME) {
+    const autoStartAuthFolder = process.env.USER_DATA_PATH ? path.join(process.env.USER_DATA_PATH, 'baileys_auth_info') : path.join(__dirname, 'baileys_auth_info');
+    const delay = fs.existsSync(autoStartAuthFolder) ? 1000 : 2500;
+    setTimeout(() => {
+        console.log("⚡ [WhatsApp Gateway] Starting local Baileys engine inside desktop app...");
+        startBaileys().catch(e => console.warn("[WhatsApp Gateway] Local start notice:", e.message));
+    }, delay);
 }
 
 
@@ -1008,11 +1011,17 @@ const CLOUD_GATEWAY_URL = process.env.WHATSAPP_GATEWAY_URL || 'https://tapowan-w
 const CLOUD_GATEWAY_PIN = process.env.WHATSAPP_GATEWAY_PIN || 'tapowan2026';
 const CLOUD_GATEWAY_KEY = process.env.WHATSAPP_GATEWAY_KEY || 'tps_secret_gateway_key_2026';
 
-// 1. WhatsApp Status Endpoint (Checks Render Cloud Gateway, falls back to local waSock)
+// 1. WhatsApp Status Endpoint (Checks local waSock first on desktop, falls back to Render)
 app.get("/api/whatsapp/status", async (req, res) => {
+  // If local waSock is active on desktop (connected or waiting for QR)
+  if (typeof waStatus !== 'undefined' && (waStatus === 'connected' || waStatus === 'qr')) {
+    return res.json({ status: waStatus, qr: waQr, phone: 'Local Desktop Gateway' });
+  }
+
+  // Otherwise check Cloud Gateway
   try {
     const ctrl = new AbortController();
-    const tid = setTimeout(() => ctrl.abort(), 6000);
+    const tid = setTimeout(() => ctrl.abort(), 4000);
     const gwRes = await fetch(`${CLOUD_GATEWAY_URL.replace(/\/$/, '')}/api/status?pin=${CLOUD_GATEWAY_PIN}`, {
       headers: {
         'x-api-key': CLOUD_GATEWAY_KEY,
@@ -1025,12 +1034,8 @@ app.get("/api/whatsapp/status", async (req, res) => {
     const data = await gwRes.json();
     return res.json(data);
   } catch (err) {
-    // If local waSock is active on desktop
-    if (typeof waStatus !== 'undefined' && waStatus === 'connected') {
-      return res.json({ status: 'connected', phone: 'Local Gateway' });
-    }
-    if (typeof waStatus !== 'undefined' && waStatus === 'qr') {
-      return res.json({ status: 'qr', qr: waQr });
+    if (typeof waStatus !== 'undefined') {
+      return res.json({ status: waStatus, qr: waQr });
     }
     return res.json({ status: 'disconnected', error: err.message });
   }

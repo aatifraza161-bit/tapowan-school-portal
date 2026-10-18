@@ -2,6 +2,7 @@
   "name": "school-management-system",
   "version": "1.0.1",
   "description": "Full working school management system with local server",
+  "author": "Tapowan Public School",
   "main": "electron-main.js",
   "scripts": {
     "start": "node server.js",
@@ -53,11 +54,34 @@
     ],
     "files": [
       "**/*",
+      "!dist",
+      "!app_extracted",
+      "!temp_extract",
+      "!android",
       "!src",
       "!test",
       "!student-mobile-app",
-      "!*.apk"
-    ]
+      "!scratch",
+      "!kaggle",
+      "!.vercel",
+      "!.netlify",
+      "!.wrangler",
+      "!*.apk",
+      "!*.ipynb"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "public/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Tapowan Public School System"
+    }
   },
   "devDependencies": {
     "electron": "^33.4.11",

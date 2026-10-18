@@ -81,11 +81,24 @@ function startBackgroundServers() {
   mainProc.stderr.on('data', (data) => logOutput('NODE_ERR', data));
   bgProcesses.push(mainProc);
 
-  const batPath = isPackaged ? path.join(process.resourcesPath, 'app.asar.unpacked', 'START_FACE_SERVER.bat') : path.join(workDir, 'START_FACE_SERVER.bat');
+  const unpackedRoot = isPackaged ? path.join(process.resourcesPath, 'app.asar.unpacked') : workDir;
+  const directExe1 = path.join(unpackedRoot, 'face_server', 'dist', 'face_server.exe');
+  const directExe2 = path.join(unpackedRoot, 'face_server', 'face_server.exe');
+  const batPath = path.join(unpackedRoot, 'START_FACE_SERVER.bat');
   
   function startFaceServer() {
     if (app.isQuitting) return;
-    const faceProc = spawn('cmd.exe', ['/c', batPath], { cwd: cwdDir, windowsHide: true });
+    let faceProc;
+    if (fs.existsSync(directExe1)) {
+      logOutput('FACE_SYS', `Starting local InsightFace directly from: ${directExe1}`);
+      faceProc = spawn(directExe1, [], { cwd: path.dirname(directExe1), windowsHide: true });
+    } else if (fs.existsSync(directExe2)) {
+      logOutput('FACE_SYS', `Starting local InsightFace directly from: ${directExe2}`);
+      faceProc = spawn(directExe2, [], { cwd: path.dirname(directExe2), windowsHide: true });
+    } else {
+      logOutput('FACE_SYS', `Starting local InsightFace via bat: ${batPath}`);
+      faceProc = spawn('cmd.exe', ['/c', batPath], { cwd: cwdDir, windowsHide: true });
+    }
     faceProc.stdout.on('data', (data) => logOutput('FACE', data));
     faceProc.stderr.on('data', (data) => logOutput('FACE_ERR', data));
     bgProcesses.push(faceProc);
@@ -176,7 +189,7 @@ function createWindow() {
     width: 1366,
     height: 768,
     title: "Tapowan Public School System",
-    icon: path.join(__dirname, 'public', 'logo.png'),
+    icon: path.join(__dirname, 'public', 'icon.ico'),
     autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: false,

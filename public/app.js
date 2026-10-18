@@ -7567,6 +7567,8 @@ async function ensureFaceModelsLoaded() {
   } catch(e) {}
 
   const candidates = [
+    'http://127.0.0.1:8000',
+    'http://localhost:8000',
     ...dbUrls,
     localStorage.getItem('tps_insightface_api_url'),
     localStorage.getItem('tps_kaggle_api_url')
