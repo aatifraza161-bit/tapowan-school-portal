@@ -6,19 +6,19 @@ const client = createClient({
 });
 
 async function publishUpdate() {
-  console.log('Publishing v3.3.5 (Build 354) to app_updates...');
+  console.log('Publishing v3.3.6 (Build 355) to app_updates...');
   await client.execute('UPDATE app_updates SET is_active = 0');
   
-  const notes = '✨ Official TPS Build v3.3.5: Fixed Student Drawer navigation layout bug with full categorized access, expanded 8-Action Quick Access Hub (Homework, Syllabus, Exam Paper, Quiz, Attendance, Fees, Dues, Learning), Dual Exam Paper & Syllabus banners, and authentic Class 7 NCERT curriculum.';
+  const notes = '✨ Official TPS Build v3.3.6: Professional Exam Paper Generator for Teachers with polished CBSE Question Editor, OCR auto-capture, full exam type formatting, dedicated balance ticker, clean student portal layout, and removed home banner.';
 
   const res = await client.execute({
     sql: `INSERT INTO app_updates (version, version_code, apk_url, title, release_notes, is_force_update, is_active, target_audience, created_at)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
-      '3.3.5',
-      354,
+      '3.3.6',
+      355,
       'https://github.com/aatifraza161-bit/tapowan-school-portal/releases/latest/download/TPS-Original-App.apk',
-      '✨ TPS Student Portal Layout & Syllabus v3.3.5',
+      '✨ TPS Exam Generator & Portal Polish v3.3.6',
       notes,
       1,
       1,
