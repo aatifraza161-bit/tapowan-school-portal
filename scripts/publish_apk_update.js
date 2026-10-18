@@ -6,19 +6,19 @@ const client = createClient({
 });
 
 async function publishUpdate() {
-  console.log('Publishing v3.3.6 (Build 355) to app_updates...');
+  console.log('Publishing v3.3.7 (Build 356) to app_updates...');
   await client.execute('UPDATE app_updates SET is_active = 0');
   
-  const notes = '✨ Official TPS Build v3.3.6: Professional Exam Paper Generator for Teachers with polished CBSE Question Editor, OCR auto-capture, full exam type formatting, dedicated balance ticker, clean student portal layout, and removed home banner.';
+  const notes = '✨ Official TPS Build v3.3.7: Multi-Type Exam Paper Generator with Booklet MCQ (OMR), Written, CBSE Standard & Activity Worksheet modes. Interactive option ticking for MCQs, Fill in the Blanks with insert shortcut, Column A ↔ Column B matching pairs, word/sentence scramble, True/False toggles, and live type switcher.';
 
   const res = await client.execute({
     sql: `INSERT INTO app_updates (version, version_code, apk_url, title, release_notes, is_force_update, is_active, target_audience, created_at)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
-      '3.3.6',
-      355,
+      '3.3.7',
+      356,
       'https://github.com/aatifraza161-bit/tapowan-school-portal/releases/latest/download/TPS-Original-App.apk',
-      '✨ TPS Exam Generator & Portal Polish v3.3.6',
+      '✨ TPS Exam Generator Multi-Type & OMR v3.3.7',
       notes,
       1,
       1,
