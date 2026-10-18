@@ -20,7 +20,7 @@
 
   <style>
     :root {
-      --bg-outer: #000000;
+      --bg-outer: #ffffff;
       --bg-canvas: #ffffff;
       --text-dark: #000000;
       --text-sub: #555555;
@@ -41,7 +41,7 @@
     }
 
     body {
-      background-color: var(--bg-outer);
+      background-color: #ffffff;
       color: var(--text-dark);
       font-family: var(--font-sans);
       overflow-x: hidden;
@@ -49,149 +49,60 @@
       position: relative;
     }
 
-    /* Halftone Dot Matrix Texture on Outer Black Canvas */
+    /* Halftone Dot Matrix Texture Removed */
     .halftone-bg {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      pointer-events: none;
-      z-index: 0;
-      background-color: #000000;
-      background-image: 
-        radial-gradient(circle at 10% 15%, rgba(255, 255, 255, 0.45) 1.5px, transparent 1.5px),
-        radial-gradient(circle at 90% 15%, rgba(255, 255, 255, 0.45) 1.5px, transparent 1.5px),
-        radial-gradient(circle at 10% 85%, rgba(255, 255, 255, 0.45) 1.5px, transparent 1.5px),
-        radial-gradient(circle at 90% 85%, rgba(255, 255, 255, 0.45) 1.5px, transparent 1.5px),
-        radial-gradient(circle at 50% 5%, rgba(255, 255, 255, 0.25) 1.2px, transparent 1.2px),
-        radial-gradient(circle at 50% 95%, rgba(255, 255, 255, 0.25) 1.2px, transparent 1.2px);
-      background-size: 24px 24px, 20px 20px, 22px 22px, 26px 26px, 18px 18px, 18px 18px;
+      display: none;
     }
 
-    /* Outer Wrapper with Viewfinder Padding */
+    /* Outer Wrapper with Seamless White Canvas */
     .outer-wrapper {
       position: relative;
       z-index: 1;
       width: 100%;
       min-height: 100vh;
+      background: #ffffff;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 32px 20px 80px 20px;
+      padding: 0;
     }
 
-    @media (max-width: 768px) {
-      .outer-wrapper {
-        padding: 12px 8px 40px 8px;
-      }
-    }
-
-    /* The Central White Canvas (Inspired by Zettafleet / Dribbble Reference) */
+    /* The Central White Canvas */
     .main-canvas {
       width: 100%;
-      max-width: 1240px;
+      max-width: 1320px;
+      margin: 0 auto;
       background: #ffffff;
       color: #000000;
       position: relative;
-      box-shadow: 0 30px 100px rgba(0, 0, 0, 0.95);
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      box-shadow: none;
+      border: none;
     }
 
-    /* Reticle / Viewfinder Corner Crop Marks and Edge Ticks */
-    .reticle-corner-tl {
-      position: absolute;
-      top: -10px;
-      left: -10px;
-      width: 22px;
-      height: 22px;
-      border-top: 4px solid #ffffff;
-      border-left: 4px solid #ffffff;
-      pointer-events: none;
-      z-index: 20;
-    }
-    .reticle-corner-tr {
-      position: absolute;
-      top: -10px;
-      right: -10px;
-      width: 22px;
-      height: 22px;
-      border-top: 4px solid #ffffff;
-      border-right: 4px solid #ffffff;
-      pointer-events: none;
-      z-index: 20;
-    }
-    .reticle-corner-bl {
-      position: absolute;
-      bottom: -10px;
-      left: -10px;
-      width: 22px;
-      height: 22px;
-      border-bottom: 4px solid #ffffff;
-      border-left: 4px solid #ffffff;
-      pointer-events: none;
-      z-index: 20;
-    }
-    .reticle-corner-br {
-      position: absolute;
-      bottom: -10px;
-      right: -10px;
-      width: 22px;
-      height: 22px;
-      border-bottom: 4px solid #ffffff;
-      border-right: 4px solid #ffffff;
-      pointer-events: none;
-      z-index: 20;
-    }
-
-    /* Edge tick notches */
-    .reticle-tick-top {
-      position: absolute;
-      top: -6px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 16px;
-      height: 4px;
-      background: #ffffff;
-      pointer-events: none;
-    }
-    .reticle-tick-bottom {
-      position: absolute;
-      bottom: -6px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 16px;
-      height: 4px;
-      background: #ffffff;
-      pointer-events: none;
-    }
-    .reticle-tick-left {
-      position: absolute;
-      left: -6px;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 4px;
-      height: 16px;
-      background: #ffffff;
-      pointer-events: none;
-    }
+    /* Reticle Corner Crop Marks and Edge Ticks Removed */
+    .reticle-corner-tl,
+    .reticle-corner-tr,
+    .reticle-corner-bl,
+    .reticle-corner-br,
+    .reticle-tick-top,
+    .reticle-tick-bottom,
+    .reticle-tick-left,
     .reticle-tick-right {
-      position: absolute;
-      right: -6px;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 4px;
-      height: 16px;
-      background: #ffffff;
-      pointer-events: none;
+      display: none !important;
     }
 
     /* Top Navigation inside Canvas */
     .canvas-nav {
+      position: sticky;
+      top: 0;
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      z-index: 100;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 24px 36px;
+      padding: 20px 36px;
       border-bottom: 1px solid var(--border-line);
       flex-wrap: wrap;
       gap: 16px;
@@ -1076,9 +987,6 @@
 </head>
 <body>
 
-  <!-- Halftone Dot Matrix Texture Background -->
-  <div class="halftone-bg"></div>
-
   <!-- React Root -->
   <div id="root"></div>
 
@@ -1302,18 +1210,6 @@
           
           {/* Main White Canvas with Viewfinder Reticle Corners */}
           <div className="main-canvas">
-            
-            {/* Corner Reticle Crop Marks */}
-            <div className="reticle-corner-tl"></div>
-            <div className="reticle-corner-tr"></div>
-            <div className="reticle-corner-bl"></div>
-            <div className="reticle-corner-br"></div>
-            
-            <div className="reticle-tick-top"></div>
-            <div className="reticle-tick-bottom"></div>
-            <div className="reticle-tick-left"></div>
-            <div className="reticle-tick-right"></div>
-
             {/* Top Navigation inside Canvas */}
             <header className="canvas-nav">
               <a href="/educore.html" className="brand-group">
