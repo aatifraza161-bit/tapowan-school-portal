@@ -775,8 +775,9 @@ function setMobileSidebarOpen(open) {
 }
 window.setMobileSidebarOpen = setMobileSidebarOpen;
 
-window.switchModuleFromMobile = function(modName) {
+window.navigateToModule = function(modName) {
   if (typeof window.isSaasModuleEnabled === 'function' && !window.isSaasModuleEnabled(modName)) {
+    console.warn(`[Module Entitlement] Module '${modName}' is not enabled. Redirecting to dashboard.`);
     modName = 'dashboard';
   }
   isFormOpen = false;
@@ -785,7 +786,7 @@ window.switchModuleFromMobile = function(modName) {
   currentModule = modName;
   window.currentModule = modName;
   if (refs.searchInput) refs.searchInput.value = '';
-  if (isMobileLayout()) setMobileSidebarOpen(false);
+  if (typeof isMobileLayout === 'function' && isMobileLayout()) setMobileSidebarOpen(false);
   renderAll();
   try {
     const items = document.querySelectorAll('.mobile-bottom-item[data-mod]');
@@ -794,6 +795,11 @@ window.switchModuleFromMobile = function(modName) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
   const mainEl = document.querySelector('.main');
   if (mainEl) mainEl.scrollTop = 0;
+};
+window.switchModule = window.navigateToModule;
+
+window.switchModuleFromMobile = function(modName) {
+  window.navigateToModule(modName);
 };
 
 function toggleSidebarCollapse() {
@@ -1373,7 +1379,12 @@ function getSaasEnabledModulesSet() {
 window.isSaasModuleEnabled = function(modKey) {
   const set = getSaasEnabledModulesSet();
   if (!set) return true;
-  return set.has(modKey);
+  if (set.has(modKey)) return true;
+  // Online Fee Payments is part of the school finance/fees entitlement
+  if (modKey === "onlinePayments" && (set.has("fees") || set.has("dueManagement") || set.has("financeModule"))) {
+    return true;
+  }
+  return false;
 };
 
 function getVisibleModules() {
@@ -1382,7 +1393,13 @@ function getVisibleModules() {
   if (!currentUser) {
     if (localStorage.getItem("token")) {
       let initialMods = [...moduleOrder];
-      if (saasSet) initialMods = initialMods.filter(m => saasSet.has(m));
+      if (saasSet) {
+        initialMods = initialMods.filter(m => {
+          if (saasSet.has(m)) return true;
+          if (m === "onlinePayments" && (saasSet.has("fees") || saasSet.has("dueManagement") || saasSet.has("financeModule"))) return true;
+          return false;
+        });
+      }
       return initialMods;
     }
     return ["dashboard"];
@@ -1406,7 +1423,11 @@ function getVisibleModules() {
 
   // Enforce Super Admin module entitlements from Turso DB settings (`saas_enabled_modules`) across all roles
   if (saasSet) {
-    mods = mods.filter(m => saasSet.has(m));
+    mods = mods.filter(m => {
+      if (saasSet.has(m)) return true;
+      if (m === "onlinePayments" && (saasSet.has("fees") || saasSet.has("dueManagement") || saasSet.has("financeModule"))) return true;
+      return false;
+    });
     if (mods.length === 0) mods = ["dashboard"];
   }
 
@@ -2783,7 +2804,7 @@ function renderTable() {
             <div style="font-size:0.8rem;color:#b45309;margin-top:2px;">Students paid via UPI/PhonePe/GPay. Click to review, verify UTR, and approve.</div>
           </div>
         </div>
-        <button type="button" onclick="currentModule = 'onlinePayments'; renderAll();" style="background:linear-gradient(135deg,#d97706,#b45309);color:#fff;border:none;border-radius:10px;padding:8px 16px;font-weight:800;font-size:0.84rem;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(217,119,6,0.25);">
+        <button type="button" onclick="if(window.navigateToModule) window.navigateToModule('onlinePayments'); else { window.currentModule = 'onlinePayments'; currentModule = 'onlinePayments'; renderAll(); }" style="background:linear-gradient(135deg,#d97706,#b45309);color:#fff;border:none;border-radius:10px;padding:8px 16px;font-weight:800;font-size:0.84rem;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(217,119,6,0.25);">
           <span class="material-symbols-outlined" style="font-size:16px;">payments</span> Review &amp; Approve
         </button>
       `;
@@ -6406,17 +6427,34 @@ function renderAll(forceFormRefresh) {
   if (isOnlinePayments) {
     renderNav();
     renderHeader();
+    const opAccessBtn = document.getElementById("onlinePaymentsAccessControlBtn");
+    if (opAccessBtn) opAccessBtn.classList.remove("hidden");
     if (onlinePaymentsPanel) {
       onlinePaymentsPanel.classList.remove("hidden");
       onlinePaymentsPanel.style.display = "block";
     }
     if (typeof window.renderOnlinePaymentsWorkspace === "function") {
       window.renderOnlinePaymentsWorkspace();
+    } else {
+      if (onlinePaymentsPanel) {
+        onlinePaymentsPanel.innerHTML = '<div style="padding: 40px; text-align: center; color: #64748b;"><div style="font-size: 32px; margin-bottom: 12px;">⏳</div>Loading Online Fee Requests...</div>';
+      }
+      const checkInterval = setInterval(() => {
+        if (typeof window.renderOnlinePaymentsWorkspace === "function") {
+          clearInterval(checkInterval);
+          if (currentModule === "onlinePayments") {
+            window.renderOnlinePaymentsWorkspace();
+          }
+        }
+      }, 100);
+      setTimeout(() => clearInterval(checkInterval), 5000);
     }
     return;
   } else if (onlinePaymentsPanel) {
     onlinePaymentsPanel.classList.add("hidden");
     onlinePaymentsPanel.style.display = "none";
+    const opAccessBtn = document.getElementById("onlinePaymentsAccessControlBtn");
+    if (opAccessBtn) opAccessBtn.classList.add("hidden");
   }
 
   const bdPanel = document.getElementById("bd-panel");
@@ -11199,7 +11237,7 @@ const MODULE_ICONS = {
   exams: 'quiz', fees: 'account_balance_wallet', library: 'library_books', transport: 'directions_bus',
   hostel: 'apartment', payroll: 'payments', users: 'manage_accounts', timetable: 'calendar_month',
   booksAndDress: 'account_tree', bookSales: 'shopping_bag', whatsappAlerts: 'forum', dueManagement: 'receipt_long', holidays: 'event', backup: 'cloud_download', reportsAnalytics: 'insights',
-  weeklyEvaluation: 'grade', financeModule: 'account_balance'
+  weeklyEvaluation: 'grade', financeModule: 'account_balance', onlinePayments: 'payments'
 };
 
 if (refs.assistantOutput) {
@@ -11346,7 +11384,7 @@ const NAV_GROUPS = {
   'Academic': ['onlineClasses', 'subjects', 'exams', 'timetable', 'holidays', 'weeklyEvaluation'],
   'Analytics': ['reportsAnalytics'],
   'Daily': ['attendance', 'teacherAttendance'],
-  'Finance': ['fees', 'dueManagement', 'payroll', 'booksAndDress', 'bookSales', 'whatsappAlerts'],
+  'Finance': ['fees', 'dueManagement', 'onlinePayments', 'payroll', 'booksAndDress', 'bookSales', 'whatsappAlerts'],
   'Resources': ['library', 'transport', 'hostel', 'users', 'backup']
 };
 
@@ -11402,16 +11440,24 @@ function renderNavEnhanced() {
         } else if (mod === 'fees') {
           const pending = (store.fees || []).filter(f => f.status === 'Pending' || f.status === 'Partial').length;
           if (pending > 0) badge = `<span class="nav-badge" style="background:#f59e0b;color:#fff;">${pending}</span>`;
+        } else if (mod === 'onlinePayments') {
+          const pending = (store.app_online_payments || []).filter(p => p.status === 'Pending Verification').length;
+          if (pending > 0) badge = `<span class="nav-badge" style="background:#d97706;color:#fff;">${pending}</span>`;
         }
 
         btn.innerHTML = `<span class="nav-icon material-symbols-outlined" style="font-size: 20px;">${MODULE_ICONS[mod] || 'category'}</span><span class="nav-text" style="margin-left: 6px;">${moduleConfig[mod].title}</span>${badge}`;
         
         btn.addEventListener('click', () => {
-          currentModule = mod;
-          const si = document.getElementById('searchInput');
-          if (si) si.value = '';
-          renderAll();
-          if (typeof isMobileLayout === 'function' && isMobileLayout()) setMobileSidebarOpen(false);
+          if (typeof window.navigateToModule === 'function') {
+            window.navigateToModule(mod);
+          } else {
+            currentModule = mod;
+            window.currentModule = mod;
+            const si = document.getElementById('searchInput');
+            if (si) si.value = '';
+            renderAll();
+            if (typeof isMobileLayout === 'function' && isMobileLayout()) setMobileSidebarOpen(false);
+          }
         });
         nav.appendChild(btn);
       });
@@ -11435,6 +11481,9 @@ function renderNavEnhanced() {
       } else if (mod === 'fees') {
         const pending = (store.fees || []).filter(f => f.status === 'Pending' || f.status === 'Partial').length;
         if (pending > 0) badge = `<span class="nav-badge" style="background:#f59e0b;color:#fff;">${pending}</span>`;
+      } else if (mod === 'onlinePayments') {
+        const pending = (store.app_online_payments || []).filter(p => p.status === 'Pending Verification').length;
+        if (pending > 0) badge = `<span class="nav-badge" style="background:#d97706;color:#fff;">${pending}</span>`;
       }
       
       const existingBadge = btn.querySelector('.nav-badge');
