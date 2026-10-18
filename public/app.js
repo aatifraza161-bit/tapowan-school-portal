@@ -6095,7 +6095,23 @@ function getDashboardStats(store) {
     return sum;
   }, 0);
 
-  const lastThreePayments = fees.slice(0, 3).map(f => ({
+  // Get latest 8 paid fee transactions (honoring time filter if matching records exist, else latest 8 overall)
+  const paidFees = (fees || []).filter(f => asNum(f.paidAmount) > 0);
+  const baseFees = paidFees.length > 0 ? paidFees : (fees || []);
+  
+  let targetFees = baseFees;
+  if (window.currentFeeFilter === 'day') {
+    const dayFees = baseFees.filter(f => normalizeToISO(f.paymentDate) === today);
+    if (dayFees.length > 0) targetFees = dayFees;
+  } else if (window.currentFeeFilter === 'month') {
+    const monthFees = baseFees.filter(f => normalizeToISO(f.paymentDate).startsWith(curMonth));
+    if (monthFees.length > 0) targetFees = monthFees;
+  } else if (window.currentFeeFilter === 'year') {
+    const yearFees = baseFees.filter(f => normalizeToISO(f.paymentDate).startsWith(curYear));
+    if (yearFees.length > 0) targetFees = yearFees;
+  }
+
+  const recentEightPayments = targetFees.slice(0, 8).map(f => ({
     name: f.studentName || "Unknown",
     amount: asNum(f.paidAmount),
     date: displayDate(f.paymentDate) || "No Date"
@@ -6117,7 +6133,8 @@ function getDashboardStats(store) {
     "Pending Fee Accounts": pendingFeeAccountsCount,
     "Total Payment Received": "₹" + filteredTotal.toLocaleString("en-IN"),
     "Lifetime Collection": "₹" + allTimeTotal.toLocaleString("en-IN"),
-    "LastThree": lastThreePayments,
+    "LastThree": recentEightPayments,
+    "RecentPayments": recentEightPayments,
     "Total Pending Dues Amount": totalPendingFeeBal,
     "Books Issued": (store.library || []).filter(x => String(x.status).toLowerCase() === "issued").length,
     "Hostel Active": (store.hostel || []).filter(x => String(x.status).toLowerCase() === "active").length,
@@ -6318,7 +6335,7 @@ function renderStatsCards(forceFullRebuild = false) {
     // ── Smooth In-Place Updates: Zero Layout Shift, Zero LordIcon Reload ──
     Object.entries(stats).forEach(([k, v]) => {
       if (userIsStudent() && hiddenForStudents.has(k)) return;
-      if (k === "Lifetime Collection" || k === "LastThree" || k === "Today's System Date" || k === "Total Pending Dues Amount") return;
+      if (k === "Lifetime Collection" || k === "LastThree" || k === "RecentPayments" || k === "Today's System Date" || k === "Total Pending Dues Amount") return;
 
       const card = refs.statsCards.querySelector(`.stat-card[data-stat-key="${k}"]`);
       if (!card) return;
@@ -6333,15 +6350,16 @@ function renderStatsCards(forceFullRebuild = false) {
         
         // Update recent activity list if changed
         const recListEl = card.querySelector(".stat-recent-payments");
-        if (recListEl && stats.LastThree) {
-          const recentHtml = stats.LastThree.map(p => `
-            <div style="display:flex; justify-content:space-between; font-size:0.68rem; padding:4px 0; border-bottom:1px solid #f0fdf4; color:#374151;">
-              <span style="font-weight:600;">${p.name.split(' ')[0]}</span>
-              <span style="color:#64748b;">${p.date}</span>
-              <span style="font-weight:700; color:#16a34a;">₹${p.amount}</span>
+        const paymentsList = stats.RecentPayments || stats.LastThree;
+        if (recListEl && paymentsList) {
+          const recentHtml = paymentsList.map(p => `
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.68rem; padding:4px 0; border-bottom:1px solid #f0fdf4; color:#374151;">
+              <span style="font-weight:600; max-width:90px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${p.name}">${p.name.split(' ')[0]}</span>
+              <span style="color:#64748b; font-size:0.64rem;">${p.date}</span>
+              <span style="font-weight:700; color:#16a34a;">₹${p.amount.toLocaleString('en-IN')}</span>
             </div>
           `).join('');
-          recListEl.innerHTML = recentHtml || '<div style="font-size:0.7rem; color:#9ca3af;">No recent payments</div>';
+          recListEl.innerHTML = recentHtml || '<div style="font-size:0.7rem; color:#9ca3af; padding:8px 0; text-align:center;">No recent payments</div>';
         }
       } else if (k === "Pending Fee Accounts") {
         const valEl = card.querySelector(".stat-value");
@@ -6384,7 +6402,7 @@ function renderStatsCards(forceFullRebuild = false) {
     refs.statsCards.innerHTML = "";
     Object.entries(stats).forEach(([k, v]) => {
       if (userIsStudent() && hiddenForStudents.has(k)) return;
-      if (k === "Lifetime Collection" || k === "LastThree" || k === "Today's System Date" || k === "Total Pending Dues Amount") return;
+      if (k === "Lifetime Collection" || k === "LastThree" || k === "RecentPayments" || k === "Today's System Date" || k === "Total Pending Dues Amount") return;
 
       const card = document.createElement("article");
       card.className = "stat-card";
@@ -6416,11 +6434,12 @@ function renderStatsCards(forceFullRebuild = false) {
         card.style.background = "linear-gradient(135deg, #f0fdf4, #ffffff)";
         card.style.border = "1px solid #bbf7d0";
         card.style.minHeight = "240px";
-        const recentHtml = stats.LastThree.map(p => `
-          <div style="display:flex; justify-content:space-between; font-size:0.68rem; padding:4px 0; border-bottom:1px solid #f0fdf4; color:#374151;">
-            <span style="font-weight:600;">${p.name.split(' ')[0]}</span>
-            <span style="color:#64748b;">${p.date}</span>
-            <span style="font-weight:700; color:#16a34a;">₹${p.amount}</span>
+        const paymentsList = stats.RecentPayments || stats.LastThree || [];
+        const recentHtml = paymentsList.map(p => `
+          <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.68rem; padding:4px 0; border-bottom:1px solid #f0fdf4; color:#374151;">
+            <span style="font-weight:600; max-width:90px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${p.name}">${p.name.split(' ')[0]}</span>
+            <span style="color:#64748b; font-size:0.64rem;">${p.date}</span>
+            <span style="font-weight:700; color:#16a34a;">₹${p.amount.toLocaleString('en-IN')}</span>
           </div>
         `).join('');
 
@@ -6435,9 +6454,12 @@ function renderStatsCards(forceFullRebuild = false) {
             <span class="stat-today-val" style="opacity:0.6; font-weight:400;">Today: ${stats["Today's System Date"]}</span>
           </div>
           
-          <div style="margin-top:16px; background:#fff; border-radius:12px; padding:10px; box-shadow:0 4px 12px rgba(0,0,0,0.03);">
-            <div style="font-size:0.65rem; font-weight:800; color:#16a34a; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px;">Recent Activity</div>
-            <div class="stat-recent-payments">${recentHtml || '<div style="font-size:0.7rem; color:#9ca3af;">No recent payments</div>'}</div>
+          <div style="margin-top:14px; background:#fff; border-radius:12px; padding:10px; box-shadow:0 4px 12px rgba(0,0,0,0.03);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <span style="font-size:0.65rem; font-weight:800; color:#16a34a; text-transform:uppercase; letter-spacing:0.05em;">Recent Activity</span>
+              <span style="font-size:0.62rem; font-weight:700; color:#15803d; background:#dcfce7; padding:1px 6px; border-radius:10px;">${paymentsList.length} Transactions</span>
+            </div>
+            <div class="stat-recent-payments" style="max-height:210px; overflow-y:auto; scrollbar-width:thin; -webkit-overflow-scrolling:touch;">${recentHtml || '<div style="font-size:0.7rem; color:#9ca3af; padding:8px 0; text-align:center;">No recent payments</div>'}</div>
           </div>
           
           <div style="margin-top:12px; display:flex; gap:6px;">
