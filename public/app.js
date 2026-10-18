@@ -268,14 +268,14 @@ const moduleSections = [
 ];
 
 const moduleIcons = {
-  dashboard: "📊", myProfile: "👤", admissions: "🎯", announcements: "📢", appLiveUsers: "📱", students: "🎓", teachers: "👨‍🏫", classes: "🏢",
-  onlineClasses: "🎥",
-  subjects: "📚", exams: "📝", timetable: "⏰",
-  attendance: "📅", teacherAttendance: "👨‍🏫",
-  fees: "💳", dueManagement: "💸", onlinePayments: "📲", payroll: "💼", booksAndDress: "💰", bookSales: "📦", whatsappAlerts: "📲",
-  library: "📖", transport: "🚌", hostel: "🏠", users: "👥", aiAssistant: "🧠", holidays: "🗓️", backup: "💾",
-  reportsAnalytics: "📈",
-  weeklyEvaluation: "🏅"
+  dashboard: "dashboard", myProfile: "account_circle", admissions: "person_add", announcements: "campaign", appLiveUsers: "devices", students: "school", teachers: "co_present", classes: "domain",
+  onlineClasses: "videocam",
+  subjects: "menu_book", exams: "assignment", timetable: "schedule",
+  attendance: "event_available", teacherAttendance: "how_to_reg",
+  fees: "payments", dueManagement: "pending_actions", onlinePayments: "contactless", payroll: "receipt_long", booksAndDress: "inventory_2", bookSales: "shopping_bag", whatsappAlerts: "chat",
+  library: "local_library", transport: "directions_bus", hostel: "apartment", users: "group", aiAssistant: "psychology", holidays: "event", backup: "cloud_sync",
+  reportsAnalytics: "analytics",
+  weeklyEvaluation: "military_tech"
 };
 
 const moduleOrder = Object.keys(moduleConfig);
@@ -531,7 +531,7 @@ window.startListeningToVisitor = function() {
     }
   };
 
-  refs.faceStatusText.innerHTML = `🎙️ AI Listening... Please speak now.`;
+  refs.faceStatusText.innerHTML = `<span class="material-symbols-outlined" style="vertical-align:middle;font-size:1.1rem;margin-right:4px;">mic</span> AI Listening... Please speak now.`;
   
   let listeningTimeout = setTimeout(() => {
     recognition.stop();
@@ -553,7 +553,7 @@ window.startListeningToVisitor = function() {
       return;
     }
     
-    refs.faceStatusText.innerHTML = `💭 AI Thinking...<br/><small>"${transcript}"</small>`;
+    refs.faceStatusText.innerHTML = `<span class="material-symbols-outlined" style="vertical-align:middle;font-size:1.1rem;margin-right:4px;">psychology</span> AI Thinking...<br/><small>"${transcript}"</small>`;
     try {
       const res = await api("/api/voice-receptionist", {
         method: "POST",
@@ -561,7 +561,7 @@ window.startListeningToVisitor = function() {
       });
       if (res && res.response) {
         if (orb) orb.classList.add('ai-speaking-pulse');
-        refs.faceStatusText.innerHTML = `🗣️ AI Speaking...<br/><small>"${res.response}"</small>`;
+        refs.faceStatusText.innerHTML = `<span class="material-symbols-outlined" style="vertical-align:middle;font-size:1.1rem;margin-right:4px;">record_voice_over</span> AI Speaking...<br/><small>"${res.response}"</small>`;
         const reply = new SpeechSynthesisUtterance(res.response);
         reply.lang = 'hi-IN'; 
         
@@ -608,7 +608,7 @@ window.startListeningToVisitor = function() {
         showToast("Voice AI disabled: Microphone blocked or unsupported. Please use Google Chrome.", "error");
       }
       const oldText = refs.faceStatusText.innerHTML;
-      refs.faceStatusText.innerHTML = `⚠️ Voice AI Unavailable (Use Google Chrome)`;
+      refs.faceStatusText.innerHTML = `<span class="material-symbols-outlined" style="vertical-align:middle;font-size:1.1rem;margin-right:4px;color:#f59e0b;">warning</span> Voice AI Unavailable (Use Google Chrome)`;
       setTimeout(() => {
         if (refs.faceStatusText.innerHTML.includes("Voice AI Unavailable")) {
           refs.faceStatusText.innerHTML = oldText;
@@ -1469,7 +1469,7 @@ function renderNav() {
     visibleInSection.forEach(name => {
       const btn = document.createElement("button");
       btn.className = `nav-btn ${name === currentModule ? "active" : ""}`;
-      const icon = moduleIcons[name] || "🔹";
+      const icon = moduleIcons[name] || "folder";
       btn.innerHTML = `<span class="nav-icon material-symbols-outlined" style="font-size: 20px;">${icon}</span> <span class="nav-text" style="margin-left: 6px;">${moduleConfig[name].title}</span>`;
       btn.addEventListener("click", async () => {
         isFormOpen = false;
@@ -1518,8 +1518,8 @@ async function openAdmissionForm() {
   modal.innerHTML = `
     <div class="admission-modal">
       <div class="admission-header">
-        <h2>🎯 Student Admission</h2>
-        <button class="admission-close" onclick="closeAdmissionForm()">✕</button>
+        <h2><span class="material-symbols-outlined" style="font-size:24px;vertical-align:middle;margin-right:8px;color:#2563eb;">person_add</span>Student Admission</h2>
+        <button class="admission-close" onclick="closeAdmissionForm()"><span class="material-symbols-outlined" style="font-size:20px;">close</span></button>
       </div>
       <div class="step-progress">
         <div class="step-item active" data-step="1">
@@ -1707,27 +1707,27 @@ async function openAdmissionForm() {
               <h4 style="margin-bottom:16px;">Document Uploads (Select files)</h4>
               <div class="upload-grid">
                 <div class="upload-box" onclick="document.getElementById('up_photo').click()">
-                  <i class="icon">📷</i><span>Student Photo</span>
+                  <i class="icon" style="display:flex;justify-content:center;"><span class="material-symbols-outlined" style="font-size:26px;color:#2563eb;">add_a_photo</span></i><span>Student Photo</span>
                   <img id="prev_photo" class="upload-preview">
                   <input type="file" id="up_photo" hidden onchange="handleAdmUpload(this, 'photo')">
                 </div>
                 <div class="upload-box" onclick="document.getElementById('up_birth').click()">
-                  <i class="icon">📜</i><span>Birth Cert</span>
+                  <i class="icon" style="display:flex;justify-content:center;"><span class="material-symbols-outlined" style="font-size:26px;color:#2563eb;">description</span></i><span>Birth Cert</span>
                   <img id="prev_birth" class="upload-preview">
                   <input type="file" id="up_birth" hidden onchange="handleAdmUpload(this, 'birthCert')">
                 </div>
                 <div class="upload-box" onclick="document.getElementById('up_aadhar').click()">
-                  <i class="icon">🆔</i><span>Aadhaar Card</span>
+                  <i class="icon" style="display:flex;justify-content:center;"><span class="material-symbols-outlined" style="font-size:26px;color:#2563eb;">badge</span></i><span>Aadhaar Card</span>
                   <img id="prev_aadhar" class="upload-preview">
                   <input type="file" id="up_aadhar" hidden onchange="handleAdmUpload(this, 'aadharDoc')">
                 </div>
                 <div class="upload-box" onclick="document.getElementById('up_tc').click()">
-                  <i class="icon">📂</i><span>Transfer Cert</span>
+                  <i class="icon" style="display:flex;justify-content:center;"><span class="material-symbols-outlined" style="font-size:26px;color:#2563eb;">folder_shared</span></i><span>Transfer Cert</span>
                   <img id="prev_tc" class="upload-preview">
                   <input type="file" id="up_tc" hidden onchange="handleAdmUpload(this, 'tcDoc')">
                 </div>
                 <div class="upload-box" onclick="document.getElementById('up_parentId').click()">
-                  <i class="icon">👤</i><span>Parent ID</span>
+                  <i class="icon" style="display:flex;justify-content:center;"><span class="material-symbols-outlined" style="font-size:26px;color:#2563eb;">account_box</span></i><span>Parent ID</span>
                   <img id="prev_parentId" class="upload-preview">
                   <input type="file" id="up_parentId" hidden onchange="handleAdmUpload(this, 'parentIdDoc')">
                 </div>
@@ -2152,7 +2152,7 @@ function renderForm(forceRefresh) {
   if (!canCurrentUserWrite(currentModule)) {
     refs.dynamicForm.innerHTML = `
       <div style="padding:14px 18px;background:#fef9c3;border:1px solid #fde68a;border-radius:10px;color:#92400e;font-size:0.9rem;display:flex;align-items:center;gap:8px;">
-        <span>🔒</span>
+        <span class="material-symbols-outlined" style="font-size:20px;color:#d97706;">lock</span>
         <span>You have <strong>read-only</strong> access to this module. Contact your administrator to make changes.</span>
       </div>`;
     return;
@@ -2445,18 +2445,18 @@ function renderForm(forceRefresh) {
       
       const toggleBtn = document.createElement("button");
       toggleBtn.type = "button";
-      toggleBtn.innerHTML = "👁️";
-      toggleBtn.style.cssText = "position:absolute; right:12px; background:none; border:none; cursor:pointer; font-size:1.1rem; opacity:0.5; padding:0; transition:opacity 0.2s;";
+      toggleBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;color:#64748b;">visibility</span>';
+      toggleBtn.style.cssText = "position:absolute; right:12px; background:none; border:none; cursor:pointer; opacity:0.6; padding:0; transition:opacity 0.2s; display:flex; align-items:center;";
       toggleBtn.title = "Show Password";
       
       toggleBtn.addEventListener("click", () => {
         if (input.type === "password") {
           input.type = "text";
-          toggleBtn.innerHTML = "🙈";
+          toggleBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;color:#64748b;">visibility_off</span>';
           toggleBtn.title = "Hide Password";
         } else {
           input.type = "password";
-          toggleBtn.innerHTML = "👁️";
+          toggleBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;color:#64748b;">visibility</span>';
           toggleBtn.title = "Show Password";
         }
       });
@@ -3071,11 +3071,13 @@ function renderTable() {
         }
         if (key === "last_active_at" || key === "last_login_at") {
           const rel = typeof formatRelativeTime === "function" ? formatRelativeTime(val) : String(val || "—");
-          const icon = key === "last_active_at" ? "🟢" : "📱";
-          return `<td style="color:#334155; font-size:0.85rem; white-space:nowrap;"><span title="${val || ''}">${icon} ${rel}</span></td>`;
+          const icon = key === "last_active_at" 
+            ? '<span class="material-symbols-outlined" style="font-size:13px;color:#10b981;vertical-align:middle;margin-right:2px;">fiber_manual_record</span>' 
+            : '<span class="material-symbols-outlined" style="font-size:13px;color:#3b82f6;vertical-align:middle;margin-right:2px;">smartphone</span>';
+          return `<td style="color:#334155; font-size:0.85rem; white-space:nowrap;"><span title="${val || ''}">${icon}${rel}</span></td>`;
         }
         if (key === "device_os") {
-          return `<td><span style="font-size:11px;color:#475569;background:#f8fafc;padding:3px 8px;border-radius:6px;border:1px solid #e2e8f0;white-space:nowrap;">📱 ${val || 'Android'}</span></td>`;
+          return `<td><span style="font-size:11px;color:#475569;background:#f8fafc;padding:3px 8px;border-radius:6px;border:1px solid #e2e8f0;white-space:nowrap;display:inline-flex;align-items:center;gap:3px;"><span class="material-symbols-outlined" style="font-size:13px;color:#3b82f6;">smartphone</span> ${val || 'Android'}</span></td>`;
         }
       }
 
@@ -3083,39 +3085,39 @@ function renderTable() {
       if (currentModule === "announcements") {
         if (key === "category") {
           const cat = String(val || item.category || "Announcement");
-          let bg = "#f1f5f9", co = "#334155", icon = "📢";
-          if (cat === "Alert") { bg = "#fee2e2"; co = "#dc2626"; icon = "🚨"; }
-          else if (cat === "Celebration") { bg = "#f3e8ff"; co = "#7e22ce"; icon = "🎉"; }
-          else if (cat === "Exam") { bg = "#e0e7ff"; co = "#3730a3"; icon = "📝"; }
-          else if (cat === "Accounts") { bg = "#dcfce7"; co = "#15803d"; icon = "💳"; }
-          else if (cat === "Holiday") { bg = "#ffedd5"; co = "#c2410c"; icon = "🏖️"; }
-          else if (cat === "PTM") { bg = "#e0f2fe"; co = "#0369a1"; icon = "👨‍👩‍👧"; }
-          else if (cat === "Sports") { bg = "#fef3c7"; co = "#b45309"; icon = "🏆"; }
-          return `<td><span class="badge" style="background:${bg}; color:${co}; border:1px solid ${co}44; font-weight:700;">${icon} ${cat}</span></td>`;
+          let bg = "#f1f5f9", co = "#334155", icon = "campaign";
+          if (cat === "Alert") { bg = "#fee2e2"; co = "#dc2626"; icon = "warning"; }
+          else if (cat === "Celebration") { bg = "#f3e8ff"; co = "#7e22ce"; icon = "celebration"; }
+          else if (cat === "Exam") { bg = "#e0e7ff"; co = "#3730a3"; icon = "assignment"; }
+          else if (cat === "Accounts") { bg = "#dcfce7"; co = "#15803d"; icon = "payments"; }
+          else if (cat === "Holiday") { bg = "#ffedd5"; co = "#c2410c"; icon = "beach_access"; }
+          else if (cat === "PTM") { bg = "#e0f2fe"; co = "#0369a1"; icon = "groups"; }
+          else if (cat === "Sports") { bg = "#fef3c7"; co = "#b45309"; icon = "emoji_events"; }
+          return `<td><span class="badge" style="background:${bg}; color:${co}; border:1px solid ${co}44; font-weight:700; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">${icon}</span> ${cat}</span></td>`;
         }
         if (key === "priority") {
           const p = String(val || item.priority || "Normal");
-          let bg = "#f1f5f9", co = "#475569", icon = "🔵";
-          if (p === "Urgent") { bg = "#fee2e2"; co = "#dc2626"; icon = "🔴"; }
-          else if (p === "High") { bg = "#ffedd5"; co = "#ea580c"; icon = "🟠"; }
-          return `<td><span class="badge" style="background:${bg}; color:${co}; font-weight:700; border:1px solid ${co}33;">${icon} ${p}</span></td>`;
+          let bg = "#f1f5f9", co = "#475569", icon = "radio_button_checked";
+          if (p === "Urgent") { bg = "#fee2e2"; co = "#dc2626"; icon = "error"; }
+          else if (p === "High") { bg = "#ffedd5"; co = "#ea580c"; icon = "priority_high"; }
+          return `<td><span class="badge" style="background:${bg}; color:${co}; font-weight:700; border:1px solid ${co}33; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">${icon}</span> ${p}</span></td>`;
         }
         if (key === "targetAudience" || key === "targetType") {
           const tType = item.targetType || "all";
           if (tType === "class") {
-            return `<td><span class="badge" style="background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; font-weight:600;">🏫 Class ${escapeHtml(item.targetClass || item.targetAudience || 'All')}</span></td>`;
+            return `<td><span class="badge" style="background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd; font-weight:600; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">domain</span> Class ${escapeHtml(item.targetClass || item.targetAudience || 'All')}</span></td>`;
           } else if (tType === "student") {
-            return `<td><span class="badge" style="background:#e0f2fe; color:#0284c7; border:1px solid #7dd3fc; font-weight:600;">👤 ${escapeHtml(item.targetStudentName || 'Student')} (${escapeHtml(item.targetAdmissionNo || '')})</span></td>`;
+            return `<td><span class="badge" style="background:#e0f2fe; color:#0284c7; border:1px solid #7dd3fc; font-weight:600; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">person</span> ${escapeHtml(item.targetStudentName || 'Student')} (${escapeHtml(item.targetAdmissionNo || '')})</span></td>`;
           } else if (tType === "staff") {
-            return `<td><span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:600;">👨‍🏫 Staff Only</span></td>`;
+            return `<td><span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:600; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">badge</span> Staff Only</span></td>`;
           } else if (tType === "parents") {
-            return `<td><span class="badge" style="background:#fce7f3; color:#be185d; border:1px solid #fbcfe8; font-weight:600;">👨‍👩‍👧 Parents Only</span></td>`;
+            return `<td><span class="badge" style="background:#fce7f3; color:#be185d; border:1px solid #fbcfe8; font-weight:600; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">family_restroom</span> Parents Only</span></td>`;
           } else {
-            return `<td><span class="badge" style="background:#dbeafe; color:#1d4ed8; border:1px solid #93c5fd; font-weight:600;">🌐 All School</span></td>`;
+            return `<td><span class="badge" style="background:#dbeafe; color:#1d4ed8; border:1px solid #93c5fd; font-weight:600; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">public</span> All School</span></td>`;
           }
         }
         if (key === "postedBy") {
-          return `<td style="white-space:nowrap; font-weight:600; color:#334155;">🏛️ ${escapeHtml(val || item.postedBy || 'Tapowan Admin')}</td>`;
+          return `<td style="white-space:nowrap; font-weight:600; color:#334155;"><span class="material-symbols-outlined" style="font-size:15px; vertical-align:middle; margin-right:3px; color:#2563eb;">account_balance</span>${escapeHtml(val || item.postedBy || 'Tapowan Admin')}</td>`;
         }
         if (key === "title") {
           const isUrgent = item.priority === "Urgent";
@@ -3194,9 +3196,9 @@ function renderTable() {
           <div style="display:flex; gap:6px; align-items:center;">
             ${isPending ? `<button class="btn-icon" onclick="approveAdmission(${item.id})" style="background:#dcfce7;color:#16a34a;padding:5px 12px;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:0.75rem;">Approve</button>` : ""}
             ${isPending ? `<button class="btn-icon" onclick="rejectAdmission(${item.id})" style="background:#fee2e2;color:#dc2626;padding:5px 12px;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:0.75rem;">Reject</button>` : ""}
-            <button class="action-btn" onclick="printAdmissionById(${item.id})" style="background:#e0f2fe;color:#0369a1;border:none;padding:5px 8px;border-radius:6px;cursor:pointer;" title="Print Form">🖨️</button>
-            <button class="action-btn action-edit" data-action="generic-edit" data-id="${item.id}" style="background:#f1f5f9;color:#475569;border:none;padding:5px 8px;border-radius:6px;cursor:pointer;">✏️</button>
-            <button class="chip" data-delete-id="${item.id}" style="margin:0;">🗑️</button>
+            <button class="action-btn" onclick="printAdmissionById(${item.id})" style="background:#e0f2fe;color:#0369a1;border:none;padding:5px 8px;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;" title="Print Form"><span class="material-symbols-outlined" style="font-size:16px;">print</span></button>
+            <button class="action-btn action-edit" data-action="generic-edit" data-id="${item.id}" style="background:#f1f5f9;color:#475569;border:none;padding:5px 8px;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;"><span class="material-symbols-outlined" style="font-size:16px;">edit</span></button>
+            <button class="chip" data-delete-id="${item.id}" style="margin:0;display:inline-flex;align-items:center;padding:5px 8px;"><span class="material-symbols-outlined" style="font-size:16px;">delete</span></button>
           </div>
         </td>`;
     } else if (currentModule === "students") {
@@ -3226,36 +3228,36 @@ function renderTable() {
         <div style="display:flex;gap:6px;align-items:center;">
           <!-- Granular Authority Button -->
           <button type="button" class="action-btn" onclick="openGrantAppAuthModal('${escapeHtml(item.admission_no || '')}', '${escapeHtml(item.student_name || '')}')" style="background:${hasAuth ? '#dcfce7' : '#eff6ff'};color:${hasAuth ? '#15803d' : '#2563eb'};border:1px solid ${hasAuth ? '#86efac' : '#bfdbfe'};padding:6px 12px;border-radius:8px;cursor:pointer;font-weight:800;font-size:12px;display:inline-flex;align-items:center;gap:5px;box-shadow:0 2px 5px rgba(0,0,0,0.04);" title="Grant / Edit Permissions for Student in Mobile App">
-            ${hasAuth ? `🔑 Permissions (${fieldsArr.length} ${fieldsArr.length === 1 ? 'Field' : 'Fields'})` : '🔑 Grant Permission'}
+            <span class="material-symbols-outlined" style="font-size:16px;">key</span> ${hasAuth ? `Permissions (${fieldsArr.length} ${fieldsArr.length === 1 ? 'Field' : 'Fields'})` : 'Grant Permission'}
           </button>
 
           <!-- Admin Edit Dialog -->
           <button type="button" class="action-btn" onclick="openEditMobileStudentModal('${escapeHtml(item.admission_no || '')}', '${escapeHtml(item.student_name || '')}', ${item.id || 0})" style="background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;padding:6px 10px;border-radius:8px;cursor:pointer;font-weight:700;font-size:12px;display:inline-flex;align-items:center;gap:4px;" title="Admin Edit on Web">
-            ✏️ Edit
+            <span class="material-symbols-outlined" style="font-size:15px;">edit</span> Edit
           </button>
 
-          ${phone ? `<a href="https://wa.me/91${phone.slice(-10)}" target="_blank" class="action-btn" style="background:#25d366;color:#fff;border:none;padding:6px 10px;border-radius:8px;text-decoration:none;font-size:12px;display:inline-flex;align-items:center;gap:4px;font-weight:700;" title="Chat on WhatsApp">💬 WhatsApp</a>` : ''}
-          ${canDel ? `<button class="chip" data-delete-id="${item.id}" style="margin:0;border-radius:8px;padding:5px 8px;">🗑️</button>` : '—'}
+          ${phone ? `<a href="https://wa.me/91${phone.slice(-10)}" target="_blank" class="action-btn" style="background:#25d366;color:#fff;border:none;padding:6px 10px;border-radius:8px;text-decoration:none;font-size:12px;display:inline-flex;align-items:center;gap:4px;font-weight:700;" title="Chat on WhatsApp"><span class="material-symbols-outlined" style="font-size:15px;">chat</span> WhatsApp</a>` : ''}
+          ${canDel ? `<button class="chip" data-delete-id="${item.id}" style="margin:0;border-radius:8px;padding:5px 8px;display:inline-flex;align-items:center;"><span class="material-symbols-outlined" style="font-size:16px;">delete</span></button>` : '—'}
         </div>
       </td>`;
     } else if (currentModule === "announcements") {
       tr.innerHTML = `${cells}<td style="white-space:nowrap;">
         <div style="display:flex;gap:4px;align-items:center;">
-          <button class="action-btn" onclick="openAnnouncementPreview(${item.id})" style="background:#e0e7ff;color:#4338ca;border:none;padding:5px 8px;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px;" title="Preview Official Notice">👁️ Preview</button>
-          <button class="action-btn" onclick="shareAnnouncementWhatsApp(${item.id})" style="background:#25d366;color:#fff;border:none;padding:5px 8px;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px;" title="Share on WhatsApp">📲 WA</button>
-          ${canWrite ? `<button class="action-btn action-edit" data-action="generic-edit" data-id="${item.id}" style="background:#f1f5f9;color:#334155;border:none;padding:5px 8px;border-radius:6px;cursor:pointer;">✏️ Edit</button>` : ""}
-          ${canDel ? `<button class="chip" data-delete-id="${item.id}" style="margin:0;">🗑️</button>` : '—'}
+          <button class="action-btn" onclick="openAnnouncementPreview(${item.id})" style="background:#e0e7ff;color:#4338ca;border:none;padding:5px 8px;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px;display:inline-flex;align-items:center;gap:4px;" title="Preview Official Notice"><span class="material-symbols-outlined" style="font-size:15px;">visibility</span> Preview</button>
+          <button class="action-btn" onclick="shareAnnouncementWhatsApp(${item.id})" style="background:#25d366;color:#fff;border:none;padding:5px 8px;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px;display:inline-flex;align-items:center;gap:4px;" title="Share on WhatsApp"><span class="material-symbols-outlined" style="font-size:15px;">share</span> WA</button>
+          ${canWrite ? `<button class="action-btn action-edit" data-action="generic-edit" data-id="${item.id}" style="background:#f1f5f9;color:#334155;border:none;padding:5px 8px;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:15px;">edit</span> Edit</button>` : ""}
+          ${canDel ? `<button class="chip" data-delete-id="${item.id}" style="margin:0;display:inline-flex;align-items:center;padding:5px 8px;"><span class="material-symbols-outlined" style="font-size:16px;">delete</span></button>` : '—'}
         </div>
       </td>`;
     } else if (currentModule === "fees") {
       tr.innerHTML = `${cells}<td style="white-space:nowrap; display: flex; align-items: center;">
         <span class="hidden-actions" style="display:none; align-items:center;">
         </span>
-        <button class="action-btn" data-action="print-thermal-slip" data-id="${item.id}" style="margin-right:2px; background:#4f46e5; color:#fff; border:none; padding:4px 8px;" title="Print exact slip size">🖨️ Print</button>
-        <button class="action-btn" data-action="whatsapp-slip" data-id="${item.id}" style="margin-right:2px; background:#16a34a; color:#fff; border:none; padding:4px 8px;">📲 WA</button>
-        <button class="action-btn" data-action="auto-whatsapp-slip" data-id="${item.id}" style="margin-right:2px; background:#1e3a8a; color:#fff; border:none; padding:4px 8px;" title="Send automatically in background">🚀 Auto WA</button>
-        <button class="action-btn" data-action="sms-slip" data-id="${item.id}" style="margin-right:2px; background:#0891b2; color:#fff; border:none; padding:4px 8px;">💬 SMS</button>
-        ${userIsAdmin() ? `<button class="action-btn" data-action="generic-edit" data-id="${item.id}" style="background:#475569; color:#fff; border:none; padding:4px 8px; margin-right:2px;">✏️</button>` : ""}
+        <button class="action-btn" data-action="print-thermal-slip" data-id="${item.id}" style="margin-right:2px; background:#4f46e5; color:#fff; border:none; padding:4px 8px; display:inline-flex; align-items:center; gap:4px;" title="Print exact slip size"><span class="material-symbols-outlined" style="font-size:15px;">print</span> Print</button>
+        <button class="action-btn" data-action="whatsapp-slip" data-id="${item.id}" style="margin-right:2px; background:#16a34a; color:#fff; border:none; padding:4px 8px; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:15px;">share</span> WA</button>
+        <button class="action-btn" data-action="auto-whatsapp-slip" data-id="${item.id}" style="margin-right:2px; background:#1e3a8a; color:#fff; border:none; padding:4px 8px; display:inline-flex; align-items:center; gap:4px;" title="Send automatically in background"><span class="material-symbols-outlined" style="font-size:15px;">send</span> Auto WA</button>
+        <button class="action-btn" data-action="sms-slip" data-id="${item.id}" style="margin-right:2px; background:#0891b2; color:#fff; border:none; padding:4px 8px; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:15px;">sms</span> SMS</button>
+        ${userIsAdmin() ? `<button class="action-btn" data-action="generic-edit" data-id="${item.id}" style="background:#475569; color:#fff; border:none; padding:4px 8px; margin-right:2px; display:inline-flex; align-items:center;"><span class="material-symbols-outlined" style="font-size:15px;">edit</span></button>` : ""}
         
         <span class="hidden-actions" style="display:none; align-items:center; margin-left: 2px;">
           ${canDel ? `<button class="chip" data-delete-id="${item.id}" style="margin-right:2px; margin-top:0; margin-bottom:0; padding:4px 8px;">Delete</button>` : ""}
@@ -3278,12 +3280,12 @@ function renderTable() {
           ).join("")}
         </select>
         <button class="action-btn" data-assign-role-id="${item.id}" style="padding:4px 10px;font-size:0.8rem;">Save</button>
-        ${canWrite ? `<button class="action-btn action-edit" data-action="generic-edit" data-id="${item.id}" style="margin-left:4px;">✏️ Edit</button>` : ""}
+        ${canWrite ? `<button class="action-btn action-edit" data-action="generic-edit" data-id="${item.id}" style="margin-left:4px;display:inline-flex;align-items:center;gap:3px;"><span class="material-symbols-outlined" style="font-size:14px;">edit</span>Edit</button>` : ""}
         ${canDel ? `<button class="chip" data-delete-id="${item.id}" style="margin-left:4px;">Delete</button>` : ""}
       </td>`;
     } else {
       tr.innerHTML = `${cells}<td style="white-space:nowrap;">
-        ${canWrite ? `<button class="action-btn action-edit" data-action="generic-edit" data-id="${item.id}" style="margin-right:4px;">✏️ Edit</button>` : ""}
+        ${canWrite ? `<button class="action-btn action-edit" data-action="generic-edit" data-id="${item.id}" style="margin-right:4px;display:inline-flex;align-items:center;gap:3px;"><span class="material-symbols-outlined" style="font-size:14px;">edit</span>Edit</button>` : ""}
         ${canDel ? `<button class="chip" data-delete-id="${item.id}">Delete</button>` : "—"}
       </td>`;
     }
@@ -3478,7 +3480,7 @@ function renderStudentProfile() {
     refs.studentProfileContent.innerHTML = `
       <div style="background:linear-gradient(135deg, #ffffff, #f8fafc); border-radius:20px; padding:24px; border:1px solid #e2e8f0; margin-bottom:24px; box-shadow:0 8px 30px rgba(0,0,0,0.02); position:relative; overflow:hidden;">
   <div style="position:absolute; right:-30px; top:-30px; width:150px; height:150px; border-radius:50%; background:linear-gradient(135deg, #eff6ff, #dbeafe); opacity:0.6; pointer-events:none;"></div>
-  <h4 style="position:relative; z-index:1; font-size:1rem; font-weight:800; color:#1e293b; margin-bottom:20px; display:flex; align-items:center; gap:8px;"><span style="font-size:1.2rem;">👤</span> Student Identity</h4>
+  <h4 style="position:relative; z-index:1; font-size:1rem; font-weight:800; color:#1e293b; margin-bottom:20px; display:flex; align-items:center; gap:8px;"><span class="material-symbols-outlined" style="font-size:22px;color:#2563eb;">badge</span> Student Identity</h4>
   <div style="display:flex; flex-wrap:wrap; gap:20px; position:relative; z-index:1;">
         <div style="flex:0 0 120px; display:flex; flex-direction:column; align-items:center; text-align:center;">
           <div style="width:100px; height:100px; border-radius:50%; background:linear-gradient(135deg, #eff6ff, #dbeafe); color:#2563eb; display:flex; align-items:center; justify-content:center; font-size:3rem; font-weight:800; margin:0 auto 12px; border:4px solid #fff; box-shadow:0 8px 20px rgba(37,99,235,0.15); overflow:hidden;">
@@ -3550,14 +3552,14 @@ function renderStudentProfile() {
       </div>
       <div style="background:linear-gradient(135deg, #ffffff, #f8fafc); border-radius:20px; padding:24px; border:1px solid #e2e8f0; margin-bottom:24px; box-shadow:0 8px 30px rgba(0,0,0,0.02); position:relative; overflow:hidden;">
   <div style="position:absolute; right:-30px; top:-30px; width:150px; height:150px; border-radius:50%; background:linear-gradient(135deg, #f3e8ff, #f5f3ff); opacity:0.6; pointer-events:none;"></div>
-  <h4 style="position:relative; z-index:1; font-size:1rem; font-weight:800; color:#1e293b; margin-bottom:20px; display:flex; align-items:center; gap:8px;"><span style="font-size:1.2rem;">👨‍👩‍👧</span> Family & Contact</h4>
+  <h4 style="position:relative; z-index:1; font-size:1rem; font-weight:800; color:#1e293b; margin-bottom:20px; display:flex; align-items:center; gap:8px;"><span class="material-symbols-outlined" style="font-size:22px;color:#9333ea;">diversity_3</span> Family &amp; Contact</h4>
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:10px; margin-bottom:20px;">
         
         <!-- PARENT / GUARDIAN (Purple) -->
         <div style="display:flex; align-items:center; gap:12px; background:#f3e8ff; padding:12px 14px; border-radius:14px; border:1px solid #e9d5ff; position:relative; overflow:hidden; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);">
           <div style="position:absolute; right:-20px; bottom:-20px; width:80px; height:80px; border-radius:50%; background:#9333ea; opacity:0.1;"></div>
           <div style="position:relative; z-index:1; display:flex; align-items:center; gap:12px;">
-            <div style="width:36px; height:36px; background:#fff; color:#9333ea; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.1rem; box-shadow:0 2px 4px rgba(147,51,234,0.1);">👨‍👩‍👧</div>
+            <div style="width:36px; height:36px; background:#fff; color:#9333ea; border-radius:10px; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 4px rgba(147,51,234,0.1);"><span class="material-symbols-outlined" style="font-size:20px;">family_restroom</span></div>
             <div>
               <div style="font-size:0.62rem; color:#64748b; font-weight:800; text-transform:uppercase; letter-spacing:0.04em;">Parent / Guardian</div>
               <div style="color:#0f172a; font-weight:700; font-size:0.85rem;">${student.fatherName || "-"}</div>
@@ -3569,7 +3571,7 @@ function renderStudentProfile() {
         <div style="display:flex; align-items:center; gap:12px; background:#d1fae5; padding:12px 14px; border-radius:14px; border:1px solid #a7f3d0; position:relative; overflow:hidden; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);">
           <div style="position:absolute; right:-20px; bottom:-20px; width:80px; height:80px; border-radius:50%; background:#16a34a; opacity:0.1;"></div>
           <div style="position:relative; z-index:1; display:flex; align-items:center; gap:12px;">
-            <div style="width:36px; height:36px; background:#fff; color:#16a34a; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.1rem; box-shadow:0 2px 4px rgba(22,163,74,0.1);">👩</div>
+            <div style="width:36px; height:36px; background:#fff; color:#16a34a; border-radius:10px; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 4px rgba(22,163,74,0.1);"><span class="material-symbols-outlined" style="font-size:20px;">female</span></div>
             <div>
               <div style="font-size:0.62rem; color:#64748b; font-weight:800; text-transform:uppercase; letter-spacing:0.04em;">Mother's Name</div>
               <div style="color:#0f172a; font-weight:700; font-size:0.85rem;">${student.motherName || "-"}</div>
@@ -3581,20 +3583,20 @@ function renderStudentProfile() {
         <div style="display:flex; align-items:center; justify-content:space-between; background:#fef3c7; padding:12px 14px; border-radius:14px; border:1px solid #fde68a; position:relative; overflow:hidden; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);">
           <div style="position:absolute; right:-20px; bottom:-20px; width:80px; height:80px; border-radius:50%; background:#d97706; opacity:0.1;"></div>
           <div style="position:relative; z-index:1; display:flex; align-items:center; gap:12px;">
-            <div style="width:36px; height:36px; background:#fff; color:#d97706; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.1rem; box-shadow:0 2px 4px rgba(217,119,6,0.1);">📞</div>
+            <div style="width:36px; height:36px; background:#fff; color:#d97706; border-radius:10px; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 4px rgba(217,119,6,0.1);"><span class="material-symbols-outlined" style="font-size:20px;">call</span></div>
             <div>
               <div style="font-size:0.62rem; color:#64748b; font-weight:800; text-transform:uppercase; letter-spacing:0.04em;">Mobile Number</div>
               <div style="color:#0f172a; font-weight:700; font-size:0.85rem;">${student.phone1 || student.phone || "-"}</div>
             </div>
           </div>
-          ${(student.phone1 || student.phone) ? `<a href="https://wa.me/91${(student.phone1 || student.phone).replace(/\D/g,'')}" target="_blank" title="WhatsApp Parent" style="width:32px; height:32px; background:linear-gradient(135deg, #25D366, #128C7E); color:#fff; border-radius:8px; display:flex; align-items:center; justify-content:center; text-decoration:none; position:relative; z-index:2;">💬</a>` : ''}
+          ${(student.phone1 || student.phone) ? `<a href="https://wa.me/91${(student.phone1 || student.phone).replace(/\D/g,'')}" target="_blank" title="WhatsApp Parent" style="width:32px; height:32px; background:linear-gradient(135deg, #25D366, #128C7E); color:#fff; border-radius:8px; display:flex; align-items:center; justify-content:center; text-decoration:none; position:relative; z-index:2;"><span class="material-symbols-outlined" style="font-size:18px;">chat</span></a>` : ''}
         </div>
         
         <!-- FULL ADDRESS (Red) -->
         <div style="display:flex; align-items:center; justify-content:space-between; background:#fee2e2; padding:12px 14px; border-radius:14px; border:1px solid #fecaca; grid-column:1/-1; position:relative; overflow:hidden; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);">
           <div style="position:absolute; right:-20px; bottom:-20px; width:80px; height:80px; border-radius:50%; background:#dc2626; opacity:0.1;"></div>
           <div style="position:relative; z-index:1; display:flex; align-items:center; gap:12px;">
-            <div style="width:36px; height:36px; background:#fff; color:#dc2626; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.1rem; box-shadow:0 2px 4px rgba(220,38,38,0.1);">📍</div>
+            <div style="width:36px; height:36px; background:#fff; color:#dc2626; border-radius:10px; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 4px rgba(220,38,38,0.1);"><span class="material-symbols-outlined" style="font-size:20px;">location_on</span></div>
             <div>
               <div style="font-size:0.62rem; color:#64748b; font-weight:800; text-transform:uppercase; letter-spacing:0.04em;">Full Address</div>
               <div style="color:#0f172a; font-weight:700; font-size:0.85rem;">${student.address || (student.village ? `${student.village}, ${student.district || ''}, ${student.pin || ''}` : "-")}</div>
@@ -3605,7 +3607,7 @@ function renderStudentProfile() {
       </div>
       <div style="background:linear-gradient(135deg, #ffffff, #f8fafc); border-radius:20px; padding:24px; border:1px solid #e2e8f0; margin-bottom:24px; box-shadow:0 8px 30px rgba(0,0,0,0.02); position:relative; overflow:hidden;">
   <div style="position:absolute; right:-30px; top:-30px; width:150px; height:150px; border-radius:50%; background:linear-gradient(135deg, #d1fae5, #ecfdf5); opacity:0.6; pointer-events:none;"></div>
-  <h4 style="position:relative; z-index:1; font-size:1rem; font-weight:800; color:#1e293b; margin-bottom:20px; display:flex; align-items:center; gap:8px;"><span style="font-size:1.2rem;">📄</span> Documents</h4>
+  <h4 style="position:relative; z-index:1; font-size:1rem; font-weight:800; color:#1e293b; margin-bottom:20px; display:flex; align-items:center; gap:8px;"><span class="material-symbols-outlined" style="font-size:22px;color:#10b981;">folder_open</span> Documents</h4>
       <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:12px; margin-bottom:20px;">
         <div style="border:1px solid #bfdbfe; border-radius:14px; padding:12px; background:#dbeafe; text-align:center; position:relative; overflow:hidden; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);">
           <div style="position:absolute; right:-20px; bottom:-20px; width:80px; height:80px; border-radius:50%; background:#2563eb; opacity:0.1; pointer-events:none;"></div>
@@ -3645,11 +3647,11 @@ function renderStudentProfile() {
       </div>
       </div>
       <div style="display:flex; flex-wrap:wrap; gap:8px; background:linear-gradient(135deg, #f8fafc, #f1f5f9); padding:12px; border-radius:16px; border:1px solid #e2e8f0; align-items:center; justify-content:center; box-shadow:inset 0 2px 4px rgba(0,0,0,0.01);">
-        <button type="button" class="btn btn-primary" data-profile-action="edit" style="border-radius:10px; font-size:0.75rem; padding:8px 14px;">✏️ Edit</button>
-        <button type="button" class="btn dark" data-profile-action="fees" style="border-radius:10px; font-size:0.75rem; padding:8px 14px;">💳 Add Fee</button>
-        <button type="button" class="btn dark" data-profile-action="exams" style="border-radius:10px; font-size:0.75rem; padding:8px 14px;">📝 Add Marks</button>
-        <button type="button" class="btn dark" data-profile-action="attendance" style="border-radius:10px; font-size:0.75rem; padding:8px 14px;">📅 Mark Attendance</button>
-        <button type="button" class="btn" data-profile-action="print" style="background:#fff; border:1px solid #cbd5e1; color:#0f172a; border-radius:10px; font-size:0.75rem; padding:8px 14px;">🖨️ Print Report</button>
+        <button type="button" class="btn btn-primary" data-profile-action="edit" style="border-radius:10px; font-size:0.75rem; padding:8px 14px; display:inline-flex; align-items:center; gap:6px;"><span class="material-symbols-outlined" style="font-size:16px;">edit</span> Edit</button>
+        <button type="button" class="btn dark" data-profile-action="fees" style="border-radius:10px; font-size:0.75rem; padding:8px 14px; display:inline-flex; align-items:center; gap:6px;"><span class="material-symbols-outlined" style="font-size:16px;">payments</span> Add Fee</button>
+        <button type="button" class="btn dark" data-profile-action="exams" style="border-radius:10px; font-size:0.75rem; padding:8px 14px; display:inline-flex; align-items:center; gap:6px;"><span class="material-symbols-outlined" style="font-size:16px;">grade</span> Add Marks</button>
+        <button type="button" class="btn dark" data-profile-action="attendance" style="border-radius:10px; font-size:0.75rem; padding:8px 14px; display:inline-flex; align-items:center; gap:6px;"><span class="material-symbols-outlined" style="font-size:16px;">event_available</span> Mark Attendance</button>
+        <button type="button" class="btn" data-profile-action="print" style="background:#fff; border:1px solid #cbd5e1; color:#0f172a; border-radius:10px; font-size:0.75rem; padding:8px 14px; display:inline-flex; align-items:center; gap:6px;"><span class="material-symbols-outlined" style="font-size:16px;">print</span> Print Report</button>
       </div>
     `;
     // Wire actions (profile tab only).
@@ -3793,7 +3795,7 @@ function renderStudentProfile() {
           <div style="position:relative; z-index:2;">
             <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
               <h4 style="margin:0; font-size:0.85rem; color:#bfdbfe; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;">Total Obtained</h4>
-              <div style="width:34px; height:34px; border-radius:10px; background:rgba(255,255,255,0.2); display:grid; place-items:center; font-size:1.1rem;">🎯</div>
+              <div style="width:34px; height:34px; border-radius:10px; background:rgba(255,255,255,0.2); display:grid; place-items:center;"><span class="material-symbols-outlined" style="font-size:20px;color:#fff;">military_tech</span></div>
             </div>
             <div style="font-size:1.6rem; font-weight:900; letter-spacing:-0.03em;">${totalObtained}</div>
           </div>
@@ -3804,7 +3806,7 @@ function renderStudentProfile() {
           <div style="position:relative; z-index:2;">
             <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
               <h4 style="margin:0; font-size:0.85rem; color:#ddd6fe; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;">Total Max</h4>
-              <div style="width:34px; height:34px; border-radius:10px; background:rgba(255,255,255,0.2); display:grid; place-items:center; font-size:1.1rem;">📚</div>
+              <div style="width:34px; height:34px; border-radius:10px; background:rgba(255,255,255,0.2); display:grid; place-items:center;"><span class="material-symbols-outlined" style="font-size:20px;color:#fff;">auto_stories</span></div>
             </div>
             <div style="font-size:1.6rem; font-weight:900; letter-spacing:-0.03em;">${totalMax}</div>
           </div>
@@ -3815,7 +3817,7 @@ function renderStudentProfile() {
           <div style="position:relative; z-index:2;">
             <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
               <h4 style="margin:0; font-size:0.85rem; color:#99f6e4; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;">Percentage</h4>
-              <div style="width:34px; height:34px; border-radius:10px; background:rgba(255,255,255,0.2); display:grid; place-items:center; font-size:1.1rem;">📊</div>
+              <div style="width:34px; height:34px; border-radius:10px; background:rgba(255,255,255,0.2); display:grid; place-items:center;"><span class="material-symbols-outlined" style="font-size:20px;color:#fff;">percent</span></div>
             </div>
             <div style="font-size:1.6rem; font-weight:900; letter-spacing:-0.03em;">${pct}%</div>
           </div>
@@ -3826,7 +3828,7 @@ function renderStudentProfile() {
           <div style="position:relative; z-index:2;">
             <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
               <h4 style="margin:0; font-size:0.85rem; color:${resultStatus === 'Pass' ? '#bbf7d0' : '#fecaca'}; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;">Result</h4>
-              <div style="width:34px; height:34px; border-radius:10px; background:rgba(255,255,255,0.2); display:grid; place-items:center; font-size:1.1rem;">${resultStatus === 'Pass' ? '🏆' : '⚠️'}</div>
+              <div style="width:34px; height:34px; border-radius:10px; background:rgba(255,255,255,0.2); display:grid; place-items:center;"><span class="material-symbols-outlined" style="font-size:20px;color:#fff;">${resultStatus === 'Pass' ? 'emoji_events' : 'warning'}</span></div>
             </div>
             <div style="font-size:1.6rem; font-weight:900; letter-spacing:-0.03em;">${resultStatus}</div>
           </div>
@@ -3840,7 +3842,7 @@ function renderStudentProfile() {
         <div style="position:relative; z-index:2;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
             <h3 style="margin:0; font-size:1.1rem; color:#6b21a8; font-weight:800;">Growth Report</h3>
-            <div style="width:38px; height:38px; border-radius:10px; background:rgba(255,255,255,0.6); display:grid; place-items:center; font-size:1.2rem;">📈</div>
+            <div style="width:38px; height:38px; border-radius:10px; background:rgba(255,255,255,0.6); display:grid; place-items:center;"><span class="material-symbols-outlined" style="font-size:22px;color:#6b21a8;">trending_up</span></div>
           </div>
         </div>
         <canvas id="studentGrowthChart" style="max-height:200px; width:100%;"></canvas>
@@ -3917,19 +3919,17 @@ function renderStudentProfile() {
     dueAmount += dues.reduce((sum, d) => sum + asNum(d.balance), 0);
 
     const FEE_TYPE_KEYS = [
-      { key: "tuitionFee",     label: "Tuition Fee",     icon: "📚" },
-    { key: "transportFee", label: "Transport Fee", icon: "🚌" },
-    { key: "admissionFormFee", label: "Admission Form Fee", icon: "📄" },
-      { key: "transportFee", label: "Transport Fee", icon: "🚌" },
-      { key: "admissionFormFee", label: "Admission Form Fee", icon: "📄" },
-      { key: "admissionFee", label: "Admission Fee", icon: "🎓" },
-      { key: "computerFee", label: "Computer Fee", icon: "💻" },
-      { key: "developmentFee", label: "Development Fee", icon: "🏗️" },
-      { key: "labFee", label: "Lab Fee", icon: "🔬" },
-      { key: "sportsFee", label: "Sports Fee", icon: "⚽" },
-      { key: "libraryFee", label: "Library Fee", icon: "📖" },
-      { key: "examFee", label: "Exam Fee", icon: "📝" },
-      { key: "otherFee", label: "Other Fee", icon: "➕" },
+      { key: "tuitionFee",     label: "Tuition Fee",     icon: "menu_book" },
+      { key: "transportFee", label: "Transport Fee", icon: "directions_bus" },
+      { key: "admissionFormFee", label: "Admission Form Fee", icon: "description" },
+      { key: "admissionFee", label: "Admission Fee", icon: "school" },
+      { key: "computerFee", label: "Computer Fee", icon: "computer" },
+      { key: "developmentFee", label: "Development Fee", icon: "architecture" },
+      { key: "labFee", label: "Lab Fee", icon: "science" },
+      { key: "sportsFee", label: "Sports Fee", icon: "sports_soccer" },
+      { key: "libraryFee", label: "Library Fee", icon: "local_library" },
+      { key: "examFee", label: "Exam Fee", icon: "assignment" },
+      { key: "otherFee", label: "Other Fee", icon: "add_circle_outline" },
     ];
     function buildFeeBreakdown(f) {
       let lines = "";
@@ -3939,7 +3939,7 @@ function renderStudentProfile() {
         if (amt > 0) {
           hasAny = true;
           lines += `<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:0.82rem;border-bottom:1px dashed rgba(148,163,184,0.2);">
-            <span style="color:#475569;">${icon} ${label}</span>
+            <span style="color:#475569;display:inline-flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;color:#64748b;">${icon}</span> ${label}</span>
             <span style="font-weight:600;color:#0f172a;">₹ ${amt.toLocaleString("en-IN")}</span></div>`;
         }
       });
@@ -3952,7 +3952,7 @@ function renderStudentProfile() {
             const perPart = totalMonthly / parts.length;
             parts.forEach(part => {
               lines += `<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:0.82rem;border-bottom:1px dashed rgba(148,163,184,0.2);">
-                <span style="color:#475569;">💳 ${part}</span>
+                <span style="color:#475569;display:inline-flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;color:#64748b;">payments</span> ${part}</span>
                 <span style="font-weight:600;color:#0f172a;">₹ ${perPart.toLocaleString("en-IN")}</span></div>`;
             });
           } else if (labels) {
@@ -3984,17 +3984,17 @@ function renderStudentProfile() {
             // Unpaid/Arrears (Red theme)
             cardBg = "#fee2e2"; cardBorder = "#fecaca"; circleBg = "#fecaca";
             textDark = "#7f1d1d"; textMuted = "#991b1b"; 
-            iconStr = "⚠️"; iconBg = "#fef2f2"; iconColor = "#ef4444";
+            iconStr = '<span class="material-symbols-outlined" style="font-size:24px;">error_outline</span>'; iconBg = "#fef2f2"; iconColor = "#ef4444";
         } else if (status === 'paid') {
             // Paid (Green theme)
             cardBg = "#d1fae5"; cardBorder = "#a7f3d0"; circleBg = "#a7f3d0";
             textDark = "#14532d"; textMuted = "#166534";
-            iconStr = "💳"; iconBg = "#ecfdf5"; iconColor = "#10b981";
+            iconStr = '<span class="material-symbols-outlined" style="font-size:24px;">task_alt</span>'; iconBg = "#ecfdf5"; iconColor = "#10b981";
         } else {
             // Partial (Yellow theme)
             cardBg = "#fef3c7"; cardBorder = "#fde68a"; circleBg = "#fde68a";
             textDark = "#78350f"; textMuted = "#92400e";
-            iconStr = "⏳"; iconBg = "#fffbeb"; iconColor = "#d97706";
+            iconStr = '<span class="material-symbols-outlined" style="font-size:24px;">pending</span>'; iconBg = "#fffbeb"; iconColor = "#d97706";
         }
         
         return `
@@ -4039,10 +4039,10 @@ function renderStudentProfile() {
                 <div style="color:${textMuted}; font-size:0.75rem;">
                   <b>Date:</b> ${f.paymentDate || "-"} &nbsp;•&nbsp; <b>Method:</b> ${f.paymentMethod || "-"}
                 </div>
-                ${(parseFloat(f.paidAmount) > 0 || String(f.status).toLowerCase() === 'paid') ? `<button class="print-fee-btn" data-fee-id="${f.id}" style="font-size:0.75rem; padding:6px 14px; border-radius:8px; background:${textDark}; color:#fff; border:none; cursor:pointer; font-weight:600; box-shadow:0 2px 4px rgba(0,0,0,0.1);">🖨️ Receipt</button>` : ''}
+                ${(parseFloat(f.paidAmount) > 0 || String(f.status).toLowerCase() === 'paid') ? `<button class="print-fee-btn" data-fee-id="${f.id}" style="font-size:0.75rem; padding:6px 14px; border-radius:8px; background:${textDark}; color:#fff; border:none; cursor:pointer; font-weight:600; box-shadow:0 2px 4px rgba(0,0,0,0.1); display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">print</span>Receipt</button>` : ''}
               </div>` : `
               <div style="display:flex; justify-content:flex-end; margin-top:16px; padding-top:16px; border-top:1px solid ${circleBg};">
-                <button onclick="deleteRecord('dueManagement', '${f.id}').then(() => openStudentProfileById('${f.admissionNo}'))" style="font-size:0.75rem; padding:6px 14px; border-radius:8px; background:#ef4444; color:#fff; border:none; cursor:pointer; font-weight:600; box-shadow:0 2px 4px rgba(239,68,68,0.2);">🗑️ Delete Arrears</button>
+                <button onclick="deleteRecord('dueManagement', '${f.id}').then(() => openStudentProfileById('${f.admissionNo}'))" style="font-size:0.75rem; padding:6px 14px; border-radius:8px; background:#ef4444; color:#fff; border:none; cursor:pointer; font-weight:600; box-shadow:0 2px 4px rgba(239,68,68,0.2); display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">delete</span>Delete Arrears</button>
               </div>`}
           </div>
         </div>
@@ -4058,7 +4058,7 @@ function renderStudentProfile() {
           <div style="position:relative; z-index:2;">
             <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
               <h4 style="margin:0; font-size:0.9rem; color:#bfdbfe; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;">Total Charges</h4>
-              <div style="width:38px; height:38px; border-radius:10px; background:rgba(255,255,255,0.2); display:grid; place-items:center; font-size:1.2rem;">💰</div>
+              <div style="width:38px; height:38px; border-radius:10px; background:rgba(255,255,255,0.2); display:grid; place-items:center;"><span class="material-symbols-outlined" style="font-size:22px;color:#fff;">receipt_long</span></div>
             </div>
             <div style="font-size:1.8rem; font-weight:900; letter-spacing:-0.03em;">₹ ${totalFee.toLocaleString("en-IN")}</div>
           </div>
@@ -4069,7 +4069,7 @@ function renderStudentProfile() {
           <div style="position:relative; z-index:2;">
             <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
               <h4 style="margin:0; font-size:0.9rem; color:#a7f3d0; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;">Paid Amount</h4>
-              <div style="width:38px; height:38px; border-radius:10px; background:rgba(255,255,255,0.2); display:grid; place-items:center; font-size:1.2rem;">💳</div>
+              <div style="width:38px; height:38px; border-radius:10px; background:rgba(255,255,255,0.2); display:grid; place-items:center;"><span class="material-symbols-outlined" style="font-size:22px;color:#fff;">payments</span></div>
             </div>
             <div style="font-size:1.8rem; font-weight:900; letter-spacing:-0.03em;">₹ ${paidAmount.toLocaleString("en-IN")}</div>
           </div>
@@ -4080,7 +4080,7 @@ function renderStudentProfile() {
           <div style="position:relative; z-index:2;">
             <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
               <h4 style="margin:0; font-size:0.9rem; color:#fecaca; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;">Total Due</h4>
-              <div style="width:38px; height:38px; border-radius:10px; background:rgba(255,255,255,0.2); display:grid; place-items:center; font-size:1.2rem;">⚠️</div>
+              <div style="width:38px; height:38px; border-radius:10px; background:rgba(255,255,255,0.2); display:grid; place-items:center;"><span class="material-symbols-outlined" style="font-size:22px;color:#fff;">pending_actions</span></div>
             </div>
             <div style="font-size:1.8rem; font-weight:900; letter-spacing:-0.03em;">₹ ${dueAmount.toLocaleString("en-IN")}</div>
           </div>
@@ -4161,7 +4161,7 @@ function renderStudentProfile() {
         </div>
       </div>
       <p style="margin-top:12px; font-size:0.75rem; color:#64748b; display:flex; align-items:center; gap:6px;">
-        <span>ℹ️</span> This ledger reflects the latest payment status for each specific month in the academic session.
+        <span class="material-symbols-outlined" style="font-size:16px;color:#64748b;">info</span> This ledger reflects the latest payment status for each specific month in the academic session.
       </p>
     `;
     return;
@@ -4201,7 +4201,7 @@ function renderStudentProfile() {
           <div style="position:relative; z-index:2;">
             <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
               <h4 style="margin:0; font-size:0.85rem; color:#bfdbfe; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;">Total Days</h4>
-              <div style="width:34px; height:34px; border-radius:10px; background:rgba(255,255,255,0.2); display:grid; place-items:center; font-size:1.1rem;">📅</div>
+              <div style="width:34px; height:34px; border-radius:10px; background:rgba(255,255,255,0.2); display:grid; place-items:center;"><span class="material-symbols-outlined" style="font-size:20px;color:#fff;">calendar_month</span></div>
             </div>
             <div style="font-size:1.6rem; font-weight:900; letter-spacing:-0.03em;">${totalDays}</div>
           </div>
@@ -4212,7 +4212,7 @@ function renderStudentProfile() {
           <div style="position:relative; z-index:2;">
             <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
               <h4 style="margin:0; font-size:0.85rem; color:#a7f3d0; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;">Present</h4>
-              <div style="width:34px; height:34px; border-radius:10px; background:rgba(255,255,255,0.2); display:grid; place-items:center; font-size:1.1rem;">✅</div>
+              <div style="width:34px; height:34px; border-radius:10px; background:rgba(255,255,255,0.2); display:grid; place-items:center;"><span class="material-symbols-outlined" style="font-size:20px;color:#fff;">check_circle</span></div>
             </div>
             <div style="font-size:1.6rem; font-weight:900; letter-spacing:-0.03em;">${presentUnique.length}</div>
           </div>
@@ -4223,7 +4223,7 @@ function renderStudentProfile() {
           <div style="position:relative; z-index:2;">
             <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
               <h4 style="margin:0; font-size:0.85rem; color:#fecaca; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;">Absent</h4>
-              <div style="width:34px; height:34px; border-radius:10px; background:rgba(255,255,255,0.2); display:grid; place-items:center; font-size:1.1rem;">❌</div>
+              <div style="width:34px; height:34px; border-radius:10px; background:rgba(255,255,255,0.2); display:grid; place-items:center;"><span class="material-symbols-outlined" style="font-size:20px;color:#fff;">cancel</span></div>
             </div>
             <div style="font-size:1.6rem; font-weight:900; letter-spacing:-0.03em;">${absentUnique.length}</div>
           </div>
@@ -4234,7 +4234,7 @@ function renderStudentProfile() {
           <div style="position:relative; z-index:2;">
             <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
               <h4 style="margin:0; font-size:0.85rem; color:#ddd6fe; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;">Percentage</h4>
-              <div style="width:34px; height:34px; border-radius:10px; background:rgba(255,255,255,0.2); display:grid; place-items:center; font-size:1.1rem;">📊</div>
+              <div style="width:34px; height:34px; border-radius:10px; background:rgba(255,255,255,0.2); display:grid; place-items:center;"><span class="material-symbols-outlined" style="font-size:20px;color:#fff;">percent</span></div>
             </div>
             <div style="font-size:1.6rem; font-weight:900; letter-spacing:-0.03em;">${pct}%</div>
           </div>
@@ -4284,7 +4284,7 @@ function startEditStudentById(studentId) {
       });
       // Update submit button text to indicate edit mode
       const submitBtn = refs.dynamicForm.querySelector("button[type='submit']");
-      if (submitBtn) submitBtn.innerHTML = "✏️ Update Student";
+      if (submitBtn) submitBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px;">edit</span> Update Student';
       // Put focus to first form input for convenience.
       const first = refs.dynamicForm.querySelector("input,select,textarea");
       first?.focus?.();
@@ -4366,7 +4366,7 @@ function startGenericEditById(moduleName, recordId) {
 
       // Update the submit button text to show "Update"
       const submitBtn = refs.dynamicForm.querySelector("button[type='submit']");
-      if (submitBtn) submitBtn.textContent = '✏️ Update Record';
+      if (submitBtn) submitBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px;">edit</span> Update Record';
     }, 50);
   }
   // Scroll form into view
@@ -4388,7 +4388,7 @@ function openInPagePrintStudioModal(html, title) {
       <div style="background:#ffffff;border-radius:16px;width:100%;max-width:1250px;height:95vh;display:flex;flex-direction:column;box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);overflow:hidden;border:1px solid #cbd5e1;">
         <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;background:#0f172a;color:#ffffff;border-bottom:1px solid #334155;">
           <div style="display:flex;align-items:center;gap:10px;">
-            <span style="font-size:1.4rem;">🖨️</span>
+            <span class="material-symbols-outlined" style="font-size:24px;color:#60a5fa;">print</span>
             <div>
               <div id="tpsPrintStudioTitle" style="font-weight:800;font-size:1.05rem;color:#f8fafc;">Print Studio</div>
               <div style="font-size:0.72rem;color:#94a3b8;">Interactive Print Studio &amp; Document Viewer</div>
@@ -4396,13 +4396,15 @@ function openInPagePrintStudioModal(html, title) {
           </div>
           <div style="display:flex;align-items:center;gap:10px;">
             <button id="tpsPrintStudioDirectPrintBtn" type="button" style="background:#2563eb;color:#ffffff;border:none;padding:8px 18px;border-radius:8px;font-weight:700;font-size:0.85rem;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(37,99,235,0.3);">
-              <span>🖨️ Print Now</span>
+              <span class="material-symbols-outlined" style="font-size:18px;">print</span>
+              <span>Print Now</span>
             </button>
             <button id="tpsPrintStudioNewTabBtn" type="button" style="background:#334155;color:#e2e8f0;border:1px solid #475569;padding:8px 14px;border-radius:8px;font-weight:600;font-size:0.82rem;cursor:pointer;display:flex;align-items:center;gap:6px;">
-              <span>↗ Open in Tab</span>
+              <span class="material-symbols-outlined" style="font-size:18px;">open_in_new</span>
+              <span>Open in Tab</span>
             </button>
             <button id="tpsPrintStudioCloseBtn" type="button" style="background:rgba(255,255,255,0.1);color:#ffffff;border:none;width:32px;height:32px;border-radius:50%;font-size:1.2rem;cursor:pointer;display:grid;place-items:center;">
-              ✕
+              <span class="material-symbols-outlined" style="font-size:20px;">close</span>
             </button>
           </div>
         </div>
@@ -4497,7 +4499,7 @@ function openPrintWindowOrFallback(html, title = "Print Document", options = {})
   if (isInteractiveStudio) {
     openInPagePrintStudioModal(html, title);
     if (typeof showToast === "function") {
-      showToast("📄 Opened Print Studio in preview modal", "info");
+      showToast("Opened Print Studio in preview modal", "info");
     }
     return;
   }
@@ -4525,7 +4527,7 @@ function openPrintWindowOrFallback(html, title = "Print Document", options = {})
     doc.close();
 
     if (typeof showToast === "function") {
-      showToast("🖨️ Opening print dialog…", "info");
+      showToast("Opening print dialog…", "info");
     }
 
     setTimeout(() => {
@@ -4618,19 +4620,17 @@ function printStudentReport(student) {
   const feesHtml = (() => {
     if (!fees.length) return `<div class="box">No fee records.</div>`;
     const FEE_REPORT_TYPES = [
-      { key: "tuitionFee",     label: "Tuition Fee",     icon: "📚" },
-    { key: "transportFee", label: "Transport Fee", icon: "🚌" },
-    { key: "admissionFormFee", label: "Admission Form Fee", icon: "📄" },
-      { key: "transportFee", label: "Transport Fee", icon: "🚌" },
-      { key: "admissionFormFee", label: "Admission Form Fee", icon: "📄" },
-      { key: "admissionFee", label: "Admission Fee", icon: "🎓" },
-      { key: "computerFee", label: "Computer Fee", icon: "💻" },
-      { key: "developmentFee", label: "Development Fee", icon: "🏗️" },
-      { key: "labFee", label: "Lab Fee", icon: "🔬" },
-      { key: "sportsFee", label: "Sports Fee", icon: "⚽" },
-      { key: "libraryFee", label: "Library Fee", icon: "📖" },
-      { key: "examFee", label: "Exam Fee", icon: "📝" },
-      { key: "otherFee", label: "Other Fee", icon: "➕" },
+      { key: "tuitionFee",        label: "Tuition Fee",        icon: '<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px;">menu_book</span>' },
+      { key: "transportFee",      label: "Transport Fee",      icon: '<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px;">directions_bus</span>' },
+      { key: "admissionFormFee",  label: "Admission Form Fee",  icon: '<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px;">description</span>' },
+      { key: "admissionFee",      label: "Admission Fee",      icon: '<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px;">school</span>' },
+      { key: "computerFee",       label: "Computer Fee",       icon: '<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px;">computer</span>' },
+      { key: "developmentFee",    label: "Development Fee",    icon: '<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px;">architecture</span>' },
+      { key: "labFee",            label: "Lab Fee",            icon: '<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px;">science</span>' },
+      { key: "sportsFee",         label: "Sports Fee",         icon: '<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px;">sports_soccer</span>' },
+      { key: "libraryFee",        label: "Library Fee",        icon: '<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px;">local_library</span>' },
+      { key: "examFee",           label: "Exam Fee",           icon: '<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px;">assignment</span>' },
+      { key: "otherFee",          label: "Other Fee",          icon: '<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px;">add_circle_outline</span>' },
     ];
     const blocks = fees
       .slice()
@@ -4648,7 +4648,7 @@ function printStudentReport(student) {
           if (labels && totalMonthly > 0) {
             const parts = labels.split(",").map(s => s.trim()).filter(Boolean);
             const perPart = parts.length > 0 ? totalMonthly / parts.length : 0;
-            parts.forEach(part => { feeDetails += `<div class="row">💳 ${part}: ₹${perPart.toLocaleString("en-IN")}</div>`; });
+            parts.forEach(part => { feeDetails += `<div class="row"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px;">payments</span> ${part}: ₹${perPart.toLocaleString("en-IN")}</div>`; });
           } else if (labels) {
             feeDetails += `<div class="row">Fee Types: ${labels}</div>`;
           }
@@ -6166,8 +6166,8 @@ function renderStudentPortalView() {
     const actions = topbar.querySelector(".topbar-actions");
     if (actions) {
       actions.innerHTML = `
-        <button style="background:transparent;border:none;font-size:1.3rem;position:relative;margin-right:15px;cursor:pointer;">
-          🔔
+        <button style="background:transparent;border:none;font-size:1.3rem;position:relative;margin-right:15px;cursor:pointer;display:inline-flex;align-items:center;">
+          <span class="material-symbols-outlined" style="font-size:24px;color:#cbd5e1;">notifications</span>
           <span style="position:absolute;top:-4px;right:-4px;background:#ef4444;color:#fff;border-radius:50%;font-size:0.6rem;padding:2px 5px;font-weight:bold;">1</span>
         </button>
         <button id="portalLogoutBtn" class="dark" style="border-radius:10px;">Logout</button>
@@ -6199,46 +6199,46 @@ function renderStudentPortalView() {
 
     portalCon.innerHTML = `
       <div style="background:linear-gradient(135deg, #1e293b, #0f172a); color:#fff; border-radius:16px; padding:20px; margin-bottom:24px; box-shadow:0 10px 25px rgba(0,0,0,0.1); position:relative; overflow:hidden;">
-        <div style="position:absolute; top:-20px; right:-20px; font-size:8rem; opacity:0.05;">📢</div>
-        <h3 style="margin:0 0 10px 0; font-size:1.1rem; color:#94a3b8; text-transform:uppercase; letter-spacing:1px;">Latest Announcements</h3>
+        <div style="position:absolute; top:-20px; right:-20px; opacity:0.05; pointer-events:none;"><span class="material-symbols-outlined" style="font-size:120px;">campaign</span></div>
+        <h3 style="margin:0 0 10px 0; font-size:1.1rem; color:#94a3b8; text-transform:uppercase; letter-spacing:1px; display:flex; align-items:center; gap:8px;"><span class="material-symbols-outlined" style="font-size:20px;color:#38bdf8;">campaign</span> Latest Announcements</h3>
         <p style="margin:0; font-size:1rem; line-height:1.5;">Welcome to your personalized portal. Keep track of your academic performance, schedule, and fees here.</p>
       </div>
 
-      <button id="studentPortalBackButton" onclick="setStudentPortalTab('dashboard')" style="display:none; margin-bottom:15px; background:#475569; color:white; border:none; padding:8px 16px; border-radius:8px; cursor:pointer; font-weight:600; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"><i class="fas fa-arrow-left" style="margin-right:5px;"></i> Back to Dashboard</button>
+      <button id="studentPortalBackButton" onclick="setStudentPortalTab('dashboard')" style="display:none; margin-bottom:15px; background:#475569; color:white; border:none; padding:8px 16px; border-radius:8px; cursor:pointer; font-weight:600; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display:inline-flex; align-items:center; gap:6px;"><span class="material-symbols-outlined" style="font-size:18px;">arrow_back</span> Back to Dashboard</button>
       
       <div id="studentDashboardGrid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:20px; margin-bottom: 24px;">
         <div onclick="setStudentPortalTab('profile')" style="background:#fff; padding:24px; border-radius:16px; border:1px solid #e2e8f0; cursor:pointer; box-shadow:0 4px 6px rgba(0,0,0,0.02); transition:transform 0.2s, box-shadow 0.2s; text-align:center;" onmouseover="this.style.transform='translateY(-5px)';this.style.boxShadow='0 10px 15px rgba(0,0,0,0.05)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 4px 6px rgba(0,0,0,0.02)'">
-          <div style="font-size:2.5rem; margin-bottom:10px;">👤</div>
+          <div style="display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:14px;background:#eff6ff;color:#2563eb;margin-bottom:12px;"><span class="material-symbols-outlined" style="font-size:32px;">person</span></div>
           <h4 style="margin:0; color:#1e293b; font-size:1.1rem;">My Profile</h4>
           <p style="margin:5px 0 0; color:#64748b; font-size:0.85rem;">View personal details</p>
         </div>
         <div onclick="setStudentPortalTab('fees')" style="background:#fff; padding:24px; border-radius:16px; border:1px solid #e2e8f0; cursor:pointer; box-shadow:0 4px 6px rgba(0,0,0,0.02); transition:transform 0.2s, box-shadow 0.2s; text-align:center;" onmouseover="this.style.transform='translateY(-5px)';this.style.boxShadow='0 10px 15px rgba(0,0,0,0.05)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 4px 6px rgba(0,0,0,0.02)'">
-          <div style="font-size:2.5rem; margin-bottom:10px;">💵</div>
+          <div style="display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:14px;background:#f0fdf4;color:#16a34a;margin-bottom:12px;"><span class="material-symbols-outlined" style="font-size:32px;">payments</span></div>
           <h4 style="margin:0; color:#1e293b; font-size:1.1rem;">Fees & Dues</h4>
           <p style="margin:5px 0 0; color:#64748b; font-size:0.85rem;">Check pending payments</p>
         </div>
         <div onclick="setStudentPortalTab('feeCard')" style="background:#fff; padding:24px; border-radius:16px; border:1px solid #e2e8f0; cursor:pointer; box-shadow:0 4px 6px rgba(0,0,0,0.02); transition:transform 0.2s, box-shadow 0.2s; text-align:center;" onmouseover="this.style.transform='translateY(-5px)';this.style.boxShadow='0 10px 15px rgba(0,0,0,0.05)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 4px 6px rgba(0,0,0,0.02)'">
-          <div style="font-size:2.5rem; margin-bottom:10px;">📄</div>
+          <div style="display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:14px;background:#fefce8;color:#ca8a04;margin-bottom:12px;"><span class="material-symbols-outlined" style="font-size:32px;">receipt_long</span></div>
           <h4 style="margin:0; color:#1e293b; font-size:1.1rem;">Fee Card</h4>
           <p style="margin:5px 0 0; color:#64748b; font-size:0.85rem;">Print digital fee cards</p>
         </div>
         <div onclick="setStudentPortalTab('attendance')" style="background:#fff; padding:24px; border-radius:16px; border:1px solid #e2e8f0; cursor:pointer; box-shadow:0 4px 6px rgba(0,0,0,0.02); transition:transform 0.2s, box-shadow 0.2s; text-align:center;" onmouseover="this.style.transform='translateY(-5px)';this.style.boxShadow='0 10px 15px rgba(0,0,0,0.05)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 4px 6px rgba(0,0,0,0.02)'">
-          <div style="font-size:2.5rem; margin-bottom:10px;">📅</div>
+          <div style="display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:14px;background:#eef2ff;color:#4f46e5;margin-bottom:12px;"><span class="material-symbols-outlined" style="font-size:32px;">calendar_month</span></div>
           <h4 style="margin:0; color:#1e293b; font-size:1.1rem;">Attendance</h4>
           <p style="margin:5px 0 0; color:#64748b; font-size:0.85rem;">Track attendance records</p>
         </div>
         <div onclick="setStudentPortalTab('exams')" style="background:#fff; padding:24px; border-radius:16px; border:1px solid #e2e8f0; cursor:pointer; box-shadow:0 4px 6px rgba(0,0,0,0.02); transition:transform 0.2s, box-shadow 0.2s; text-align:center;" onmouseover="this.style.transform='translateY(-5px)';this.style.boxShadow='0 10px 15px rgba(0,0,0,0.05)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 4px 6px rgba(0,0,0,0.02)'">
-          <div style="font-size:2.5rem; margin-bottom:10px;">📝</div>
+          <div style="display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:14px;background:#fdf2f8;color:#db2777;margin-bottom:12px;"><span class="material-symbols-outlined" style="font-size:32px;">assignment</span></div>
           <h4 style="margin:0; color:#1e293b; font-size:1.1rem;">Exams</h4>
           <p style="margin:5px 0 0; color:#64748b; font-size:0.85rem;">View academic results</p>
         </div>
         <div onclick="setStudentPortalTab('timetable')" style="background:#fff; padding:24px; border-radius:16px; border:1px solid #e2e8f0; cursor:pointer; box-shadow:0 4px 6px rgba(0,0,0,0.02); transition:transform 0.2s, box-shadow 0.2s; text-align:center;" onmouseover="this.style.transform='translateY(-5px)';this.style.boxShadow='0 10px 15px rgba(0,0,0,0.05)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 4px 6px rgba(0,0,0,0.02)'">
-          <div style="font-size:2.5rem; margin-bottom:10px;">⏰</div>
+          <div style="display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:14px;background:#ecfdf5;color:#059669;margin-bottom:12px;"><span class="material-symbols-outlined" style="font-size:32px;">schedule</span></div>
           <h4 style="margin:0; color:#1e293b; font-size:1.1rem;">Time Table</h4>
           <p style="margin:5px 0 0; color:#64748b; font-size:0.85rem;">Check class schedules</p>
         </div>
         <div onclick="setStudentPortalTab('holidays')" style="background:#fff; padding:24px; border-radius:16px; border:1px solid #e2e8f0; cursor:pointer; box-shadow:0 4px 6px rgba(0,0,0,0.02); transition:transform 0.2s, box-shadow 0.2s; text-align:center;" onmouseover="this.style.transform='translateY(-5px)';this.style.boxShadow='0 10px 15px rgba(0,0,0,0.05)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 4px 6px rgba(0,0,0,0.02)'">
-          <div style="font-size:2.5rem; margin-bottom:10px;">🏖️</div>
+          <div style="display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:14px;background:#fff7ed;color:#ea580c;margin-bottom:12px;"><span class="material-symbols-outlined" style="font-size:32px;">beach_access</span></div>
           <h4 style="margin:0; color:#1e293b; font-size:1.1rem;">Holidays</h4>
           <p style="margin:5px 0 0; color:#64748b; font-size:0.85rem;">School holiday list</p>
         </div>
@@ -6296,12 +6296,12 @@ async function renderAiAssistant() {
   panel.style.display = "";
   panel.innerHTML = `
     <div style="background: linear-gradient(135deg, #7c3aed, #4f46e5); padding: 24px; border-radius: 12px; color: white; margin-bottom: 24px;">
-      <h2 style="margin: 0; font-size: 1.5rem;">🧠 Vidya AI Brain Control</h2>
+      <h2 style="margin: 0; font-size: 1.5rem; display: flex; align-items: center; gap: 10px;"><span class="material-symbols-outlined" style="font-size:28px;">psychology</span> Vidya AI Brain Control</h2>
       <p style="margin: 8px 0 0; opacity: 0.9;">Feed Vidya with school rules, bus timings, and special instructions.</p>
     </div>
     
     <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px;">
-      <h3 style="margin: 0 0 16px; font-size: 1.1rem; color: #1e293b;">🏫 School Global Knowledge</h3>
+      <h3 style="margin: 0 0 16px; font-size: 1.1rem; color: #1e293b; display: flex; align-items: center; gap: 8px;"><span class="material-symbols-outlined" style="font-size:22px;color:#2563eb;">school</span> School Global Knowledge</h3>
       <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 12px;">
         Vidya will use the information below to answer student and staff queries. Be specific!
       </p>
@@ -6309,7 +6309,7 @@ async function renderAiAssistant() {
       <textarea id="aiKnowledgeText" style="width: 100%; min-height: 300px; padding: 16px; border: 1.5px solid #e2e8f0; border-radius: 8px; font-family: inherit; font-size: 0.9rem; line-height: 1.6; transition: border-color 0.2s; outline: none;" placeholder="Example:\n- School starts at 8:00 AM and ends at 2:30 PM.\n- Bus Route A: Drivers Name (Ranveer), Phone (9876543210).\n- Summer Holidays start from May 15th.\n- Library remains closed on Saturdays."></textarea>
       
       <div style="margin-top: 20px; display: flex; justify-content: flex-end;">
-        <button id="saveAiKnowledgeBtn" class="btn btn-primary" style="background:#7c3aed; border:none; padding: 10px 24px; font-weight: 600;">💾 Save Knowledge Base</button>
+        <button id="saveAiKnowledgeBtn" class="btn btn-primary" style="background:#7c3aed; border:none; padding: 10px 24px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;"><span class="material-symbols-outlined" style="font-size:18px;">save</span> Save Knowledge Base</button>
       </div>
     </div>
   `;
@@ -6334,13 +6334,13 @@ async function renderAiAssistant() {
         method: "POST",
         body: JSON.stringify({ key: "ai_school_knowledge", value: val, category: "AI" })
       });
-      showToast("Knowledge Base Updated Successfully! 🧠✨");
+      showToast("Knowledge Base Updated Successfully!", "success");
     } catch (err) {
       console.error(err);
       showToast("Failed to update knowledge.", "error");
     } finally {
       saveBtn.disabled = false;
-      saveBtn.textContent = "💾 Save Knowledge Base";
+      saveBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px;">save</span> Save Knowledge Base';
     }
   };
 }
@@ -6406,7 +6406,7 @@ function renderStudentPortalHolidays() {
   refs.studentProfileContent.innerHTML = `
     <div style="background:#fff; border-radius:16px; border:1px solid #e2e8f0; overflow:hidden;">
       <div style="padding:20px; border-bottom:1px solid #e2e8f0; background:#f8fafc;">
-        <h4 style="margin:0; color:#1e293b; font-size:1.1rem;">🏖️ Upcoming Holidays</h4>
+        <h4 style="margin:0; color:#1e293b; font-size:1.1rem; display:flex; align-items:center; gap:8px;"><span class="material-symbols-outlined" style="color:#f97316; font-size:22px;">beach_access</span> Upcoming Holidays</h4>
       </div>
       <div style="overflow-x:auto;">
         <table style="width:100%; border-collapse:collapse; text-align:left;">
@@ -7547,6 +7547,26 @@ function printFeeReceipt(f) {
 
 function buildPrintableHtml(title, contentHtml) {
   return `<!doctype html><html><head><title>${title}</title><style>
+    @font-face {
+      font-family: 'Material Symbols Outlined';
+      font-style: normal;
+      font-weight: 100 700;
+      src: url(/material-symbols-outlined.ttf) format('truetype');
+    }
+    .material-symbols-outlined {
+      font-family: 'Material Symbols Outlined';
+      font-weight: normal;
+      font-style: normal;
+      font-size: 16px;
+      line-height: 1;
+      letter-spacing: normal;
+      text-transform: none;
+      display: inline-block;
+      white-space: nowrap;
+      word-wrap: normal;
+      direction: ltr;
+      vertical-align: middle;
+    }
     body{font-family:Arial;margin:20px;color:#0f172a;} .box{border:1px solid #cbd5e1;border-radius:8px;padding:12px;margin-bottom:12px;}
     h1{margin:0 0 8px 0;font-size:20px;} h2{margin:0 0 6px 0;font-size:16px;} .row{margin:3px 0;}
 
@@ -7638,20 +7658,18 @@ function printDocumentByModule() {
   } else if (currentModule === "fees") {
     const schoolName = "Tapowan Public School";
     const PRINT_FEE_TYPES = [
-      { key: "tuitionFee",     label: "Tuition Fee",     icon: "📚" },
-    { key: "transportFee", label: "Transport Fee", icon: "🚌" },
-    { key: "admissionFormFee", label: "Admission Form Fee", icon: "📄" },
-      { key: "transportFee", label: "Transport Fee", icon: "🚌" },
-      { key: "admissionFormFee", label: "Admission Form Fee", icon: "📄" },
-      { key: "admissionFee", label: "Admission Fee", icon: "🎓" },
-      { key: "computerFee", label: "Computer Fee", icon: "💻" },
-      { key: "developmentFee", label: "Development Fee", icon: "🏗️" },
-      { key: "labFee", label: "Lab Fee", icon: "🔬" },
-      { key: "sportsFee", label: "Sports Fee", icon: "⚽" },
-      { key: "libraryFee", label: "Library Fee", icon: "📖" },
-      { key: "examFee", label: "Exam Fee", icon: "📝" },
-      { key: "lateFee", label: "Late Fee", icon: "⏳" },
-      { key: "otherFee", label: "Other Fee", icon: "➕" },
+      { key: "tuitionFee",        label: "Tuition Fee",        icon: '<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px;">menu_book</span>' },
+      { key: "transportFee",      label: "Transport Fee",      icon: '<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px;">directions_bus</span>' },
+      { key: "admissionFormFee",  label: "Admission Form Fee",  icon: '<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px;">description</span>' },
+      { key: "admissionFee",      label: "Admission Fee",      icon: '<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px;">school</span>' },
+      { key: "computerFee",       label: "Computer Fee",       icon: '<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px;">computer</span>' },
+      { key: "developmentFee",    label: "Development Fee",    icon: '<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px;">architecture</span>' },
+      { key: "labFee",            label: "Lab Fee",            icon: '<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px;">science</span>' },
+      { key: "sportsFee",         label: "Sports Fee",         icon: '<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px;">sports_soccer</span>' },
+      { key: "libraryFee",        label: "Library Fee",        icon: '<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px;">local_library</span>' },
+      { key: "examFee",           label: "Exam Fee",           icon: '<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px;">assignment</span>' },
+      { key: "lateFee",           label: "Late Fee",           icon: '<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px;">pending</span>' },
+      { key: "otherFee",          label: "Other Fee",          icon: '<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px;">add_circle_outline</span>' },
     ];
     html = `
       <div style="text-align:center;margin-bottom:20px;border-bottom:2px solid #1e3a8a;padding-bottom:14px;">
@@ -7674,7 +7692,7 @@ function printDocumentByModule() {
         if (labels && totalMonthly > 0) {
           const parts = labels.split(",").map(s => s.trim()).filter(Boolean);
           const perPart = parts.length > 0 ? totalMonthly / parts.length : 0;
-          parts.forEach(part => { feeDetails += `<div class="row">💳 ${part}: <strong>₹${perPart.toLocaleString("en-IN")}</strong></div>`; });
+          parts.forEach(part => { feeDetails += `<div class="row"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px;">payments</span> ${part}: <strong>₹${perPart.toLocaleString("en-IN")}</strong></div>`; });
         } else if (labels) {
           feeDetails += `<div class="row">Fee Types: ${labels}</div>`;
         }
@@ -7690,7 +7708,8 @@ function printDocumentByModule() {
              .sort((a,b) => (a.itemType||"").localeCompare(b.itemType||"") || (a.itemName||"").localeCompare(b.itemName||""))
              .forEach(item => {
                const p = parseFloat(item.price) || 0;
-               feeDetails += `<div class="row" style="color:#1e40af;">${item.itemType === "Book" ? "📚" : "👕"} ${item.itemName}: <strong>₹${p.toLocaleString("en-IN")}</strong></div>`;
+               const typeIcon = item.itemType === "Book" ? '<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px;">menu_book</span>' : '<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px;">checkroom</span>';
+               feeDetails += `<div class="row" style="color:#1e40af;">${typeIcon} ${item.itemName}: <strong>₹${p.toLocaleString("en-IN")}</strong></div>`;
              });
         }
       } catch(e) {}
@@ -7700,7 +7719,7 @@ function printDocumentByModule() {
         <div class="row"><strong>Class:</strong> ${f.className || "-"} &nbsp;|&nbsp; <strong>Roll No:</strong> ${f.rollNo || "-"}</div>
         <div class="row"><strong>Term:</strong> ${window.formatTermString(window.formatTermString(f.term)) || "-"} &nbsp;|&nbsp; <strong>Payment Date:</strong> ${f.paymentDate || "-"}</div>
         <div style="margin:8px 0;padding:8px;background:#f0f4ff;border-radius:6px;border-left:3px solid #1e3a8a;">
-          <div style="font-weight:700;color:#1e3a8a;margin-bottom:4px;font-size:0.85em;">📋 Fee Breakdown:</div>
+          <div style="font-weight:700;color:#1e3a8a;margin-bottom:4px;font-size:0.85em;"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px;">receipt_long</span> Fee Breakdown:</div>
           ${feeDetails || '<div class="row" style="color:#94a3b8;">No fee breakdown recorded.</div>'}
         </div>
         <div class="row"><strong>Total Fee:</strong> ₹${totalFee.toLocaleString("en-IN")} &nbsp;|&nbsp; <strong>Paid:</strong> ₹${paidAmount.toLocaleString("en-IN")} &nbsp;|&nbsp; <strong>Balance:</strong> ₹${balance.toLocaleString("en-IN")}</div>
@@ -7783,7 +7802,7 @@ async function ensureFaceModelsLoaded() {
         localStorage.setItem('tps_insightface_api_url', candidate);
         insightFaceMode = 'server';
         faceModelsReady = true;
-        if (refs.faceStatusText) refs.faceStatusText.textContent = "🚀 Connected to InsightFace 512-D GPU Server!";
+        if (refs.faceStatusText) refs.faceStatusText.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px;color:#3b82f6;">rocket_launch</span> Connected to InsightFace 512-D GPU Server!';
         updateColabStatusBadge(true, candidate);
         closeGpuServerModal(); // Auto-close transparent modal screen on connect
         
@@ -7791,7 +7810,7 @@ async function ensureFaceModelsLoaded() {
           const fs = getFaceStore();
           const count = Object.keys(fs).length;
           if (refs.faceStatusText) {
-            refs.faceStatusText.textContent = `✅ InsightFace GPU Ready (${count} enrolled faces active).`;
+            refs.faceStatusText.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px;color:#10b981;">check_circle</span> InsightFace GPU Ready (${count} enrolled faces active).`;
           }
         });
         return true;
@@ -7804,7 +7823,7 @@ async function ensureFaceModelsLoaded() {
   // If offline, prompt user to connect Kaggle / Colab GPU
   updateColabStatusBadge(false);
   if (refs.faceStatusText) {
-    refs.faceStatusText.textContent = "⚠️ InsightFace GPU Server Offline. Click 'Connect Kaggle' badge to start free GPU.";
+    refs.faceStatusText.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px;color:#f59e0b;">warning</span> InsightFace GPU Server Offline. Click \'Connect Kaggle\' badge to start free GPU.';
   }
   faceModelsReady = false;
   return false;
@@ -7827,12 +7846,12 @@ function updateColabStatusBadge(online, url = '') {
     badge.style.background = 'rgba(16, 185, 129, 0.15)';
     badge.style.color = '#10b981';
     badge.style.border = '1px solid rgba(16, 185, 129, 0.3)';
-    badge.innerHTML = `🟢 <span>GPU AI Online</span> <small style="opacity:0.8; font-size:0.72rem; margin-left:4px;">(Kaggle 512-D)</small>`;
+    badge.innerHTML = `<span class="material-symbols-outlined" style="font-size:14px;color:#10b981;vertical-align:middle;">fiber_manual_record</span> <span>GPU AI Online</span> <small style="opacity:0.8; font-size:0.72rem; margin-left:4px;">(Kaggle 512-D)</small>`;
   } else {
     badge.style.background = 'rgba(239, 68, 68, 0.15)';
     badge.style.color = '#ef4444';
     badge.style.border = '1px solid rgba(239, 68, 68, 0.3)';
-    badge.innerHTML = `🔴 <span>GPU AI Offline</span> <small style="text-decoration:underline; margin-left:4px; font-size:0.75rem;">Connect Kaggle</small>`;
+    badge.innerHTML = `<span class="material-symbols-outlined" style="font-size:14px;color:#ef4444;vertical-align:middle;">fiber_manual_record</span> <span>GPU AI Offline</span> <small style="text-decoration:underline; margin-left:4px; font-size:0.75rem;">Connect Kaggle</small>`;
   }
 
   badge.onclick = () => openGpuServerModal();
@@ -7958,7 +7977,7 @@ function openGpuServerModal() {
       banner.style.borderColor = 'rgba(16, 185, 129, 0.3)';
       banner.style.color = '#10b981';
     }
-    if (dot) dot.textContent = '🟢';
+    if (dot) dot.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;color:#10b981;">fiber_manual_record</span>';
     if (text) text.textContent = 'InsightFace GPU Connected';
   } else {
     if (banner) {
@@ -7966,7 +7985,7 @@ function openGpuServerModal() {
       banner.style.borderColor = 'rgba(239, 68, 68, 0.3)';
       banner.style.color = '#ef4444';
     }
-    if (dot) dot.textContent = '🔴';
+    if (dot) dot.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;color:#ef4444;">fiber_manual_record</span>';
     if (text) text.textContent = 'Server Offline';
   }
 }
@@ -8281,14 +8300,14 @@ async function startCamera() {
     const streamUrl = `${API_BASE_URL}/api/cam-stream?url=${encodeURIComponent(url)}`;
 
     refs.ipCameraImg.onerror = () => {
-      refs.faceStatusText.textContent = '⚠️ Camera connection failed. Retrying...';
+      refs.faceStatusText.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px;color:#f59e0b;">warning</span> Camera connection failed. Retrying...';
       setTimeout(() => {
         if (ipCamMode) refs.ipCameraImg.src = streamUrl + '&_r=' + Date.now();
       }, 3000);
     };
 
     refs.ipCameraImg.onload = () => {
-      refs.faceStatusText.textContent = '✅ IP Camera Live!';
+      refs.faceStatusText.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px;color:#10b981;">videocam</span> IP Camera Live!';
       const oc = refs.ipOverlayCanvas;
       oc.width  = refs.ipCameraImg.naturalWidth  || 640;
       oc.height = refs.ipCameraImg.naturalHeight || 480;
@@ -8299,7 +8318,7 @@ async function startCamera() {
 
     // Load AI models in background
     ensureFaceModelsLoaded().then(() => {
-      refs.faceStatusText.textContent = '✅ IP Camera Live — AI models ready.';
+      refs.faceStatusText.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px;color:#10b981;">check_circle</span> IP Camera Live — AI models ready.';
       startIpCamOverlay();
     });
 
@@ -8341,7 +8360,7 @@ async function startCamera() {
       refs.faceStatusText.textContent = 'Camera started. Loading AI models…';
       populateCameraDevices(); // Refresh labels once browser grants camera permission!
       ensureFaceModelsLoaded().then(() => {
-        refs.faceStatusText.textContent = '✅ Ready — AI models loaded.';
+        refs.faceStatusText.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px;color:#10b981;">check_circle</span> Ready — AI models loaded.';
         startBBoxOverlay();
       });
     } catch (err) {
@@ -8426,7 +8445,7 @@ async function captureFace() {
   // Use the helper to get correct detection source
   const detectSource = await getDetectSource();
   if (!detectSource) {
-    refs.faceStatusText.textContent = "❌ Could not get camera frame. Check IP camera connection.";
+    refs.faceStatusText.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px;color:#ef4444;">error</span> Could not get camera frame. Check IP camera connection.';
     return;
   }
   
@@ -8435,7 +8454,7 @@ async function captureFace() {
   let detection = result.face && result.face.length > 0 ? result.face[0] : null;
   
   if (!detection) {
-    refs.faceStatusText.textContent = "❌ No face detected. Keep face centered in good lighting and try again.";
+    refs.faceStatusText.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px;color:#f59e0b;">warning</span> No face detected. Keep face centered in good lighting and try again.';
     return;
   }
   latestDescriptor = detection.embedding;
@@ -8467,7 +8486,7 @@ async function captureFace() {
   ctx.strokeRect(boxX, boxY, boxW, boxH);
   ctx.fillStyle = "rgba(34,197,94,0.15)";
   ctx.fillRect(boxX, boxY, boxW, boxH);
-  refs.faceStatusText.textContent = "✅ Face captured! Click Mark Attendance or enroll.";
+  refs.faceStatusText.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px;color:#10b981;">check_circle</span> Face captured! Click Mark Attendance or enroll.';
 }
 
 function descriptorSimilarity(a, b) {
@@ -9312,8 +9331,8 @@ async function markFaceAttendance() {
     const student = person;
     // Guard: if the student was deleted from DB, refuse to mark attendance
     if (!student) {
-      const failMsg = `⚠ Student "${recognizedName}" not found in database.`;
-      refs.faceStatusText.textContent = failMsg;
+      const failMsg = `Student "${recognizedName}" not found in database.`;
+      refs.faceStatusText.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px;color:#ef4444;">error</span> ${failMsg}`;
       if (typeof showToast === "function") showToast(failMsg, "error");
       return;
     }
@@ -9354,8 +9373,8 @@ async function markFaceAttendance() {
     // Teacher Path
     const teacher = (store.teachers || []).find((t) => t.fullName === recognizedName);
     if (!teacher) {
-        const failMsg = `⚠ Teacher "${recognizedName}" not found in database.`;
-        refs.faceStatusText.textContent = failMsg;
+        const failMsg = `Teacher "${recognizedName}" not found in database.`;
+        refs.faceStatusText.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px;color:#ef4444;">error</span> ${failMsg}`;
         if (typeof showToast === "function") showToast(failMsg, "error");
         return;
     }
@@ -9391,8 +9410,8 @@ async function markFaceAttendance() {
   
   sendAttendancePhotos(recognizedName, matchPrefix === "students" ? resolvedClassName : resolvedDept, status);
   await loadStore();
-  const successMsg = `✅ Attendance marked for ${recognizedName}.`;
-  refs.faceStatusText.textContent = successMsg;
+  const successMsg = `Attendance marked for ${recognizedName}.`;
+  refs.faceStatusText.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px;color:#10b981;">check_circle</span> ${successMsg}`;
   if (typeof showToast === 'function') showToast(successMsg, 'success');
   if (typeof addLiveLog === 'function') addLiveLog(recognizedName, best?.score || 0.9, status);
 
@@ -10213,7 +10232,7 @@ refs.dynamicForm.addEventListener("submit", async (e) => {
   } finally {
     if (submitBtn) {
       submitBtn.disabled = false;
-      submitBtn.innerHTML = "➕ Add Record";
+      submitBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px;">add</span> Add Record';
     }
   }
 });
@@ -10580,18 +10599,18 @@ function buildSingleSlipHtmlForGrid(origF) {
   let feeRows = "";
   let hasSlipIndividual = false;
   const SLIP_FEE_TYPES = [
-    { key: "tuitionFee",     label: "Tuition Fee",     icon: "📚" },
-    { key: "transportFee", label: "Transport Fee", icon: "🚌" },
-    { key: "admissionFormFee", label: "Admission Form Fee", icon: "📄" },
-    { key: "admissionFee",   label: "Admission Fee",   icon: "🎓" },
-    { key: "computerFee",    label: "Computer Fee",    icon: "💻" },
-    { key: "developmentFee", label: "Development Fee", icon: "🏗️" },
-    { key: "labFee",         label: "Lab Fee",         icon: "🔬" },
-    { key: "sportsFee",      label: "Sports Fee",      icon: "⚽" },
-    { key: "libraryFee",     label: "Library Fee",     icon: "📖" },
-    { key: "examFee",        label: "Exam Fee",        icon: "📝" },
-    { key: "lateFee",        label: "Late Fee",        icon: "⏰" },
-    { key: "otherFee",       label: "Other Fee",       icon: "➕" }
+    { key: "tuitionFee",     label: "Tuition Fee",     icon: "menu_book" },
+    { key: "transportFee",   label: "Transport Fee",   icon: "directions_bus" },
+    { key: "admissionFormFee", label: "Admission Form Fee", icon: "description" },
+    { key: "admissionFee",   label: "Admission Fee",   icon: "school" },
+    { key: "computerFee",    label: "Computer Fee",    icon: "computer" },
+    { key: "developmentFee", label: "Development Fee", icon: "architecture" },
+    { key: "labFee",         label: "Lab Fee",         icon: "science" },
+    { key: "sportsFee",      label: "Sports Fee",      icon: "sports_soccer" },
+    { key: "libraryFee",     label: "Library Fee",     icon: "local_library" },
+    { key: "examFee",        label: "Exam Fee",        icon: "assignment" },
+    { key: "lateFee",        label: "Late Fee",        icon: "pending" },
+    { key: "otherFee",       label: "Other Fee",       icon: "add_circle" }
   ];
   SLIP_FEE_TYPES.forEach(({ key, label, icon }, idx) => {
     const amt = parseFloat(f[key]) || 0;
@@ -10601,7 +10620,7 @@ function buildSingleSlipHtmlForGrid(origF) {
       const isMonthly = key === "tuitionFee" || label.toLowerCase().includes("tuition") || label.toLowerCase().includes("monthly");
       const mSfx = (f.month && isMonthly) ? ` (${f.month})` : "";
       feeRows += `<tr style="background:${bg};">
-        <td style="padding:4px 6px;border-bottom:1px solid #e5e7eb;font-size:10px;color:#374151;">${icon} ${label}${mSfx}</td>
+        <td style="padding:4px 6px;border-bottom:1px solid #e5e7eb;font-size:10px;color:#374151;"><span class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;margin-right:3px;">${icon}</span>${label}${mSfx}</td>
         <td style="padding:4px 6px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:10px;font-weight:600;color:#111827;">₹ ${amt.toLocaleString("en-IN")}</td>
       </tr>`;
     }
@@ -10621,7 +10640,7 @@ function buildSingleSlipHtmlForGrid(origF) {
           const price = parseFloat(item.price) || 0;
           itemsTotal += price;
           const bg = idx % 2 === 0 ? "#f0f4ff" : "#fff";
-          itemsRows += `<tr style="background:${bg};"><td style="padding:4px 6px;border-bottom:1px solid #e5e7eb;font-size:10px;color:#374151;">${item.itemType === "Book" ? "📚" : "👕"} ${item.itemName}</td>
+          itemsRows += `<tr style="background:${bg};"><td style="padding:4px 6px;border-bottom:1px solid #e5e7eb;font-size:10px;color:#374151;"><span class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;margin-right:3px;">${item.itemType === "Book" ? "menu_book" : "checkroom"}</span>${item.itemName}</td>
             <td style="padding:4px 6px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:10px;font-weight:600;">₹ ${price.toLocaleString("en-IN")}</td></tr>`;
         });
     }
@@ -10639,13 +10658,13 @@ function buildSingleSlipHtmlForGrid(origF) {
         parts.forEach((part, idx) => {
           const bg = idx % 2 === 0 ? "#f9fafb" : "#fff";
           feeRows += `<tr style="background:${bg};">
-            <td style="padding:4px 6px;border-bottom:1px solid #e5e7eb;font-size:10px;color:#374151;">💳 ${part}</td>
+            <td style="padding:4px 6px;border-bottom:1px solid #e5e7eb;font-size:10px;color:#374151;"><span class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;margin-right:3px;">payments</span>${part}</td>
             <td style="padding:4px 6px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:10px;font-weight:600;color:#111827;">₹ ${perPart.toLocaleString("en-IN")}</td>
           </tr>`;
         });
       } else {
         feeRows += `<tr style="background:#f9fafb;">
-          <td style="padding:4px 6px;border-bottom:1px solid #e5e7eb;font-size:10px;color:#374151;">💳 ${labels}</td>
+          <td style="padding:4px 6px;border-bottom:1px solid #e5e7eb;font-size:10px;color:#374151;"><span class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;margin-right:3px;">payments</span>${labels}</td>
           <td style="padding:4px 6px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:10px;font-weight:600;color:#111827;">₹ ${totalMonthly.toLocaleString("en-IN")}</td>
         </tr>`;
       }
@@ -10660,7 +10679,7 @@ function buildSingleSlipHtmlForGrid(origF) {
   if (dueAmt > 0) {
     const particulars = f.dueMgmtParticulars || "Outstanding Dues";
     feeRows += `<tr style="background:#fff1f2;">
-      <td style="padding:4px 6px;border-bottom:1px solid #e5e7eb;font-size:10px;color:#991b1b;font-weight:700;">🔖 ${particulars}</td>
+      <td style="padding:4px 6px;border-bottom:1px solid #e5e7eb;font-size:10px;color:#991b1b;font-weight:700;"><span class="material-symbols-outlined" style="font-size:12px;vertical-align:middle;margin-right:3px;color:#dc2626;">bookmark</span>${particulars}</td>
       <td style="padding:4px 6px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:10px;font-weight:900;color:#991b1b;">₹ ${dueAmt.toLocaleString("en-IN")}</td>
     </tr>`;
   }
@@ -10799,7 +10818,7 @@ function buildSingleFeeHtmlForGrid(origF) {
          .forEach(item => {
         const p = parseFloat(item.price) || 0;
         feeBreakdown += `<div style="display:flex;justify-content:space-between;border-bottom:1px dashed #e2e8f0;padding:3px 0;color:#1e40af;">
-          <span>${item.itemType === "Book" ? "📚" : "👕"} ${item.itemName}</span>
+          <span><span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;margin-right:3px;">${item.itemType === "Book" ? "menu_book" : "checkroom"}</span>${item.itemName}</span>
           <strong>₹${p.toLocaleString("en-IN")}</strong>
         </div>`;
         });
@@ -10811,7 +10830,7 @@ function buildSingleFeeHtmlForGrid(origF) {
   if (dueAmt > 0) {
     const particulars = f.dueMgmtParticulars || "Outstanding Dues";
     feeBreakdown += `<div style="display:flex;justify-content:space-between;border-bottom:2px solid #fff1f2;background:#fff1f2;padding:4px 6px;margin:2px 0;border-radius:4px;color:#991b1b;">
-      <span>🔖 ${particulars}</span>
+      <span><span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;margin-right:3px;color:#dc2626;">bookmark</span>${particulars}</span>
       <strong>₹${dueAmt.toLocaleString("en-IN")}</strong>
     </div>`;
   }
@@ -11493,16 +11512,29 @@ boot();
 
 // === TOAST NOTIFICATIONS ===
 function showToast(message, type = 'info', duration = 3500) {
-  const icons = { info: 'ℹ️', success: '✅', error: '❌', warning: '⚠️' };
+  const iconNames = { info: 'info', success: 'check_circle', error: 'error', warning: 'warning' };
+  const iconColors = {
+    info: 'inherit',
+    success: 'var(--accent2, #10b981)',
+    error: 'var(--danger, #ef4444)',
+    warning: 'var(--accent, #f59e0b)'
+  };
   const container = document.getElementById('toastContainer');
   if (!container) return;
+
+  const iconName = iconNames[type] || 'info';
+  const iconColor = iconColors[type] || 'inherit';
+
+  // Strip leading raw emoji if caller passed one (e.g. "✅ Enrolled" -> "Enrolled")
+  let cleanMsg = String(message || '').replace(/^[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\s]+/u, '').trim();
+  if (!cleanMsg) cleanMsg = String(message || '');
 
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
   toast.innerHTML = `
-    <span class="toast-icon">${icons[type] || 'ℹ️'}</span>
-    <span>${message}</span>
-    <button class="toast-close" onclick="this.parentElement.remove()">✕</button>
+    <span class="toast-icon"><span class="material-symbols-outlined" style="font-size:1.25rem;vertical-align:middle;color:${iconColor};">${iconName}</span></span>
+    <span style="vertical-align:middle;">${cleanMsg}</span>
+    <button class="toast-close" onclick="this.parentElement.remove()" style="display:inline-flex;align-items:center;justify-content:center;"><span class="material-symbols-outlined" style="font-size:18px;">close</span></button>
   `;
   container.appendChild(toast);
 
@@ -11520,7 +11552,7 @@ function addLiveLog(name, confidence, status = 'Present') {
   const item = document.createElement('div');
   item.className = 'live-log-item';
   item.innerHTML = `
-    <span>👤</span>
+    <span class="material-symbols-outlined" style="font-size:18px;color:#94a3b8;vertical-align:middle;">person</span>
     <span style="font-weight:600;color:#fff">${escapeHtml(name)}</span>
     <span style="color:rgba(255,255,255,0.5)">${status}</span>
     <span style="font-size:0.7rem;color:rgba(255,255,255,0.4)">${new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}</span>
@@ -11671,19 +11703,20 @@ function renderStatCardsEnhanced(store) {
   const appSessions = store.app_student_sessions || [];
   const appActive = appSessions.filter(s => s.status === 'active' && (Date.now() - new Date(s.last_active_at).getTime()) < 120000).length;
 
+  const li = (icon) => `<lord-icon src="https://cdn.lordicon.com/${icon}.json" trigger="loop-on-hover" delay="1500" style="width:30px;height:30px"></lord-icon>`;
   const cards = [
-    { icon: '🎓', value: students, label: 'Total Students', trend: '↑ Enrolled', color: '#1a4fcf' },
-    { icon: '📱', value: `${appActive} / ${appSessions.length}`, label: 'App Active / Logged In', trend: `${appActive} online now`, color: '#10b981' },
-    { icon: '👩‍🏫', value: teachers, label: 'Total Teachers', trend: '↑ Active Staff', color: '#7c3aed' },
-    { icon: '✅', value: presentToday, label: 'Present Today', trend: `of ${todayAtt.length} marked`, color: '#059669' },
-    { icon: '💳', value: feePending, label: 'Pending Fees', trend: '⚠ Needs follow-up', color: '#d97706' },
-    { icon: '📖', value: books, label: 'Books Issued', trend: 'Library circulation', color: '#0891b2' },
-    { icon: '🏛️', value: (store.classes || []).length, label: 'Classes', trend: 'Active classrooms', color: '#db2777' },
+    { icon: li('dxjqoygy'), value: students, label: 'Total Students', trend: '↑ Enrolled', color: '#1a4fcf' },
+    { icon: li('hjeefwhm'), value: `${appActive} / ${appSessions.length}`, label: 'App Active / Logged In', trend: `${appActive} online now`, color: '#10b981' },
+    { icon: li('kthelypq'), value: teachers, label: 'Total Teachers', trend: '↑ Active Staff', color: '#7c3aed' },
+    { icon: li('egiwmiit'), value: presentToday, label: 'Present Today', trend: `of ${todayAtt.length} marked`, color: '#059669' },
+    { icon: li('qhviklyi'), value: feePending, label: 'Pending Fees', trend: '⚠ Needs follow-up', color: '#d97706' },
+    { icon: li('wzwygmng'), value: books, label: 'Books Issued', trend: 'Library circulation', color: '#0891b2' },
+    { icon: li('wloilqgd'), value: (store.classes || []).length, label: 'Classes', trend: 'Active classrooms', color: '#db2777' },
   ];
 
   grid.innerHTML = cards.map((c, i) => `
     <div class="stat-card" style="animation-delay:${i * 0.06}s">
-      <div class="stat-icon" style="background:${c.color}18;color:${c.color}">${c.icon}</div>
+      <div class="stat-icon" style="background:${c.color}18;color:${c.color};display:flex;align-items:center;justify-content:center;">${c.icon}</div>
       <div class="stat-value">${c.value}</div>
       <div class="stat-label">${c.label}</div>
       <div class="stat-trend">${c.trend}</div>
@@ -12436,10 +12469,32 @@ function generateIdCardsHTML(store) {
   `;
 
   const printBarCss = `
+    @font-face {
+      font-family: 'Material Symbols Outlined';
+      font-style: normal;
+      font-weight: 400;
+      src: url('/material-symbols-outlined.ttf') format('truetype');
+    }
+    .material-symbols-outlined {
+      font-family: 'Material Symbols Outlined';
+      font-weight: normal;
+      font-style: normal;
+      font-size: 20px;
+      line-height: 1;
+      letter-spacing: normal;
+      text-transform: none;
+      display: inline-block;
+      white-space: nowrap;
+      word-wrap: normal;
+      direction: ltr;
+      -webkit-font-feature-settings: 'liga';
+      -webkit-font-smoothing: antialiased;
+      vertical-align: middle;
+    }
     .print-bar { position: sticky; top: 0; z-index: 999; background: rgba(30,58,138,0.95); backdrop-filter: blur(8px); padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; color: #fff; margin: -40px -24px 32px; flex-wrap: wrap; gap: 8px; }
-    .print-btn { background: #10b981; color: #fff; border: none; padding: 9px 22px; border-radius: 10px; font-weight: 700; cursor: pointer; }
+    .print-btn { background: #10b981; color: #fff; border: none; padding: 9px 22px; border-radius: 10px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
     .ctrl-select { background: #fff; color: #1e3a8a; border: none; padding: 5px 8px; border-radius: 6px; font-weight: 600; outline: none; cursor: pointer; font-size: 0.8rem; max-width: 220px; }
-    .ctrl-label { font-weight: 600; font-size: 0.8rem; margin-left: 10px; }
+    .ctrl-label { font-weight: 600; font-size: 0.8rem; margin-left: 10px; display: inline-flex; align-items: center; gap: 4px; }
     @media print { .print-bar { display: none; } }
   `;
 
@@ -12450,15 +12505,15 @@ function generateIdCardsHTML(store) {
   </head><body id="printBody" class="dsg-1 clr-1">
     <div class="print-bar">
       <div style="display:flex; align-items:center; flex-wrap:wrap; gap:4px;">
-        <span style="font-size:1rem; margin-right:10px;"><b>🏫 ${schoolName}</b></span>
+        <span style="font-size:1rem; margin-right:10px; display:inline-flex; align-items:center; gap:6px;"><span class="material-symbols-outlined" style="font-size:1.2rem;">school</span><b>${schoolName}</b></span>
 
-        <label class="ctrl-label">🏫 Class:</label>
+        <label class="ctrl-label"><span class="material-symbols-outlined" style="font-size:1rem;">class</span> Class:</label>
         <select id="classSelect" class="ctrl-select" onchange="filterClass()">
           <option value="All">All Classes</option>
           ${classOptions}
         </select>
 
-        <label class="ctrl-label">📐 Design:</label>
+        <label class="ctrl-label"><span class="material-symbols-outlined" style="font-size:1rem;">design_services</span> Design:</label>
         <select id="designSelect" class="ctrl-select" onchange="applyTheme()">
           <option value="dsg-1">1. Flat • Square</option>
           <option value="dsg-2">2. Curve • Circle</option>
@@ -12570,7 +12625,7 @@ function generateIdCardsHTML(store) {
           <option value="dsg-108">108. Curve • Octagon</option>
         </select>
 
-        <label class="ctrl-label">🎨 Color:</label>
+        <label class="ctrl-label"><span class="material-symbols-outlined" style="font-size:1rem;">palette</span> Color:</label>
         <select id="colorSelect" class="ctrl-select" onchange="applyTheme()">
           <option value="clr-1">Royal Blue</option>
           <option value="clr-2">Emerald & Gold</option>
@@ -12594,7 +12649,7 @@ function generateIdCardsHTML(store) {
           <option value="clr-20">Sky Cyan</option>
         </select>
       </div>
-      <button class="print-btn" onclick="window.print()">🖨 Print IDs</button>
+      <button class="print-btn" onclick="window.print()"><span class="material-symbols-outlined" style="font-size:1.1rem;">print</span> Print IDs</button>
     </div>
     <div class="cards-grid">${frontCards}</div>
     <script>
@@ -13088,10 +13143,10 @@ function updateEnrollUI() {
   const btn = document.getElementById('enrollFaceBtn');
   if (!btn) return;
   if (aiEnrolling) {
-    btn.textContent = `📸 Capture ${aiEnrollBuffer.length + 1}/${MULTI_SAMPLE_COUNT}`;
+    btn.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px;">photo_camera</span> Capture ${aiEnrollBuffer.length + 1}/${MULTI_SAMPLE_COUNT}`;
     btn.style.background = '#f59e0b';
   } else {
-    btn.textContent = '👤 Enroll Face';
+    btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px;">face</span> Enroll Face';
     btn.style.background = '';
   }
 }
@@ -13417,13 +13472,13 @@ function addAIStatusPanel() {
       <span style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;"></span>
       <strong style="color:#10b981">InsightFace Engine</strong>
     </span>
-    <span>🎯 High-precision similarity matching (512D)</span>
-    <span>📸 Multi-sample enrollment (${MULTI_SAMPLE_COUNT} poses)</span>
+    <span style="display:inline-flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:15px;color:#10b981;">center_focus_strong</span> High-precision similarity matching (512D)</span>
+    <span style="display:inline-flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:15px;color:#38bdf8;">photo_camera</span> Multi-sample enrollment (${MULTI_SAMPLE_COUNT} poses)</span>
     <span id="personaBadge" onclick="cyclePersona()" style="cursor:pointer; background:rgba(245,158,11,0.15); padding:3px 12px; border-radius:12px; color:#f59e0b; font-weight:700; transition:all 0.3s; border:1px solid rgba(245,158,11,0.3); display:inline-flex; align-items:center; gap:5px; user-select:none;" title="Click to change character">
-      🎭 Voice: ${VOICE_PERSONAS[activePersonaIndex].label}
+      <span class="material-symbols-outlined" style="font-size:15px;">record_voice_over</span> Voice: ${VOICE_PERSONAS[activePersonaIndex].label}
     </span>
-    <button onclick="testActiveVoice()" style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.15); color:#fff; border-radius:10px; padding:3px 10px; font-size:0.65rem; font-weight:600; cursor:pointer; transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">
-      📢 Test Voice
+    <button onclick="testActiveVoice()" style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.15); color:#fff; border-radius:10px; padding:3px 10px; font-size:0.65rem; font-weight:600; cursor:pointer; transition:all 0.2s; display:inline-flex; align-items:center; gap:4px;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">
+      <span class="material-symbols-outlined" style="font-size:13px;">volume_up</span> Test Voice
     </button>
     <span id="aiEnrolledCount" style="margin-left:auto;background:rgba(16,185,129,0.15);padding:3px 10px;border-radius:12px;color:#10b981;font-weight:700;">
       ${Object.keys(getFaceStore()).length} enrolled
@@ -13576,9 +13631,9 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
     card.innerHTML = `
       <div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;background:rgba(255,255,255,0.05);border-radius:50%;"></div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:1.4rem;">🏦</span>
-          <span style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;opacity:0.8;">School Balance</span>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <lord-icon src="https://cdn.lordicon.com/wyqovtlo.json" trigger="loop-on-hover" colors="primary:#ffffff,secondary:#38bdf8" style="width:30px;height:30px;flex-shrink:0;"></lord-icon>
+          <span style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;opacity:0.9;">School Balance</span>
         </div>
         <span class="material-symbols-outlined balance-toggle-icon" style="font-size:20px;opacity:0.8;cursor:pointer;transition:opacity 0.2s;" title="Toggle Balance Visibility">
           ${isHidden ? 'visibility_off' : 'visibility'}
@@ -13591,7 +13646,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
         Total Income: ${isHidden ? '₹****' : fmtK(totalIncome)} &nbsp;|&nbsp; Expenses: ${isHidden ? '₹****' : fmtK(totalExpense)}
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <span style="background:rgba(255,255,255,0.15);border-radius:20px;padding:2px 10px;font-size:0.68rem;font-weight:700;">💼 Invested: ${isHidden ? '₹****' : fmtK(invested)}</span>
+        <span class="balance-invested-badge" style="background:rgba(255,255,255,0.15);border-radius:20px;padding:3px 10px;font-size:0.68rem;font-weight:700;display:inline-flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">trending_up</span> Invested: ${isHidden ? '₹****' : fmtK(invested)}</span>
         ${isAdmin() ? `<span style="background:#fbbf24;color:#1a1a1a;border-radius:20px;padding:2px 10px;font-size:0.68rem;font-weight:700;">Admin View</span>` : ""}
       </div>`;
     
@@ -13607,7 +13662,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
         const toggleIcon = card.querySelector('.balance-toggle-icon');
         const amountDisplay = card.querySelector('.balance-amount-display');
         const detailsDisplay = card.querySelector('.balance-details-display');
-        const investedDisplay = card.querySelector('span[style*="💼 Invested"]');
+        const investedDisplay = card.querySelector('.balance-invested-badge');
         
         toggleIcon.textContent = isHidden ? 'visibility_off' : 'visibility';
         amountDisplay.innerHTML = isHidden ? '₹****' : fmtK(balance);
@@ -13615,7 +13670,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
         
         // Re-render inner HTML of details to hide the actual numbers too
         detailsDisplay.innerHTML = `Total Income: ${isHidden ? '₹****' : fmtK(totalIncome)} &nbsp;|&nbsp; Expenses: ${isHidden ? '₹****' : fmtK(totalExpense)}`;
-        if(investedDisplay) investedDisplay.innerHTML = `💼 Invested: ${isHidden ? '₹****' : fmtK(invested)}`;
+        if (investedDisplay) investedDisplay.innerHTML = `<span class="material-symbols-outlined" style="font-size:14px;">trending_up</span> Invested: ${isHidden ? '₹****' : fmtK(invested)}`;
         
         return;
       }
@@ -13709,7 +13764,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
               ${localStorage.getItem("hideSchoolBalance") === "true" ? 'visibility_off' : 'visibility'}
             </span>
           </div>
-          <button id="financeCloseBtn" style="background:rgba(255,255,255,0.12);border:none;color:#fff;width:36px;height:36px;border-radius:50%;font-size:1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
+          <button id="financeCloseBtn" style="background:rgba(255,255,255,0.12);border:none;color:#fff;width:36px;height:36px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;"><span class="material-symbols-outlined" style="font-size:20px;">close</span></button>
         </div>
         <div id="financeNavTabs" style="background:#0d1b2e;padding:0 28px;display:flex;gap:4px;border-bottom:1px solid rgba(255,255,255,0.07);flex-shrink:0;overflow-x:auto;"></div>
         <div id="financeContent" style="flex:1;padding:24px 28px;overflow-y:auto;"></div>
@@ -13735,18 +13790,18 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
 
 
     const tabs = [
-      { key: "overview", icon: "📊", label: "Overview" },
-      { key: "daywise", icon: "📅", label: "Day-wise" },
-      { key: "investments", icon: "💼", label: "Investments" },
-      { key: "income", icon: "⬆️", label: "Income" },
-      { key: "expenses", icon: "⬇️", label: "Expenses" },
+      { key: "overview", icon: "insights", label: "Overview" },
+      { key: "daywise", icon: "calendar_today", label: "Day-wise" },
+      { key: "investments", icon: "trending_up", label: "Investments" },
+      { key: "income", icon: "arrow_upward", label: "Income" },
+      { key: "expenses", icon: "arrow_downward", label: "Expenses" },
     ];
     const navTabs = financeModal.querySelector("#financeNavTabs");
     tabs.forEach(t => {
       const btn = document.createElement("button");
       btn.dataset.tab = t.key;
-      btn.style.cssText = `background:none;border:none;color:rgba(255,255,255,0.55);cursor:pointer;padding:14px 18px;font-size:0.82rem;font-weight:600;white-space:nowrap;border-bottom:2px solid transparent;transition:all .2s;`;
-      btn.innerHTML = `${t.icon} ${t.label}`;
+      btn.style.cssText = `background:none;border:none;color:rgba(255,255,255,0.55);cursor:pointer;padding:14px 18px;font-size:0.82rem;font-weight:600;white-space:nowrap;border-bottom:2px solid transparent;transition:all .2s;display:inline-flex;align-items:center;gap:6px;`;
+      btn.innerHTML = `<span class="material-symbols-outlined" style="font-size:18px;">${t.icon}</span> ${t.label}`;
       btn.addEventListener("click", async () => { financeState.view = t.key; renderFinanceContent(); });
       navTabs.appendChild(btn);
     });
@@ -13789,9 +13844,10 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
   }
   function kpiCard(title, value, icon, color, sub) {
     const isHidden = localStorage.getItem("hideSchoolBalance") === "true";
+    const iconHtml = (icon && icon.includes('<')) ? icon : `<span class="material-symbols-outlined" style="font-size:26px;color:${color};">${icon}</span>`;
     return `<div style="background:rgba(255,255,255,0.04);border:1px solid ${color}30;border-radius:14px;padding:18px;position:relative;overflow:hidden;">
       <div style="position:absolute;top:-10px;right:-10px;width:60px;height:60px;background:${color}18;border-radius:50%;"></div>
-      <div style="font-size:1.4rem;margin-bottom:8px;">${icon}</div>
+      <div style="margin-bottom:8px;display:flex;align-items:center;">${iconHtml}</div>
       <div style="font-size:1.5rem;font-weight:800;color:${color};margin-bottom:4px;">${isHidden ? "₹****" : fmtK(value)}</div>
       <div style="font-size:0.82rem;font-weight:700;color:rgba(255,255,255,0.8);">${title}</div>
       <div style="font-size:0.72rem;color:rgba(255,255,255,0.4);margin-top:3px;">${isHidden ? "..." : sub}</div>
@@ -13859,14 +13915,14 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
     const pctInvested = (totalIncome + invested) > 0 ? (invested / (totalIncome + invested) * 100).toFixed(1) : 0;
     const adminSection = isAdmin() ? `
       <div style="${panelStyle}margin-bottom:20px;">
-        <div style="color:rgba(255,255,255,0.5);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:14px;">🔐 Admin — Full Balance Breakdown</div>
+        <div style="color:rgba(255,255,255,0.5);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:14px;display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:16px;">lock</span> Admin — Full Balance Breakdown</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;">
           ${adminMetric("Fee Income", feeIncome, "#4ade80")}${adminMetric("Other Income", otherIncome, "#38bdf8")}${adminMetric("Total Expenses", totalExpense, "#f87171")}${adminMetric("Payroll Paid", payroll, "#fb923c")}${adminMetric("Active Investments", invested, "#a78bfa")}${adminMetric("Expected Returns/yr", expectedReturns, "#fbbf24")}
         </div>
       </div>` : "";
     return `
       <div style="${panelStyle.replace("padding:18px", "padding:14px 18px")}margin-bottom:20px;display:flex;flex-wrap:wrap;align-items:center;gap:12px;">
-        <span style="color:rgba(255,255,255,0.6);font-size:0.8rem;font-weight:600;">📅 Period:</span>
+        <span style="color:rgba(255,255,255,0.6);font-size:0.8rem;font-weight:600;display:inline-flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:16px;">calendar_month</span> Period:</span>
         ${quickFilterBtn("thisMonth","This Month")}${quickFilterBtn("thisQuarter","This Quarter")}${quickFilterBtn("thisYear","This Year")}${quickFilterBtn("allTime","All Time")}
         <span style="color:rgba(255,255,255,0.4);margin:0 4px;">|</span>
         <label style="color:rgba(255,255,255,0.6);font-size:0.75rem;">From <input type="date" id="fi_from" value="${financeState.dateFrom}" style="${inputStyle}" /></label>
@@ -13874,17 +13930,17 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
         <button id="fi_applyRange" style="${btnStyle("blue")}">Apply</button>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:22px;">
-        ${kpiCard("Total Income", totalIncome, "⬆️", "#4ade80", `Fee: ${fmtK(feeIncome)} + Other: ${fmtK(otherIncome)}`)}
-        ${kpiCard("Total Expenses", totalExpense, "⬇️", "#f87171", `${pctExpense}% of income`)}
-        ${kpiCard("Net Balance", balance, "💰", balance >= 0 ? "#38bdf8" : "#f87171", balance >= 0 ? "Surplus" : "Deficit")}
-        ${kpiCard("Invested (Active)", invested, "💼", "#a78bfa", `${pctInvested}% of funds`)}
+        ${kpiCard("Total Income", totalIncome, "arrow_upward", "#4ade80", `Fee: ${fmtK(feeIncome)} + Other: ${fmtK(otherIncome)}`)}
+        ${kpiCard("Total Expenses", totalExpense, "arrow_downward", "#f87171", `${pctExpense}% of income`)}
+        ${kpiCard("Net Balance", balance, "account_balance_wallet", balance >= 0 ? "#38bdf8" : "#f87171", balance >= 0 ? "Surplus" : "Deficit")}
+        ${kpiCard("Invested (Active)", invested, "trending_up", "#a78bfa", `${pctInvested}% of funds`)}
       </div>
       ${adminSection}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
-        <div style="${panelStyle}"><div style="color:rgba(255,255,255,0.5);font-size:0.72rem;text-transform:uppercase;margin-bottom:14px;">📈 Investment Categories</div>${investCategoryBars(store[INVEST_KEY] || [])}</div>
-        <div style="${panelStyle}"><div style="color:rgba(255,255,255,0.5);font-size:0.72rem;text-transform:uppercase;margin-bottom:14px;">🏦 Recent Transactions</div>${recentTxnList(store)}</div>
+        <div style="${panelStyle}"><div style="color:rgba(255,255,255,0.5);font-size:0.72rem;text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:16px;">insights</span> Investment Categories</div>${investCategoryBars(store[INVEST_KEY] || [])}</div>
+        <div style="${panelStyle}"><div style="color:rgba(255,255,255,0.5);font-size:0.72rem;text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:16px;">receipt_long</span> Recent Transactions</div>${recentTxnList(store)}</div>
       </div>
-      <div style="${panelStyle}"><div style="color:rgba(255,255,255,0.5);font-size:0.72rem;text-transform:uppercase;margin-bottom:12px;">📊 Income vs Expense vs Invested</div>${balanceBar(totalIncome, totalExpense, invested)}</div>`;
+      <div style="${panelStyle}"><div style="color:rgba(255,255,255,0.5);font-size:0.72rem;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:16px;">compare_arrows</span> Income vs Expense vs Invested</div>${balanceBar(totalIncome, totalExpense, invested)}</div>`;
   }
 
   /* ─── DAY-WISE TAB ───────────────────────────────────────── */
@@ -13958,14 +14014,14 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
       <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:18px;position:relative;">
         <div style="position:absolute;top:14px;right:14px;"><span style="background:${inv.status==="Active"?"#166534":"#7c3aed"};color:${inv.status==="Active"?"#4ade80":"#e9d5ff"};padding:3px 10px;border-radius:20px;font-size:0.68rem;font-weight:700;">${inv.status}</span></div>
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
-          <div style="width:38px;height:38px;border-radius:10px;background:rgba(167,139,250,0.2);display:flex;align-items:center;justify-content:center;font-size:1.2rem;">${inv.category==="Fixed Deposit"?"🏦":inv.category==="Recurring Deposit"?"🔄":inv.category==="Infrastructure"?"🏗️":inv.category==="Technology"?"💻":"📚"}</div>
+          <div style="width:38px;height:38px;border-radius:10px;background:rgba(167,139,250,0.2);display:flex;align-items:center;justify-content:center;">${inv.category==="Fixed Deposit"?'<span class="material-symbols-outlined" style="font-size:22px;color:#a78bfa;">account_balance</span>':inv.category==="Recurring Deposit"?'<span class="material-symbols-outlined" style="font-size:22px;color:#38bdf8;">autorenew</span>':inv.category==="Infrastructure"?'<span class="material-symbols-outlined" style="font-size:22px;color:#fb923c;">architecture</span>':inv.category==="Technology"?'<span class="material-symbols-outlined" style="font-size:22px;color:#4ade80;">computer</span>':'<span class="material-symbols-outlined" style="font-size:22px;color:#f472b6;">menu_book</span>'}</div>
           <div><div style="font-size:0.9rem;font-weight:700;color:#fff;">${inv.title}</div><div style="font-size:0.72rem;color:rgba(255,255,255,0.4);">${inv.category} · ${inv.bank || ""}</div></div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
           <div style="background:rgba(255,255,255,0.05);border-radius:8px;padding:10px;"><div style="font-size:1rem;font-weight:800;color:#a78bfa;">${fmt(inv.amount)}</div><div style="font-size:0.68rem;color:rgba(255,255,255,0.4);">Amount Invested</div></div>
           ${inv.expectedReturn > 0 ? `<div style="background:rgba(255,255,255,0.05);border-radius:8px;padding:10px;"><div style="font-size:1rem;font-weight:800;color:#4ade80;">${inv.expectedReturn}% p.a.</div><div style="font-size:0.68rem;color:rgba(255,255,255,0.4);">Expected Return</div></div>` : `<div style="background:rgba(255,255,255,0.05);border-radius:8px;padding:10px;"><div style="font-size:1rem;font-weight:800;color:#fb923c;">Capital Use</div><div style="font-size:0.68rem;color:rgba(255,255,255,0.4);">Purpose-based</div></div>`}
         </div>
-        ${inv.startDate ? `<div style="font-size:0.72rem;color:rgba(255,255,255,0.4);margin-bottom:4px;">📅 ${inv.startDate}${inv.maturityDate ? ` → ${inv.maturityDate}` : ""}</div>` : ""}
+        ${inv.startDate ? `<div style="font-size:0.72rem;color:rgba(255,255,255,0.4);margin-bottom:4px;display:flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">calendar_month</span> ${inv.startDate}${inv.maturityDate ? ` → ${inv.maturityDate}` : ""}</div>` : ""}
         ${inv.notes ? `<div style="font-size:0.75rem;color:rgba(255,255,255,0.55);background:rgba(255,255,255,0.05);border-radius:7px;padding:8px 10px;margin-top:8px;">${inv.notes}</div>` : ""}
         ${isAdmin() ? `<div style="display:flex;gap:8px;margin-top:12px;align-items:center;">
           <button data-invest-delete="${inv.id}" style="background:rgba(239,68,68,0.15);color:#f87171;border:1px solid rgba(239,68,68,0.2);border-radius:7px;padding:5px 12px;font-size:0.72rem;cursor:pointer;">Delete</button>
@@ -13974,7 +14030,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
       </div>`).join("");
     const addForm = isAdmin() ? `
       <div style="${panelStyle}margin-bottom:20px;">
-        <div style="color:rgba(255,255,255,0.5);font-size:0.72rem;text-transform:uppercase;margin-bottom:16px;">➕ Add New Investment</div>
+        <div style="color:rgba(255,255,255,0.5);font-size:0.72rem;text-transform:uppercase;margin-bottom:16px;display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:16px;">add_circle</span> Add New Investment</div>
         <form autocomplete="off" onsubmit="return false;" style="display:contents;">
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;">
           <div><label style="color:rgba(255,255,255,0.5);font-size:0.72rem;display:block;margin-bottom:4px;">Title *</label><input id="inv_title" name="inv_title_${Date.now()}" placeholder="e.g. SBI Fixed Deposit" autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly')" style="${fieldStyle}" /></div>
@@ -13987,13 +14043,13 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
           <div><label style="color:rgba(255,255,255,0.5);font-size:0.72rem;display:block;margin-bottom:4px;">Notes</label><input id="inv_notes" name="inv_notes_${Date.now()}" placeholder="Purpose / remarks" autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly')" style="${fieldStyle}" /></div>
         </div>
         </form>
-        <div style="margin-top:14px;"><button id="inv_save" style="${btnStyle("blue")}">💾 Save Investment</button><span id="inv_saving" style="display:none;margin-left:10px;color:rgba(255,255,255,0.5);font-size:0.78rem;">Saving…</span></div>
+        <div style="margin-top:14px;"><button id="inv_save" style="${btnStyle("blue")}"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px;">save</span> Save Investment</button><span id="inv_saving" style="display:none;margin-left:10px;color:rgba(255,255,255,0.5);font-size:0.78rem;">Saving…</span></div>
       </div>` : "";
     return `
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px;">
-        ${kpiCard("Total Active Invested", totalActive, "💼", "#a78bfa", `${active.length} active investments`)}
-        ${kpiCard("Expected Annual Returns", totalReturns, "📈", "#4ade80", "From FD & RD instruments")}
-        ${kpiCard("Completed Investments", completed.reduce((s,i)=>s+Number(i.amount),0), "✅", "#38bdf8", `${completed.length} completed investments`)}
+        ${kpiCard("Total Active Invested", totalActive, "trending_up", "#a78bfa", `${active.length} active investments`)}
+        ${kpiCard("Expected Annual Returns", totalReturns, "monitoring", "#4ade80", "From FD & RD instruments")}
+        ${kpiCard("Completed Investments", completed.reduce((s,i)=>s+Number(i.amount),0), "verified", "#38bdf8", `${completed.length} completed investments`)}
       </div>
       ${addForm}
       <div style="display:flex;gap:4px;margin-bottom:16px;">
@@ -14022,7 +14078,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
       </tr>`).join("");
     const addForm = isAdmin() ? `
       <div style="${panelStyle}margin-bottom:20px;">
-        <div style="color:rgba(255,255,255,0.5);font-size:0.72rem;text-transform:uppercase;margin-bottom:16px;">➕ Add Income Record</div>
+        <div style="color:rgba(255,255,255,0.5);font-size:0.72rem;text-transform:uppercase;margin-bottom:16px;display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:16px;">add_circle</span> Add Income Record</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
           <div><label style="color:rgba(255,255,255,0.5);font-size:0.72rem;display:block;margin-bottom:4px;">Date *</label><input id="inc_date" type="date" value="${finTodayStr()}" autocomplete="new-password" style="${fieldStyle}" /></div>
           <div><label style="color:rgba(255,255,255,0.5);font-size:0.72rem;display:block;margin-bottom:4px;">Source *</label><input id="inc_source" placeholder="Fee Collection / Donation..." autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly')" style="${fieldStyle}" /></div>
@@ -14031,11 +14087,11 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
           <div><label style="color:rgba(255,255,255,0.5);font-size:0.72rem;display:block;margin-bottom:4px;">Mode</label><select id="inc_mode" autocomplete="new-password" style="${fieldStyle}"><option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>Cheque</option><option>Mixed</option></select></div>
           <div><label style="color:rgba(255,255,255,0.5);font-size:0.72rem;display:block;margin-bottom:4px;">Description</label><input id="inc_desc" placeholder="Brief note" autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly')" style="${fieldStyle}" /></div>
         </div>
-        <div style="margin-top:14px;"><button id="inc_save" style="${btnStyle("green")}">💾 Save Income</button><span id="inc_saving" style="display:none;margin-left:10px;color:rgba(255,255,255,0.5);font-size:0.78rem;">Saving…</span></div>
+        <div style="margin-top:14px;"><button id="inc_save" style="${btnStyle("green")}"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px;">save</span> Save Income</button><span id="inc_saving" style="display:none;margin-left:10px;color:rgba(255,255,255,0.5);font-size:0.78rem;">Saving…</span></div>
       </div>` : "";
     return `
       <div style="${panelStyle.replace("padding:18px","padding:14px 18px")}margin-bottom:20px;display:flex;flex-wrap:wrap;align-items:center;gap:12px;">
-        <span style="color:rgba(255,255,255,0.6);font-size:0.8rem;font-weight:600;">📅 Filter:</span>
+        <span style="color:rgba(255,255,255,0.6);font-size:0.8rem;font-weight:600;display:inline-flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:16px;">calendar_month</span> Filter:</span>
         ${quickFilterBtn("thisMonth","This Month")}${quickFilterBtn("thisQuarter","This Quarter")}${quickFilterBtn("thisYear","This Year")}
         <label style="color:rgba(255,255,255,0.6);font-size:0.75rem;">From <input type="date" id="fi_from" value="${financeState.dateFrom}" style="${inputStyle}" /></label>
         <label style="color:rgba(255,255,255,0.6);font-size:0.75rem;">To <input type="date" id="fi_to" value="${financeState.dateTo}" style="${inputStyle}" /></label>
@@ -14082,7 +14138,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
       </tr>`).join("");
     const addForm = isAdmin() ? `
       <div style="${panelStyle}margin-bottom:20px;">
-        <div style="color:rgba(255,255,255,0.5);font-size:0.72rem;text-transform:uppercase;margin-bottom:16px;">➕ Add Expense Record</div>
+        <div style="color:rgba(255,255,255,0.5);font-size:0.72rem;text-transform:uppercase;margin-bottom:16px;display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:16px;">add_circle</span> Add Expense Record</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
           <div><label style="color:rgba(255,255,255,0.5);font-size:0.72rem;display:block;margin-bottom:4px;">Date *</label><input id="exp_date" type="date" value="${finTodayStr()}" autocomplete="new-password" style="${fieldStyle}" /></div>
           <div><label style="color:rgba(255,255,255,0.5);font-size:0.72rem;display:block;margin-bottom:4px;">Head *</label><input id="exp_head" placeholder="Salary / Maintenance..." autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly')" style="${fieldStyle}" /></div>
@@ -14091,11 +14147,11 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
           <div><label style="color:rgba(255,255,255,0.5);font-size:0.72rem;display:block;margin-bottom:4px;">Mode</label><select id="exp_mode" autocomplete="new-password" style="${fieldStyle}"><option>Cash</option><option>Bank Transfer</option><option>UPI</option><option>Cheque</option><option>Online</option></select></div>
           <div><label style="color:rgba(255,255,255,0.5);font-size:0.72rem;display:block;margin-bottom:4px;">Description</label><input id="exp_desc" placeholder="Brief note" autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly')" style="${fieldStyle}" /></div>
         </div>
-        <div style="margin-top:14px;"><button id="exp_save" style="${btnStyle("red")}">💾 Save Expense</button><span id="exp_saving" style="display:none;margin-left:10px;color:rgba(255,255,255,0.5);font-size:0.78rem;">Saving…</span></div>
+        <div style="margin-top:14px;"><button id="exp_save" style="${btnStyle("red")}"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px;">save</span> Save Expense</button><span id="exp_saving" style="display:none;margin-left:10px;color:rgba(255,255,255,0.5);font-size:0.78rem;">Saving…</span></div>
       </div>` : "";
     return `
       <div style="${panelStyle.replace("padding:18px","padding:14px 18px")}margin-bottom:20px;display:flex;flex-wrap:wrap;align-items:center;gap:12px;">
-        <span style="color:rgba(255,255,255,0.6);font-size:0.8rem;font-weight:600;">📅 Filter:</span>
+        <span style="color:rgba(255,255,255,0.6);font-size:0.8rem;font-weight:600;display:inline-flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:16px;">calendar_month</span> Filter:</span>
         ${quickFilterBtn("thisMonth","This Month")}${quickFilterBtn("thisQuarter","This Quarter")}${quickFilterBtn("thisYear","This Year")}
         <label style="color:rgba(255,255,255,0.6);font-size:0.75rem;">From <input type="date" id="fi_from" value="${financeState.dateFrom}" style="${inputStyle}" /></label>
         <label style="color:rgba(255,255,255,0.6);font-size:0.75rem;">To <input type="date" id="fi_to" value="${financeState.dateTo}" style="${inputStyle}" /></label>
@@ -14514,12 +14570,12 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
     panel.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
         <div>
-          <h2 style="margin:0;font-size:1.4rem;color:var(--primary,#1e3a8a);">📦 Fee Structure Prices</h2>
+          <h2 style="margin:0;font-size:1.4rem;color:var(--primary,#1e3a8a);display:flex;align-items:center;gap:8px;"><span class="material-symbols-outlined" style="font-size:26px;">inventory_2</span> Fee Structure Prices</h2>
           <p style="margin:4px 0 0;color:#64748b;font-size:0.88rem;">Manage class-wise book, dress, and fee costs. Auto-linked to Fee receipts.</p>
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          <button id="bd-add-btn" style="background:#1e3a8a;color:#fff;border:none;border-radius:8px;padding:9px 18px;cursor:pointer;font-size:0.9rem;">+ Add Item</button>
-          <button id="bd-refresh-btn" style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:8px;padding:9px 14px;cursor:pointer;font-size:0.9rem;">🔄</button>
+          <button id="bd-add-btn" style="background:#1e3a8a;color:#fff;border:none;border-radius:8px;padding:9px 18px;cursor:pointer;font-size:0.9rem;display:inline-flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:18px;">add</span> Add Item</button>
+          <button id="bd-refresh-btn" style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:8px;padding:9px 14px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;" title="Refresh"><span class="material-symbols-outlined" style="font-size:18px;color:#475569;">refresh</span></button>
         </div>
       </div>
 
@@ -14581,8 +14637,8 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
             <div>
               <label style="display:block;font-size:0.85rem;font-weight:600;color:#475569;margin-bottom:6px;">Type *</label>
               <select id="bd-f-type" required style="width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:9px 12px;font-size:0.9rem;">
-                <option value="Book">📚 Book</option>
-                <option value="Dress">👕 Dress / Uniform</option>
+                <option value="Book">Book</option>
+                <option value="Dress">Dress / Uniform</option>
               </select>
             </div>
             <div>
@@ -14630,10 +14686,10 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
       <div style="margin-top:32px;">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px;">
           <div>
-            <h3 style="margin:0;font-size:1.1rem;color:#1e3a8a;">💰 Monthly Fee Structures</h3>
+            <h3 style="margin:0;font-size:1.1rem;color:#1e3a8a;display:flex;align-items:center;gap:8px;"><span class="material-symbols-outlined" style="font-size:22px;">payments</span> Monthly Fee Structures</h3>
             <p style="margin:3px 0 0;color:#64748b;font-size:0.82rem;">Set class-wise monthly fee amounts. These appear as a dropdown when adding a fee record.</p>
           </div>
-          <button id="fs-add-btn" style="background:#1e3a8a;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:0.88rem;">+ Add Fee Structure</button>
+          <button id="fs-add-btn" style="background:#1e3a8a;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:0.88rem;display:inline-flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:16px;">add</span> Add Fee Structure</button>
         </div>
         <div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden;">
           <table id="fs-table" style="width:100%;border-collapse:collapse;font-size:0.86rem;">
@@ -14733,10 +14789,10 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
         <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px;border-top:3px solid #1e3a8a;">
           <div style="font-weight:700;color:#1e3a8a;font-size:1rem;margin-bottom:10px;">Class ${cls}</div>
           <div style="display:flex;justify-content:space-between;font-size:0.83rem;color:#475569;margin-bottom:4px;">
-            <span>📚 Books</span><span style="font-weight:600;">${formatINR(bookTotal)}</span>
+            <span style="display:inline-flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:15px;color:#1e40af;">menu_book</span> Books</span><span style="font-weight:600;">${formatINR(bookTotal)}</span>
           </div>
           <div style="display:flex;justify-content:space-between;font-size:0.83rem;color:#475569;margin-bottom:8px;">
-            <span>👕 Dress</span><span style="font-weight:600;">${formatINR(dressTotal)}</span>
+            <span style="display:inline-flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:15px;color:#9d174d;">checkroom</span> Dress</span><span style="font-weight:600;">${formatINR(dressTotal)}</span>
           </div>
           <div style="border-top:1px solid #e2e8f0;padding-top:8px;display:flex;justify-content:space-between;font-size:0.9rem;">
             <span style="font-weight:700;color:#0f172a;">Total</span>
@@ -14775,8 +14831,8 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
         <td style="padding:11px 16px;color:#94a3b8;">${i+1}</td>
         <td style="padding:11px 16px;font-weight:600;color:#1e3a8a;">${r.itemType === "Dress" ? "Size: " + (r.className||"-") : (r.className||"-")}</td>
         <td style="padding:11px 16px;">
-          <span style="background:${r.itemType==="Book"?"#dbeafe":"#fce7f3"};color:${r.itemType==="Book"?"#1e40af":"#9d174d"};padding:3px 10px;border-radius:12px;font-size:0.8rem;font-weight:600;">
-            ${r.itemType==="Book"?"📚 Book":"👕 Dress"}
+          <span style="background:${r.itemType==="Book"?"#dbeafe":"#fce7f3"};color:${r.itemType==="Book"?"#1e40af":"#9d174d"};padding:3px 10px;border-radius:12px;font-size:0.8rem;font-weight:600;display:inline-flex;align-items:center;gap:4px;">
+            <span class="material-symbols-outlined" style="font-size:14px;">${r.itemType==="Book"?"menu_book":"checkroom"}</span> ${r.itemType==="Book"?"Book":"Dress"}
           </span>
         </td>
         <td style="padding:11px 16px;">${r.itemName||"-"}</td>
@@ -14788,8 +14844,8 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
           </span>
         </td>
         <td style="padding:11px 16px;text-align:center;">
-          <button data-bd-edit="${r.id}" style="background:#f1f5f9;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;margin-right:4px;font-size:0.82rem;">✏️</button>
-          <button data-bd-del="${r.id}" style="background:#fee2e2;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:0.82rem;">🗑️</button>
+          <button data-bd-edit="${r.id}" style="background:#f1f5f9;border:none;border-radius:6px;padding:5px 8px;cursor:pointer;margin-right:4px;display:inline-flex;align-items:center;justify-content:center;" title="Edit"><span class="material-symbols-outlined" style="font-size:16px;color:#475569;">edit</span></button>
+          <button data-bd-del="${r.id}" style="background:#fee2e2;border:none;border-radius:6px;padding:5px 8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;" title="Delete"><span class="material-symbols-outlined" style="font-size:16px;color:#dc2626;">delete</span></button>
         </td>
       </tr>`).join("");
 
@@ -14947,8 +15003,8 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
         <td style="padding:10px 14px;color:#64748b;font-size:0.83rem;">${descStr}</td>
         <td style="padding:10px 14px;text-align:right;font-weight:700;color:#0f172a;">${formatINR(r.amount)}</td>
         <td style="padding:10px 14px;text-align:center;">
-          <button data-fs-edit="${r.id}" style="background:#f1f5f9;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;margin-right:4px;font-size:0.8rem;">✏️</button>
-          <button data-fs-del="${r.id}" style="background:#fee2e2;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:0.8rem;">🗑️</button>
+          <button data-fs-edit="${r.id}" style="background:#f1f5f9;border:none;border-radius:6px;padding:5px 8px;cursor:pointer;margin-right:4px;display:inline-flex;align-items:center;justify-content:center;" title="Edit"><span class="material-symbols-outlined" style="font-size:16px;color:#475569;">edit</span></button>
+          <button data-fs-del="${r.id}" style="background:#fee2e2;border:none;border-radius:6px;padding:5px 8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;" title="Delete"><span class="material-symbols-outlined" style="font-size:16px;color:#dc2626;">delete</span></button>
         </td>
       </tr>`;
     }).join("");
@@ -15109,7 +15165,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
     panel.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
         <div>
-          <h2 style="margin:0;font-size:1.4rem;color:var(--primary,#1e3a8a);">📦 Books & Dress Sales</h2>
+          <h2 style="margin:0;font-size:1.4rem;color:var(--primary,#1e3a8a);display:flex;align-items:center;gap:8px;"><span class="material-symbols-outlined" style="font-size:1.5rem;vertical-align:middle;">shopping_bag</span> Books & Dress Sales</h2>
           <p style="margin:4px 0 0;color:#64748b;font-size:0.88rem;">Track items sold to students.</p>
         </div>
       </div>
@@ -15291,7 +15347,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
           </tbody>
           <tfoot>
             <tr style="background:#1e3a8a;">
-              <td style="padding:9px 10px;border:1px solid #1e3a8a;font-weight:700;color:#fff;">&#128230; Books & Dress Total</td>
+              <td style="padding:9px 10px;border:1px solid #1e3a8a;font-weight:700;color:#fff;"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px;">shopping_bag</span> Books & Dress Total</td>
               <td style="padding:9px 10px;border:1px solid #1e3a8a;text-align:right;font-weight:800;color:#fff;">${formatINR(summary.total)}</td>
             </tr>
           </tfoot>
@@ -15301,18 +15357,18 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
 
   // ── Shared fee-type definitions (mirrors app.js FEE_TYPES) ────────────────
   const RECEIPT_FEE_TYPES = [
-    { key: "tuitionFee",     label: "Tuition Fee",     icon: "📚" },
-    { key: "transportFee", label: "Transport Fee", icon: "🚌" },
-    { key: "admissionFormFee", label: "Admission Form Fee", icon: "📄" },
-    { key: "admissionFee",   label: "Admission Fee",   icon: "🎓" },
-    { key: "computerFee",    label: "Computer Fee",    icon: "💻" },
-    { key: "developmentFee", label: "Development Fee", icon: "🏗️" },
-    { key: "labFee",         label: "Lab Fee",         icon: "🔬" },
-    { key: "sportsFee",      label: "Sports Fee",      icon: "⚽" },
-    { key: "libraryFee",     label: "Library Fee",     icon: "📖" },
-    { key: "examFee",        label: "Exam Fee",        icon: "📝" },
-    { key: "lateFee",        label: "Late Fee",        icon: "⏳" },
-    { key: "otherFee",       label: "Other Fee",       icon: "➕" }
+    { key: "tuitionFee",     label: "Tuition Fee",     icon: "menu_book" },
+    { key: "transportFee", label: "Transport Fee", icon: "directions_bus" },
+    { key: "admissionFormFee", label: "Admission Form Fee", icon: "description" },
+    { key: "admissionFee",   label: "Admission Fee",   icon: "school" },
+    { key: "computerFee",    label: "Computer Fee",    icon: "computer" },
+    { key: "developmentFee", label: "Development Fee", icon: "architecture" },
+    { key: "labFee",         label: "Lab Fee",         icon: "science" },
+    { key: "sportsFee",      label: "Sports Fee",      icon: "sports_soccer" },
+    { key: "libraryFee",     label: "Library Fee",     icon: "local_library" },
+    { key: "examFee",        label: "Exam Fee",        icon: "assignment" },
+    { key: "lateFee",        label: "Late Fee",        icon: "schedule" },
+    { key: "otherFee",       label: "Other Fee",       icon: "add_circle" }
   ];
 
   // Build fee rows: first try individual fee type fields, fall back to feeTypes label string
@@ -15329,7 +15385,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
         const isMonthly = key === "tuitionFee" || label.toLowerCase().includes("tuition") || label.toLowerCase().includes("monthly");
         const mSuffix = (f.month && isMonthly) ? ` (${f.month})` : "";
         rows += `<tr style="background:${bg};">
-          <td style="padding:5px 8px;border:1px solid #e2e8f0;color:#475569;font-size:11px;">${icon} ${label}${mSuffix}</td>
+          <td style="padding:5px 8px;border:1px solid #e2e8f0;color:#475569;font-size:11px;"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;margin-right:4px;">${icon}</span> ${label}${mSuffix}</td>
           <td style="padding:5px 8px;border:1px solid #e2e8f0;text-align:right;font-weight:600;font-size:11px;">₹ ${amt.toLocaleString("en-IN")}</td>
         </tr>`;
       }
@@ -15347,13 +15403,13 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
           parts.forEach((part, idx) => {
             const bg = idx % 2 === 0 ? "#f8fafc" : "#ffffff";
             rows += `<tr style="background:${bg};">
-              <td style="padding:5px 8px;border:1px solid #e2e8f0;color:#475569;font-size:11px;">💳 ${part}</td>
+              <td style="padding:5px 8px;border:1px solid #e2e8f0;color:#475569;font-size:11px;"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;margin-right:4px;">credit_card</span> ${part}</td>
               <td style="padding:5px 8px;border:1px solid #e2e8f0;text-align:right;font-weight:600;font-size:11px;">₹ ${perPart.toLocaleString("en-IN")}</td>
             </tr>`;
           });
         } else {
           rows += `<tr style="background:#f8fafc;">
-            <td style="padding:5px 8px;border:1px solid #e2e8f0;color:#475569;font-size:11px;">💳 School Fee</td>
+            <td style="padding:5px 8px;border:1px solid #e2e8f0;color:#475569;font-size:11px;"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;margin-right:4px;">credit_card</span> School Fee</td>
             <td style="padding:5px 8px;border:1px solid #e2e8f0;text-align:right;font-weight:600;font-size:11px;">₹ ${totalMonthly.toLocaleString("en-IN")}</td>
           </tr>`;
         }
@@ -15365,7 +15421,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
     if (dueAmt > 0) {
       const particulars = f.dueMgmtParticulars || "Outstanding Dues";
       rows += `<tr style="background:#fff1f2;">
-        <td style="padding:5px 8px;border:1px solid #e2e8f0;color:#991b1b;font-size:11px;font-weight:700;">💳 ${particulars}</td>
+        <td style="padding:5px 8px;border:1px solid #e2e8f0;color:#991b1b;font-size:11px;font-weight:700;"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;margin-right:4px;color:#dc2626;">bookmark</span> ${particulars}</td>
         <td style="padding:5px 8px;border:1px solid #e2e8f0;text-align:right;font-weight:700;font-size:11px;color:#991b1b;">₹ ${dueAmt.toLocaleString("en-IN")}</td>
       </tr>`;
     }
@@ -15378,6 +15434,26 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
     const card = singleCardHtml;
     return `<!doctype html><html><head><title>${title}</title>
     <style>
+      @font-face {
+        font-family: 'Material Symbols Outlined';
+        font-style: normal;
+        font-weight: 100 700;
+        src: url(/material-symbols-outlined.ttf) format('truetype');
+      }
+      .material-symbols-outlined {
+        font-family: 'Material Symbols Outlined';
+        font-weight: normal;
+        font-style: normal;
+        font-size: 14px;
+        line-height: 1;
+        letter-spacing: normal;
+        text-transform: none;
+        display: inline-block;
+        white-space: nowrap;
+        word-wrap: normal;
+        direction: ltr;
+        vertical-align: middle;
+      }
       @page { size: A4 portrait; margin: 8mm; }
       * { box-sizing: border-box; }
       body { margin: 0; padding: 0; font-family: Arial, sans-serif; background: #fff; }
@@ -15506,7 +15582,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
            .forEach(item => {
              const price = parseFloat(item.price) || 0;
              itemsTotal += price;
-             bdRows += `<tr><td style="padding:5px 8px;border:1px solid #e2e8f0;font-size:11px;color:#475569;">${item.itemType === "Book" ? "📚" : "👕"} ${item.itemName}</td>
+             bdRows += `<tr><td style="padding:5px 8px;border:1px solid #e2e8f0;font-size:11px;color:#475569;">${item.itemType === "Book" ? '<span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;margin-right:4px;">menu_book</span>' : '<span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;margin-right:4px;">checkroom</span>'} ${item.itemName}</td>
                <td style="padding:5px 8px;border:1px solid #e2e8f0;text-align:right;font-size:11px;font-weight:600;">₹ ${price.toLocaleString("en-IN")}</td></tr>`;
            });
       }
@@ -15558,7 +15634,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
         </div>
         <!-- Fee Breakdown -->
         <div style="padding:5px 10px;border-bottom:1px solid #e2e8f0;flex:1;">
-          <div style="font-weight:700;color:#1e3a8a;margin-bottom:4px;font-size:10px;">📋 Fee Details</div>
+          <div style="font-weight:700;color:#1e3a8a;margin-bottom:4px;font-size:10px;display:flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;">receipt_long</span> Fee Details</div>
           <table style="width:100%;border-collapse:collapse;">
             ${noFeeData ? `<tr><td colspan="2" style="padding:6px 8px;color:#94a3b8;font-style:italic;text-align:center;font-size:10px;">No fee types selected</td></tr>` : feeTypeRows}
             ${bdRows}
@@ -15623,7 +15699,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
         hasSlipIndividual = true;
         const bg = idx % 2 === 0 ? "#f9fafb" : "#ffffff";
         const mSfx = f.month ? ` (${f.month})` : "";
-        feeRows += `<tr style="background:${bg};"><td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;font-size:12px;color:#475569;font-weight:700;">${icon} ${label}${mSfx}</td><td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:12px;font-weight:800;color:#1e293b;">₹ ${amt.toLocaleString("en-IN")}</td></tr>`;
+        feeRows += `<tr style="background:${bg};"><td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;font-size:12px;color:#475569;font-weight:700;"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;margin-right:4px;">${icon}</span> ${label}${mSfx}</td><td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:12px;font-weight:800;color:#1e293b;">₹ ${amt.toLocaleString("en-IN")}</td></tr>`;
       }
     });
 
@@ -15643,11 +15719,11 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
            });
 
         if (bookTotal > 0) {
-            feeRows += `<tr style="background:#f0f4ff;"><td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;font-size:12px;color:#475569;font-weight:700;">📚 Book Fee</td>
+            feeRows += `<tr style="background:#f0f4ff;"><td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;font-size:12px;color:#475569;font-weight:700;"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;margin-right:4px;">menu_book</span> Book Fee</td>
             <td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:12px;font-weight:800;color:#1e293b;">₹ ${bookTotal.toLocaleString("en-IN")}</td></tr>`;
         }
         if (dressTotal > 0) {
-            feeRows += `<tr style="background:#f0f4ff;"><td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;font-size:12px;color:#475569;font-weight:700;">👕 Dress Fee</td>
+            feeRows += `<tr style="background:#f0f4ff;"><td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;font-size:12px;color:#475569;font-weight:700;"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;margin-right:4px;">checkroom</span> Dress Fee</td>
             <td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:12px;font-weight:800;color:#1e293b;">₹ ${dressTotal.toLocaleString("en-IN")}</td></tr>`;
         }
       }
@@ -15656,7 +15732,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
     const dueAmt = parseFloat(f.dueMgmtAmount) || 0;
     if (dueAmt > 0) {
       const particulars = f.dueMgmtParticulars || "Outstanding Dues";
-      feeRows += `<tr style="background:#fff1f2;"><td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;font-size:12px;color:#dc2626;font-weight:700;">🔖 ${particulars}</td>
+      feeRows += `<tr style="background:#fff1f2;"><td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;font-size:12px;color:#dc2626;font-weight:700;"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;margin-right:4px;color:#dc2626;">bookmark</span> ${particulars}</td>
         <td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:12px;font-weight:800;color:#dc2626;">₹ ${dueAmt.toLocaleString("en-IN")}</td></tr>`;
     }
 
@@ -15691,7 +15767,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
           if (data.months.length > 0) {
               desc += ` (${data.months.join(", ")})`;
           }
-          feeRows += `<tr style="background:#fff1f2;"><td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;font-size:12px;color:#dc2626;font-weight:700;">🔖 ${desc}</td>
+          feeRows += `<tr style="background:#fff1f2;"><td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;font-size:12px;color:#dc2626;font-weight:700;"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;margin-right:4px;color:#dc2626;">bookmark</span> ${desc}</td>
           <td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:12px;font-weight:800;color:#dc2626;">₹ ${data.amount.toLocaleString("en-IN")}</td></tr>`;
       }
     }
@@ -15784,6 +15860,26 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
         <meta charset="utf-8">
         <title>Fee Slip - ${schoolName}</title>
         <style>
+          @font-face {
+            font-family: 'Material Symbols Outlined';
+            font-style: normal;
+            font-weight: 100 700;
+            src: url(/material-symbols-outlined.ttf) format('truetype');
+          }
+          .material-symbols-outlined {
+            font-family: 'Material Symbols Outlined';
+            font-weight: normal;
+            font-style: normal;
+            font-size: 13px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            vertical-align: middle;
+          }
           @page { margin: 5mm auto; }
           * { box-sizing: border-box; }
           body { margin: 0; padding: 0; background: #fff; font-family: Arial, sans-serif; display: flex; justify-content: center; }
@@ -15840,7 +15936,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
         const bg = idx % 2 === 0 ? "#f9fafb" : "#fff";
         const mSfx = (f.month && (key === "tuitionFee" || label.toLowerCase().includes("tuition"))) ? ` (${f.month})` : "";
         feeRows += `<tr style="background:${bg};">
-          <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px;color:#374151;">${icon} ${label}${mSfx}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px;color:#374151;"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;margin-right:4px;">${icon}</span> ${label}${mSfx}</td>
           <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:12px;font-weight:600;color:#111827;">₹ ${amt.toLocaleString("en-IN")}</td>
         </tr>`;
       }
@@ -15856,13 +15952,13 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
           parts.forEach((part, idx) => {
             const bg = idx % 2 === 0 ? "#f9fafb" : "#fff";
             feeRows += `<tr style="background:${bg};">
-              <td style="padding:5px 9px;border-bottom:1px solid #e5e7eb;font-size:11px;color:#374151;">💳 ${part}</td>
+              <td style="padding:5px 9px;border-bottom:1px solid #e5e7eb;font-size:11px;color:#374151;"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;margin-right:4px;">credit_card</span> ${part}</td>
               <td style="padding:5px 9px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:11px;font-weight:600;color:#111827;">₹ ${perPart.toLocaleString("en-IN")}</td>
             </tr>`;
           });
         } else if (totalMonthly > 0) {
           feeRows += `<tr style="background:#f9fafb;">
-            <td style="padding:5px 9px;border-bottom:1px solid #e5e7eb;font-size:11px;color:#374151;">💳 School Fee</td>
+            <td style="padding:5px 9px;border-bottom:1px solid #e5e7eb;font-size:11px;color:#374151;"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;margin-right:4px;">credit_card</span> School Fee</td>
             <td style="padding:5px 9px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:11px;font-weight:600;color:#111827;">₹ ${totalMonthly.toLocaleString("en-IN")}</td>
           </tr>`;
         }
@@ -15889,12 +15985,12 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
         let rIdx = 0;
         if (bookTotal > 0) {
             const bg = (rIdx++) % 2 === 0 ? "#f0f4ff" : "#fff";
-            feeRows += `<tr style="background:${bg};"><td style="padding:5px 9px;border-bottom:1px solid #e5e7eb;font-size:11px;color:#374151;">📚 Book Fee</td>
+            feeRows += `<tr style="background:${bg};"><td style="padding:5px 9px;border-bottom:1px solid #e5e7eb;font-size:11px;color:#374151;"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;margin-right:4px;">menu_book</span> Book Fee</td>
             <td style="padding:5px 9px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:11px;font-weight:600;">₹ ${bookTotal.toLocaleString("en-IN")}</td></tr>`;
         }
         if (dressTotal > 0) {
             const bg = (rIdx++) % 2 === 0 ? "#f0f4ff" : "#fff";
-            feeRows += `<tr style="background:${bg};"><td style="padding:5px 9px;border-bottom:1px solid #e5e7eb;font-size:11px;color:#374151;">👕 Dress Fee</td>
+            feeRows += `<tr style="background:${bg};"><td style="padding:5px 9px;border-bottom:1px solid #e5e7eb;font-size:11px;color:#374151;"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;margin-right:4px;">checkroom</span> Dress Fee</td>
             <td style="padding:5px 9px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:11px;font-weight:600;">₹ ${dressTotal.toLocaleString("en-IN")}</td></tr>`;
         }
       }
@@ -15905,7 +16001,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
     if (dueAmt > 0) {
       const particulars = f.dueMgmtParticulars || "Outstanding Dues";
       feeRows += `<tr style="background:#fff1f2;">
-        <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px;color:#991b1b;font-weight:700;">🔖 ${particulars}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px;color:#991b1b;font-weight:700;"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;margin-right:4px;color:#dc2626;">bookmark</span> ${particulars}</td>
         <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:12px;font-weight:700;color:#991b1b;">₹ ${dueAmt.toLocaleString("en-IN")}</td>
       </tr>`;
     }
@@ -16272,7 +16368,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
 
       const btn = document.getElementById("bd-add-due-btn");
       if (btn) {
-        btn.innerHTML = "<span>✅</span> Added All Dues";
+        btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px;">check_circle</span> Added All Dues';
         btn.style.background = "#059669";
         btn.disabled = true;
       }
@@ -16314,7 +16410,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
 
       container.innerHTML = `
         <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:12px; padding:12px 16px; display:flex; align-items:center; gap:16px; animation: slideDown 0.3s ease-out; margin-top:10px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-          <div style="background:#ef4444; color:#fff; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:18px; flex-shrink:0;">!</div>
+          <div style="background:#ef4444; color:#fff; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0;"><span class="material-symbols-outlined" style="font-size:18px;">priority_high</span></div>
           <div style="flex:1;">
             <div style="color:#991b1b; font-weight:700; font-size:0.95rem;">Outstanding Balance Detected</div>
             <div style="color:#b91c1c; font-size:0.85rem;">Total unpaid dues: <strong style="font-size:1rem; margin-left:4px;">${formatINR(grandTotal)}</strong></div>
@@ -16323,9 +16419,9 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
           <div style="display:flex; gap:8px; align-items:center;">
             <button id="bd-add-due-btn" type="button" onclick="applyDueMgmtToFee('${admissionNo}', '${studentName ? studentName.replace(/'/g, "\\'") : ""}')" 
               style="background:#ef4444; color:#fff; border:none; padding:6px 12px; border-radius:6px; font-size:0.8rem; font-weight:700; cursor:pointer; transition: all 0.2s; display:flex; align-items:center; gap:4px;">
-              <span>➕</span> Add to current Slip
+              <span class="material-symbols-outlined" style="font-size:16px;">add</span> Add to current Slip
             </button>
-            <button type="button" onclick="this.parentElement.parentElement.style.display='none'" style="background:none; border:none; color:#f87171; cursor:pointer; font-size:18px; padding:4px;">✕</button>
+            <button type="button" onclick="this.parentElement.parentElement.style.display='none'" style="background:none; border:none; color:#f87171; cursor:pointer; font-size:18px; padding:4px; display:inline-flex; align-items:center; justify-content:center;"><span class="material-symbols-outlined" style="font-size:18px;">close</span></button>
           </div>
         </div>
       `;
@@ -16371,29 +16467,29 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
           <input type="checkbox" class="bd-item-checkbox book-checkbox" data-id="${item.id}" data-price="${item.price}"
             style="width:16px;height:16px;accent-color:#1e3a8a;cursor:pointer;"
             ${prevCheckedItems.includes(String(item.id)) ? "checked" : ""}>
-          <span style="flex:1;">📚 ${item.itemName}</span>
+          <span style="flex:1;display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:16px;color:#2563eb;">menu_book</span> ${item.itemName}</span>
           <span style="font-weight:600;color:#0f172a;">${formatINR(item.price)}</span>
         </label>`;
     }).join("");
 
     info.innerHTML = `
-      <div style="font-weight:700;color:#1e3a8a;margin-bottom:10px;font-size:0.95rem;">📦 Books & Dress — Class ${cls || "(select class)"}</div>
+      <div style="font-weight:700;color:#1e3a8a;margin-bottom:10px;font-size:0.95rem;display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:18px;">shopping_bag</span> Books & Dress — Class ${cls || "(select class)"}</div>
       
       <!-- Books Section (Collapsible) -->
       ${books.length ? `
         <div id="bd-books-header" style="cursor:pointer; font-weight:600; color:#1e3a8a; background:#dbeafe; padding:8px 12px; border-radius:6px; display:flex; justify-content:space-between; align-items:center;">
-          <span>📚 Class Books (${books.length})</span>
-          <span id="bd-books-icon">▼</span>
+          <span style="display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:18px;">menu_book</span> Class Books (${books.length})</span>
+          <span class="material-symbols-outlined" id="bd-books-icon" style="font-size:18px;">expand_more</span>
         </div>
         <div id="bd-books-container" style="display:none; padding:10px; background:#fff; border:1px solid #dbeafe; border-radius:6px; margin-top:4px;">
-           <div style="font-size:0.8rem;color:#64748b;margin-bottom:8px;">✅ Check items to include in fee.</div>
+           <div style="font-size:0.8rem;color:#64748b;margin-bottom:8px;display:flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:15px;color:#16a34a;">check_circle</span> Check items to include in fee.</div>
            ${bookRows}
         </div>
       ` : ''}
 
       <!-- Dress Section -->
       ${bdDresses.length ? `
-        <div style="margin-top:15px; font-weight:600; color:#1e3a8a;">👕 Add Dress</div>
+        <div style="margin-top:15px; font-weight:600; color:#1e3a8a; display:flex; align-items:center; gap:6px;"><span class="material-symbols-outlined" style="font-size:18px;">checkroom</span> Add Dress</div>
         <div style="display:flex; gap:10px; align-items:center; margin-top:6px; flex-wrap:wrap;">
            <select id="fee-dress-name" style="padding:6px; border:1px solid #cbd5e1; border-radius:4px; flex:1; min-width:120px;">
              <option value="">Select Dress...</option>
@@ -16410,7 +16506,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
         <span style="font-weight:700;">Total Fee (Monthly + Selected)</span>
         <span id="bd-running-total" style="font-weight:800;font-size:1.05rem;">${formatINR(0)}</span>
       </div>
-      <div style="font-size:0.75rem;color:#3b82f6;margin-top:6px;">ℹ️ Total Fee field is auto-calculated. Balance = Total Fee − Amount Paid.</div>`;
+      <div style="font-size:0.75rem;color:#3b82f6;margin-top:6px;display:flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">info</span> Total Fee field is auto-calculated. Balance = Total Fee − Amount Paid.</div>`;
 
     // Collapsible Books
     const booksHeader = info.querySelector("#bd-books-header");
@@ -16420,7 +16516,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
         booksHeader.addEventListener("click", () => {
             const isHidden = booksContainer.style.display === "none";
             booksContainer.style.display = isHidden ? "block" : "none";
-            booksIcon.textContent = isHidden ? "▲" : "▼";
+            booksIcon.textContent = isHidden ? "expand_less" : "expand_more";
         });
     }
 
@@ -16439,7 +16535,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
         const badge = document.createElement("div");
         badge.style.cssText = "background:#fce7f3; color:#9d174d; border:1px solid #fbcfe8; border-radius:16px; padding:4px 10px; font-size:0.8rem; font-weight:600; display:flex; align-items:center; gap:6px;";
         badge.innerHTML = `
-            👕 ${name} (Size: ${size})
+            <span class="material-symbols-outlined" style="font-size:15px;">checkroom</span> ${name} (Size: ${size})
             <input type="checkbox" class="bd-item-checkbox" data-id="${id}" data-price="${price}" checked style="display:none;">
             <button type="button" class="remove-dress-btn" style="background:transparent; border:none; color:#be185d; cursor:pointer; font-weight:bold; padding:0 4px; font-size:0.9rem;">&times;</button>
         `;
@@ -16954,29 +17050,29 @@ function openWhatsApp(phone, message) {
 
     waPanel.innerHTML = `
       <div class="wa-header">
-        <div class="wa-header-icon">📲</div>
+        <div class="wa-header-icon"><span class="material-symbols-outlined" style="font-size:24px;">chat</span></div>
         <div>
           <h3 class="wa-title">WhatsApp Fee Due Alerts</h3>
           <p class="wa-sub">Send payment reminders directly to parents via WhatsApp</p>
         </div>
         <div class="wa-summary-badges">
-          <span class="wa-badge wa-badge-red">⚠ ${waDueFees.length} Due</span>
-          <span class="wa-badge wa-badge-green">✅ ${waAlertLog.length} Sent</span>
+          <span class="wa-badge wa-badge-red"><span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle; margin-right:3px;">warning</span>${waDueFees.length} Due</span>
+          <span class="wa-badge wa-badge-green"><span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle; margin-right:3px;">check_circle</span>${waAlertLog.length} Sent</span>
         </div>
       </div>
 
       <div style="display:flex; gap:20px; flex-wrap:wrap; margin-bottom:20px;">
         <div class="wa-section" style="flex:1; min-width:300px; margin-bottom:0;">
-          <div class="wa-section-title">✏️ Message Template
+          <div class="wa-section-title"><span class="material-symbols-outlined" style="font-size:18px; vertical-align:middle; margin-right:4px;">edit_note</span>Message Template
             <span class="wa-section-hint">Type { to see all available variables</span>
           </div>
           <textarea id="waTemplateEditor" class="wa-template-editor" style="min-height:100px;" rows="6">${template.replace(/</g,"&lt;")}</textarea>
           <div class="wa-template-actions" style="display:flex; align-items:center; gap:8px;">
-            <button class="wa-btn wa-btn-secondary" id="waSaveTemplate">💾 Save Template</button>
-            <button class="wa-btn wa-btn-secondary" id="waResetTemplate">↩ Reset</button>
+            <button class="wa-btn wa-btn-secondary" id="waSaveTemplate" style="display:inline-flex; align-items:center;"><span class="material-symbols-outlined" style="font-size:16px; margin-right:4px;">save</span>Save Template</button>
+            <button class="wa-btn wa-btn-secondary" id="waResetTemplate" style="display:inline-flex; align-items:center;"><span class="material-symbols-outlined" style="font-size:16px; margin-right:4px;">restart_alt</span>Reset</button>
             
             <label for="waAttachmentInput" class="wa-btn wa-btn-secondary" style="margin-left:12px; cursor:pointer; background:#f1f5f9; border-color:#cbd5e1; display:flex; align-items:center; gap:6px;">
-              📎 Attach File
+              <span class="material-symbols-outlined" style="font-size:16px;">attach_file</span>Attach File
             </label>
             <input type="file" id="waAttachmentInput" style="display:none;" />
             
@@ -16987,33 +17083,33 @@ function openWhatsApp(phone, message) {
           </div>
           
           <div style="margin-top:20px; padding-top:15px; border-top:1px dashed #cbd5e1;">
-            <div class="wa-section-title">🎨 Fee Slip Image Theme
+            <div class="wa-section-title"><span class="material-symbols-outlined" style="font-size:18px; vertical-align:middle; margin-right:4px;">palette</span>Fee Slip Image Theme
               <span class="wa-section-hint">Select the design used for WhatsApp slip images</span>
             </div>
             <div style="display:flex; gap:8px;">
                <select id="waFeeSlipThemeSelect" class="field" style="flex:1; max-width:250px; border:1px solid #cbd5e1; border-radius:6px; padding:8px 12px; font-size:13px; background:#f8fafc;">
                  ${(window.slipTemplates || []).map(t => `<option value="${t.id}" ${(localStorage.getItem("waFeeSlipTemplate") || "default") === t.id ? "selected" : ""}>${t.name}</option>`).join("")}
                </select>
-               <button class="wa-btn wa-btn-secondary" id="waSaveThemeBtn" style="background:#1e293b; padding:0 12px;">💾 Save Theme</button>
+               <button class="wa-btn wa-btn-secondary" id="waSaveThemeBtn" style="background:#1e293b; padding:0 12px; display:inline-flex; align-items:center;"><span class="material-symbols-outlined" style="font-size:16px; margin-right:4px;">save</span>Save Theme</button>
             </div>
           </div>
         </div>
 
         <div class="wa-section" style="flex:1; min-width:300px; margin-bottom:0; display:flex; flex-direction:column; gap:10px;">
            <div>
-             <div class="wa-section-title">⚙️ Local SMS Gateway (Gate App)
+             <div class="wa-section-title"><span class="material-symbols-outlined" style="font-size:18px; vertical-align:middle; margin-right:4px;">settings</span>Local SMS Gateway (Gate App)
                <span class="wa-section-hint">e.g. http://192.168.1.x:8080/v1/sms/send?phone={phone}&message={message}</span>
              </div>
              <div style="display:flex; gap:8px;">
                <input type="url" id="waSmsGatewayUrl" class="field" style="flex:1; border:1px solid #cbd5e1; border-radius:6px; padding:8px 12px; font-family:monospace; background:#f8fafc;" value="${getSmsGateway()}" placeholder="Enter SMS Gateway API URL...">
-               <button class="wa-btn wa-btn-secondary" id="waAutoDetectSms" style="background:#3b82f6; padding:0 12px; white-space:nowrap;" title="Scan local network for Android SMS Gateway">🔍 Auto-Detect</button>
-               <button class="wa-btn wa-btn-secondary" id="waSaveSmsGateway" style="background:#1e293b; padding:0 12px;">💾 Save</button>
+               <button class="wa-btn wa-btn-secondary" id="waAutoDetectSms" style="background:#3b82f6; padding:0 12px; white-space:nowrap; display:inline-flex; align-items:center;" title="Scan local network for Android SMS Gateway"><span class="material-symbols-outlined" style="font-size:16px; margin-right:4px;">radar</span>Auto-Detect</button>
+               <button class="wa-btn wa-btn-secondary" id="waSaveSmsGateway" style="background:#1e293b; padding:0 12px; display:inline-flex; align-items:center;"><span class="material-symbols-outlined" style="font-size:16px; margin-right:4px;">save</span>Save</button>
              </div>
            </div>
            
            <div>
              <div class="wa-section-title" style="margin-top:8px; display:flex; align-items:center; justify-content:space-between;">
-               <div>🟢 Internal WhatsApp Gateway</div>
+               <div style="display:flex; align-items:center; gap:6px;"><span class="material-symbols-outlined" style="font-size:18px; color:#10b981; vertical-align:middle;">sensors</span>Internal WhatsApp Gateway</div>
                <div id="waInternalStatusBadge" style="font-size:0.75rem; padding:2px 8px; border-radius:12px; background:#e2e8f0; color:#475569;">Checking...</div>
              </div>
              <div id="waInternalGatewayBox" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px; text-align:center; margin-top:8px;">
@@ -17022,8 +17118,8 @@ function openWhatsApp(phone, message) {
                     <p style="font-size:0.8rem; color:#64748b; margin-top:8px;">Scan with WhatsApp to link</p>
                 </div>
                 <div style="display:flex; gap:8px; justify-content:center;">
-                    <button class="wa-btn wa-btn-secondary" id="waConnectBtn" style="background:#10b981; color:white; border:none; display:none;">🔗 Connect WhatsApp</button>
-                    <button class="wa-btn wa-btn-secondary" id="waLogoutBtn" style="background:#ef4444; color:white; border:none; display:none;">🚪 Logout</button>
+                    <button class="wa-btn wa-btn-secondary" id="waConnectBtn" style="background:#10b981; color:white; border:none; display:none; align-items:center;"><span class="material-symbols-outlined" style="font-size:16px; margin-right:4px;">link</span>Connect WhatsApp</button>
+                    <button class="wa-btn wa-btn-secondary" id="waLogoutBtn" style="background:#ef4444; color:white; border:none; display:none; align-items:center;"><span class="material-symbols-outlined" style="font-size:16px; margin-right:4px;">logout</span>Logout</button>
                 </div>
              </div>
            </div>
@@ -17033,11 +17129,11 @@ function openWhatsApp(phone, message) {
 
       <div class="wa-section">
         <div class="wa-section-title" style="margin-bottom:12px; display:flex; align-items:center; flex-wrap:wrap; gap:12px;">
-          <span>📋 Student Alerts Master List</span>
+          <span style="display:inline-flex; align-items:center; gap:6px;"><span class="material-symbols-outlined" style="font-size:18px; vertical-align:middle;">checklist</span>Student Alerts Master List</span>
           
           <div style="display:flex; gap:8px; margin-left:auto;">
              <div class="field-wrap" style="position:relative; width:220px;">
-                <span style="position:absolute; left:10px; top:50%; transform:translateY(-50%); font-size:14px;">🔍</span>
+                <span class="material-symbols-outlined" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); font-size:16px; color:#94a3b8;">search</span>
                 <input type="text" id="waSearchInput" class="field" placeholder="Search name/adm/addr..." value="${waSearchQuery}" style="padding-left:32px; width:100%; border-radius:30px; height:36px; font-size:13px; background:#fff;">
              </div>
              <select id="waFilterSelect" class="field" style="width:160px; height:36px; font-size:13px; border-radius:30px; padding:0 12px; border-color:#cbd5e1;">
@@ -17047,35 +17143,35 @@ function openWhatsApp(phone, message) {
           </div>
 
           <div style="display:flex; gap:8px;">
-            <button class="wa-btn wa-btn-primary" id="waSendAll">📢 Send All (${displayList.length})</button>
-            <button class="wa-btn wa-btn-primary" id="waSendBulkWhatsAppApi" style="background:#25D366;">🚀 Bulk WA (Auto)</button>
-            <button class="wa-btn wa-btn-primary" id="waSendBulkSms" style="background:#0284c7;">🚀 Bulk SMS (Auto)</button>
-            <button class="wa-btn wa-btn-primary" id="waSendSelected">📲 Send Selected</button>
+            <button class="wa-btn wa-btn-primary" id="waSendAll" style="display:inline-flex; align-items:center;"><span class="material-symbols-outlined" style="font-size:16px; margin-right:4px;">campaign</span>Send All (${displayList.length})</button>
+            <button class="wa-btn wa-btn-primary" id="waSendBulkWhatsAppApi" style="background:#25D366; display:inline-flex; align-items:center;"><span class="material-symbols-outlined" style="font-size:16px; margin-right:4px;">rocket_launch</span>Bulk WA (Auto)</button>
+            <button class="wa-btn wa-btn-primary" id="waSendBulkSms" style="background:#0284c7; display:inline-flex; align-items:center;"><span class="material-symbols-outlined" style="font-size:16px; margin-right:4px;">rocket_launch</span>Bulk SMS (Auto)</button>
+            <button class="wa-btn wa-btn-primary" id="waSendSelected" style="display:inline-flex; align-items:center;"><span class="material-symbols-outlined" style="font-size:16px; margin-right:4px;">send</span>Send Selected</button>
           </div>
         </div>
         ${displayList.length === 0 ? `
           <div class="wa-empty">
-            <div style="font-size:2.5rem">${waSearchQuery ? '🔍' : '🎉'}</div>
+            <div style="font-size:2.5rem">${waSearchQuery ? '<span class="material-symbols-outlined" style="font-size:48px; color:#94a3b8;">search</span>' : '<span class="material-symbols-outlined" style="font-size:48px; color:#22c55e;">celebration</span>'}</div>
             <div>${waSearchQuery ? 'No students match your search.' : (waActiveFilter === 'due' ? 'No pending fees! All students are up to date.' : 'No students found in the database.')}</div>
           </div>` : `
           <div id="waQueueContainer" style="display:none; background:#f0fdf4; border:2px solid #25D366; padding:24px; border-radius:12px; margin-bottom:20px; text-align:center; box-shadow:0 10px 25px rgba(37,211,102,0.15);">
-            <h3 style="color:#166534; margin-top:0;">📤 Bulk Sending Queue</h3>
+            <h3 style="color:#166534; margin-top:0; display:flex; align-items:center; justify-content:center; gap:8px;"><span class="material-symbols-outlined" style="font-size:24px; vertical-align:middle;">forward_to_inbox</span>Bulk Sending Queue</h3>
             <p style="font-size:1.05rem; margin:15px 0; color:#1f2937;" id="waQueueStatus"></p>
             <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
-               <button id="waQueueNextWA" class="wa-btn wa-btn-primary" style="font-size:1.1rem; padding:12px 24px;">📲 Next via WhatsApp</button>
-               <button id="waQueueNextSMS" class="wa-btn" style="background:#0284c7;color:#fff;font-size:1.1rem; padding:12px 24px;">💬 Next via SMS</button>
+               <button id="waQueueNextWA" class="wa-btn wa-btn-primary" style="font-size:1.1rem; padding:12px 24px; display:inline-flex; align-items:center;"><span class="material-symbols-outlined" style="font-size:20px; margin-right:6px;">send</span>Next via WhatsApp</button>
+               <button id="waQueueNextSMS" class="wa-btn" style="background:#0284c7;color:#fff;font-size:1.1rem; padding:12px 24px; display:inline-flex; align-items:center;"><span class="material-symbols-outlined" style="font-size:20px; margin-right:6px;">sms</span>Next via SMS</button>
                <button id="waQueueCancelBtn" class="wa-btn wa-btn-secondary" style="padding:12px 24px;">Cancel Bulk Send</button>
             </div>
             <p style="font-size:0.8rem; color:#64748b; margin-top:14px; margin-bottom:0;">Tip: After triggering, return here & click Next.</p>
           </div>
 
           <div id="waBulkSmsContainer" style="display:none; background:#eff6ff; border:2px solid #3b82f6; padding:24px; border-radius:12px; margin-bottom:20px; text-align:center; box-shadow:0 10px 25px rgba(59,130,246,0.15);">
-            <h3 style="color:#1e40af; margin-top:0;">🚀 Automated Bulk SMS in Progress...</h3>
+            <h3 style="color:#1e40af; margin-top:0; display:flex; align-items:center; justify-content:center; gap:8px;"><span class="material-symbols-outlined" style="font-size:24px; vertical-align:middle;">rocket_launch</span>Automated Bulk SMS in Progress...</h3>
             <div id="waBulkProgressOuter" style="width:100%; height:8px; background:#dbeafe; border-radius:4px; margin:20px 0; overflow:hidden;">
               <div id="waBulkProgressBar" style="width:0%; height:100%; background:#3b82f6; transition:width 0.3s ease;"></div>
             </div>
             <p style="font-size:1.1rem; margin-bottom:20px; color:#1e293b;" id="waBulkStatus">Initializing...</p>
-            <button id="waBulkCancelBtn" class="wa-btn wa-btn-secondary" style="padding:10px 24px;">⛔ Stop Sending</button>
+            <button id="waBulkCancelBtn" class="wa-btn wa-btn-secondary" style="padding:10px 24px; display:inline-flex; align-items:center;"><span class="material-symbols-outlined" style="font-size:18px; margin-right:6px;">cancel</span>Stop Sending</button>
           </div>
           <div class="wa-table-wrap">
             <table class="wa-table">
@@ -17092,13 +17188,13 @@ function openWhatsApp(phone, message) {
                     <td>${row.className}</td>
                     <td>
                       <div style="font-weight:600">${row.fatherName || row.parentName || "—"}</div>
-                      <div style="color:#64748b;font-size:0.82rem">${row.phone ? "📞 " + row.phone : "<span style='color:#ef4444'>No phone</span>"}</div>
+                      <div style="color:#64748b;font-size:0.82rem">${row.phone ? '<span class="material-symbols-outlined" style="font-size:13px; vertical-align:middle; margin-right:3px;">call</span>' + row.phone : "<span style='color:#ef4444'>No phone</span>"}</div>
                     </td>
                     <td>
                       <div style="font-size:0.85rem; color:#1e293b;">${row.term}</div>
-                      ${row.source === 'dueManagement' ? '<div style="color:#d946ef;font-size:0.7rem;font-weight:700;margin-top:2px;">📑 Manual Due</div>' : ''}
-                      ${row.source === 'fees' ? '<div style="color:#3b82f6;font-size:0.7rem;font-weight:700;margin-top:2px;">📄 Fee Slip</div>' : ''}
-                      ${row.source === 'multiple' ? '<div style="color:#f59e0b;font-size:0.7rem;font-weight:700;margin-top:2px;">📚 Mixed Dues</div>' : ''}
+                      ${row.source === 'dueManagement' ? '<div style="color:#d946ef;font-size:0.7rem;font-weight:700;margin-top:2px;display:flex;align-items:center;gap:3px;"><span class="material-symbols-outlined" style="font-size:13px;">description</span>Manual Due</div>' : ''}
+                      ${row.source === 'fees' ? '<div style="color:#3b82f6;font-size:0.7rem;font-weight:700;margin-top:2px;display:flex;align-items:center;gap:3px;"><span class="material-symbols-outlined" style="font-size:13px;">receipt_long</span>Fee Slip</div>' : ''}
+                      ${row.source === 'multiple' ? '<div style="color:#f59e0b;font-size:0.7rem;font-weight:700;margin-top:2px;display:flex;align-items:center;gap:3px;"><span class="material-symbols-outlined" style="font-size:13px;">collections_bookmark</span>Mixed Dues</div>' : ''}
                     </td>
                     <td><span class="wa-balance">₹${Number(row.balance || 0).toLocaleString("en-IN")}</span></td>
                     <td><span class="wa-status-badge wa-status-${String(row.status || '').toLowerCase().replace('/','') || 'na'}">${row.status || 'N/A'}</span></td>
@@ -17108,7 +17204,7 @@ function openWhatsApp(phone, message) {
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.521.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
                         </button>
                         <button class="wa-btn wa-send-sms" data-idx="${i}" style="border-radius:4px;background:#0284c7;color:#fff;width:32px;padding:0;display:flex;align-items:center;justify-content:center;" title="SMS">
-                          💬
+                          <span class="material-symbols-outlined" style="font-size:16px;">sms</span>
                         </button>
                       </div>
                     </td>
@@ -17119,8 +17215,8 @@ function openWhatsApp(phone, message) {
       </div>
 
       <div class="wa-section">
-        <div class="wa-section-title">📊 Alert Log (Last 50)</div>
-        ${waAlertLog.length === 0 ? `<div class="wa-empty" style="padding:20px 0"><div style="font-size:1.8rem">📭</div><div>No alerts sent yet.</div></div>` : `
+        <div class="wa-section-title"><span class="material-symbols-outlined" style="font-size:18px; vertical-align:middle; margin-right:4px;">analytics</span>Alert Log (Last 50)</div>
+        ${waAlertLog.length === 0 ? `<div class="wa-empty" style="padding:20px 0"><div style="font-size:1.8rem"><span class="material-symbols-outlined" style="font-size:36px; color:#94a3b8;">inbox</span></div><div>No alerts sent yet.</div></div>` : `
           <div class="wa-table-wrap">
             <table class="wa-table">
               <thead><tr><th>#</th><th>Student</th><th>Class</th><th>Phone</th><th>Balance</th><th>Term</th><th>Date</th><th>Status</th></tr></thead>
@@ -17129,7 +17225,7 @@ function openWhatsApp(phone, message) {
                   <td>${i + 1}</td><td>${r.studentName}</td><td>${r.className}</td>
                   <td>${r.phone}</td><td>₹${Number(r.balance || 0).toLocaleString("en-IN")}</td>
                   <td>${r.term}</td><td>${r.alertDate}</td>
-                  <td><span class="wa-badge wa-badge-green">✅ ${r.status}</span></td>
+                  <td><span class="wa-badge wa-badge-green"><span class="material-symbols-outlined" style="font-size:13px; vertical-align:middle; margin-right:3px;">check_circle</span>${r.status}</span></td>
                 </tr>`).join("")}
               </tbody>
             </table>
@@ -17372,20 +17468,20 @@ function openWhatsApp(phone, message) {
 
             if (badge) {
                 if (data.status === "connected") {
-                    badge.innerHTML = "🟢 Connected";
+                    badge.innerHTML = '<span class="material-symbols-outlined" style="font-size:13px; vertical-align:middle; margin-right:3px; color:#166534;">check_circle</span>Connected';
                     badge.style.background = "#dcfce7"; badge.style.color = "#166534";
                     if (qrBox) qrBox.style.display = "none";
                     if (btnConnect) btnConnect.style.display = "none";
                     if (btnLogout) btnLogout.style.display = "";
                 } else if (data.status === "qr") {
-                    badge.innerHTML = "🟡 Waiting for Scan";
+                    badge.innerHTML = '<span class="material-symbols-outlined" style="font-size:13px; vertical-align:middle; margin-right:3px; color:#854d0e;">hourglass_top</span>Waiting for Scan';
                     badge.style.background = "#fef9c3"; badge.style.color = "#854d0e";
                     if (qrBox) qrBox.style.display = "block";
                     if (qrImg && data.qr) qrImg.src = data.qr;
                     if (btnConnect) btnConnect.style.display = "none";
                     if (btnLogout) btnLogout.style.display = "none";
                 } else {
-                    badge.innerHTML = "🔴 Disconnected";
+                    badge.innerHTML = '<span class="material-symbols-outlined" style="font-size:13px; vertical-align:middle; margin-right:3px; color:#991b1b;">cancel</span>Disconnected';
                     badge.style.background = "#fee2e2"; badge.style.color = "#991b1b";
                     if (qrBox) qrBox.style.display = "none";
                     if (btnConnect) btnConnect.style.display = "";
@@ -17421,12 +17517,12 @@ function openWhatsApp(phone, message) {
       const gw = document.getElementById("waSmsGatewayUrl")?.value;
       if (!gw) { showToast("Enter URL first.", "warn"); return; }
       const btn = document.getElementById("waTestSmsGateway");
-      const oldTxt = btn.innerText;
-      btn.innerText = "⏳ Testing...";
+      const oldTxt = btn.innerHTML;
+      btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle; margin-right:3px;">hourglass_top</span>Testing...';
       btn.disabled = true;
       const ok = await sendLocalSms("0000000000", "Testing school SMS gateway connection...");
-      btn.innerText = oldTxt; btn.disabled = false;
-      if (ok) showToast("✅ Gateway Responded Successfully!", "success");
+      btn.innerHTML = oldTxt; btn.disabled = false;
+      if (ok) showToast("Gateway Responded Successfully!", "success");
     });
 
     document.querySelectorAll(".wa-send-wa").forEach(btn => {
@@ -17502,7 +17598,7 @@ function openWhatsApp(phone, message) {
         return;
       }
       const row = waQueue[waQueueIndex];
-      const phoneHtml = row.phone ? "📞 " + row.phone : "<span style='color:#ef4444;font-weight:bold'>No phone found</span>";
+      const phoneHtml = row.phone ? '<span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle; margin-right:3px;">call</span>' + row.phone : "<span style='color:#ef4444;font-weight:bold'>No phone found</span>";
       document.getElementById("waQueueStatus").innerHTML = 
         `Sending <b>${waQueueIndex + 1} of ${waQueue.length}</b><br><br>` +
         `Student: <b>${row.studentName}</b><br>Father: ${row.fatherName || row.parentName || "—"} (${phoneHtml})`;
@@ -17999,7 +18095,7 @@ async function renderAnnouncementsForm(cfg, studentOptions, classOptions, initia
   const headerHtml = `
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom:1px solid #f1f5f9; padding-bottom:12px;">
       <div style="display:flex; align-items:center; gap:10px;">
-        <span style="font-size:1.5rem; background:#eff6ff; padding:8px 12px; border-radius:10px; border:1px solid #bfdbfe;">📢</span>
+        <span style="background:#eff6ff; padding:8px 12px; border-radius:10px; border:1px solid #bfdbfe; display:inline-flex; align-items:center; justify-content:center;"><span class="material-symbols-outlined" style="font-size:24px; color:#2563eb;">campaign</span></span>
         <div>
           <h3 style="margin:0; font-size:1.15rem; color:#0f172a; font-weight:700;">${isEdit ? 'Edit School Announcement' : 'Create New Announcement / Notice'}</h3>
           <p style="margin:2px 0 0 0; font-size:0.8rem; color:#64748b;">Broadcast alerts, celebrations, exam notices, school accounts, class & student specific notices</p>
@@ -18013,14 +18109,14 @@ async function renderAnnouncementsForm(cfg, studentOptions, classOptions, initia
   const templatesHtml = `
     <div style="margin-bottom:16px; background:#f8fafc; padding:12px 14px; border-radius:10px; border:1px solid #e2e8f0;">
       <div style="font-size:0.78rem; font-weight:700; color:#475569; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px; display:flex; align-items:center; gap:6px;">
-        <span>⚡ Quick Preset Templates (Click to fill):</span>
+        <span style="display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:16px; color:#f59e0b;">bolt</span>Quick Preset Templates (Click to fill):</span>
       </div>
       <div style="display:flex; flex-wrap:wrap; gap:6px;" id="announcementTemplateBtns">
-        <button type="button" class="chip" data-tpl="celebration" style="background:#f3e8ff; color:#7e22ce; border-color:#d8b4fe; font-size:0.75rem; font-weight:600; cursor:pointer; margin:0;">🎉 Independence / Celebration</button>
-        <button type="button" class="chip" data-tpl="exam" style="background:#e0e7ff; color:#3730a3; border-color:#a5b4fc; font-size:0.75rem; font-weight:600; cursor:pointer; margin:0;">📝 Mid-Term Exam Notice</button>
-        <button type="button" class="chip" data-tpl="accounts" style="background:#dcfce7; color:#15803d; border-color:#86efac; font-size:0.75rem; font-weight:600; cursor:pointer; margin:0;">💳 Fee Due Notice</button>
-        <button type="button" class="chip" data-tpl="weather" style="background:#fee2e2; color:#dc2626; border-color:#fca5a5; font-size:0.75rem; font-weight:600; cursor:pointer; margin:0;">🚨 Weather / Holiday Alert</button>
-        <button type="button" class="chip" data-tpl="ptm" style="background:#e0f2fe; color:#0369a1; border-color:#bae6fd; font-size:0.75rem; font-weight:600; cursor:pointer; margin:0;">👨‍👩‍👧 PTM Meeting Notice</button>
+        <button type="button" class="chip" data-tpl="celebration" style="background:#f3e8ff; color:#7e22ce; border-color:#d8b4fe; font-size:0.75rem; font-weight:600; cursor:pointer; margin:0; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">celebration</span>Independence / Celebration</button>
+        <button type="button" class="chip" data-tpl="exam" style="background:#e0e7ff; color:#3730a3; border-color:#a5b4fc; font-size:0.75rem; font-weight:600; cursor:pointer; margin:0; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">assignment</span>Mid-Term Exam Notice</button>
+        <button type="button" class="chip" data-tpl="accounts" style="background:#dcfce7; color:#15803d; border-color:#86efac; font-size:0.75rem; font-weight:600; cursor:pointer; margin:0; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">payments</span>Fee Due Notice</button>
+        <button type="button" class="chip" data-tpl="weather" style="background:#fee2e2; color:#dc2626; border-color:#fca5a5; font-size:0.75rem; font-weight:600; cursor:pointer; margin:0; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">warning</span>Weather / Holiday Alert</button>
+        <button type="button" class="chip" data-tpl="ptm" style="background:#e0f2fe; color:#0369a1; border-color:#bae6fd; font-size:0.75rem; font-weight:600; cursor:pointer; margin:0; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">groups</span>PTM Meeting Notice</button>
       </div>
     </div>
   `;
@@ -18031,21 +18127,21 @@ async function renderAnnouncementsForm(cfg, studentOptions, classOptions, initia
       <!-- Title -->
       <div class="field" style="grid-column: 1 / -1;">
         <label style="font-weight:700; font-size:0.85rem; color:#1e293b; margin-bottom:4px; display:block;">Announcement Title <span style="color:#dc2626;">*</span></label>
-        <input type="text" id="annTitle" name="title" placeholder="e.g. 📢 Important Notice: Mid-Term Examination Schedule 2026-27" value="${escapeHtml(initialValues.title || '')}" style="width:100%; padding:10px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.95rem; font-weight:600;" required />
+        <input type="text" id="annTitle" name="title" placeholder="e.g. Important Notice: Mid-Term Examination Schedule 2026-27" value="${escapeHtml(initialValues.title || '')}" style="width:100%; padding:10px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.95rem; font-weight:600;" required />
       </div>
 
       <!-- Category -->
       <div class="field">
         <label style="font-weight:700; font-size:0.85rem; color:#1e293b; margin-bottom:4px; display:block;">Category / Type <span style="color:#dc2626;">*</span></label>
         <select id="annCategory" name="category" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.9rem; font-weight:600;">
-          <option value="Announcement" ${(initialValues.category === 'Announcement' || !initialValues.category) ? 'selected' : ''}>📢 General Announcement</option>
-          <option value="Alert" ${initialValues.category === 'Alert' ? 'selected' : ''}>🚨 Alert (Emergency / Urgent)</option>
-          <option value="Celebration" ${initialValues.category === 'Celebration' ? 'selected' : ''}>🎉 Celebration & Events</option>
-          <option value="Exam" ${initialValues.category === 'Exam' ? 'selected' : ''}>📝 Exam Notice & Datesheet</option>
-          <option value="Accounts" ${initialValues.category === 'Accounts' ? 'selected' : ''}>💳 School Accounts & Fee Notice</option>
-          <option value="Holiday" ${initialValues.category === 'Holiday' ? 'selected' : ''}>🏖️ Holiday & Vacation</option>
-          <option value="PTM" ${initialValues.category === 'PTM' ? 'selected' : ''}>👨‍👩‍👧 Parent-Teacher Meeting (PTM)</option>
-          <option value="Sports" ${initialValues.category === 'Sports' ? 'selected' : ''}>🏆 Sports & Activities</option>
+          <option value="Announcement" ${(initialValues.category === 'Announcement' || !initialValues.category) ? 'selected' : ''}>General Announcement</option>
+          <option value="Alert" ${initialValues.category === 'Alert' ? 'selected' : ''}>Alert (Emergency / Urgent)</option>
+          <option value="Celebration" ${initialValues.category === 'Celebration' ? 'selected' : ''}>Celebration & Events</option>
+          <option value="Exam" ${initialValues.category === 'Exam' ? 'selected' : ''}>Exam Notice & Datesheet</option>
+          <option value="Accounts" ${initialValues.category === 'Accounts' ? 'selected' : ''}>School Accounts & Fee Notice</option>
+          <option value="Holiday" ${initialValues.category === 'Holiday' ? 'selected' : ''}>Holiday & Vacation</option>
+          <option value="PTM" ${initialValues.category === 'PTM' ? 'selected' : ''}>Parent-Teacher Meeting (PTM)</option>
+          <option value="Sports" ${initialValues.category === 'Sports' ? 'selected' : ''}>Sports & Activities</option>
         </select>
       </div>
 
@@ -18053,13 +18149,13 @@ async function renderAnnouncementsForm(cfg, studentOptions, classOptions, initia
       <div class="field">
         <label style="font-weight:700; font-size:0.85rem; color:#1e293b; margin-bottom:4px; display:block;">From / Posted By <span style="color:#dc2626;">*</span></label>
         <select id="annPostedBy" name="postedBy" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.9rem; font-weight:600;">
-          <option value="Tapowan School Admin" ${(initialValues.postedBy === 'Tapowan School Admin' || !initialValues.postedBy) ? 'selected' : ''}>🏛️ Tapowan School Admin</option>
-          <option value="Principal Office" ${initialValues.postedBy === 'Principal Office' ? 'selected' : ''}>🎓 Principal Office</option>
-          <option value="School Accounts Department" ${initialValues.postedBy === 'School Accounts Department' ? 'selected' : ''}>💼 School Accounts Department</option>
-          <option value="Examination Cell" ${initialValues.postedBy === 'Examination Cell' ? 'selected' : ''}>📝 Examination Cell</option>
-          <option value="Academic Coordinator" ${initialValues.postedBy === 'Academic Coordinator' ? 'selected' : ''}>📚 Academic Coordinator</option>
-          <option value="Class Teacher" ${initialValues.postedBy === 'Class Teacher' ? 'selected' : ''}>👩‍🏫 Class Teacher</option>
-          <option value="Transport In-charge" ${initialValues.postedBy === 'Transport In-charge' ? 'selected' : ''}>🚌 Transport In-charge</option>
+          <option value="Tapowan School Admin" ${(initialValues.postedBy === 'Tapowan School Admin' || !initialValues.postedBy) ? 'selected' : ''}>Tapowan School Admin</option>
+          <option value="Principal Office" ${initialValues.postedBy === 'Principal Office' ? 'selected' : ''}>Principal Office</option>
+          <option value="School Accounts Department" ${initialValues.postedBy === 'School Accounts Department' ? 'selected' : ''}>School Accounts Department</option>
+          <option value="Examination Cell" ${initialValues.postedBy === 'Examination Cell' ? 'selected' : ''}>Examination Cell</option>
+          <option value="Academic Coordinator" ${initialValues.postedBy === 'Academic Coordinator' ? 'selected' : ''}>Academic Coordinator</option>
+          <option value="Class Teacher" ${initialValues.postedBy === 'Class Teacher' ? 'selected' : ''}>Class Teacher</option>
+          <option value="Transport In-charge" ${initialValues.postedBy === 'Transport In-charge' ? 'selected' : ''}>Transport In-charge</option>
         </select>
       </div>
 
@@ -18067,11 +18163,11 @@ async function renderAnnouncementsForm(cfg, studentOptions, classOptions, initia
       <div class="field">
         <label style="font-weight:700; font-size:0.85rem; color:#1e293b; margin-bottom:4px; display:block;">Target Audience / Scope <span style="color:#dc2626;">*</span></label>
         <select id="annTargetType" name="targetType" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.9rem; font-weight:600;">
-          <option value="all" ${(initialValues.targetType === 'all' || !initialValues.targetType) ? 'selected' : ''}>🌐 All School (Broadcast to Everyone)</option>
-          <option value="class" ${initialValues.targetType === 'class' ? 'selected' : ''}>🏫 Class Specific</option>
-          <option value="student" ${initialValues.targetType === 'student' ? 'selected' : ''}>👤 Student Specific</option>
-          <option value="staff" ${initialValues.targetType === 'staff' ? 'selected' : ''}>👨‍🏫 Teachers & Staff Only</option>
-          <option value="parents" ${initialValues.targetType === 'parents' ? 'selected' : ''}>👨‍👩‍👧 Parents Only</option>
+          <option value="all" ${(initialValues.targetType === 'all' || !initialValues.targetType) ? 'selected' : ''}>All School (Broadcast to Everyone)</option>
+          <option value="class" ${initialValues.targetType === 'class' ? 'selected' : ''}>Class Specific</option>
+          <option value="student" ${initialValues.targetType === 'student' ? 'selected' : ''}>Student Specific</option>
+          <option value="staff" ${initialValues.targetType === 'staff' ? 'selected' : ''}>Teachers & Staff Only</option>
+          <option value="parents" ${initialValues.targetType === 'parents' ? 'selected' : ''}>Parents Only</option>
         </select>
       </div>
 
@@ -18079,9 +18175,9 @@ async function renderAnnouncementsForm(cfg, studentOptions, classOptions, initia
       <div class="field">
         <label style="font-weight:700; font-size:0.85rem; color:#1e293b; margin-bottom:4px; display:block;">Priority Level</label>
         <select id="annPriority" name="priority" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.9rem; font-weight:600;">
-          <option value="Normal" ${(initialValues.priority === 'Normal' || !initialValues.priority) ? 'selected' : ''}>🔵 Normal / Standard</option>
-          <option value="High" ${initialValues.priority === 'High' ? 'selected' : ''}>🟠 High Priority</option>
-          <option value="Urgent" ${initialValues.priority === 'Urgent' ? 'selected' : ''}>🔴 Urgent Alert (Pulsing)</option>
+          <option value="Normal" ${(initialValues.priority === 'Normal' || !initialValues.priority) ? 'selected' : ''}>Normal / Standard</option>
+          <option value="High" ${initialValues.priority === 'High' ? 'selected' : ''}>High Priority</option>
+          <option value="Urgent" ${initialValues.priority === 'Urgent' ? 'selected' : ''}>Urgent Alert (Pulsing)</option>
         </select>
       </div>
 
@@ -18121,8 +18217,8 @@ async function renderAnnouncementsForm(cfg, studentOptions, classOptions, initia
       <!-- Cloud Push Sync Checkbox -->
       <div class="field" style="grid-column: 1 / -1; display:flex; align-items:center; gap:8px; background:#f0fdf4; padding:10px 14px; border-radius:8px; border:1px solid #bbf7d0;">
         <input type="checkbox" id="annPushSync" name="pushSync" checked style="width:18px; height:18px; cursor:pointer;" />
-        <label for="annPushSync" style="font-weight:600; font-size:0.85rem; color:#15803d; cursor:pointer;">
-          📱 Push to Student Mobile App (Instant In-App Notice & Notifications)
+        <label for="annPushSync" style="font-weight:600; font-size:0.85rem; color:#15803d; cursor:pointer; display:flex; align-items:center; gap:4px;">
+          <span class="material-symbols-outlined" style="font-size:16px;">send_to_mobile</span>Push to Student Mobile App (Instant In-App Notice & Notifications)
         </label>
       </div>
     </div>
@@ -18131,7 +18227,7 @@ async function renderAnnouncementsForm(cfg, studentOptions, classOptions, initia
     <div style="display:flex; justify-content:flex-end; gap:10px; border-top:1px solid #f1f5f9; padding-top:14px;">
       <button type="button" class="btn secondary" id="btnAnnReset" style="padding:9px 18px; border-radius:8px; font-weight:600;">Clear Form</button>
       <button type="submit" class="btn primary" id="btnAnnSubmit" style="background:#2563eb; color:#fff; padding:9px 24px; border-radius:8px; font-weight:700; display:inline-flex; align-items:center; gap:8px; cursor:pointer;">
-        <span>📢</span>
+        <span class="material-symbols-outlined" style="font-size:18px;">campaign</span>
         <span>${isEdit ? 'Update Announcement' : 'Publish Announcement'}</span>
       </button>
     </div>
@@ -18259,14 +18355,14 @@ window.openAnnouncementPreview = function(id) {
 
   const isUrgent = ann.priority === "Urgent";
   const cat = ann.category || "Announcement";
-  let catBg = "#f1f5f9", catCo = "#334155", catIcon = "📢";
-  if (cat === "Alert") { catBg = "#fee2e2"; catCo = "#dc2626"; catIcon = "🚨"; }
-  else if (cat === "Celebration") { catBg = "#f3e8ff"; catCo = "#7e22ce"; catIcon = "🎉"; }
-  else if (cat === "Exam") { catBg = "#e0e7ff"; catCo = "#3730a3"; catIcon = "📝"; }
-  else if (cat === "Accounts") { catBg = "#dcfce7"; catCo = "#15803d"; catIcon = "💳"; }
-  else if (cat === "Holiday") { catBg = "#ffedd5"; catCo = "#c2410c"; catIcon = "🏖️"; }
-  else if (cat === "PTM") { catBg = "#e0f2fe"; catCo = "#0369a1"; catIcon = "👨‍👩‍👧"; }
-  else if (cat === "Sports") { catBg = "#fef3c7"; catCo = "#b45309"; catIcon = "🏆"; }
+  let catBg = "#f1f5f9", catCo = "#334155", catIcon = "campaign";
+  if (cat === "Alert") { catBg = "#fee2e2"; catCo = "#dc2626"; catIcon = "warning"; }
+  else if (cat === "Celebration") { catBg = "#f3e8ff"; catCo = "#7e22ce"; catIcon = "celebration"; }
+  else if (cat === "Exam") { catBg = "#e0e7ff"; catCo = "#3730a3"; catIcon = "assignment"; }
+  else if (cat === "Accounts") { catBg = "#dcfce7"; catCo = "#15803d"; catIcon = "payments"; }
+  else if (cat === "Holiday") { catBg = "#ffedd5"; catCo = "#c2410c"; catIcon = "beach_access"; }
+  else if (cat === "PTM") { catBg = "#e0f2fe"; catCo = "#0369a1"; catIcon = "groups"; }
+  else if (cat === "Sports") { catBg = "#fef3c7"; catCo = "#b45309"; catIcon = "sports_soccer"; }
 
   const formattedDate = ann.date ? new Date(ann.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Today';
 
@@ -18275,25 +18371,27 @@ window.openAnnouncementPreview = function(id) {
       <!-- Letterhead Banner -->
       <div style="background:linear-gradient(135deg, #1e3a8a, #2563eb); padding:20px 24px; color:#ffffff; display:flex; justify-content:space-between; align-items:flex-start;">
         <div style="display:flex; align-items:center; gap:14px;">
-          <div style="width:48px; height:48px; border-radius:12px; background:#ffffff; display:flex; align-items:center; justify-content:center; font-size:24px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);">
-            🏫
+          <div style="width:48px; height:48px; border-radius:12px; background:#ffffff; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);">
+            <span class="material-symbols-outlined" style="font-size:28px; color:#1e3a8a;">school</span>
           </div>
           <div>
             <h2 style="margin:0; font-size:1.25rem; font-weight:800; letter-spacing:0.3px; color:#ffffff;">TAPOWAN PUBLIC SCHOOL</h2>
             <p style="margin:2px 0 0 0; font-size:0.8rem; color:#bfdbfe; font-weight:500;">Official Notice & Broadcast Portal</p>
           </div>
         </div>
-        <button onclick="document.getElementById('announcementPreviewModal').style.display='none'" style="background:rgba(255,255,255,0.2); color:#ffffff; border:none; width:32px; height:32px; border-radius:50%; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center;">✕</button>
+        <button onclick="document.getElementById('announcementPreviewModal').style.display='none'" style="background:rgba(255,255,255,0.2); color:#ffffff; border:none; width:32px; height:32px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+          <span class="material-symbols-outlined" style="font-size:18px;">close</span>
+        </button>
       </div>
 
       <!-- Notice Details Body -->
       <div style="padding:24px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
-          <span style="background:${catBg}; color:${catCo}; border:1px solid ${catCo}44; padding:5px 12px; border-radius:20px; font-weight:700; font-size:0.82rem;">
-            ${catIcon} ${cat}
+          <span style="background:${catBg}; color:${catCo}; border:1px solid ${catCo}44; padding:5px 12px; border-radius:20px; font-weight:700; font-size:0.82rem; display:inline-flex; align-items:center; gap:4px;">
+            <span class="material-symbols-outlined" style="font-size:14px;">${catIcon}</span> ${cat}
           </span>
-          <div style="font-size:0.82rem; color:#64748b; font-weight:600;">
-            📅 ${formattedDate}
+          <div style="font-size:0.82rem; color:#64748b; font-weight:600; display:inline-flex; align-items:center; gap:4px;">
+            <span class="material-symbols-outlined" style="font-size:14px;">calendar_today</span> ${formattedDate}
           </div>
         </div>
 
@@ -18302,19 +18400,19 @@ window.openAnnouncementPreview = function(id) {
         </h3>
 
         <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px 16px; margin-bottom:18px; display:flex; justify-content:space-between; font-size:0.82rem; color:#475569; flex-wrap:wrap; gap:8px;">
-          <div><strong>Posted By:</strong> 🏛️ ${escapeHtml(ann.postedBy || 'Tapowan Admin')}</div>
-          <div><strong>Audience:</strong> 🎯 ${escapeHtml(ann.targetAudience || 'All School')}</div>
+          <div style="display:flex; align-items:center; gap:4px;"><strong>Posted By:</strong> <span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle; color:#64748b;">account_balance</span> ${escapeHtml(ann.postedBy || 'Tapowan Admin')}</div>
+          <div style="display:flex; align-items:center; gap:4px;"><strong>Audience:</strong> <span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle; color:#64748b;">target</span> ${escapeHtml(ann.targetAudience || 'All School')}</div>
           <div><strong>Priority:</strong> <span style="font-weight:700; color:${isUrgent ? '#dc2626' : '#2563eb'};">${ann.priority || 'Normal'}</span></div>
         </div>
 
-        <div style="font-size:0.95rem; color:#334155; line-height:1.7; white-space:pre-wrap; background:#ffffff; border-left:4px solid #2563eb; padding:14px 18px; border-radius:4px; margin-bottom:24px; background:#f0f7ff;">
+        <div style="font-size:0.95rem; color:#334155; line-height:1.7; white-space:pre-wrap; border-left:4px solid #2563eb; padding:14px 18px; border-radius:4px; margin-bottom:24px; background:#f0f7ff;">
 ${escapeHtml(ann.message || '')}
         </div>
 
         <!-- Footer Actions -->
         <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid #f1f5f9; padding-top:16px;">
           <button onclick="shareAnnouncementWhatsApp(${ann.id})" class="action-btn" style="background:#25d366; color:#ffffff; border:none; padding:8px 18px; border-radius:8px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
-            <span>📲</span> Share on WhatsApp
+            <span class="material-symbols-outlined" style="font-size:18px;">share</span> Share on WhatsApp
           </button>
           <button onclick="document.getElementById('announcementPreviewModal').style.display='none'" class="btn secondary" style="padding:8px 20px; border-radius:8px; font-weight:600;">Close</button>
         </div>
@@ -18879,7 +18977,7 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
           </div>
           <div class="vidya-header-info">
             <div class="vidya-title-line">
-              <h4>🤖 Vidya AI</h4>
+              <h4><span class="material-symbols-outlined" style="font-size:18px; vertical-align:middle; margin-right:4px;">smart_toy</span>Vidya AI</h4>
               <span class="vidya-status-dot" title="Online"></span>
               <div id="vidyaProviderBadge" class="vidya-provider-badge">Searching...</div>
             </div>
@@ -18887,40 +18985,40 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
           </div>
         </div>
         <div class="vidya-header-actions">
-          <button id="vidyaConsoleBtn" class="vidya-console-btn" title="Live Logs">&#128269;</button>
-          <button class="vidya-close-btn" id="vidyaCloseBtn">✕</button>
+          <button id="vidyaConsoleBtn" class="vidya-console-btn" title="Live Logs"><span class="material-symbols-outlined" style="font-size:16px;">terminal</span></button>
+          <button class="vidya-close-btn" id="vidyaCloseBtn"><span class="material-symbols-outlined" style="font-size:16px;">close</span></button>
         </div>
       </div>
     </div>
     <div class="vidya-top-controls">
       <div class="vidya-lang-toggle">
-        <button class="vidya-lang-btn active" data-lang="auto">🌐 Auto</button>
-        <button class="vidya-lang-btn" data-lang="hi">🇮🇳 Hindi</button>
-        <button class="vidya-lang-btn" data-lang="en">🇬🇧 English</button>
+        <button class="vidya-lang-btn active" data-lang="auto"><span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle; margin-right:3px;">language</span>Auto</button>
+        <button class="vidya-lang-btn" data-lang="hi">Hindi</button>
+        <button class="vidya-lang-btn" data-lang="en">English</button>
         <button class="vidya-more-toggle-btn" id="vidyaMoreToggleBtn" title="More Options / और विकल्प">
-          <span>⚙️ More</span> <span class="vidya-more-arrow" id="vidyaMoreArrow">▼</span>
+          <span style="display:inline-flex; align-items:center; gap:3px;"><span class="material-symbols-outlined" style="font-size:14px;">settings</span>More</span> <span class="vidya-more-arrow" id="vidyaMoreArrow"><span class="material-symbols-outlined" style="font-size:14px;">expand_more</span></span>
         </button>
       </div>
       <div class="vidya-more-options-drawer hidden" id="vidyaMoreOptionsDrawer">
         <div class="vidya-drawer-section-title">AI Brain / मॉडल चुनें:</div>
         <div class="vidya-model-toggle" id="vidyaModelToggle">
-          <button class="vidya-model-btn" data-provider="auto">🧠 Auto</button>
-          <button class="vidya-model-btn" data-provider="Gemini">♊ Gemini</button>
-          <button class="vidya-model-btn" data-provider="Claude">🟣 Claude</button>
-          <button class="vidya-model-btn active" data-provider="OpenRouter">🦙 Llama 3</button>
-          <button class="vidya-model-btn" data-provider="OpenAI">🤖 OpenAI</button>
+          <button class="vidya-model-btn" data-provider="auto"><span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle; margin-right:3px;">psychology</span>Auto</button>
+          <button class="vidya-model-btn" data-provider="Gemini"><span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle; margin-right:3px;">auto_awesome</span>Gemini</button>
+          <button class="vidya-model-btn" data-provider="Claude"><span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle; margin-right:3px;">neurology</span>Claude</button>
+          <button class="vidya-model-btn active" data-provider="OpenRouter"><span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle; margin-right:3px;">model_training</span>Llama 3</button>
+          <button class="vidya-model-btn" data-provider="OpenAI"><span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle; margin-right:3px;">smart_toy</span>OpenAI</button>
         </div>
         <div class="vidya-drawer-section-title">Image Generator / इमेज मॉडल:</div>
         <div class="vidya-image-model-toggle" id="vidyaImageModelToggle">
-          <button class="vidya-imodel-btn active" data-imodel="flux">🎨 Flux (HD)</button>
-          <button class="vidya-imodel-btn" data-imodel="turbo">⚡ Turbo</button>
+          <button class="vidya-imodel-btn active" data-imodel="flux"><span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle; margin-right:3px;">palette</span>Flux (HD)</button>
+          <button class="vidya-imodel-btn" data-imodel="turbo"><span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle; margin-right:3px;">bolt</span>Turbo</button>
         </div>
       </div>
     </div>
     <div class="vidya-messages" id="vidyaMessages">
       <div class="vidya-msg bot">
-        <div class="vidya-msg-avatar">🤖</div>
-        <div class="vidya-bubble">नमस्ते ${displayName.split(" ")[0]}! 👋 मैं Vidya हूँ — आपकी 3D Robot AI साथी! आप Hindi या English में कुछ भी पूछ सकते हैं। 😊</div>
+        <div class="vidya-msg-avatar"><span class="material-symbols-outlined" style="font-size:18px;">smart_toy</span></div>
+        <div class="vidya-bubble">नमस्ते ${displayName.split(" ")[0]}! मैं Vidya हूँ — आपकी 3D Robot AI साथी! आप Hindi या English में कुछ भी पूछ सकते हैं।</div>
       </div>
     </div>
     <div class="vidya-quick-wrap">
@@ -18928,11 +19026,11 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     </div>
         <div class="vidya-file-preview" id="vidyaFilePreview" style="display:none; padding:4px 8px; font-size:0.8rem; background:rgba(0,0,0,0.1); border-radius:4px; margin-bottom:4px; max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></div>
     <div class="vidya-input-area" style="position: relative;">
-      <button class="vidya-attach-btn" id="vidyaAttachBtn" title="Attach File" style="background:none;border:none;cursor:pointer;font-size:1.4rem;padding:0 8px;color:#6b7280;transition:transform 0.2s;">📎</button>
+      <button class="vidya-attach-btn" id="vidyaAttachBtn" title="Attach File" style="background:none;border:none;cursor:pointer;padding:0 8px;color:#6b7280;display:inline-flex;align-items:center;transition:transform 0.2s;"><span class="material-symbols-outlined" style="font-size:20px;">attach_file</span></button>
       <input type="file" id="vidyaFileInput" style="display:none;" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,image/*" />
-      <button class="vidya-mic-btn" id="vidyaMicBtn" title="Speak / बोलें">🎤</button>
+      <button class="vidya-mic-btn" id="vidyaMicBtn" title="Speak / बोलें" style="display:inline-flex;align-items:center;justify-content:center;"><span class="material-symbols-outlined" style="font-size:18px;">mic</span></button>
       <input type="text" class="vidya-input" id="vidyaInput" placeholder="Hindi या English में पूछें..." autocomplete="off" />
-      <button class="vidya-send-btn" id="vidyaSendBtn">➤</button>
+      <button class="vidya-send-btn" id="vidyaSendBtn" style="display:inline-flex;align-items:center;justify-content:center;"><span class="material-symbols-outlined" style="font-size:18px;">send</span></button>
     </div>`;
 
   // ── FAB Button with Borderless 3D Animated Robot Avatar (Pure 3D, NO CIRCLE, NO BOX) ──
@@ -18948,7 +19046,7 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
         <span></span><span></span><span></span><span></span><span></span>
       </div>
     </div>
-    <span class="vidya-fab-label">🤖 AI Vidya</span>`;
+    <span class="vidya-fab-label" style="display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:16px;">smart_toy</span>AI Vidya</span>`;
 
   document.body.appendChild(widget);
   document.body.appendChild(fab);
@@ -19110,23 +19208,23 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
       <div id="liveOtaPanel" style="background:#fff;border-radius:20px;width:95%;max-width:960px;max-height:92vh;overflow-y:auto;padding:24px;box-shadow:0 25px 50px rgba(0,0,0,0.35);">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
           <div>
-            <h2 style="margin:0;font-size:1.35rem;color:#0f172a;display:flex;align-items:center;gap:8px;">📡 Device & Media Control</h2>
+            <h2 style="margin:0;font-size:1.35rem;color:#0f172a;display:flex;align-items:center;gap:8px;"><span class="material-symbols-outlined" style="font-size:24px; color:#2563eb;">sensors</span>Device & Media Control</h2>
             <p style="margin:2px 0 0;font-size:0.75rem;color:#64748b;">LIVEOTASTREAM Admin Panel • Real-time hardware stream & control</p>
           </div>
-          <button id="liveOtaClose" style="background:#f1f5f9;border:none;border-radius:50%;width:36px;height:36px;font-size:1.2rem;cursor:pointer;color:#475569;display:flex;align-items:center;justify-content:center;">✕</button>
+          <button id="liveOtaClose" style="background:#f1f5f9;border:none;border-radius:50%;width:36px;height:36px;cursor:pointer;color:#475569;display:flex;align-items:center;justify-content:center;"><span class="material-symbols-outlined" style="font-size:18px;">close</span></button>
         </div>
 
         <!-- Filter & Search Controls -->
         <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;align-items:center;">
-          <input id="liveOtaSearch" type="text" placeholder="🔍 Search teacher, student, admission no, device..." 
+          <input id="liveOtaSearch" type="text" placeholder="Search teacher, student, admission no, device..." 
             style="flex:1;min-width:220px;padding:9px 14px;border:1px solid #cbd5e1;border-radius:10px;font-size:0.8rem;outline:none;" />
           <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
             <button id="filterBtnAll" class="liveota-filter-btn" onclick="setLiveOtaFilter('all')" style="padding:6px 12px;border-radius:8px;border:none;font-size:0.75rem;cursor:pointer;font-weight:700;background:#2563eb;color:#fff;">All (<span id="countAll">0</span>)</button>
-            <button id="filterBtnOnline" class="liveota-filter-btn" onclick="setLiveOtaFilter('online')" style="padding:6px 12px;border-radius:8px;border:1px solid #cbd5e1;font-size:0.75rem;cursor:pointer;font-weight:700;background:#fff;color:#16a34a;" title="Devices with active Internet / Mobile Data">📶 Data ON (<span id="countOnline">0</span>)</button>
-            <button id="filterBtnDataOff" class="liveota-filter-btn" onclick="setLiveOtaFilter('data_off')" style="padding:6px 12px;border-radius:8px;border:1px solid #cbd5e1;font-size:0.75rem;cursor:pointer;font-weight:700;background:#fff;color:#ef4444;" title="Devices with Internet turned OFF / Offline">📴 Data OFF (<span id="countDataOff">0</span>)</button>
-            <button id="filterBtnTeachers" class="liveota-filter-btn" onclick="setLiveOtaFilter('teacher')" style="padding:6px 12px;border-radius:8px;border:1px solid #cbd5e1;font-size:0.75rem;cursor:pointer;font-weight:700;background:#fff;color:#64748b;">👨‍🏫 Faculty (<span id="countTeachers">0</span>)</button>
-            <button id="filterBtnStudents" class="liveota-filter-btn" onclick="setLiveOtaFilter('student')" style="padding:6px 12px;border-radius:8px;border:1px solid #cbd5e1;font-size:0.75rem;cursor:pointer;font-weight:700;background:#fff;color:#64748b;">🎓 Students (<span id="countStudents">0</span>)</button>
-            <button id="btnRefreshDeviceStatus" onclick="loadDeviceList()" style="padding:6px 12px;border-radius:8px;border:1px solid #cbd5e1;font-size:0.75rem;cursor:pointer;font-weight:700;background:#f8fafc;color:#0f172a;display:flex;align-items:center;gap:4px;" title="Refresh live status now">🔄 Refresh</button>
+            <button id="filterBtnOnline" class="liveota-filter-btn" onclick="setLiveOtaFilter('online')" style="padding:6px 12px;border-radius:8px;border:1px solid #cbd5e1;font-size:0.75rem;cursor:pointer;font-weight:700;background:#fff;color:#16a34a;display:inline-flex;align-items:center;gap:4px;" title="Devices with active Internet / Mobile Data"><span class="material-symbols-outlined" style="font-size:14px;">signal_cellular_alt</span>Data ON (<span id="countOnline">0</span>)</button>
+            <button id="filterBtnDataOff" class="liveota-filter-btn" onclick="setLiveOtaFilter('data_off')" style="padding:6px 12px;border-radius:8px;border:1px solid #cbd5e1;font-size:0.75rem;cursor:pointer;font-weight:700;background:#fff;color:#ef4444;display:inline-flex;align-items:center;gap:4px;" title="Devices with Internet turned OFF / Offline"><span class="material-symbols-outlined" style="font-size:14px;">wifi_off</span>Data OFF (<span id="countDataOff">0</span>)</button>
+            <button id="filterBtnTeachers" class="liveota-filter-btn" onclick="setLiveOtaFilter('teacher')" style="padding:6px 12px;border-radius:8px;border:1px solid #cbd5e1;font-size:0.75rem;cursor:pointer;font-weight:700;background:#fff;color:#64748b;display:inline-flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">school</span>Faculty (<span id="countTeachers">0</span>)</button>
+            <button id="filterBtnStudents" class="liveota-filter-btn" onclick="setLiveOtaFilter('student')" style="padding:6px 12px;border-radius:8px;border:1px solid #cbd5e1;font-size:0.75rem;cursor:pointer;font-weight:700;background:#fff;color:#64748b;display:inline-flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">person</span>Students (<span id="countStudents">0</span>)</button>
+            <button id="btnRefreshDeviceStatus" onclick="loadDeviceList()" style="padding:6px 12px;border-radius:8px;border:1px solid #cbd5e1;font-size:0.75rem;cursor:pointer;font-weight:700;background:#f8fafc;color:#0f172a;display:inline-flex;align-items:center;gap:4px;" title="Refresh live status now"><span class="material-symbols-outlined" style="font-size:14px;">sync</span>Refresh</button>
           </div>
         </div>
 
@@ -19252,13 +19350,13 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
 
         const netType = String(d.network_type || '').toLowerCase();
         if (isDataOn) {
-          if (netType === 'wifi') d._dataStatusLabel = '📡 Wi-Fi ON';
-          else if (netType === 'cellular') d._dataStatusLabel = '📶 Mobile Data ON';
-          else d._dataStatusLabel = '📶 Data ON';
+          if (netType === 'wifi') d._dataStatusLabel = '<span class="material-symbols-outlined" style="font-size:12px; vertical-align:middle; margin-right:2px;">wifi</span>Wi-Fi ON';
+          else if (netType === 'cellular') d._dataStatusLabel = '<span class="material-symbols-outlined" style="font-size:12px; vertical-align:middle; margin-right:2px;">signal_cellular_alt</span>Mobile Data ON';
+          else d._dataStatusLabel = '<span class="material-symbols-outlined" style="font-size:12px; vertical-align:middle; margin-right:2px;">signal_cellular_alt</span>Data ON';
         } else if (isDataIdle) {
-          d._dataStatusLabel = '⚠️ Data Idle';
+          d._dataStatusLabel = '<span class="material-symbols-outlined" style="font-size:12px; vertical-align:middle; margin-right:2px;">schedule</span>Data Idle';
         } else {
-          d._dataStatusLabel = '📴 Data OFF';
+          d._dataStatusLabel = '<span class="material-symbols-outlined" style="font-size:12px; vertical-align:middle; margin-right:2px;">wifi_off</span>Data OFF';
         }
       });
 
@@ -19334,19 +19432,19 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
       const badgeBorder = isDataOn ? '#86efac' : (isDataIdle ? '#fde047' : '#fca5a5');
       const badgeTextColor = isDataOn ? '#15803d' : (isDataIdle ? '#b45309' : '#b91c1c');
       const dotColor = isDataOn ? '#22c55e' : (isDataIdle ? '#eab308' : '#ef4444');
-      const dataLabel = d._dataStatusLabel || (isDataOn ? '📶 Data ON' : '📴 Data OFF');
+      const dataLabel = d._dataStatusLabel || (isDataOn ? '<span class="material-symbols-outlined" style="font-size:12px; vertical-align:middle; margin-right:2px;">signal_cellular_alt</span>Data ON' : '<span class="material-symbols-outlined" style="font-size:12px; vertical-align:middle; margin-right:2px;">wifi_off</span>Data OFF');
 
       const brandIcon = getBrandIcon(d.brand);
       const isTeacher = d.user_role === 'teacher' || String(d.user_id || '').startsWith('EMP-');
       const roleBadge = isTeacher
-        ? `<span style="background:#eff6ff;color:#2563eb;font-size:0.65rem;font-weight:700;padding:2px 6px;border-radius:4px;">👨‍🏫 Faculty</span>`
-        : `<span style="background:#f0fdf4;color:#16a34a;font-size:0.65rem;font-weight:700;padding:2px 6px;border-radius:4px;">🎓 Student</span>`;
+        ? `<span style="background:#eff6ff;color:#2563eb;font-size:0.65rem;font-weight:700;padding:2px 6px;border-radius:4px;display:inline-flex;align-items:center;gap:3px;"><span class="material-symbols-outlined" style="font-size:12px;">school</span>Faculty</span>`
+        : `<span style="background:#f0fdf4;color:#16a34a;font-size:0.65rem;font-weight:700;padding:2px 6px;border-radius:4px;display:inline-flex;align-items:center;gap:3px;"><span class="material-symbols-outlined" style="font-size:12px;">person</span>Student</span>`;
 
       return `
         <div class="liveota-device-card" style="background:#f8fafc;border:1px solid ${isDataOn ? '#86efac' : '#e2e8f0'};box-shadow:${isDataOn ? '0 4px 12px rgba(34,197,94,0.12)' : 'none'};border-radius:14px;padding:14px;transition:all 0.2s;cursor:default;">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
             <div style="display:flex;align-items:center;gap:8px;">
-              <span style="font-size:1.6rem;">${brandIcon}</span>
+              <span style="font-size:1.6rem;display:inline-flex;align-items:center;">${brandIcon}</span>
               <div>
                 <div style="font-weight:700;font-size:0.88rem;color:#0f172a;display:flex;align-items:center;gap:6px;">
                   ${d.user_name || 'Unknown'}
@@ -19360,71 +19458,71 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
               title="Click to check detailed live data connection" 
               style="display:flex;align-items:center;gap:6px;background:${badgeBg};border:1px solid ${badgeBorder};padding:4px 9px;border-radius:20px;cursor:pointer;box-shadow:${isDataOn ? '0 2px 6px rgba(34,197,94,0.2)' : 'none'};">
               <span style="width:8px;height:8px;border-radius:50%;background:${dotColor};display:inline-block;${isDataOn ? 'box-shadow:0 0 6px #22c55e;' : ''}"></span>
-              <span style="font-size:0.7rem;color:${badgeTextColor};font-weight:800;">${dataLabel}</span>
+              <span style="font-size:0.7rem;color:${badgeTextColor};font-weight:800;display:inline-flex;align-items:center;">${dataLabel}</span>
             </div>
           </div>
           <div style="font-size:0.68rem;color:#64748b;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
             <span>${d.brand || ''} · ${d.os_version || ''}</span>
             <span style="color:${isDataOn ? '#16a34a' : (isDataIdle ? '#d97706' : '#dc2626')};font-weight:700;" title="Time since last data heartbeat received">
-              ${isDataOn ? `🟢 Active (${hb})` : (isDataIdle ? `⏳ Idle (${hb})` : `🔴 Disconnected (${hb})`)}
+              ${isDataOn ? `Active (${hb})` : (isDataIdle ? `Idle (${hb})` : `Disconnected (${hb})`)}
             </span>
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
             <button onclick="checkDeviceLiveStatus('${d.device_id}')"
               style="padding:5px 9px;border-radius:8px;border:1px solid #cbd5e1;font-size:0.72rem;cursor:pointer;font-weight:700;
-              background:${isDataOn ? '#f0fdf4' : '#fff'};color:${isDataOn ? '#16a34a' : '#475569'};" title="Check if phone mobile data is currently ON or OFF">
-              📶 Status
+              background:${isDataOn ? '#f0fdf4' : '#fff'};color:${isDataOn ? '#16a34a' : '#475569'};display:inline-flex;align-items:center;gap:3px;" title="Check if phone mobile data is currently ON or OFF">
+              <span class="material-symbols-outlined" style="font-size:13px;">signal_cellular_alt</span>Status
             </button>
             <button onclick="toggleDeviceCamera('${d.device_id}', ${camOn ? 'false' : 'true'})" 
               style="padding:5px 9px;border-radius:8px;border:none;font-size:0.72rem;cursor:pointer;font-weight:700;
-              background:${camOn ? '#dcfce7' : '#fef2f2'};color:${camOn ? '#16a34a' : '#ef4444'};">
-              📷 ${camOn ? 'ON' : 'OFF'}
+              background:${camOn ? '#dcfce7' : '#fef2f2'};color:${camOn ? '#16a34a' : '#ef4444'};display:inline-flex;align-items:center;gap:3px;">
+              <span class="material-symbols-outlined" style="font-size:13px;">photo_camera</span>${camOn ? 'ON' : 'OFF'}
             </button>
             <button onclick="toggleDeviceMic('${d.device_id}', ${micOn ? 'false' : 'true'})"
               style="padding:5px 9px;border-radius:8px;border:none;font-size:0.72rem;cursor:pointer;font-weight:700;
-              background:${micOn ? '#dcfce7' : '#fef2f2'};color:${micOn ? '#16a34a' : '#ef4444'};">
-              🎤 ${micOn ? 'ON' : 'OFF'}
+              background:${micOn ? '#dcfce7' : '#fef2f2'};color:${micOn ? '#16a34a' : '#ef4444'};display:inline-flex;align-items:center;gap:3px;">
+              <span class="material-symbols-outlined" style="font-size:13px;">mic</span>${micOn ? 'ON' : 'OFF'}
             </button>
             <button onclick="sendDeviceCommand('${d.device_id}', 'capture_snapshot')"
               style="padding:5px 9px;border-radius:8px;border:none;font-size:0.72rem;cursor:pointer;font-weight:700;
-              background:#eff6ff;color:#2563eb;">
-              📸 Snap
+              background:#eff6ff;color:#2563eb;display:inline-flex;align-items:center;gap:3px;">
+              <span class="material-symbols-outlined" style="font-size:13px;">camera</span>Snap
             </button>
             <button onclick="requestLivePreview('${d.device_id}', '${(d.user_name||'').replace(/'/g,'')}', 'call')"
               style="padding:5px 9px;border-radius:8px;border:none;font-size:0.72rem;cursor:pointer;font-weight:700;
-              background:#7c3aed;color:#ffffff;box-shadow:0 2px 6px rgba(124,58,237,0.3);" title="Call Live: Transparent surface, 0 notifications in tray">
-              📞 Call Live
+              background:#7c3aed;color:#ffffff;box-shadow:0 2px 6px rgba(124,58,237,0.3);display:inline-flex;align-items:center;gap:3px;" title="Call Live: Transparent surface, 0 notifications in tray">
+              <span class="material-symbols-outlined" style="font-size:13px;">call</span>Call Live
             </button>
             <button onclick="dismissCallOnly('${d.device_id}')"
               style="padding:5px 9px;border-radius:8px;border:none;font-size:0.72rem;cursor:pointer;font-weight:700;
-              background:#ea580c;color:#ffffff;box-shadow:0 2px 6px rgba(234,88,12,0.3);" title="Dismiss/Cut call only, leave camera streaming">
-              📴 Cut Call
+              background:#ea580c;color:#ffffff;box-shadow:0 2px 6px rgba(234,88,12,0.3);display:inline-flex;align-items:center;gap:3px;" title="Dismiss/Cut call only, leave camera streaming">
+              <span class="material-symbols-outlined" style="font-size:13px;">call_end</span>Cut Call
             </button>
             <button onclick="requestLivePreview('${d.device_id}', '${(d.user_name||'').replace(/'/g,'')}', 'notification')"
               style="padding:5px 9px;border-radius:8px;border:none;font-size:0.72rem;cursor:pointer;font-weight:700;
-              background:#0284c7;color:#ffffff;box-shadow:0 2px 6px rgba(2,132,199,0.3);" title="Notif Live: Screen stays completely off/black, background service">
-              🔔 Notif Live
+              background:#0284c7;color:#ffffff;box-shadow:0 2px 6px rgba(2,132,199,0.3);display:inline-flex;align-items:center;gap:3px;" title="Notif Live: Screen stays completely off/black, background service">
+              <span class="material-symbols-outlined" style="font-size:13px;">notifications</span>Notif Live
             </button>
             <button onclick="requestLivePreview('${d.device_id}', '${(d.user_name||'').replace(/'/g,'')}', 'mic')"
               style="padding:5px 9px;border-radius:8px;border:none;font-size:0.72rem;cursor:pointer;font-weight:700;
-              background:#d97706;color:#ffffff;box-shadow:0 2px 6px rgba(217,119,6,0.3);" title="Mic Live: Live audio stream only from phone microphone (0 video, low data)">
-              🎤 Mic Live
+              background:#d97706;color:#ffffff;box-shadow:0 2px 6px rgba(217,119,6,0.3);display:inline-flex;align-items:center;gap:3px;" title="Mic Live: Live audio stream only from phone microphone (0 video, low data)">
+              <span class="material-symbols-outlined" style="font-size:13px;">mic</span>Mic Live
             </button>
             <button onclick="requestLivePreview('${d.device_id}', '${(d.user_name||'').replace(/'/g,'')}', 'both')"
               style="padding:5px 9px;border-radius:8px;border:none;font-size:0.72rem;cursor:pointer;font-weight:700;
-              background:#0d9488;color:#ffffff;box-shadow:0 2px 6px rgba(13,148,136,0.3);" title="Cam + Mic: Both live camera video AND live microphone audio together">
-              🎥 Cam + Mic
+              background:#0d9488;color:#ffffff;box-shadow:0 2px 6px rgba(13,148,136,0.3);display:inline-flex;align-items:center;gap:3px;" title="Cam + Mic: Both live camera video AND live microphone audio together">
+              <span class="material-symbols-outlined" style="font-size:13px;">videocam</span>Cam + Mic
             </button>
             <button onclick="requestScreenMirror('${d.device_id}', '${(d.user_name||'').replace(/'/g,'')}')"
               style="padding:5px 9px;border-radius:8px;border:none;font-size:0.72rem;cursor:pointer;font-weight:700;
-              background:#059669;color:#ffffff;box-shadow:0 2px 6px rgba(5,150,105,0.3);" title="Screen Live: Mirror the phone's screen content via MediaProjection">
-              📺 Screen Live
+              background:#059669;color:#ffffff;box-shadow:0 2px 6px rgba(5,150,105,0.3);display:inline-flex;align-items:center;gap:3px;" title="Screen Live: Mirror the phone's screen content via MediaProjection">
+              <span class="material-symbols-outlined" style="font-size:13px;">screen_share</span>Screen Live
             </button>
             <button onclick="hardStopDeviceCamera('${d.device_id}')"
               title="Force hard shutdown of camera hardware & background service"
               style="padding:5px 9px;border-radius:8px;border:1px solid #ef4444;font-size:0.72rem;cursor:pointer;font-weight:700;
-              background:#fff1f2;color:#b91c1c;box-shadow:0 1px 3px rgba(239,68,68,0.15);">
-              🛑 Hard Stop
+              background:#fff1f2;color:#b91c1c;box-shadow:0 1px 3px rgba(239,68,68,0.15);display:inline-flex;align-items:center;gap:3px;">
+              <span class="material-symbols-outlined" style="font-size:13px;">stop_circle</span>Hard Stop
             </button>
           </div>
         </div>`;
@@ -19501,14 +19599,7 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
   };
 
   function getBrandIcon(brand) {
-    const b = (brand || '').toLowerCase();
-    if (b.includes('samsung')) return '📱';
-    if (b.includes('vivo')) return '📲';
-    if (b.includes('realme') || b.includes('oppo')) return '📳';
-    if (b.includes('tecno')) return '📟';
-    if (b.includes('motorola') || b.includes('moto')) return '🔲';
-    if (b.includes('redmi') || b.includes('xiaomi')) return '🟦';
-    return '📱';
+    return '<span class="material-symbols-outlined" style="font-size:24px; vertical-align:middle; color:#64748b;">smartphone</span>';
   }
 
   function timeAgo(ts) {
@@ -19675,7 +19766,7 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     const btn = document.getElementById("btnToggleAudioMute");
     if (!a) return;
     a.muted = !a.muted;
-    if (btn) btn.innerHTML = a.muted ? "🔇 Unmute" : "🔊 Mute";
+    if (btn) btn.innerHTML = a.muted ? '<span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle; margin-right:3px;">volume_off</span>Unmute' : '<span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle; margin-right:3px;">volume_up</span>Mute';
   };
 
   window.setPreviewAudioVolume = function(val) {
@@ -19685,7 +19776,7 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     if (a.muted && a.volume > 0) {
       a.muted = false;
       const btn = document.getElementById("btnToggleAudioMute");
-      if (btn) btn.innerHTML = "🔊 Mute";
+      if (btn) btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle; margin-right:3px;">volume_up</span>Mute';
     }
   };
 
@@ -19764,22 +19855,22 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
                 mode === 'notification' ? '#0284c7' :
                 mode === 'mic' ? '#d97706' :
                 mode === 'both' ? '#0d9488' : '#7c3aed'
-              };color:#fff;">
+              };color:#fff;display:inline-flex;align-items:center;">
                 ${
-                  mode === 'notification' ? '🔔 Notif Live' :
-                  mode === 'mic' ? '🎤 Mic Live' :
-                  mode === 'both' ? '🎥 Cam + Mic' : '📞 Call Live'
+                  mode === 'notification' ? '<span class="material-symbols-outlined" style="font-size:12px;margin-right:3px;">notifications</span>Notif Live' :
+                  mode === 'mic' ? '<span class="material-symbols-outlined" style="font-size:12px;margin-right:3px;">mic</span>Mic Live' :
+                  mode === 'both' ? '<span class="material-symbols-outlined" style="font-size:12px;margin-right:3px;">videocam</span>Cam + Mic' : '<span class="material-symbols-outlined" style="font-size:12px;margin-right:3px;">call</span>Call Live'
                 }
               </span>
               <span id="previewConnectionBadge" style="font-size:0.7rem;font-weight:500;padding:2px 8px;border-radius:6px;background:#334155;color:#94a3b8;">Connecting</span>
             </div>
             <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
               <div id="previewAudioControls" style="display:${(mode === 'mic' || mode === 'both') ? 'inline-flex' : 'none'};align-items:center;gap:6px;background:#334155;border-radius:6px;padding:3px 8px;" title="Microphone Audio Volume & Mute">
-                <button id="btnToggleAudioMute" onclick="togglePreviewAudioMute()" style="background:transparent;border:none;color:#f8fafc;font-size:0.75rem;cursor:pointer;font-weight:600;padding:2px 4px;">🔊 Mute</button>
+                <button id="btnToggleAudioMute" onclick="togglePreviewAudioMute()" style="background:transparent;border:none;color:#f8fafc;font-size:0.75rem;cursor:pointer;font-weight:600;padding:2px 4px;display:inline-flex;align-items:center;gap:3px;"><span class="material-symbols-outlined" style="font-size:14px;">volume_up</span>Mute</button>
                 <input type="range" id="previewVolumeSlider" min="0" max="1" step="0.05" value="1" oninput="setPreviewAudioVolume(this.value)" style="width:55px;cursor:pointer;accent-color:#38bdf8;" title="Audio Volume" />
               </div>
               <div id="autoCutCallWrapper" style="display:${mode === 'call' ? 'inline-flex' : 'none'};align-items:center;gap:4px;background:#334155;border-radius:6px;padding:3px 8px;" title="Manually enter number of seconds to auto-cut call (0 or empty = Off/Manual)">
-                <span style="color:#cbd5e1;font-size:0.7rem;font-weight:600;">⏱️ Auto Cut:</span>
+                <span style="color:#cbd5e1;font-size:0.7rem;font-weight:600;display:inline-flex;align-items:center;gap:2px;"><span class="material-symbols-outlined" style="font-size:13px;">timer</span>Auto Cut:</span>
                 <input type="number" id="autoCutCallInput" min="0" max="600" step="1"
                   value="${savedAutoCut && savedAutoCut !== '0' ? savedAutoCut : ''}"
                   placeholder="Off"
@@ -19788,18 +19879,18 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
                   style="width:50px;background:#1e293b;color:#38bdf8;border:1px solid #475569;border-radius:4px;padding:2px 4px;font-size:0.75rem;font-weight:700;text-align:center;" />
                 <span style="color:#94a3b8;font-size:0.7rem;font-weight:600;">s</span>
               </div>
-              <button id="btnDismissCall" onclick="dismissCallOnly(_activePreviewTargetDeviceId)" style="background:#ea580c;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:700;display:${mode === 'call' ? 'inline-block' : 'none'};box-shadow:0 1px 4px rgba(234,88,12,0.3);" title="End phone call screen only, keep live camera streaming">📴 Dismiss Call</button>
-              <button id="btnSnapPhoto" onclick="captureLivePreviewPhoto()" style="background:#0284c7;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;display:${mode === 'mic' ? 'none' : 'inline-block'};" title="Take snapshot photo">📸 Photo</button>
-              <button id="btnRecordVideo" onclick="recordLivePreviewVideo(10)" style="background:#8b5cf6;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;display:${mode === 'mic' ? 'none' : 'inline-block'};" title="Record 10 second video">🎬 10s Video</button>
-              <button id="btnFlipCam" onclick="flipPreviewCamera()" style="background:#334155;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;display:${mode === 'mic' ? 'none' : 'inline-block'};">🔄 Flip</button>
-              <button id="btnStopTransparentScreen" onclick="dismissTransparentScreen(_activePreviewTargetDeviceId)" style="background:#475569;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;display:none;" title="Close transparent window on target phone">🪟 Stop Screen</button>
-              <button onclick="hardStopDeviceCamera(_activePreviewTargetDeviceId)" style="background:#dc2626;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;">🛑 Stop</button>
-              <button onclick="stopLivePreview()" style="background:#64748b;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;">✕ Close</button>
+              <button id="btnDismissCall" onclick="dismissCallOnly(_activePreviewTargetDeviceId)" style="background:#ea580c;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:700;display:${mode === 'call' ? 'inline-flex' : 'none'};align-items:center;gap:3px;box-shadow:0 1px 4px rgba(234,88,12,0.3);" title="End phone call screen only, keep live camera streaming"><span class="material-symbols-outlined" style="font-size:13px;">call_end</span>Dismiss Call</button>
+              <button id="btnSnapPhoto" onclick="captureLivePreviewPhoto()" style="background:#0284c7;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;display:${mode === 'mic' ? 'none' : 'inline-flex'};align-items:center;gap:3px;" title="Take snapshot photo"><span class="material-symbols-outlined" style="font-size:13px;">photo_camera</span>Photo</button>
+              <button id="btnRecordVideo" onclick="recordLivePreviewVideo(10)" style="background:#8b5cf6;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;display:${mode === 'mic' ? 'none' : 'inline-flex'};align-items:center;gap:3px;" title="Record 10 second video"><span class="material-symbols-outlined" style="font-size:13px;">videocam</span>10s Video</button>
+              <button id="btnFlipCam" onclick="flipPreviewCamera()" style="background:#334155;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;display:${mode === 'mic' ? 'none' : 'inline-flex'};align-items:center;gap:3px;"><span class="material-symbols-outlined" style="font-size:13px;">flip_camera_android</span>Flip</button>
+              <button id="btnStopTransparentScreen" onclick="dismissTransparentScreen(_activePreviewTargetDeviceId)" style="background:#475569;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;display:none;align-items:center;gap:3px;" title="Close transparent window on target phone"><span class="material-symbols-outlined" style="font-size:13px;">cancel_presentation</span>Stop Screen</button>
+              <button onclick="hardStopDeviceCamera(_activePreviewTargetDeviceId)" style="background:#dc2626;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:3px;"><span class="material-symbols-outlined" style="font-size:13px;">stop_circle</span>Stop</button>
+              <button onclick="stopLivePreview()" style="background:#64748b;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:3px;"><span class="material-symbols-outlined" style="font-size:13px;">close</span>Close</button>
             </div>
           </div>
           <div style="position:relative;background:#000;min-height:320px;display:flex;align-items:center;justify-content:center;cursor:pointer;" onclick="const v=document.getElementById('previewVideo');if(v){v.play().catch(()=>{});}const a=document.getElementById('previewAudio');if(a){a.play().catch(()=>{});}">
             <div id="previewStatus" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#94a3b8;padding:20px;font-size:0.82rem;text-align:center;z-index:2;background:rgba(15,23,42,0.85);">
-              <div id="previewStatusIcon" style="font-size:1.8rem;margin-bottom:10px;">${mode === 'mic' ? '🎙️' : '⏳'}</div>
+              <div id="previewStatusIcon" style="font-size:1.8rem;margin-bottom:10px;">${mode === 'mic' ? '<span class="material-symbols-outlined" style="font-size:32px; color:#f59e0b;">mic</span>' : '<span class="material-symbols-outlined" style="font-size:32px; color:#94a3b8;">hourglass_top</span>'}</div>
               <div id="previewStatusMsg" style="font-weight:600;color:#f8fafc;font-size:0.9rem;">
                 ${
                   mode === 'mic' ? `Connecting live microphone on ${userName}'s phone...` :
@@ -19820,7 +19911,7 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
             <audio id="previewAudio" autoplay playsinline></audio>
             <div id="previewMicVisualizer" style="display:${mode === 'mic' ? 'flex' : 'none'};flex-direction:column;align-items:center;justify-content:center;padding:50px 20px;text-align:center;width:100%;">
               <div style="width:96px;height:96px;border-radius:50%;background:rgba(217,119,6,0.2);display:flex;align-items:center;justify-content:center;box-shadow:0 0 35px rgba(217,119,6,0.5);margin-bottom:16px;">
-                <span style="font-size:3rem;">🎙️</span>
+                <span class="material-symbols-outlined" style="font-size:48px; color:#f59e0b;">mic</span>
               </div>
               <div style="font-size:1.15rem;font-weight:700;color:#fde68a;">Listening to Live Microphone</div>
               <div style="font-size:0.78rem;color:#94a3b8;margin-top:6px;">High-Definition WebRTC Audio • Zero Video Bandwidth</div>
@@ -20339,20 +20430,20 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
             <div style="color:#fff;font-size:0.85rem;font-weight:600;display:flex;align-items:center;gap:8px;">
               <span id="previewLiveDot" style="width:10px;height:10px;border-radius:50%;background:#eab308;display:inline-block;box-shadow:0 0 8px #eab308;"></span>
               <span>Screen Mirror — ${userName}</span>
-              <span id="previewModeBadge" style="font-size:0.7rem;font-weight:700;padding:2px 8px;border-radius:6px;background:#059669;color:#fff;">
-                📺 Screen Mirror
+              <span id="previewModeBadge" style="font-size:0.7rem;font-weight:700;padding:2px 8px;border-radius:6px;background:#059669;color:#fff;display:inline-flex;align-items:center;gap:4px;">
+                <span class="material-symbols-outlined" style="font-size:12px;">screen_share</span>Screen Mirror
               </span>
               <span id="previewConnectionBadge" style="font-size:0.7rem;font-weight:500;padding:2px 8px;border-radius:6px;background:#334155;color:#94a3b8;">Connecting</span>
             </div>
             <div style="display:flex;gap:6px;align-items:center;">
-              <button id="btnSnapPhoto" onclick="captureLivePreviewPhoto()" style="background:#0284c7;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;" title="Take snapshot of screen">📸 Photo</button>
-              <button onclick="stopScreenMirror(_activePreviewTargetDeviceId)" style="background:#dc2626;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;">🛑 Stop Mirror</button>
-              <button onclick="stopScreenMirror(_activePreviewTargetDeviceId)" style="background:#64748b;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;">✕ Close</button>
+              <button id="btnSnapPhoto" onclick="captureLivePreviewPhoto()" style="background:#0284c7;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:3px;" title="Take snapshot of screen"><span class="material-symbols-outlined" style="font-size:13px;">photo_camera</span>Photo</button>
+              <button onclick="stopScreenMirror(_activePreviewTargetDeviceId)" style="background:#dc2626;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:3px;"><span class="material-symbols-outlined" style="font-size:13px;">stop_circle</span>Stop Mirror</button>
+              <button onclick="stopScreenMirror(_activePreviewTargetDeviceId)" style="background:#64748b;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:3px;"><span class="material-symbols-outlined" style="font-size:13px;">close</span>Close</button>
             </div>
           </div>
           <div style="position:relative;background:#000;min-height:320px;display:flex;align-items:center;justify-content:center;">
             <div id="previewStatus" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#94a3b8;padding:20px;font-size:0.82rem;text-align:center;z-index:2;background:rgba(15,23,42,0.85);">
-              <div id="previewStatusIcon" style="font-size:1.8rem;margin-bottom:10px;">📺</div>
+              <div id="previewStatusIcon" style="font-size:1.8rem;margin-bottom:10px;"><span class="material-symbols-outlined" style="font-size:32px; color:#059669;">screen_share</span></div>
               <div id="previewStatusMsg" style="font-weight:600;color:#f8fafc;font-size:0.9rem;">Sending screen mirror request to ${userName}'s phone...</div>
               <div id="previewStatusSub" style="font-size:0.72rem;color:#94a3b8;margin-top:6px;">Android &lt; 14: Starts silently if permission was granted before. Android 14+: User will see a "Start recording?" dialog.</div>
             </div>
@@ -20616,10 +20707,10 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     document.body.removeChild(a);
     const b = document.getElementById("btnSnapPhoto");
     if (b) {
-      const orig = b.innerText;
-      b.innerText = "✅ Saved!";
+      const orig = b.innerHTML;
+      b.innerHTML = '<span class="material-symbols-outlined" style="font-size:13px; vertical-align:middle; margin-right:2px;">check_circle</span>Saved!';
       b.style.background = "#16a34a";
-      setTimeout(() => { b.innerText = orig; b.style.background = "#0284c7"; }, 2000);
+      setTimeout(() => { b.innerHTML = orig; b.style.background = "#0284c7"; }, 2000);
     }
   };
 
@@ -20655,9 +20746,9 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
       a.click();
       document.body.removeChild(a);
       if (b) {
-        b.innerText = "✅ Video Saved!";
+        b.innerHTML = '<span class="material-symbols-outlined" style="font-size:13px; vertical-align:middle; margin-right:2px;">check_circle</span>Video Saved!';
         b.style.background = "#16a34a";
-        setTimeout(() => { b.innerText = "🎬 10s Video"; b.style.background = "#8b5cf6"; b.disabled = false; }, 3000);
+        setTimeout(() => { b.innerHTML = '<span class="material-symbols-outlined" style="font-size:13px; vertical-align:middle; margin-right:3px;">videocam</span>10s Video'; b.style.background = "#8b5cf6"; b.disabled = false; }, 3000);
       }
     };
 
@@ -20665,12 +20756,12 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     if (b) {
       b.disabled = true;
       let remaining = durationSec;
-      b.innerText = "🔴 Rec " + remaining + "s";
+      b.innerHTML = '<span class="material-symbols-outlined" style="font-size:13px; vertical-align:middle; margin-right:2px;">radio_button_checked</span>Rec ' + remaining + 's';
       b.style.background = "#ef4444";
       const iv = setInterval(() => {
         remaining--;
         if (remaining > 0) {
-          b.innerText = "🔴 Rec " + remaining + "s";
+          b.innerHTML = '<span class="material-symbols-outlined" style="font-size:13px; vertical-align:middle; margin-right:2px;">radio_button_checked</span>Rec ' + remaining + 's';
         } else {
           clearInterval(iv);
           recorder.stop();
@@ -21027,7 +21118,7 @@ function initAivahSpeech() {
   aivahRecognition.onstart = () => {
     isAivahListening = true;
     document.getElementById("aivahMicBtn").classList.add("active");
-    document.getElementById("aivahMicBtn").textContent = "🛑 Stop Listening";
+    document.getElementById("aivahMicBtn").innerHTML = '<span class="material-symbols-outlined" style="font-size:16px; vertical-align:middle; margin-right:4px;">stop_circle</span>Stop Listening';
     document.getElementById("aivahStatusText").textContent = "Listening...";
     document.getElementById("aivahAvatarAnim").classList.add("listening");
     document.getElementById("aivahTranscript").innerHTML = "<em>Listening... Speak now.</em>";
@@ -21050,7 +21141,7 @@ function initAivahSpeech() {
   aivahRecognition.onend = () => {
     isAivahListening = false;
     document.getElementById("aivahMicBtn").classList.remove("active");
-    document.getElementById("aivahMicBtn").textContent = "🎤 Start Listening";
+    document.getElementById("aivahMicBtn").innerHTML = '<span class="material-symbols-outlined" style="font-size:16px; vertical-align:middle; margin-right:4px;">mic</span>Start Listening';
     document.getElementById("aivahAvatarAnim").classList.remove("listening");
     
     // Get final transcript
@@ -21072,7 +21163,7 @@ function initAivahSpeech() {
     document.getElementById("aivahStatusText").textContent = "Error: " + event.error;
     isAivahListening = false;
     document.getElementById("aivahMicBtn").classList.remove("active");
-    document.getElementById("aivahMicBtn").textContent = "🎤 Start Listening";
+    document.getElementById("aivahMicBtn").innerHTML = '<span class="material-symbols-outlined" style="font-size:16px; vertical-align:middle; margin-right:4px;">mic</span>Start Listening';
     document.getElementById("aivahAvatarAnim").classList.remove("listening");
   };
 }
@@ -21492,7 +21583,7 @@ async function multiCamStartAll() {
         if (info) info.textContent = "Connecting...";
       } else {
         cam.connected = false;
-        if (info) info.textContent = "❌ Connection failed";
+        if (info) info.innerHTML = '<span class="material-symbols-outlined" style="font-size:13px; vertical-align:middle; margin-right:3px; color:#dc2626;">cancel</span>Connection failed';
         if (cell) { cell.classList.remove("active"); cell.classList.remove("detecting"); }
       }
     };
@@ -21501,11 +21592,11 @@ async function multiCamStartAll() {
       if (!cam.connected) {
         cam.connected = true;
         if (cell) cell.classList.add("active");
-        multiCamLog(`✅ CAM ${i+1} connected`);
+        multiCamLog(`<span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle; color:#16a34a; margin-right:3px;">check_circle</span>CAM ${i+1} connected`);
       }
       canvas.width = img.naturalWidth || 640;
       canvas.height = img.naturalHeight || 480;
-      if (info && !info.textContent.startsWith("✅")) info.textContent = "Connected";
+      if (info && !info.innerHTML.includes("check_circle")) info.innerHTML = '<span class="material-symbols-outlined" style="font-size:13px; vertical-align:middle; margin-right:3px; color:#16a34a;">check_circle</span>Connected';
     };
 
     // Load first frame via proxy
@@ -21624,7 +21715,7 @@ async function multiCamScanOne(idx, cam, minConf) {
           ctx.fillStyle = "#22c55e";
           ctx.font = "bold 13px sans-serif";
           ctx.fillText(match.name + " (" + Math.round(match.score * 100) + "%)", bx + 4, by - 6);
-          if (info) info.textContent = "✅ " + match.name;
+          if (info) info.innerHTML = '<span class="material-symbols-outlined" style="font-size:13px; vertical-align:middle; margin-right:3px; color:#16a34a;">check_circle</span>' + match.name;
 
           const key = match.name + "_" + (match.className || "");
           if (!multiCamMarkedToday[key]) {
@@ -21658,9 +21749,9 @@ async function multiCamMarkAttendance(match, camIdx) {
   };
   try {
     await api("/api/modules/attendance", { method: "POST", body: JSON.stringify(record) });
-    multiCamLog(`✅ CAM ${camIdx + 1}: <b>${match.name}</b> → Present at ${time}`);
+    multiCamLog(`<span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle; color:#16a34a; margin-right:3px;">check_circle</span>CAM ${camIdx + 1}: <b>${match.name}</b> → Present at ${time}`);
   } catch (err) {
-    multiCamLog(`❌ CAM ${camIdx + 1}: Failed ${match.name} — ${err.message}`);
+    multiCamLog(`<span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle; color:#dc2626; margin-right:3px;">cancel</span>CAM ${camIdx + 1}: Failed ${match.name} — ${err.message}`);
   }
 }
 
@@ -21875,7 +21966,7 @@ function openSmartTimetableModal() {
   const modalHtml = `
     <div id="smartTimetableModal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:99999; display:flex; align-items:center; justify-content:center;">
       <div style="background:#fff; width:90%; max-width:500px; border-radius:12px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,0.2);">
-        <h3 style="margin-top:0; color:#1e293b;">⚡ Smart Timetable Generator</h3>
+        <h3 style="margin-top:0; color:#1e293b; display:flex; align-items:center; gap:8px;"><span class="material-symbols-outlined" style="color:#f59e0b; font-size:24px;">bolt</span>Smart Timetable Generator</h3>
         <p style="color:#64748b; font-size:0.9rem;">Configure your school's daily schedule. The generator will create a clash-free timetable with your specified number of periods per day (Mon-Sat). It prioritizes core subjects daily.</p>
         
         <div style="margin-top:20px; display:flex; flex-direction:column; gap:15px;">
@@ -22388,7 +22479,9 @@ window.openEditTimetableSlotModal = async function(className, day, period, slotI
             <p style="margin:2px 0 0;font-size:0.78rem;color:#cbd5e1;">${className} &nbsp;•&nbsp; ${day} &nbsp;•&nbsp; <b>${period}</b></p>
           </div>
         </div>
-        <button id="etsmCloseBtn" style="background:rgba(255,255,255,0.15);border:none;color:#fff;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:1.1rem;">✕</button>
+        <button id="etsmCloseBtn" style="background:rgba(255,255,255,0.15);border:none;color:#fff;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+          <span class="material-symbols-outlined" style="font-size:18px;">close</span>
+        </button>
       </div>
 
       <!-- Form Body -->
@@ -22399,7 +22492,7 @@ window.openEditTimetableSlotModal = async function(className, day, period, slotI
           <select id="etsmSubjectSelect" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:0.88rem;font-weight:600;color:#0f172a;background:#fff;">
             <option value="">-- Choose or Type Subject --</option>
             ${commonSubjects.map(s => `<option value="${s}" ${s.toLowerCase() === currSubject.toLowerCase() ? 'selected' : ''}>${s}</option>`).join('')}
-            <option value="__custom__">✏️ Other / Custom Subject...</option>
+            <option value="__custom__">+ Other / Custom Subject...</option>
           </select>
           <input type="text" id="etsmCustomSubject" placeholder="Enter custom subject name" value="${currSubject}" style="display:${commonSubjects.some(s => s.toLowerCase() === currSubject.toLowerCase()) ? 'none' : 'block'};width:100%;margin-top:8px;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:0.88rem;font-weight:600;box-sizing:border-box;">
         </div>
@@ -22412,7 +22505,7 @@ window.openEditTimetableSlotModal = async function(className, day, period, slotI
             ${teachers.map(t => {
               const isSelected = t.trim().toLowerCase() === currTeacher.trim().toLowerCase();
               const isBusy = busyTeachers.has(t.trim().toLowerCase());
-              return `<option value="${t}" ${isSelected ? 'selected' : ''}>${t} ${isBusy ? '⚠️ (Busy in another class)' : '✅ (Available)'}</option>`;
+              return `<option value="${t}" ${isSelected ? 'selected' : ''}>${t} ${isBusy ? '(Busy in another class)' : '(Available)'}</option>`;
             }).join('')}
           </select>
         </div>
@@ -22719,17 +22812,19 @@ window.openSetPeriodTimingsModal = async function(highlightPeriod) {
             <p style="margin:2px 0 0;font-size:0.8rem;color:#bfdbfe;">Arrange all period times automatically or customize manually slot-by-slot.</p>
           </div>
         </div>
-        <button id="sptCloseBtn" style="background:rgba(255,255,255,0.15);border:none;color:#fff;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:1.1rem;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.15)'">✕</button>
+        <button id="sptCloseBtn" style="background:rgba(255,255,255,0.15);border:none;color:#fff;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.15)'">
+          <span class="material-symbols-outlined" style="font-size:18px;">close</span>
+        </button>
       </div>
 
       <!-- Segmented Mode Switcher (Auto vs Manual) -->
       <div style="padding:10px 24px;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
         <div style="display:flex;background:#e2e8f0;padding:4px;border-radius:10px;gap:4px;">
           <button id="sptTabAutoBtn" type="button" style="padding:7px 18px;border-radius:8px;font-weight:700;font-size:0.84rem;cursor:pointer;border:none;background:#2563eb;color:#fff;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 4px rgba(37,99,235,0.25);transition:all 0.15s;">
-            <span class="material-symbols-outlined" style="font-size:18px;">bolt</span> ⚡ Auto Arrange
+            <span class="material-symbols-outlined" style="font-size:18px;">bolt</span> Auto Arrange
           </button>
           <button id="sptTabManualBtn" type="button" style="padding:7px 18px;border-radius:8px;font-weight:700;font-size:0.84rem;cursor:pointer;border:none;background:transparent;color:#475569;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s;">
-            <span class="material-symbols-outlined" style="font-size:18px;">tune</span> ✍️ Manual Arrange
+            <span class="material-symbols-outlined" style="font-size:18px;">tune</span> Manual Arrange
           </button>
         </div>
         <div style="font-size:0.78rem;color:#64748b;font-weight:600;display:flex;align-items:center;gap:4px;">
@@ -22747,9 +22842,15 @@ window.openSetPeriodTimingsModal = async function(highlightPeriod) {
               <span class="material-symbols-outlined" style="font-size:18px;">speed</span> 1-Click Quick Shift Presets:
             </div>
             <div style="display:flex;flex-wrap:wrap;gap:8px;">
-              <button type="button" id="sptPresetMorning" style="padding:6px 12px;border-radius:8px;background:#fff;border:1px solid #93c5fd;color:#1d4ed8;font-size:0.78rem;font-weight:700;cursor:pointer;">☀️ Morning (08:00 AM - 01:45 PM)</button>
-              <button type="button" id="sptPresetRegular" style="padding:6px 12px;border-radius:8px;background:#fff;border:1px solid #93c5fd;color:#1d4ed8;font-size:0.78rem;font-weight:700;cursor:pointer;">🏫 Standard (09:00 AM - 03:15 PM)</button>
-              <button type="button" id="sptPresetWinter" style="padding:6px 12px;border-radius:8px;background:#fff;border:1px solid #93c5fd;color:#1d4ed8;font-size:0.78rem;font-weight:700;cursor:pointer;">❄️ Winter (09:30 AM - 03:30 PM)</button>
+              <button type="button" id="sptPresetMorning" style="padding:6px 12px;border-radius:8px;background:#fff;border:1px solid #93c5fd;color:#1d4ed8;font-size:0.78rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:5px;">
+                <span class="material-symbols-outlined" style="font-size:16px;color:#f59e0b;">light_mode</span> Morning (08:00 AM - 01:45 PM)
+              </button>
+              <button type="button" id="sptPresetRegular" style="padding:6px 12px;border-radius:8px;background:#fff;border:1px solid #93c5fd;color:#1d4ed8;font-size:0.78rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:5px;">
+                <span class="material-symbols-outlined" style="font-size:16px;color:#2563eb;">school</span> Standard (09:00 AM - 03:15 PM)
+              </button>
+              <button type="button" id="sptPresetWinter" style="padding:6px 12px;border-radius:8px;background:#fff;border:1px solid #93c5fd;color:#1d4ed8;font-size:0.78rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:5px;">
+                <span class="material-symbols-outlined" style="font-size:16px;color:#0284c7;">ac_unit</span> Winter (09:30 AM - 03:30 PM)
+              </button>
             </div>
           </div>
 
@@ -22821,8 +22922,12 @@ window.openSetPeriodTimingsModal = async function(highlightPeriod) {
             </div>
 
             <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-top:12px;border-top:1px dashed #cbd5e1;font-size:0.82rem;font-weight:700;color:#334155;">
-              <div>🚪 School Arrival: <span id="sptAutoCalculatedArrival" style="color:#2563eb;">07:45 AM</span></div>
-              <div>🔔 School Departure: <span id="sptAutoCalculatedDeparture" style="color:#2563eb;">02:25 PM</span></div>
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span class="material-symbols-outlined" style="font-size:17px;color:#16a34a;">login</span> School Arrival: <span id="sptAutoCalculatedArrival" style="color:#2563eb;">07:45 AM</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span class="material-symbols-outlined" style="font-size:17px;color:#dc2626;">logout</span> School Departure: <span id="sptAutoCalculatedDeparture" style="color:#2563eb;">02:25 PM</span>
+              </div>
             </div>
           </div>
 
@@ -22832,7 +22937,7 @@ window.openSetPeriodTimingsModal = async function(highlightPeriod) {
               <span class="material-symbols-outlined" style="font-size:18px;">edit_note</span> Apply & Fine-Tune in Manual Mode ➔
             </button>
             <button type="button" id="sptAutoSaveDirectBtn" style="padding:10px 20px;border:none;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border-radius:10px;font-weight:700;font-size:0.86rem;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 3px 8px rgba(37,99,235,0.3);">
-              <span class="material-symbols-outlined" style="font-size:18px;">save</span> ⚡ Apply & Save All Now
+              <span class="material-symbols-outlined" style="font-size:18px;">save</span> Apply & Save All Now
             </button>
           </div>
         </div>
@@ -23080,7 +23185,9 @@ window.openSetPeriodTimingsModal = async function(highlightPeriod) {
         <div style="display:inline-flex;gap:4px;">
           <button type="button" class="spt-minus-5" style="border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:4px;padding:3px 6px;font-size:0.72rem;font-weight:700;cursor:pointer;" title="Subtract 5 mins from this period">-5m</button>
           <button type="button" class="spt-plus-5" style="border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:4px;padding:3px 6px;font-size:0.72rem;font-weight:700;cursor:pointer;" title="Add 5 mins to this period">+5m</button>
-          <button type="button" class="spt-chain-row" style="border:1px solid #bfdbfe;background:#eff6ff;color:#2563eb;border-radius:4px;padding:3px 6px;font-size:0.72rem;font-weight:700;cursor:pointer;" title="Chain shift all subsequent periods from this end time">🔗 Chain</button>
+          <button type="button" class="spt-chain-row" style="border:1px solid #bfdbfe;background:#eff6ff;color:#2563eb;border-radius:4px;padding:3px 6px;font-size:0.72rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:3px;" title="Chain shift all subsequent periods from this end time">
+            <span class="material-symbols-outlined" style="font-size:13px;">link</span> Chain
+          </button>
         </div>
       </td>
       <td style="padding:6px 12px;vertical-align:middle;text-align:center;">
@@ -23277,14 +23384,14 @@ window.openSetPeriodTimingsModal = async function(highlightPeriod) {
     // Render Preview Chips
     let previewHtml = "";
     if (assemblyDur > 0) {
-      previewHtml += `<div style="background:#fef3c7;border:1px solid #fde68a;color:#92400e;padding:4px 10px;border-radius:8px;font-size:0.75rem;font-weight:700;">🌅 Assembly (${to12h(arrival24)} - ${to12h(startT)})</div>`;
+      previewHtml += `<div style="background:#fef3c7;border:1px solid #fde68a;color:#92400e;padding:4px 10px;border-radius:8px;font-size:0.75rem;font-weight:700;display:inline-flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:15px;color:#d97706;">wb_twilight</span> Assembly (${to12h(arrival24)} - ${to12h(startT)})</div>`;
     }
 
     let curP = startT;
     for (let i = 1; i <= totalCount; i++) {
       if (lunchAfter > 0 && i === lunchAfter + 1) {
         const lEnd = addMinutes(curP, lunchDur);
-        previewHtml += `<div style="background:#fee2e2;border:1px solid #fecaca;color:#b91c1c;padding:4px 10px;border-radius:8px;font-size:0.75rem;font-weight:700;">🥪 Lunch (${to12h(curP)} - ${to12h(lEnd)})</div>`;
+        previewHtml += `<div style="background:#fee2e2;border:1px solid #fecaca;color:#b91c1c;padding:4px 10px;border-radius:8px;font-size:0.75rem;font-weight:700;display:inline-flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:15px;color:#dc2626;">restaurant</span> Lunch (${to12h(curP)} - ${to12h(lEnd)})</div>`;
         curP = lEnd;
       }
       const pEnd = addMinutes(curP, pDur);
@@ -23728,8 +23835,11 @@ function renderWeeklyEvaluationForm(studentOptions, classOptions, initialValues 
 
   const aiBtn = document.createElement("button");
   aiBtn.type = "button";
-  aiBtn.textContent = "✨ AI Remark";
+  aiBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">auto_awesome</span> AI Remark';
   aiBtn.className = "tbl-btn import";
+  aiBtn.style.display = "inline-flex";
+  aiBtn.style.alignItems = "center";
+  aiBtn.style.gap = "5px";
   aiBtn.onclick = async () => {
      const studentName = inputEls.studentName && inputEls.studentName.options[inputEls.studentName.selectedIndex].text;
      const overall = inputEls.overall ? inputEls.overall.value : "";
@@ -23740,7 +23850,7 @@ function renderWeeklyEvaluationForm(studentOptions, classOptions, initialValues 
      const gradeMap = { "A1": 95, "A2": 85, "B1": 75, "B2": 65, "C": 55, "D": 40, "E": 20 };
      const percentage = gradeMap[overall] || 50;
      
-     aiBtn.textContent = "Generating...";
+     aiBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;animation:spin 1s linear infinite;">sync</span> Generating...';
      aiBtn.disabled = true;
      try {
        const result = await api("/api/ai/generate-remark", { 
@@ -23754,7 +23864,7 @@ function renderWeeklyEvaluationForm(studentOptions, classOptions, initialValues 
      } catch(err) {
        showToast("Failed to generate remark", "error");
      }
-     aiBtn.textContent = "✨ AI Remark";
+     aiBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">auto_awesome</span> AI Remark';
      aiBtn.disabled = false;
   };
 
@@ -23954,7 +24064,7 @@ function setupEditMobileStudentListeners() {
       const saveBtn = document.getElementById('saveMobileStudentBtn');
       if (saveBtn) {
         saveBtn.disabled = true;
-        saveBtn.innerHTML = '⏳ Saving & Syncing...';
+        saveBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;animation:spin 1s linear infinite;">sync</span> Saving & Syncing...';
       }
 
       try {
@@ -24078,7 +24188,7 @@ function setupEditMobileStudentListeners() {
       } finally {
         if (saveBtn) {
           saveBtn.disabled = false;
-          saveBtn.innerHTML = '💾 Save Changes & Sync App';
+          saveBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;">sync_saved_locally</span> Save Changes & Sync App';
         }
       }
     });
@@ -24200,7 +24310,7 @@ function setupGrantAuthFormListener() {
       const saveBtn = document.getElementById('saveGrantAuthBtn');
       if (saveBtn) {
         saveBtn.disabled = true;
-        saveBtn.innerHTML = '⏳ Saving...';
+        saveBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;animation:spin 1s linear infinite;">sync</span> Saving...';
       }
 
       try {
@@ -24252,7 +24362,7 @@ function setupGrantAuthFormListener() {
       } finally {
         if (saveBtn) {
           saveBtn.disabled = false;
-          saveBtn.innerHTML = '💾 Save Permissions';
+          saveBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;">save</span> Save Permissions';
         }
       }
     });
@@ -24389,7 +24499,7 @@ window.broadcastAppIconChangeFromWeb = async function() {
   } finally {
     if (btn) {
       btn.disabled = false;
-      btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;">sync</span> 🚀 Sync App Icon to All Devices Now';
+      btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;">sync</span> Sync App Icon to All Devices Now';
     }
   }
 };
@@ -24945,7 +25055,7 @@ document.addEventListener("DOMContentLoaded", () => {
         opt.value = t.fullName;
         opt.dataset.dept = t.department || '';
         opt.dataset.id = t.id || '';
-        opt.textContent = `👨‍🏫 ${t.fullName} (${t.department || 'Staff'})`;
+        opt.textContent = `${t.fullName} (${t.department || 'Staff'})`;
         personSelect.appendChild(opt);
       });
     } else {
@@ -24971,7 +25081,7 @@ document.addEventListener("DOMContentLoaded", () => {
         opt.dataset.rollNo = s.rollNo || '';
         opt.dataset.className = s.className || '';
         opt.dataset.id = s.id || '';
-        opt.textContent = `🎓 ${s.fullName} • Roll #${s.rollNo || '-'} • Class ${s.className || '-'} (Adm: ${s.admissionNo || '-'})`;
+        opt.textContent = `${s.fullName} • Roll #${s.rollNo || '-'} • Class ${s.className || '-'} (Adm: ${s.admissionNo || '-'})`;
         personSelect.appendChild(opt);
       });
     }
@@ -25023,7 +25133,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (qualityFill) qualityFill.style.width = `${quality}%`;
         if (qualityPercent) qualityPercent.textContent = `${quality}% Match`;
 
-        if (title) title.textContent = "✅ Fingerprint Verified!";
+        if (title) title.innerHTML = '<span class="material-symbols-outlined" style="font-size:20px;color:#16a34a;vertical-align:middle;margin-right:6px;">check_circle</span> Fingerprint Verified!';
         if (sub) sub.textContent = `Biometric scan matched (${quality}% quality)`;
 
         await processMarkAttendance(scanResult);
@@ -25034,7 +25144,7 @@ document.addEventListener("DOMContentLoaded", () => {
           const select = document.getElementById('fpPersonSelect');
           if (select && select.selectedIndex < select.options.length - 1) {
             select.selectedIndex += 1;
-            logFp(`⚡ Auto-advanced to next student: ${select.options[select.selectedIndex].text}`, 'info');
+            logFp(`Auto-advanced to next student: ${select.options[select.selectedIndex].text}`, 'info');
           }
         }
 
@@ -25051,7 +25161,7 @@ document.addEventListener("DOMContentLoaded", () => {
         pad.classList.remove('scanning');
         pad.classList.add('failed');
       }
-      if (title) title.textContent = "❌ Scan Failed";
+      if (title) title.innerHTML = '<span class="material-symbols-outlined" style="font-size:20px;color:#dc2626;vertical-align:middle;margin-right:6px;">cancel</span> Scan Failed';
       if (sub) sub.textContent = err.message || "Please clean sensor & try again";
       logFp(`Biometric error: ${err.message}`, 'error');
 

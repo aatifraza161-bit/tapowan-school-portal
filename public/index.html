@@ -74,7 +74,9 @@
 </head>
 <body>
   <div id="authOverlay" class="auth-overlay">
-    <button id="closeAuthBtn" class="auth-close-btn" title="Close" type="button">✕</button>
+    <button id="closeAuthBtn" class="auth-close-btn" title="Close" type="button" style="display:flex;align-items:center;justify-content:center;">
+      <span class="material-symbols-outlined" style="font-size:20px;">close</span>
+    </button>
     <div class="auth-dots"></div>
 
     <div class="auth-card">
@@ -301,14 +303,14 @@
               </select>
             <input type="search" id="searchInput" placeholder="Search records..." />
             <input type="file" id="importFile" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" class="hidden" />
-            <button id="importDataBtn" class="btn-action btn-import hidden">⬇️ Import Data</button>
-            <button id="smartGenerateBtn" class="btn-action btn-import hidden">⚡ Smart Generate</button>
+            <button id="importDataBtn" class="btn-action btn-import hidden"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px;">file_download</span> Import Data</button>
+            <button id="smartGenerateBtn" class="btn-action btn-import hidden"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px;">auto_awesome</span> Smart Generate</button>
             <button id="setPeriodTimingsBtn" class="btn-action hidden" onclick="if(window.openSetPeriodTimingsModal) window.openSetPeriodTimingsModal()" style="background:#eff6ff; color:#2563eb; border:1.5px solid #bfdbfe; font-weight:700;"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px;">schedule</span> Set Period Timings & School Hours</button>
-            <button id="freeTeachersBtn" class="btn-action btn-import hidden" onclick="if(window.openFreeTeachersModal) window.openFreeTeachersModal()">🏃‍♂️ Free Teachers</button>
-            <button id="exportCsvBtn" class="btn-action btn-csv">📊 Export CSV</button>
-            <button id="exportPdfBtn" class="btn-action btn-pdf">📄 Export PDF</button>
-            <button id="printDocBtn" class="btn-action btn-print">🖨️ Print Document</button>
-            <button id="print4in1Btn" class="btn-action btn-print hidden">🖨️ Print 4-in-1</button>
+            <button id="freeTeachersBtn" class="btn-action btn-import hidden" onclick="if(window.openFreeTeachersModal) window.openFreeTeachersModal()"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px;">person_search</span> Free Teachers</button>
+            <button id="exportCsvBtn" class="btn-action btn-csv"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px;">table_view</span> Export CSV</button>
+            <button id="exportPdfBtn" class="btn-action btn-pdf"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px;">picture_as_pdf</span> Export PDF</button>
+            <button id="printDocBtn" class="btn-action btn-print"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px;">print</span> Print Document</button>
+            <button id="print4in1Btn" class="btn-action btn-print hidden"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px;">grid_view</span> Print 4-in-1</button>
             <button id="appReleasesBtn" type="button" class="btn-action hidden" onclick="if(window.openAppReleaseControlModal) window.openAppReleaseControlModal()" style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;font-weight:700;"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px;">system_update</span> App Releases</button>
             <button id="liveOtaStreamBtn" type="button" class="btn-action hidden" onclick="if(window.openLiveOtaStreamPanel) window.openLiveOtaStreamPanel()" style="background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;font-weight:700;"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px;">cell_tower</span> Live Devices & Status</button>
             <button id="onlinePaymentsAccessControlBtn" type="button" class="btn-action hidden" onclick="if(window.openOnlinePaymentAccessControlModal) window.openOnlinePaymentAccessControlModal()" style="background:linear-gradient(135deg, #4f46e5, #7c3aed); color:#ffffff; border:none; font-weight:700; box-shadow:0 2px 6px rgba(79,70,229,0.3);"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px;">security</span> Access Control & WA Gateway</button>
@@ -336,7 +338,7 @@
           </div>
           <!-- Real-Time Hardware Status Badge -->
           <div id="biometricHwStatusPill" style="display:inline-flex; align-items:center; gap:6px; font-size:0.82rem; font-weight:600; padding:5px 14px; border-radius:20px; background:rgba(59, 130, 246, 0.15); color:#60a5fa; border:1px solid rgba(59, 130, 246, 0.3);">
-            <span id="biometricHwStatusDot">🔵</span>
+            <span id="biometricHwStatusDot" class="material-symbols-outlined" style="font-size:14px; color:#3b82f6;">fiber_manual_record</span>
             <span id="biometricHwStatusText">Ready for Biometric Attendance</span>
           </div>
         </div>
@@ -349,22 +351,22 @@
             <button id="startCameraBtn" class="dark">Start Camera</button>
             <button id="captureFaceBtn" class="dark">Capture Face</button>
             <button id="markFaceAttendanceBtn" class="dark">Mark Attendance</button>
-            <button id="syncAllStudentFacesBtn" class="dark" style="background:#059669;color:#fff;border:1px solid #10b981;font-weight:600;">⚡ Sync All Student Faces</button>
+            <button id="syncAllStudentFacesBtn" class="dark" style="background:#059669;color:#fff;border:1px solid #10b981;font-weight:600;display:inline-flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:16px;">sync</span>Sync All Student Faces</button>
             <button id="enrollFaceBtn" class="dark hidden">Enroll Face</button>
             <button id="enrollFaceFromPhotoBtn" class="dark hidden">Enroll from Profile Photo</button>
             <div style="display:flex;align-items:center;gap:6px;margin-right:6px;">
               <label style="font-size:0.85rem;color:#cbd5e1;">Camera:</label>
               <select id="cameraSourceSelect" style="padding:4px 8px;border-radius:6px;border:1px solid #475569;background:#1e293b;color:#e2e8f0;font-size:0.82rem;">
-                <option value="local">💻 Local</option>
-                <option value="ip">🌐 IP Camera</option>
+                <option value="local">Local</option>
+                <option value="ip">IP Camera</option>
               </select>
               <select id="localCameraDeviceSelect" style="display:none;padding:4px 8px;border-radius:6px;border:1px solid #3b82f6;background:#1e293b;color:#60a5fa;font-size:0.82rem;font-weight:600;max-width:240px;" title="Choose Webcam / OBS Virtual Camera">
-                <option value="">🎥 Select Camera...</option>
+                <option value="">Select Camera...</option>
               </select>
             </div>
             <!-- Kaggle / Colab GPU Server Badge -->
             <div id="colabGpuBadge" style="display:inline-flex; align-items:center; gap:6px; font-size:0.82rem; font-weight:600; padding:4px 12px; border-radius:20px; cursor:pointer; background:rgba(239, 68, 68, 0.15); color:#ef4444; border:1px solid rgba(239, 68, 68, 0.3); transition:all 0.2s;" title="Click to Connect Kaggle / Colab GPU Server">
-              🔴 <span>GPU AI Offline</span> <small style="text-decoration:underline; margin-left:4px; font-size:0.75rem;">Connect Kaggle</small>
+              <span class="material-symbols-outlined" style="font-size:14px;color:#ef4444;">cloud_off</span> <span>GPU AI Offline</span> <small style="text-decoration:underline; margin-left:4px; font-size:0.75rem;">Connect Kaggle</small>
             </div>
             <div id="ipCameraControls" style="display:none;align-items:center;gap:6px;margin-right:6px;">
               <input id="ipCameraUrl" type="text" placeholder="http://192.168.1.100:8080/video" style="padding:4px 8px;border-radius:6px;border:1px solid #475569;background:#1e293b;color:#e2e8f0;font-size:0.82rem;width:280px;" />
@@ -403,23 +405,23 @@
               </label>
               <label style="display:flex;align-items:center;gap:8px;margin-left:12px;background:rgba(34,197,94,0.15);padding:4px 12px;border-radius:8px;border:1px solid rgba(34,197,94,0.3);">
                 <input id="identifyStudentToggle" type="checkbox" />
-                <span style="font-size:0.9rem;color:#22c55e;font-weight:700;">🔍 Identify Student</span>
+                <span style="font-size:0.9rem;color:#22c55e;font-weight:700;display:inline-flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:18px;">person_search</span> Identify Student</span>
               </label>
               <label style="display:flex;align-items:center;gap:8px;margin-left:12px;background:rgba(239,68,68,0.15);padding:4px 12px;border-radius:8px;border:1px solid rgba(239,68,68,0.3);">
                 <input id="strangerVoiceToggle" type="checkbox" />
-                <span style="font-size:0.9rem;color:#ef4444;font-weight:700;">🗣 Stranger Voice AI</span>
+                <span style="font-size:0.9rem;color:#ef4444;font-weight:700;display:inline-flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:18px;">record_voice_over</span> Stranger Voice AI</span>
               </label>
               <label style="display:flex;align-items:center;gap:8px;margin-left:12px;background:rgba(59,130,246,0.15);padding:4px 12px;border-radius:8px;border:1px solid rgba(59,130,246,0.3);">
                 <input id="alwaysOnVoiceToggle" type="checkbox" />
-                <span style="font-size:0.9rem;color:#3b82f6;font-weight:700;">🎤 Voice AI Always On</span>
+                <span style="font-size:0.9rem;color:#3b82f6;font-weight:700;display:inline-flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:18px;">mic</span> Voice AI Always On</span>
               </label>
               <label style="display:flex;align-items:center;gap:8px;margin-left:12px;background:rgba(168,85,247,0.15);padding:4px 12px;border-radius:8px;border:1px solid rgba(168,85,247,0.3);">
                 <input id="bodyTrackToggle" type="checkbox" />
-                <span style="font-size:0.9rem;color:#a855f7;font-weight:700;">🦴 Body Track</span>
+                <span style="font-size:0.9rem;color:#a855f7;font-weight:700;display:inline-flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:18px;">accessibility_new</span> Body Track</span>
               </label>
               <label id="skeletonLinesLabel" style="display:none;align-items:center;gap:8px;margin-left:6px;background:rgba(6,182,212,0.15);padding:4px 12px;border-radius:8px;border:1px solid rgba(6,182,212,0.3);">
                 <input id="skeletonLinesToggle" type="checkbox" checked />
-                <span style="font-size:0.9rem;color:#06b6d4;font-weight:700;">🩻 Skeleton Lines</span>
+                <span style="font-size:0.9rem;color:#06b6d4;font-weight:700;display:inline-flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:18px;">timeline</span> Skeleton Lines</span>
               </label>
               <label style="display:flex;align-items:center;gap:8px;margin-left:6px;">
                 <input id="identifyAutoCloseToggle" type="checkbox" checked />
@@ -562,9 +564,9 @@
                 <div style="display:flex;align-items:center;gap:10px;">
                   <span style="font-size:0.85rem;font-weight:600;color:#cbd5e1;">Scanner Hardware:</span>
                   <select id="fpHardwareModeSelect" style="padding:6px 12px;border-radius:8px;border:1px solid #475569;background:#1e293b;color:#f8fafc;font-size:0.85rem;font-weight:600;">
-                    <option value="auto">⚡ Auto-Detect (RD Service / Device)</option>
-                    <option value="mantra">🔌 Mantra MFS100 / Morpho RD Service</option>
-                    <option value="webauthn">💻 Native Touch Sensor / Windows Hello</option>
+                    <option value="auto">Auto-Detect (RD Service / Device)</option>
+                    <option value="mantra">Mantra MFS100 / Morpho RD Service</option>
+                    <option value="webauthn">Native Touch Sensor / Windows Hello</option>
                   </select>
                 </div>
                 <div id="fpRdServiceStatus" style="font-size:0.8rem;color:#38bdf8;font-weight:600;">
@@ -590,7 +592,7 @@
                 <div class="field" style="grid-column: span 2;">
                   <label for="fpPersonSelect">Select Student / Staff Roster</label>
                   <div style="display:flex;gap:8px;margin-bottom:6px;">
-                    <input id="fpSearchInput" placeholder="🔍 Quick search student by name, roll no or admission no..." style="flex:1;" />
+                    <input id="fpSearchInput" placeholder="Quick search student by name, roll no or admission no..." style="flex:1;" />
                   </div>
                   <select id="fpPersonSelect" style="width:100%;"></select>
                 </div>
@@ -713,7 +715,9 @@
         <h3 id="studentProfileName">Student Name</h3>
         <p id="studentProfileSub">Class &amp; Roll</p>
       </div>
-      <button id="studentProfileCloseBtn" class="student-profile-close">✕ Close</button>
+      <button id="studentProfileCloseBtn" class="student-profile-close" style="display:inline-flex;align-items:center;gap:4px;">
+        <span class="material-symbols-outlined" style="font-size:16px;">close</span> Close
+      </button>
     </div>
     <div class="student-profile-tabs">
       <button class="student-profile-tab active" data-tab="profile">Profile</button>
@@ -732,7 +736,9 @@
         <h3>Print 4 Records on 1 A4</h3>
         <p>Select receipts/slips for each quadrant</p>
       </div>
-      <button id="print4in1CloseBtn" class="student-profile-close">✕ Close</button>
+      <button id="print4in1CloseBtn" class="student-profile-close" style="display:inline-flex;align-items:center;gap:4px;">
+        <span class="material-symbols-outlined" style="font-size:16px;">close</span> Close
+      </button>
     </div>
     <div class="student-profile-content print-grid-4">
       <div class="field">
@@ -771,13 +777,15 @@
       <!-- Header -->
       <div style="padding:18px 24px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg, #f8fafc, #eff6ff);border-top-left-radius:24px;border-top-right-radius:24px;">
         <div style="display:flex;align-items:center;gap:12px;">
-          <div style="width:42px;height:42px;border-radius:12px;background:#dbeafe;color:#2563eb;display:flex;align-items:center;justify-content:center;font-size:1.3rem;box-shadow:0 4px 10px rgba(37,99,235,0.15);">📱</div>
+          <div style="width:42px;height:42px;border-radius:12px;background:#dbeafe;color:#2563eb;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 10px rgba(37,99,235,0.15);"><span class="material-symbols-outlined" style="font-size:24px;">smartphone</span></div>
           <div>
             <h3 id="editMobileStudentModalTitle" style="font-size:1.15rem;font-weight:800;color:#0f172a;margin:0;">Edit Mobile App Student</h3>
             <p id="editMobileStudentModalSubtitle" style="font-size:0.75rem;color:#64748b;margin:2px 0 0 0;">Changes update Mobile App credentials & database immediately</p>
           </div>
         </div>
-        <button type="button" onclick="closeEditMobileStudentModal()" style="background:#f1f5f9;border:none;color:#64748b;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-size:1.1rem;cursor:pointer;line-height:1;transition:all 0.2s;">✕</button>
+        <button type="button" onclick="closeEditMobileStudentModal()" style="background:#f1f5f9;border:none;color:#64748b;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;cursor:pointer;line-height:1;transition:all 0.2s;">
+          <span class="material-symbols-outlined" style="font-size:18px;">close</span>
+        </button>
       </div>
 
       <!-- Form Content -->
@@ -792,7 +800,7 @@
             <div id="editMobileStudentPhotoPreview" style="width:74px;height:74px;border-radius:50%;background:#dbeafe;color:#2563eb;display:flex;align-items:center;justify-content:center;font-size:2rem;font-weight:800;border:3px solid #fff;box-shadow:0 6px 16px rgba(0,0,0,0.1);overflow:hidden;">
               S
             </div>
-            <label for="editMobileStudentPhotoInput" style="position:absolute;bottom:0px;right:0px;background:#2563eb;color:#fff;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.2);" title="Change Photo">📷</label>
+            <label for="editMobileStudentPhotoInput" style="position:absolute;bottom:0px;right:0px;background:#2563eb;color:#fff;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.2);" title="Change Photo"><span class="material-symbols-outlined" style="font-size:15px;">photo_camera</span></label>
             <input type="file" id="editMobileStudentPhotoInput" accept="image/*" style="display:none;" />
           </div>
           <div style="flex:1;">
@@ -860,7 +868,7 @@
         <div style="display:flex;justify-content:flex-end;gap:12px;margin-top:12px;padding-top:16px;border-top:1px solid #f1f5f9;">
           <button type="button" onclick="closeEditMobileStudentModal()" style="padding:11px 20px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;color:#64748b;font-weight:700;cursor:pointer;font-size:0.9rem;">Cancel</button>
           <button type="submit" id="saveMobileStudentBtn" style="padding:11px 26px;border:none;border-radius:12px;background:linear-gradient(135deg, #2563eb, #1d4ed8);color:#fff;font-weight:800;cursor:pointer;font-size:0.95rem;display:inline-flex;align-items:center;gap:8px;box-shadow:0 4px 14px rgba(37,99,235,0.35);">
-            💾 Save Changes & Sync App
+            <span class="material-symbols-outlined" style="font-size:18px;">sync_saved_locally</span> Save Changes & Sync App
           </button>
         </div>
       </form>
@@ -875,13 +883,15 @@
       <!-- Header -->
       <div style="padding:18px 24px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg, #f8fafc, #f0fdf4);border-top-left-radius:24px;border-top-right-radius:24px;">
         <div style="display:flex;align-items:center;gap:12px;">
-          <div style="width:42px;height:42px;border-radius:12px;background:#dcfce7;color:#16a34a;display:flex;align-items:center;justify-content:center;font-size:1.3rem;box-shadow:0 4px 10px rgba(22,163,74,0.15);">🔑</div>
+          <div style="width:42px;height:42px;border-radius:12px;background:#dcfce7;color:#16a34a;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 10px rgba(22,163,74,0.15);"><span class="material-symbols-outlined" style="font-size:24px;">key</span></div>
           <div>
             <h3 style="font-size:1.15rem;font-weight:800;color:#0f172a;margin:0;">Mobile App Edit Authority</h3>
             <p id="grantAppAuthStudentSub" style="font-size:0.78rem;color:#64748b;margin:2px 0 0 0;font-weight:600;">Student: —</p>
           </div>
         </div>
-        <button type="button" onclick="closeGrantAppAuthModal()" style="background:#f1f5f9;border:none;color:#64748b;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-size:1.1rem;cursor:pointer;line-height:1;">✕</button>
+        <button type="button" onclick="closeGrantAppAuthModal()" style="background:#f1f5f9;border:none;color:#64748b;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;cursor:pointer;line-height:1;">
+          <span class="material-symbols-outlined" style="font-size:18px;">close</span>
+        </button>
       </div>
 
       <!-- Content -->
@@ -907,7 +917,7 @@
           <label style="display:flex;align-items:center;gap:12px;background:#ffffff;padding:12px 14px;border-radius:12px;border:1.5px solid #e2e8f0;cursor:pointer;transition:all 0.15s;">
             <input type="checkbox" name="authField" value="fullName" style="width:18px;height:18px;accent-color:#16a34a;" />
             <div style="flex:1;">
-              <div style="font-weight:700;color:#0f172a;font-size:0.9rem;">👤 Full Name</div>
+              <div style="font-weight:700;color:#0f172a;font-size:0.9rem;display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:18px;color:#2563eb;">person</span> Full Name</div>
               <div style="font-size:0.72rem;color:#64748b;">Allow student to update their full name</div>
             </div>
           </label>
@@ -915,7 +925,7 @@
           <label style="display:flex;align-items:center;gap:12px;background:#ffffff;padding:12px 14px;border-radius:12px;border:1.5px solid #e2e8f0;cursor:pointer;transition:all 0.15s;">
             <input type="checkbox" name="authField" value="phone" style="width:18px;height:18px;accent-color:#16a34a;" />
             <div style="flex:1;">
-              <div style="font-weight:700;color:#0f172a;font-size:0.9rem;">📱 Mobile Phone Number</div>
+              <div style="font-weight:700;color:#0f172a;font-size:0.9rem;display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:18px;color:#2563eb;">smartphone</span> Mobile Phone Number</div>
               <div style="font-size:0.72rem;color:#64748b;">Allow student to update registered phone number</div>
             </div>
           </label>
@@ -923,7 +933,7 @@
           <label style="display:flex;align-items:center;gap:12px;background:#ffffff;padding:12px 14px;border-radius:12px;border:1.5px solid #e2e8f0;cursor:pointer;transition:all 0.15s;">
             <input type="checkbox" name="authField" value="appPassword" style="width:18px;height:18px;accent-color:#16a34a;" />
             <div style="flex:1;">
-              <div style="font-weight:700;color:#0f172a;font-size:0.9rem;">🔑 App Login Password</div>
+              <div style="font-weight:700;color:#0f172a;font-size:0.9rem;display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:18px;color:#2563eb;">lock</span> App Login Password</div>
               <div style="font-size:0.72rem;color:#64748b;">Allow student to change their mobile app login password</div>
             </div>
           </label>
@@ -931,7 +941,7 @@
           <label style="display:flex;align-items:center;gap:12px;background:#ffffff;padding:12px 14px;border-radius:12px;border:1.5px solid #e2e8f0;cursor:pointer;transition:all 0.15s;">
             <input type="checkbox" name="authField" value="parents" style="width:18px;height:18px;accent-color:#16a34a;" />
             <div style="flex:1;">
-              <div style="font-weight:700;color:#0f172a;font-size:0.9rem;">👨‍👩‍👧 Father's & Mother's Name</div>
+              <div style="font-weight:700;color:#0f172a;font-size:0.9rem;display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:18px;color:#2563eb;">family_restroom</span> Father's & Mother's Name</div>
               <div style="font-size:0.72rem;color:#64748b;">Allow student to update parents' names</div>
             </div>
           </label>
@@ -939,7 +949,7 @@
           <label style="display:flex;align-items:center;gap:12px;background:#ffffff;padding:12px 14px;border-radius:12px;border:1.5px solid #e2e8f0;cursor:pointer;transition:all 0.15s;">
             <input type="checkbox" name="authField" value="dob" style="width:18px;height:18px;accent-color:#16a34a;" />
             <div style="flex:1;">
-              <div style="font-weight:700;color:#0f172a;font-size:0.9rem;">🎂 Date of Birth</div>
+              <div style="font-weight:700;color:#0f172a;font-size:0.9rem;display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:18px;color:#2563eb;">cake</span> Date of Birth</div>
               <div style="font-size:0.72rem;color:#64748b;">Allow student to correct date of birth</div>
             </div>
           </label>
@@ -947,7 +957,7 @@
           <label style="display:flex;align-items:center;gap:12px;background:#ffffff;padding:12px 14px;border-radius:12px;border:1.5px solid #e2e8f0;cursor:pointer;transition:all 0.15s;">
             <input type="checkbox" name="authField" value="address" style="width:18px;height:18px;accent-color:#16a34a;" />
             <div style="flex:1;">
-              <div style="font-weight:700;color:#0f172a;font-size:0.9rem;">📍 Residential Address</div>
+              <div style="font-weight:700;color:#0f172a;font-size:0.9rem;display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:18px;color:#2563eb;">home_pin</span> Residential Address</div>
               <div style="font-size:0.72rem;color:#64748b;">Allow student to update address, village, district</div>
             </div>
           </label>
@@ -955,7 +965,7 @@
           <label style="display:flex;align-items:center;gap:12px;background:#ffffff;padding:12px 14px;border-radius:12px;border:1.5px solid #e2e8f0;cursor:pointer;transition:all 0.15s;">
             <input type="checkbox" name="authField" value="photo" style="width:18px;height:18px;accent-color:#16a34a;" />
             <div style="flex:1;">
-              <div style="font-weight:700;color:#0f172a;font-size:0.9rem;">📷 Upload Photo</div>
+              <div style="font-weight:700;color:#0f172a;font-size:0.9rem;display:flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:18px;color:#2563eb;">photo_camera</span> Upload Photo</div>
               <div style="font-size:0.72rem;color:#64748b;">Allow student to upload a new profile & face photo in app</div>
             </div>
           </label>
@@ -966,7 +976,7 @@
         <div style="display:flex;justify-content:flex-end;gap:12px;margin-top:12px;padding-top:16px;border-top:1px solid #f1f5f9;">
           <button type="button" onclick="closeGrantAppAuthModal()" style="padding:11px 20px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;color:#64748b;font-weight:700;cursor:pointer;font-size:0.9rem;">Cancel</button>
           <button type="submit" id="saveGrantAuthBtn" style="padding:11px 26px;border:none;border-radius:12px;background:linear-gradient(135deg, #16a34a, #15803d);color:#fff;font-weight:800;cursor:pointer;font-size:0.95rem;display:inline-flex;align-items:center;gap:8px;box-shadow:0 4px 14px rgba(22,163,74,0.35);">
-            💾 Save Permissions
+            <span class="material-symbols-outlined" style="font-size:18px;">save</span> Save Permissions
           </button>
         </div>
       </form>
@@ -977,7 +987,9 @@
 
   <!-- Image Viewer Modal (Lightbox) -->
   <div id="imageViewer" class="image-viewer-backdrop hidden" onclick="if(event.target===this) closeImageViewer()">
-    <button class="image-viewer-close" onclick="closeImageViewer()">✕</button>
+    <button class="image-viewer-close" onclick="closeImageViewer()" style="display:flex;align-items:center;justify-content:center;">
+      <span class="material-symbols-outlined" style="font-size:24px;">close</span>
+    </button>
     <div class="image-viewer-content">
       <img id="imageViewerImg" src="" alt="Preview">
       <div id="imageViewerTitle" style="text-align:center; margin-top:12px; font-weight:800; color:#1e293b; font-size:1rem;"></div>
@@ -1054,19 +1066,21 @@
             <p style="font-size:0.78rem;color:#64748b;margin:2px 0 0 0;font-weight:600;">Publish APK releases for in-app mobile updates</p>
           </div>
         </div>
-        <button type="button" onclick="closeAppReleaseControlModal()" style="background:#f1f5f9;border:none;color:#64748b;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-size:1.1rem;cursor:pointer;line-height:1;">✕</button>
+        <button type="button" onclick="closeAppReleaseControlModal()" style="background:#f1f5f9;border:none;color:#64748b;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;cursor:pointer;line-height:1;">
+          <span class="material-symbols-outlined" style="font-size:18px;">close</span>
+        </button>
       </div>
 
       <!-- Tab Switcher -->
       <div style="display:flex;border-bottom:1px solid #e2e8f0;background:#f8fafc;padding:6px 20px 0 20px;gap:8px;">
         <button type="button" id="tabBtnOta" onclick="switchReleaseTab('ota')" style="padding:10px 16px;border:none;background:transparent;border-bottom:2.5px solid #2563eb;font-weight:700;font-size:0.85rem;color:#2563eb;cursor:pointer;display:flex;align-items:center;gap:6px;">
-          <span class="material-symbols-outlined" style="font-size:18px;">bolt</span> 🚀 Over-The-Air (OTA) Updates
+          <span class="material-symbols-outlined" style="font-size:18px;">bolt</span> Over-The-Air (OTA) Updates
         </button>
         <button type="button" id="tabBtnApk" onclick="switchReleaseTab('apk')" style="padding:10px 16px;border:none;background:transparent;border-bottom:2.5px solid transparent;font-weight:700;font-size:0.85rem;color:#64748b;cursor:pointer;display:flex;align-items:center;gap:6px;">
-          <span class="material-symbols-outlined" style="font-size:18px;">android</span> 📦 Native APK Releases
+          <span class="material-symbols-outlined" style="font-size:18px;">android</span> Native APK Releases
         </button>
         <button type="button" id="tabBtnBranding" onclick="switchReleaseTab('branding')" style="padding:10px 16px;border:none;background:transparent;border-bottom:2.5px solid transparent;font-weight:700;font-size:0.85rem;color:#64748b;cursor:pointer;display:flex;align-items:center;gap:6px;">
-          <span class="material-symbols-outlined" style="font-size:18px;">palette</span> 🎨 Flipkart Dynamic Icon &amp; Privacy Mask
+          <span class="material-symbols-outlined" style="font-size:18px;">palette</span> Flipkart Dynamic Icon &amp; Privacy Mask
         </button>
       </div>
 
@@ -1099,7 +1113,7 @@
               <div style="font-size:0.75rem;font-weight:700;color:#64748b;text-transform:uppercase;">Current Active OTA Bundle</div>
               <div style="font-size:1.1rem;font-weight:800;color:#0f172a;margin-top:2px;" id="otaCurrentBundleVer">v2.4.59 (Code 199)</div>
             </div>
-            <span style="background:#dcfce7;color:#15803d;padding:4px 10px;border-radius:20px;font-size:0.75rem;font-weight:700;">🟢 Live on Vercel CDN</span>
+            <span style="background:#dcfce7;color:#15803d;padding:4px 10px;border-radius:20px;font-size:0.75rem;font-weight:700;display:inline-flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">check_circle</span> Live on Vercel CDN</span>
           </div>
           <div style="margin-top:8px;font-size:0.75rem;color:#64748b;font-family:monospace;word-break:break-all;" id="otaCurrentBundleUrl">https://tapowan-school.vercel.app/bundles/index.android.bundle</div>
         </div>
@@ -1111,10 +1125,10 @@
           <div>
             <label style="display:block;font-size:0.75rem;font-weight:800;color:#475569;margin-bottom:6px;text-transform:uppercase;">Target Destination</label>
             <select id="otaPushTargetType" onchange="toggleOtaTargetInput(this.value)" style="width:100%;padding:10px 12px;border:1.5px solid #cbd5e1;border-radius:10px;font-size:0.88rem;font-weight:700;background:#ffffff;">
-              <option value="all" selected>📢 Broadcast to ALL Registered Devices</option>
-              <option value="EMP-04">📱 Nicky Kumari (EMP-04)</option>
-              <option value="053/18">🎓 Shivam Modi (053/18)</option>
-              <option value="custom">🎯 Specific Admission No or Teacher ID...</option>
+              <option value="all" selected>Broadcast to ALL Registered Devices</option>
+              <option value="EMP-04">Nicky Kumari (EMP-04)</option>
+              <option value="053/18">Shivam Modi (053/18)</option>
+              <option value="custom">Specific Admission No or Teacher ID...</option>
             </select>
           </div>
 
@@ -1164,10 +1178,10 @@
         <div>
           <label style="display:block;font-size:0.75rem;font-weight:800;color:#475569;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Target Audience (Who should receive this update?)</label>
           <select id="releaseTargetAudience" onchange="toggleSpecificTargetInput(this.value)" style="width:100%;padding:10px 12px;border:1.5px solid #cbd5e1;border-radius:12px;font-size:0.9rem;color:#0f172a;font-weight:700;background:#ffffff;">
-            <option value="both" selected>🌟 Everyone (Both Teachers & Students)</option>
-            <option value="student">🎓 Students Only (Do not disturb Teachers)</option>
-            <option value="teacher">👨‍🏫 Teachers Only (Do not disturb Students)</option>
-            <option value="specific">🎯 Specific Single / Selected Users (e.g. 053/18, EMP-04)</option>
+            <option value="both" selected>Everyone (Both Teachers & Students)</option>
+            <option value="student">Students Only (Do not disturb Teachers)</option>
+            <option value="teacher">Teachers Only (Do not disturb Students)</option>
+            <option value="specific">Specific Single / Selected Users (e.g. 053/18, EMP-04)</option>
           </select>
         </div>
 
@@ -1202,7 +1216,7 @@
         <div style="background:#eff6ff;border:1.5px solid #93c5fd;border-radius:14px;padding:14px 16px;">
           <div style="display:flex;align-items:center;justify-content:space-between;">
             <div style="display:flex;align-items:center;gap:10px;">
-              <span style="font-size:1.6rem;">🏫</span>
+              <span class="material-symbols-outlined" style="font-size:28px;color:#1e40af;">school</span>
               <div>
                 <div style="font-weight:800;color:#1e40af;font-size:0.9rem;">Official School Identity: TPS (Active Across Whole App)</div>
                 <div style="font-size:0.78rem;color:#2563eb;margin-top:2px;">
@@ -1210,8 +1224,8 @@
                 </div>
               </div>
             </div>
-            <span style="background:#dbeafe;color:#1d4ed8;font-weight:800;font-size:0.75rem;padding:4px 10px;border-radius:20px;border:1px solid #93c5fd;">
-              🌟 OFFICIAL TPS
+            <span style="background:#dbeafe;color:#1d4ed8;font-weight:800;font-size:0.75rem;padding:4px 10px;border-radius:20px;border:1px solid #93c5fd;display:inline-flex;align-items:center;gap:4px;">
+              <span class="material-symbols-outlined" style="font-size:14px;">verified</span> OFFICIAL TPS
             </span>
           </div>
           <p style="margin:8px 0 0 0;font-size:0.74rem;color:#1e3a8a;line-height:1.4;">
@@ -1246,7 +1260,9 @@
             <!-- Settings Disguise -->
             <label style="border:2px solid #e2e8f0;border-radius:12px;padding:12px 8px;text-align:center;cursor:pointer;background:#f8fafc;transition:all 0.2s;display:flex;flex-direction:column;align-items:center;gap:6px;" id="lblIconSettings">
               <input type="radio" name="brandingIconChoice" value="settings" style="display:none;" onchange="window.selectBrandingIcon('settings')" />
-              <div style="width:36px;height:36px;border-radius:50%;background:#e2e8f0;display:grid;place-items:center;font-size:1.3rem;">⚙️</div>
+              <div style="width:36px;height:36px;border-radius:50%;background:#e2e8f0;display:grid;place-items:center;color:#334155;">
+                <span class="material-symbols-outlined" style="font-size:20px;">settings</span>
+              </div>
               <span style="font-size:0.78rem;font-weight:800;color:#334155;">Settings</span>
               <span style="font-size:0.68rem;color:#64748b;">Gear Disguise</span>
             </label>
@@ -1254,7 +1270,9 @@
             <!-- Flipkart Disguise -->
             <label style="border:2px solid #e2e8f0;border-radius:12px;padding:12px 8px;text-align:center;cursor:pointer;background:#f8fafc;transition:all 0.2s;display:flex;flex-direction:column;align-items:center;gap:6px;" id="lblIconFlipkart">
               <input type="radio" name="brandingIconChoice" value="flipkart" style="display:none;" onchange="window.selectBrandingIcon('flipkart')" />
-              <div style="width:36px;height:36px;border-radius:50%;background:#2874F0;display:grid;place-items:center;font-size:1.2rem;color:#FFE500;">🛍️</div>
+              <div style="width:36px;height:36px;border-radius:50%;background:#2874F0;display:grid;place-items:center;color:#FFE500;">
+                <span class="material-symbols-outlined" style="font-size:20px;">shopping_bag</span>
+              </div>
               <span style="font-size:0.78rem;font-weight:800;color:#1e3a8a;">Flipkart</span>
               <span style="font-size:0.68rem;color:#64748b;">Shopping Bag</span>
             </label>
@@ -1262,7 +1280,9 @@
             <!-- Calculator Disguise -->
             <label style="border:2px solid #e2e8f0;border-radius:12px;padding:12px 8px;text-align:center;cursor:pointer;background:#f8fafc;transition:all 0.2s;display:flex;flex-direction:column;align-items:center;gap:6px;" id="lblIconCalculator">
               <input type="radio" name="brandingIconChoice" value="calculator" style="display:none;" onchange="window.selectBrandingIcon('calculator')" />
-              <div style="width:36px;height:36px;border-radius:50%;background:#1e293b;display:grid;place-items:center;font-size:1.2rem;color:#38bdf8;">🔢</div>
+              <div style="width:36px;height:36px;border-radius:50%;background:#1e293b;display:grid;place-items:center;color:#38bdf8;">
+                <span class="material-symbols-outlined" style="font-size:20px;">calculate</span>
+              </div>
               <span style="font-size:0.78rem;font-weight:800;color:#0f172a;">Calculator</span>
               <span style="font-size:0.68rem;color:#64748b;">Utility App</span>
             </label>
@@ -1271,7 +1291,7 @@
           <!-- Broadcast Button -->
           <div style="display:flex;gap:10px;align-items:center;margin-top:6px;">
             <button type="button" id="broadcastAppIconBtn" onclick="window.broadcastAppIconChangeFromWeb()" style="padding:10px 20px;border-radius:10px;border:none;background:linear-gradient(135deg, #2563eb, #1d4ed8);color:#ffffff;font-weight:800;font-size:0.88rem;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(37,99,235,0.3);">
-              <span class="material-symbols-outlined" style="font-size:18px;">sync</span> 🚀 Sync App Icon to All Devices Now
+              <span class="material-symbols-outlined" style="font-size:18px;">sync</span> Sync App Icon to All Devices Now
             </button>
             <span id="broadcastAppIconStatus" style="font-size:0.8rem;font-weight:600;color:#64748b;"></span>
           </div>
@@ -1279,7 +1299,9 @@
 
         <!-- In-App Custom Logo URL -->
         <div style="background:#f8fafc;border:1.5px solid #cbd5e1;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px;">
-          <div style="font-weight:800;color:#0f172a;font-size:0.88rem;">🌐 In-App &amp; Web Portal School Logo URL</div>
+          <div style="font-weight:800;color:#0f172a;font-size:0.88rem;display:flex;align-items:center;gap:6px;">
+            <span class="material-symbols-outlined" style="font-size:18px;color:#2563eb;">language</span> In-App &amp; Web Portal School Logo URL
+          </div>
           <div style="font-size:0.75rem;color:#64748b;">
             Updates the school logo header/login screen inside the mobile app and web portal dynamically.
           </div>
@@ -1300,19 +1322,21 @@
     <div style="background:#1e293b;border:1px solid #334155;border-radius:16px;max-width:680px;width:95%;padding:24px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);color:#e2e8f0;max-height:90vh;overflow-y:auto;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;border-bottom:1px solid #334155;padding-bottom:12px;">
         <div style="display:flex;align-items:center;gap:10px;">
-          <span style="font-size:1.6rem;">⚡</span>
+          <span class="material-symbols-outlined" style="font-size:26px;color:#f59e0b;">bolt</span>
           <div>
             <h3 style="margin:0;font-size:1.25rem;color:#f8fafc;font-weight:700;">InsightFace GPU AI Server</h3>
             <p style="margin:2px 0 0;font-size:0.82rem;color:#94a3b8;">High-speed 512-D ArcFace on Free Cloud GPU (Kaggle / Colab)</p>
           </div>
         </div>
-        <button id="closeGpuServerModalBtn" type="button" style="background:transparent;border:none;color:#94a3b8;font-size:1.5rem;cursor:pointer;padding:4px 8px;line-height:1;">&times;</button>
+        <button id="closeGpuServerModalBtn" type="button" style="background:transparent;border:none;color:#94a3b8;cursor:pointer;padding:4px 8px;display:flex;align-items:center;justify-content:center;">
+          <span class="material-symbols-outlined" style="font-size:20px;">close</span>
+        </button>
       </div>
 
       <!-- Status Banner -->
       <div id="gpuModalStatusBanner" style="padding:12px 16px;border-radius:10px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:#ef4444;">
         <div style="display:flex;align-items:center;gap:8px;">
-          <span id="gpuModalStatusDot" style="font-size:1rem;">🔴</span>
+          <span id="gpuModalStatusDot" style="display:inline-flex;align-items:center;"><span class="material-symbols-outlined" style="font-size:16px;color:#ef4444;">fiber_manual_record</span></span>
           <span id="gpuModalStatusText" style="font-size:0.9rem;font-weight:600;">Server Offline</span>
         </div>
         <span id="gpuModalCurrentUrl" style="font-size:0.75rem;color:#94a3b8;font-family:monospace;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
@@ -1320,7 +1344,9 @@
 
       <!-- Enter Custom / Live Tunnel URL -->
       <div style="background:#0f172a;padding:16px;border-radius:12px;margin-bottom:20px;border:1px solid #334155;">
-        <label style="display:block;font-size:0.85rem;font-weight:600;margin-bottom:6px;color:#cbd5e1;">🔗 Enter Live Cloudflare Tunnel URL:</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;font-weight:600;margin-bottom:6px;color:#cbd5e1;">
+          <span class="material-symbols-outlined" style="font-size:16px;color:#38bdf8;">link</span> Enter Live Cloudflare Tunnel URL:
+        </label>
         <div style="display:flex;gap:8px;">
           <input id="gpuServerUrlInput" type="text" placeholder="https://xxxx-xxxx.trycloudflare.com" style="flex:1;padding:8px 12px;border-radius:8px;border:1px solid #475569;background:#1e293b;color:#f8fafc;font-family:monospace;font-size:0.85rem;" />
           <button id="gpuServerSaveBtn" type="button" style="background:#2563eb;color:#fff;border:none;padding:8px 18px;border-radius:8px;font-weight:600;cursor:pointer;font-size:0.85rem;white-space:nowrap;">Connect</button>
@@ -1330,14 +1356,20 @@
 
       <!-- Tabs / Options: Kaggle vs Colab -->
       <div style="display:flex;gap:8px;margin-bottom:16px;border-bottom:1px solid #334155;padding-bottom:8px;">
-        <button id="tabKaggleBtn" type="button" style="background:#0284c7;color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:0.85rem;font-weight:700;cursor:pointer;">🚀 Kaggle GPU (Recommended)</button>
-        <button id="tabColabBtn" type="button" style="background:#334155;color:#94a3b8;border:none;padding:6px 14px;border-radius:6px;font-size:0.85rem;font-weight:600;cursor:pointer;">📓 Google Colab</button>
+        <button id="tabKaggleBtn" type="button" style="background:#0284c7;color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:0.85rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+          <span class="material-symbols-outlined" style="font-size:16px;">speed</span> Kaggle GPU (Recommended)
+        </button>
+        <button id="tabColabBtn" type="button" style="background:#334155;color:#94a3b8;border:none;padding:6px 14px;border-radius:6px;font-size:0.85rem;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+          <span class="material-symbols-outlined" style="font-size:16px;">code</span> Google Colab
+        </button>
       </div>
 
       <!-- Kaggle Guide Container -->
       <div id="kaggleGuideContainer" style="font-size:0.85rem;line-height:1.5;">
         <div style="background:rgba(2,132,199,0.1);border:1px solid rgba(2,132,199,0.3);padding:12px;border-radius:10px;margin-bottom:12px;">
-          <div style="font-weight:700;color:#38bdf8;margin-bottom:4px;">🌟 Why Kaggle?</div>
+          <div style="font-weight:700;color:#38bdf8;margin-bottom:4px;display:flex;align-items:center;gap:5px;">
+            <span class="material-symbols-outlined" style="font-size:16px;">star</span> Why Kaggle?
+          </div>
           <div style="color:#cbd5e1;">Kaggle gives <strong>30 Hours/Week of FREE NVIDIA Tesla T4 GPU</strong> that never disconnects randomly during attendance!</div>
         </div>
 
@@ -1357,7 +1389,9 @@
         <div style="margin-bottom:12px;">
           <strong>Step 3:</strong> Paste this Python code into the notebook cell and click ▶ <strong>Run</strong>:
           <div style="margin-top:6px;display:flex;justify-content:flex-end;">
-            <button id="copyKaggleCodeBtn" type="button" style="background:#0284c7;color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:0.82rem;font-weight:700;cursor:pointer;">📋 Copy Kaggle Python Code</button>
+            <button id="copyKaggleCodeBtn" type="button" style="background:#0284c7;color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:0.82rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:5px;">
+              <span class="material-symbols-outlined" style="font-size:16px;">content_copy</span> Copy Kaggle Python Code
+            </button>
           </div>
         </div>
       </div>
@@ -1374,7 +1408,9 @@
         <div style="margin-bottom:12px;">
           <strong>Step 3:</strong> Paste the script and click <strong>Run</strong>.
           <div style="margin-top:6px;display:flex;justify-content:flex-end;">
-            <button id="copyColabCodeBtn" type="button" style="background:#d97706;color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:0.82rem;font-weight:700;cursor:pointer;">📋 Copy Colab Python Code</button>
+            <button id="copyColabCodeBtn" type="button" style="background:#d97706;color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:0.82rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:5px;">
+              <span class="material-symbols-outlined" style="font-size:16px;">content_copy</span> Copy Colab Python Code
+            </button>
           </div>
         </div>
       </div>
