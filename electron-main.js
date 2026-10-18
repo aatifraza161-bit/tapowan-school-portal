@@ -188,7 +188,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1366,
     height: 768,
-    title: "Tapowan Public School System",
+    title: "EduCore - School Management System",
     icon: path.join(__dirname, 'public', 'icon.ico'),
     autoHideMenuBar: true,
     webPreferences: {
