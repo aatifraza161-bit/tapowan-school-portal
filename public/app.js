@@ -335,6 +335,144 @@ window.formatTermString = function(val) {
 
   return '26-27';
 };
+
+// Safe attribute escaping with literal &#10; entity for multi-line browser tooltips
+window.safeEscapeAttr = function(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;")
+    .replace(/\n/g, "&#10;");
+};
+
+// Build comprehensive full breakdown tooltip when cursor hovers on Term or Particulars
+window.buildTermBreakdownTooltip = function(item, key, val) {
+  if (!item) return String(val || "");
+  const mod = typeof currentModule !== "undefined" ? currentModule : "";
+
+  if (mod === "fees" || key === "term") {
+    const lines = [];
+    const session = window.formatTermString ? window.formatTermString(item.term || val) : (item.term || val || "26-27");
+
+    lines.push(`📋 FEE BREAKDOWN (${session})`);
+    lines.push(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+
+    if (item.studentName) {
+      let stLine = `Student: ${item.studentName}`;
+      if (item.className) stLine += ` | Class: ${item.className}`;
+      if (item.rollNo) stLine += ` (Roll: ${item.rollNo})`;
+      lines.push(stLine);
+    }
+    if (item.admissionNo) {
+      lines.push(`Admission No: ${item.admissionNo}`);
+    }
+
+    if (item.month) {
+      lines.push(`Month(s): ${item.month}`);
+    }
+
+    const feeItems = [];
+    const FEE_FIELDS = [
+      { key: "tuitionFee", label: "Tuition Fee" },
+      { key: "lateFee", label: "Late Fee" },
+      { key: "transportFee", label: "Transport Fee" },
+      { key: "admissionFee", label: "Admission Fee" },
+      { key: "admissionFormFee", label: "Admission Form Fee" },
+      { key: "computerFee", label: "Computer Fee" },
+      { key: "developmentFee", label: "Development Fee" },
+      { key: "labFee", label: "Lab Fee" },
+      { key: "sportsFee", label: "Sports Fee" },
+      { key: "libraryFee", label: "Library Fee" },
+      { key: "examFee", label: "Exam Fee" },
+      { key: "otherFee", label: "Other Fee" }
+    ];
+
+    FEE_FIELDS.forEach(({ key: fKey, label }) => {
+      const amt = parseFloat(item[fKey]) || 0;
+      if (amt > 0) {
+        const isMonthly = (fKey === "tuitionFee" || fKey === "lateFee");
+        const mSfx = (item.month && isMonthly) ? ` (${item.month})` : "";
+        feeItems.push(`  • ${label}${mSfx}: ₹${amt.toLocaleString("en-IN")}`);
+      }
+    });
+
+    // Books & Dress items
+    try {
+      const bdIds = JSON.parse(item.selectedBookIds || "[]");
+      const store = (typeof getStore === "function") ? getStore() : {};
+      const allItems = (store.booksAndDress || []);
+      if (bdIds.length && allItems.length) {
+        allItems.filter(b => bdIds.includes(b.id) || bdIds.includes(String(b.id))).forEach(b => {
+          const p = parseFloat(b.price) || 0;
+          feeItems.push(`  • [${b.itemType || 'Item'}] ${b.itemName}: ₹${p.toLocaleString("en-IN")}`);
+        });
+      }
+    } catch (_) {}
+
+    // Dues particulars
+    const dueAmt = parseFloat(item.dueMgmtAmount) || 0;
+    if (dueAmt > 0 || item.dueMgmtParticulars) {
+      const dueP = item.dueMgmtParticulars || "Previous Dues";
+      feeItems.push(`  • Dues (${dueP}): ₹${dueAmt > 0 ? dueAmt.toLocaleString("en-IN") : ''}`);
+    }
+
+    if (feeItems.length === 0) {
+      const rawText = item.feeTypes || item.dueMgmtParticulars || (item.term !== session ? item.term : "") || "";
+      if (rawText) {
+        feeItems.push(`  • Particulars: ${rawText}`);
+      }
+    }
+
+    if (feeItems.length > 0) {
+      lines.push("");
+      lines.push("Fee Components:");
+      lines.push(...feeItems);
+    }
+
+    lines.push(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    const tot = parseFloat(item.totalFee) || 0;
+    const paid = parseFloat(item.paidAmount) || 0;
+    const bal = parseFloat(item.balance) || 0;
+    lines.push(`Total Fee: ₹${tot.toLocaleString("en-IN")}`);
+    lines.push(`Paid: ₹${paid.toLocaleString("en-IN")} | Balance: ₹${bal.toLocaleString("en-IN")}`);
+    lines.push(`Status: ${(item.status || "Paid").toUpperCase()}`);
+    if (item.paymentDate) {
+      lines.push(`Pay Date: ${item.paymentDate} (${item.paymentMethod || "Cash"})`);
+    }
+    if (item.payId) {
+      lines.push(`Receipt No: ${item.payId}`);
+    }
+    return lines.join("\n");
+  }
+
+  if (mod === "dueManagement" || key === "particulars") {
+    const lines = [];
+    lines.push(`📋 DUE RECORD`);
+    lines.push(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    if (item.studentName) {
+      let stLine = `Student: ${item.studentName}`;
+      if (item.className) stLine += ` | Class: ${item.className}`;
+      if (item.rollNo) stLine += ` (Roll: ${item.rollNo})`;
+      lines.push(stLine);
+    }
+    if (item.admissionNo) lines.push(`Admission No: ${item.admissionNo}`);
+    if (item.session) lines.push(`Session: ${item.session}`);
+    if (item.month) lines.push(`Month: ${item.month}`);
+    if (item.particulars) lines.push(`Particulars: ${item.particulars}`);
+    lines.push(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    const due = parseFloat(item.dueAmount) || 0;
+    const paid = parseFloat(item.paidAmount) || 0;
+    const bal = parseFloat(item.balance) || 0;
+    lines.push(`Due: ₹${due.toLocaleString("en-IN")} | Paid: ₹${paid.toLocaleString("en-IN")}`);
+    lines.push(`Balance: ₹${bal.toLocaleString("en-IN")} (${(item.status || "Pending").toUpperCase()})`);
+    if (item.remarks) lines.push(`Remarks: ${item.remarks}`);
+    return lines.join("\n");
+  }
+
+  return String(val || "");
+};
 // ─── ROLE PERMISSION HELPERS ───────────────────────────────────────
 const ROLE_LEVEL = {
   super_admin: 5,
@@ -3200,7 +3338,9 @@ function renderTable() {
       if (key === "term" || key === "particulars") {
         const rawVal = val;
         const formatted = window.formatTermString ? window.formatTermString(val) : val;
-        return `<td style="color:#0f172a; font-weight:600; min-width:140px; max-width:280px; white-space:normal; line-height:1.35; font-size:12px;" title="${escapeHtml(String(rawVal || ''))}">${escapeHtml(String(formatted || '-'))}</td>`;
+        const tooltip = window.buildTermBreakdownTooltip ? window.buildTermBreakdownTooltip(item, key, val) : String(rawVal || '');
+        const escapedTooltip = window.safeEscapeAttr ? window.safeEscapeAttr(tooltip) : escapeHtml(tooltip);
+        return `<td style="color:#0f172a; font-weight:600; min-width:140px; max-width:280px; white-space:normal; line-height:1.35; font-size:12px; cursor:help;" title="${escapedTooltip}"><span style="border-bottom:1.5px dotted #94a3b8; display:inline-block; cursor:help;" title="${escapedTooltip}">${escapeHtml(String(formatted || '-'))}</span></td>`;
       }
       
       // Resolve student name from ID for Weekly Evaluation
@@ -4701,7 +4841,7 @@ function printStudentReport(student) {
         }
         return `
         <div class="box">
-          <h2>Term: ${window.formatTermString(f.term) || ""} — RCP-${f.id}</h2>
+          <h2>Term: <span style="cursor:help;border-bottom:1.5px dotted #94a3b8;" title="${window.safeEscapeAttr ? window.safeEscapeAttr(window.buildTermBreakdownTooltip(f, 'term', f.term)) : ''}">${window.formatTermString(f.term) || ""}</span> — RCP-${f.id}</h2>
           ${feeDetails || '<div class="row" style="color:#94a3b8;">No fee breakdown recorded.</div>'}
           <div class="row" style="margin-top:6px;font-weight:700;"><b>Total Fee:</b> ₹${(parseFloat(f.totalFee)||0).toLocaleString("en-IN")}</div>
           <div class="row"><b>Amount Paid:</b> ₹${(parseFloat(f.paidAmount)||0).toLocaleString("en-IN")}</div>
@@ -9343,7 +9483,7 @@ function printDocumentByModule() {
         <h2 style="color:#1e3a8a;margin-bottom:8px;">Fee Receipt &mdash; ${f.payId ? 'PayID: ' + f.payId : 'RCP-' + f.id}</h2>
         <div class="row"><strong>Student:</strong> ${f.studentName || "-"} &nbsp;|&nbsp; <strong>Father:</strong> ${f.fatherName || "-"}</div>
         <div class="row"><strong>Class:</strong> ${f.className || "-"} &nbsp;|&nbsp; <strong>Roll No:</strong> ${f.rollNo || "-"}</div>
-        <div class="row"><strong>Term:</strong> ${window.formatTermString(f.term) || "-"} &nbsp;|&nbsp; <strong>Payment Date:</strong> ${f.paymentDate || "-"}</div>
+        <div class="row"><strong>Term:</strong> <span style="cursor:help;border-bottom:1px dotted #94a3b8;" title="${window.safeEscapeAttr ? window.safeEscapeAttr(window.buildTermBreakdownTooltip(f, 'term', f.term)) : ''}">${window.formatTermString(f.term) || "-"}</span> &nbsp;|&nbsp; <strong>Payment Date:</strong> ${f.paymentDate || "-"}</div>
         <div style="margin:8px 0;padding:8px;background:#f0f4ff;border-radius:6px;border-left:3px solid #1e3a8a;">
           <div style="font-weight:700;color:#1e3a8a;margin-bottom:4px;font-size:0.85em;"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px;">receipt_long</span> Fee Breakdown:</div>
           ${feeDetails || '<div class="row" style="color:#94a3b8;">No fee breakdown recorded.</div>'}
@@ -17695,7 +17835,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
         <!-- Slip Meta -->
         <div style="display:flex;justify-content:space-between;padding:3px 10px;background:#eef2ff;border-bottom:1px solid #c7d2fe;font-size:9px;color:#1e3a8a;">
           <span><strong>Slip No:</strong> ${slipNo}</span>
-          <span><strong>Term:</strong> ${window.formatTermString(f.term) || "-"}</span>
+          <span><strong>Term:</strong> <span style="cursor:help;border-bottom:1px dotted #94a3b8;" title="${window.safeEscapeAttr ? window.safeEscapeAttr(window.buildTermBreakdownTooltip(f, 'term', f.term)) : ''}">${window.formatTermString(f.term) || "-"}</span></span>
           <span><strong>Month(s):</strong> ${f.month || "-"}</span>
           <span><strong>Date:</strong> ${printDate}</span>
         </div>
@@ -17719,7 +17859,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
               <td style="color:#6b7280;padding:3px 0;">Roll No.</td>
               <td style="font-weight:600;padding:3px 0;border-bottom:1px dotted #d1d5db;width:40%;">${f.rollNo || "-"}</td>
               <td style="color:#6b7280;padding:3px 0 3px 6px;">Term</td>
-              <td style="font-weight:600;padding:3px 0;border-bottom:1px dotted #d1d5db;">${window.formatTermString(f.term) || "-"}</td>
+              <td style="font-weight:600;padding:3px 0;border-bottom:1px dotted #d1d5db;cursor:help;" title="${window.safeEscapeAttr ? window.safeEscapeAttr(window.buildTermBreakdownTooltip(f, 'term', f.term)) : ''}">${window.formatTermString(f.term) || "-"}</td>
             </tr>
             <tr>
               <td style="color:#6b7280;padding:3px 0;">Pay Date</td>
