@@ -31,13 +31,37 @@
           'turn:172.237.33.131:80',
           'turn:172.237.33.131:80?transport=tcp',
           'turn:172.237.33.131:443',
-          'turn:172.237.33.131:443?transport=tcp'
+          'turn:172.237.33.131:443?transport=tcp',
+          'turn:45.79.127.179:80',
+          'turn:45.79.127.179:80?transport=tcp',
+          'turn:45.79.127.179:443',
+          'turn:45.79.127.179:443?transport=tcp'
         ],
         username: 'df50426e5dfce9fa2ceb4146',
         credential: 'J8bvaMKOvira9QLL'
       }
     ],
     iceCandidatePoolSize: 10
+  };
+
+  function getOnlineClassesApiBase() {
+    if (typeof API_BASE_URL !== 'undefined' && API_BASE_URL) {
+      return API_BASE_URL;
+    }
+    if (typeof window !== 'undefined' && window.location && window.location.hostname && window.location.hostname.includes("pages.dev")) {
+      return "https://tapowan-school.vercel.app";
+    }
+    return "";
+  }
+
+  const _nativeFetch = (typeof window !== 'undefined' && window.fetch) ? window.fetch.bind(window) : fetch;
+  const fetch = function (url, opts) {
+    const base = getOnlineClassesApiBase();
+    let finalUrl = url;
+    if (typeof url === 'string' && url.startsWith('/api') && base) {
+      finalUrl = base + url;
+    }
+    return _nativeFetch(finalUrl, opts);
   };
 
   const QUALITY_PROFILES = {
@@ -3366,7 +3390,7 @@
 
                   <div>
                     <label style="font-size: 13px; font-weight: 700; color: #cbd5e1; display: block; margin-bottom: 6px;">WebRTC VoIP Signaling Server</label>
-                    <input type="text" readonly value="https://tapowan-whatsapp-gateway.onrender.com/api" style="background: #27272a; border: 1px solid #3f3f46; color: #a1a1aa; padding: 8px 12px; border-radius: 8px; width: 100%; max-width: 480px;" />
+                    <input type="text" readonly value="https://tapowan-app.vercel.app/api" style="background: #27272a; border: 1px solid #3f3f46; color: #a1a1aa; padding: 8px 12px; border-radius: 8px; width: 100%; max-width: 480px;" />
                   </div>
 
                   <div style="padding-top: 12px; border-top: 1px solid #27272a;">

@@ -22038,7 +22038,11 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
                     'turn:172.237.33.131:80',
                     'turn:172.237.33.131:80?transport=tcp',
                     'turn:172.237.33.131:443',
-                    'turn:172.237.33.131:443?transport=tcp'
+                    'turn:172.237.33.131:443?transport=tcp',
+                    'turn:45.79.127.179:80',
+                    'turn:45.79.127.179:80?transport=tcp',
+                    'turn:45.79.127.179:443',
+                    'turn:45.79.127.179:443?transport=tcp'
                   ],
                   username: 'df50426e5dfce9fa2ceb4146',
                   credential: 'J8bvaMKOvira9QLL'
