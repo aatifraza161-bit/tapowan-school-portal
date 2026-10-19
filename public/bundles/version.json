@@ -1,7 +1,7 @@
 {
   "bundleVersion": "3.3.9",
   "bundleVersionCode": 358,
-  "bundleUrl": "https://tapowan-school.vercel.app/bundles/index.android.bundle",
+  "bundleUrl": "https://master.tapowan-school.pages.dev/bundles/index.android.bundle",
   "bundleSize": 6274397,
   "releaseNotes": "Fix persistent update banner on Teacher Home Screen and resolve OTA bundle version check condition.",
   "updatedAt": "2026-10-19T15:55:00.000Z",
