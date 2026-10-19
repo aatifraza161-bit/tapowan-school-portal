@@ -3652,8 +3652,15 @@ app.put("/api/modules/:moduleName/:id", authRequired, async (req, res) => {
       }
     }
 
-    const row = await update(moduleName, id, req.body || {});
-    if (!row) return res.status(404).json({ error: "Record not found" });
+    let row = await update(moduleName, id, req.body || {});
+    if (!row) {
+      if (moduleName === "fees" && req.body && (req.body.admissionNo || req.body.studentName)) {
+        console.warn(`[PUT Fallback] Fee record ${id} not found in database, automatically saving as new fee record...`);
+        row = await insert(moduleName, req.body);
+      } else {
+        return res.status(404).json({ error: "Record not found" });
+      }
+    }
 
     // Cascading rename for subjects: if subject name was changed, cascade to app_exam_marks and exams
     if (moduleName === "subjects" && existingSubject?.subjectName && req.body?.subjectName) {

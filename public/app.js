@@ -2106,6 +2106,11 @@ function destroyFormTomSelects() {
 
 function openFormPanel() {
   isFormOpen = true;
+  editRecordId = null;
+  editStudentId = null;
+  if (refs.dynamicForm) {
+    refs.dynamicForm.reset();
+  }
   renderForm(true);
   if (refs.formPanel) {
     refs.formPanel.style.display = "";
@@ -4323,15 +4328,19 @@ function startEditStudentById(studentId) {
 }
 
 function startGenericEditById(moduleName, recordId) {
+  const store = getStore();
+  const records = store[moduleName] || [];
+  const record = records.find(r => Number(r.id) === Number(recordId));
+  if (!record) {
+    console.warn(`[Edit] Record ${recordId} not found in store for module ${moduleName}`);
+    editRecordId = null;
+    return;
+  }
   editRecordId = Number(recordId);
   isFormOpen = true;
   currentModule = moduleName;
   refs.searchInput.value = "";
   renderAll();
-  const store = getStore();
-  const records = store[moduleName] || [];
-  const record = records.find(r => Number(r.id) === Number(recordId));
-  if (!record) return;
   if (refs.dynamicForm) {
     // Wait a tick so TomSelect instances are initialized before we prefill
     setTimeout(() => {
@@ -11736,10 +11745,21 @@ refs.dynamicForm.addEventListener("submit", async (e) => {
             payload.tuitionFee = String((parseFloat(payload.tuitionFee)||0) + appliedDueMgmtAmount);
         }
       }
-      if (editRecordId != null) {
-        await api(`/api/modules/${currentModule}/${editRecordId}`, { method: "PUT", body: JSON.stringify(payload) });
-        editRecordId = null;
+      if (editRecordId != null && Number(editRecordId) > 0) {
+        try {
+          await api(`/api/modules/${currentModule}/${editRecordId}`, { method: "PUT", body: JSON.stringify(payload) });
+          editRecordId = null;
+        } catch (updateErr) {
+          if (String(updateErr.message || "").toLowerCase().includes("not found")) {
+            console.warn(`[Auto-Recovery] Record ID ${editRecordId} not found, automatically saving as new fee record instead...`);
+            editRecordId = null;
+            await addRecord(currentModule, payload);
+          } else {
+            throw updateErr;
+          }
+        }
       } else {
+        editRecordId = null;
         await addRecord(currentModule, payload);
       }
     } else if (currentModule === "dueManagement") {
@@ -11782,10 +11802,21 @@ refs.dynamicForm.addEventListener("submit", async (e) => {
     } else if (isEditingStudent) {
       await api(`/api/modules/students/${editStudentId}`, { method: "PUT", body: JSON.stringify(payload) });
       editStudentId = null;
-    } else if (editRecordId != null) {
-      await api(`/api/modules/${currentModule}/${editRecordId}`, { method: "PUT", body: JSON.stringify(payload) });
-      editRecordId = null;
+    } else if (editRecordId != null && Number(editRecordId) > 0) {
+      try {
+        await api(`/api/modules/${currentModule}/${editRecordId}`, { method: "PUT", body: JSON.stringify(payload) });
+        editRecordId = null;
+      } catch (updateErr) {
+        if (String(updateErr.message || "").toLowerCase().includes("not found")) {
+          console.warn(`[Auto-Recovery] Record ID ${editRecordId} not found, automatically saving as new record instead...`);
+          editRecordId = null;
+          await addRecord(currentModule, payload);
+        } else {
+          throw updateErr;
+        }
+      }
     } else {
+      editRecordId = null;
       await addRecord(currentModule, payload);
     }
 
@@ -11833,6 +11864,8 @@ refs.dynamicForm.addEventListener("submit", async (e) => {
       alert(`Error saving record: ${error.message}`);
     }
   } finally {
+    editRecordId = null;
+    editStudentId = null;
     if (submitBtn) {
       submitBtn.disabled = false;
       submitBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px;">add</span> Add Record';
