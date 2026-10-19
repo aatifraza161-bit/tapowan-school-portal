@@ -1425,6 +1425,14 @@
             t.onunmute = () => refreshInspectMediaElements();
           }
         });
+        const inspectVid = document.getElementById('liveClassInspectVideo');
+        if (inspectVid && event.track?.kind === 'video') {
+          inspectVid.srcObject = event.streams[0];
+          inspectVid.play().catch(err => {
+            inspectVid.muted = true;
+            inspectVid.play().catch(() => {});
+          });
+        }
       }
 
       refreshInspectMediaElements();
@@ -1451,6 +1459,7 @@
       console.log('[Inspector WebRTC] Connection state:', connState);
       const inspectStatus = document.getElementById('inspectStreamStatus');
       if (connState === 'connected') {
+        state.inspectConnectedAt = Date.now();
         refreshInspectMediaElements();
       } else if (connState === 'failed') {
         if (inspectStatus) {
@@ -1462,6 +1471,10 @@
 
     const sendInspectOffer = async () => {
       if (!state.isInspecting || !state.inspectPc) return;
+      if (state.inspectPc.signalingState !== 'stable') {
+        console.log('[Inspector WebRTC] Cannot send offer, signaling state is:', state.inspectPc.signalingState);
+        return;
+      }
       try {
         const offer = await state.inspectPc.createOffer();
         await state.inspectPc.setLocalDescription(offer);
@@ -1558,6 +1571,23 @@
                 if (!state.inspectIceQueue) state.inspectIceQueue = [];
                 state.inspectIceQueue.push(cand);
               }
+            } else if (sig.signalType === 'VIDEO_STATE_TOGGLE') {
+              console.log('[Inspector WebRTC] Host VIDEO_STATE_TOGGLE:', sig.signalData);
+              const isVideoActive = Boolean(sig.signalData?.isVideoActive);
+              const vTracks = state.inspectRemoteStream ? state.inspectRemoteStream.getVideoTracks().filter(t => t.readyState === 'live') : [];
+              if (isVideoActive && vTracks.length === 0) {
+                console.log('[Inspector WebRTC] Video activated by host, renegotiating inspect offer...');
+                if (typeof state.sendInspectOfferFn === 'function') {
+                  state.sendInspectOfferFn().catch(() => {});
+                }
+              }
+              refreshInspectMediaElements();
+            } else if (sig.signalType === 'CLASSROOM_MODE_TOGGLE') {
+              console.log('[Inspector WebRTC] Host CLASSROOM_MODE_TOGGLE:', sig.signalData);
+              if (typeof state.sendInspectOfferFn === 'function') {
+                state.sendInspectOfferFn().catch(() => {});
+              }
+              refreshInspectMediaElements();
             } else if (sig.signalType === 'ROOM_ENDED') {
               alert('The live classroom session has ended.');
               window.stopInspectionStudio(false);
@@ -1573,6 +1603,20 @@
           console.log('[Inspector WebRTC] Re-attempting OFFER transmission to host...');
           if (typeof state.sendInspectOfferFn === 'function') {
             state.sendInspectOfferFn().catch(() => {});
+          }
+        }
+
+        // Auto-renegotiate if audio connected but video track is missing after initial connection
+        const isAudioConnected = state.inspectPc?.connectionState === 'connected' && state.inspectRemoteStream?.getAudioTracks()?.some(t => t.readyState === 'live');
+        const hasLiveVideoTrack = state.inspectRemoteStream?.getVideoTracks()?.some(t => t.readyState === 'live');
+        if (isAudioConnected && !hasLiveVideoTrack && state.inspectPc?.signalingState === 'stable') {
+          const syncAge = Date.now() - (state.inspectLastVideoOfferAt || state.inspectOfferSentAt || 0);
+          if (syncAge > 3500) {
+            state.inspectLastVideoOfferAt = Date.now();
+            console.log('[Inspector WebRTC] Audio connected but video stream missing; renegotiating offer to pull live video...');
+            if (typeof state.sendInspectOfferFn === 'function') {
+              state.sendInspectOfferFn().catch(() => {});
+            }
           }
         }
       } catch (err) {
