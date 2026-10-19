@@ -304,78 +304,36 @@ try {
   }
 } catch (_) {}
 
-// Auto-shorten long fee term descriptions
+// Auto-shorten long fee term descriptions to display only session / term (e.g. 26-27)
 window.formatTermString = function(val) {
   if (!val || typeof val !== 'string') return val || '';
-  const lower = val.toLowerCase();
-  if (!lower.includes('fee of') && !lower.includes('tuition') && !lower.includes('late fee')) return val;
+  const str = String(val).trim();
+  if (!str) return '';
 
-  // Split by comma
-  const parts = val.split(',').map(p => p.trim()).filter(Boolean);
-
-  const tuiMonths = new Set();
-  const lateMonths = new Set();
-  const otherItems = [];
-  let detectedSession = '';
-
-  const MONTH_ORDER = ['apr','may','jun','jul','aug','sep','oct','nov','dec','jan','feb','mar'];
-  const MONTH_NAMES = { apr:'Apr', may:'May', jun:'Jun', jul:'Jul', aug:'Aug', sep:'Sep', oct:'Oct', nov:'Nov', dec:'Dec', jan:'Jan', feb:'Feb', mar:'Mar' };
-
-  for (const part of parts) {
-    const sMatch = part.match(/\((?:20)?(\d{2}[-–]\d{2})\)/i);
-    if (sMatch && !detectedSession) detectedSession = sMatch[1];
-
-    // Only strip session parentheses like (26-27), preserve amounts like (₹1500)
-    const clean = part.replace(/\((?:20)?\d{2}[-–]\d{2}\)/gi, '').trim();
-    const isTuition = /tuition/i.test(clean);
-    const isLate = /late/i.test(clean);
-
-    // Extract month
-    const mMatch = clean.match(/(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i);
-    if (mMatch) {
-      const mKey = mMatch[1].substring(0,3).toLowerCase();
-      if (isTuition) tuiMonths.add(mKey);
-      else if (isLate) lateMonths.add(mKey);
-      else otherItems.push(clean);
-    } else {
-      if (clean) otherItems.push(clean);
-    }
+  // Clean exact session strings: '2026-27', '26-27', '2026–27', etc.
+  if (/^(\d{4}[-–]\d{2,4}|\d{2}[-–]\d{2})$/.test(str)) {
+    const m = str.match(/^(?:20)?(\d{2}[-–]\d{2})$/);
+    return m ? m[1] : str;
   }
 
-  function formatMonthList(mSet) {
-    if (!mSet.size) return '';
-    const sorted = Array.from(mSet).sort((a,b) => MONTH_ORDER.indexOf(a) - MONTH_ORDER.indexOf(b));
-    // Check if consecutive in MONTH_ORDER
-    if (sorted.length > 2) {
-      const indices = sorted.map(m => MONTH_ORDER.indexOf(m));
-      let isConsecutive = true;
-      for (let i = 1; i < indices.length; i++) {
-        if (indices[i] !== indices[i-1] + 1) { isConsecutive = false; break; }
-      }
-      if (isConsecutive) {
-        return MONTH_NAMES[sorted[0]] + '–' + MONTH_NAMES[sorted[sorted.length-1]] + ' (' + sorted.length + ' mos)';
-      }
-    }
-    return sorted.map(m => MONTH_NAMES[m] || m).join(', ');
+  // Extract session from anywhere in the string like (26-27), (2026-27), 2026-27, 26-27
+  const sessMatch = str.match(/\((?:20)?(\d{2}[-–]\d{2})\)|\b(?:20)?(\d{2}[-–]\d{2})\b/i);
+  if (sessMatch) {
+    return sessMatch[1] || sessMatch[2];
   }
 
-  const resultSegments = [];
-  if (tuiMonths.size > 0) {
-    resultSegments.push('Tuition: ' + formatMonthList(tuiMonths));
-  }
-  if (lateMonths.size > 0) {
-    resultSegments.push('Late: ' + formatMonthList(lateMonths));
-  }
-  if (otherItems.length > 0) {
-    const uniqueOther = Array.from(new Set(otherItems));
-    resultSegments.push(uniqueOther.join(', '));
+  // If contains fee or month descriptions, strip them out and default to current session
+  const hasFeeOrMonth = /(?:fee|tuition|late|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(str);
+  if (hasFeeOrMonth) {
+    return '26-27';
   }
 
-  let formatted = resultSegments.join(' | ');
-  if (detectedSession && !formatted.includes(detectedSession)) {
-    formatted += ' (' + detectedSession + ')';
+  // Preserve short labels like 'Term 1', 'Term 2', 'Annual', 'Half Yearly', 'Q1'
+  if (str.length <= 25) {
+    return str;
   }
-  return formatted || val;
+
+  return '26-27';
 };
 // ─── ROLE PERMISSION HELPERS ───────────────────────────────────────
 const ROLE_LEVEL = {
@@ -3982,7 +3940,7 @@ function renderStudentProfile() {
            const monthName = d.particulars.replace("Tuition fee of ", "").replace("Late fee of ", "").trim().toLowerCase();
            const feeExists = fees.some(f => {
                if (f.month && String(f.month).toLowerCase().includes(monthName)) return true;
-               if (f.term && String(window.formatTermString(f.term)).toLowerCase().includes(monthName)) return true;
+               if (f.term && String(f.term).toLowerCase().includes(monthName)) return true;
                if (f.paymentDate) {
                    const payMonth = new Date(f.paymentDate).toLocaleString('default', { month: 'long' }).toLowerCase();
                    if (payMonth === monthName) return true;
@@ -4743,7 +4701,7 @@ function printStudentReport(student) {
         }
         return `
         <div class="box">
-          <h2>Term: ${window.formatTermString(window.formatTermString(f.term)) || ""} — RCP-${f.id}</h2>
+          <h2>Term: ${window.formatTermString(f.term) || ""} — RCP-${f.id}</h2>
           ${feeDetails || '<div class="row" style="color:#94a3b8;">No fee breakdown recorded.</div>'}
           <div class="row" style="margin-top:6px;font-weight:700;"><b>Total Fee:</b> ₹${(parseFloat(f.totalFee)||0).toLocaleString("en-IN")}</div>
           <div class="row"><b>Amount Paid:</b> ₹${(parseFloat(f.paidAmount)||0).toLocaleString("en-IN")}</div>
@@ -9160,7 +9118,7 @@ function printFeeReceipt(f) {
           </tr>
           <tr>
             <td style="padding:5px 0;color:#64748b;">Term</td>
-            <td style="padding:5px 0;">${window.formatTermString(window.formatTermString(f.term)) || "-"}</td>
+            <td style="padding:5px 0;">${window.formatTermString(f.term) || "-"}</td>
           </tr>
           <tr>
             <td style="padding:5px 0;color:#64748b;">Payment Date</td>
@@ -9385,7 +9343,7 @@ function printDocumentByModule() {
         <h2 style="color:#1e3a8a;margin-bottom:8px;">Fee Receipt &mdash; ${f.payId ? 'PayID: ' + f.payId : 'RCP-' + f.id}</h2>
         <div class="row"><strong>Student:</strong> ${f.studentName || "-"} &nbsp;|&nbsp; <strong>Father:</strong> ${f.fatherName || "-"}</div>
         <div class="row"><strong>Class:</strong> ${f.className || "-"} &nbsp;|&nbsp; <strong>Roll No:</strong> ${f.rollNo || "-"}</div>
-        <div class="row"><strong>Term:</strong> ${window.formatTermString(window.formatTermString(f.term)) || "-"} &nbsp;|&nbsp; <strong>Payment Date:</strong> ${f.paymentDate || "-"}</div>
+        <div class="row"><strong>Term:</strong> ${window.formatTermString(f.term) || "-"} &nbsp;|&nbsp; <strong>Payment Date:</strong> ${f.paymentDate || "-"}</div>
         <div style="margin:8px 0;padding:8px;background:#f0f4ff;border-radius:6px;border-left:3px solid #1e3a8a;">
           <div style="font-weight:700;color:#1e3a8a;margin-bottom:4px;font-size:0.85em;"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:4px;">receipt_long</span> Fee Breakdown:</div>
           ${feeDetails || '<div class="row" style="color:#94a3b8;">No fee breakdown recorded.</div>'}
@@ -12386,7 +12344,7 @@ function buildSingleSlipHtmlForGrid(origF) {
       </div>
       <div style="display:flex;justify-content:space-between;padding:3px 6px;background:#eef2ff;border-bottom:1px solid #c7d2fe;font-size:9px;color:#1e3a8a;">
         <span><strong>No:</strong> ${slipNo}</span>
-        <span><strong>Term:</strong> ${window.formatTermString(window.formatTermString(f.term)) || "-"}</span>
+        <span><strong>Term:</strong> ${window.formatTermString(f.term) || "-"}</span>
         <span><strong>Date:</strong> ${printDate}</span>
       </div>
       <div style="padding:5px 8px;border-bottom:1px solid #e5e7eb;">
@@ -12549,7 +12507,7 @@ function buildSingleFeeHtmlForGrid(origF) {
           <span style="color:#64748b;">Class/Roll</span>
           <span style="font-weight:600;text-align:right;">${f.className || "-"} (${f.rollNo || "-"})</span>
           <span style="color:#64748b;">Term</span>
-          <span style="text-align:right;">${window.formatTermString(window.formatTermString(f.term)) || "-"}</span>
+          <span style="text-align:right;">${window.formatTermString(f.term) || "-"}</span>
         </div>
         <div style="font-weight:700;color:#1e3a8a;font-size:13px;border-bottom:1px solid #cbd5e1;padding-bottom:2px;margin-top:auto;">Summary</div>
         <div style="margin-top:6px;overflow-y:auto;flex-grow:1;">${feeBreakdown}</div>
@@ -17345,7 +17303,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
             </tr>
             <tr>
               <td style="padding:3px 0;color:#64748b;font-size:11px;">Term</td>
-              <td style="padding:3px 0;font-size:11px;">${window.formatTermString(window.formatTermString(f.term)) || "-"}</td>
+              <td style="padding:3px 0;font-size:11px;">${window.formatTermString(f.term) || "-"}</td>
               <td style="padding:3px 0;color:#64748b;font-size:11px;">Month(s)</td>
               <td style="padding:3px 0;font-size:11px;font-weight:700;color:#1e3a8a;">${f.month || "-"}</td>
             </tr>
@@ -17737,7 +17695,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
         <!-- Slip Meta -->
         <div style="display:flex;justify-content:space-between;padding:3px 10px;background:#eef2ff;border-bottom:1px solid #c7d2fe;font-size:9px;color:#1e3a8a;">
           <span><strong>Slip No:</strong> ${slipNo}</span>
-          <span><strong>Term:</strong> ${window.formatTermString(window.formatTermString(f.term)) || "-"}</span>
+          <span><strong>Term:</strong> ${window.formatTermString(f.term) || "-"}</span>
           <span><strong>Month(s):</strong> ${f.month || "-"}</span>
           <span><strong>Date:</strong> ${printDate}</span>
         </div>
@@ -17761,7 +17719,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
               <td style="color:#6b7280;padding:3px 0;">Roll No.</td>
               <td style="font-weight:600;padding:3px 0;border-bottom:1px dotted #d1d5db;width:40%;">${f.rollNo || "-"}</td>
               <td style="color:#6b7280;padding:3px 0 3px 6px;">Term</td>
-              <td style="font-weight:600;padding:3px 0;border-bottom:1px dotted #d1d5db;">${window.formatTermString(window.formatTermString(f.term)) || "-"}</td>
+              <td style="font-weight:600;padding:3px 0;border-bottom:1px dotted #d1d5db;">${window.formatTermString(f.term) || "-"}</td>
             </tr>
             <tr>
               <td style="color:#6b7280;padding:3px 0;">Pay Date</td>
@@ -17860,7 +17818,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
         const isChecked = prevIds.includes(String(f.id));
         label.innerHTML = `
           <input type="checkbox" id="${cbId}" name="bd-monthly-fee-checkbox" value="${val}"
-            data-label="${displayType}" data-fee-id="${f.id}" data-term="${window.formatTermString(window.formatTermString(f.term)) || ""}"
+            data-label="${displayType}" data-fee-id="${f.id}" data-term="${window.formatTermString(f.term) || ""}"
             data-qty="1"
             style="width:16px;height:16px;accent-color:#1e3a8a;cursor:pointer;flex-shrink:0;"
             ${isChecked ? "checked" : ""}>
@@ -18048,7 +18006,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
         const p = d.particulars || "Previous Session Balance";
         return d.session ? `${p} (${d.session})` : p;
       }).join(", ");
-      particularsArr.push(window.formatTermString ? window.formatTermString(mgmtNotes) : mgmtNotes);
+      particularsArr.push(mgmtNotes);
     }
     appliedDueMgmtParticulars = particularsArr.join(", ");
     
@@ -18056,7 +18014,14 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
     if (form) {
       const termInput = form.querySelector("[name='term']");
       if (termInput) {
-        termInput.value = appliedDueMgmtParticulars;
+        let cleanTerm = "26-27";
+        const foundSession = studentDues.find(d => d.session)?.session;
+        if (foundSession) {
+          cleanTerm = window.formatTermString ? window.formatTermString(foundSession) : foundSession;
+        } else if (appliedDueMgmtParticulars) {
+          cleanTerm = window.formatTermString ? window.formatTermString(appliedDueMgmtParticulars) : "26-27";
+        }
+        termInput.value = cleanTerm;
       }
       
       // Auto-select months from the dues
@@ -19616,7 +19581,7 @@ async function sendSmsFeeSlip(feeId) {
   msg += `Class: ${f.className || "N/A"}`;
   if (f.rollNo) msg += ` | Roll:${f.rollNo}`;
   msg += `\n`;
-  if (window.formatTermString(f.term)) msg += `Term: ${f.term}\n`;
+  if (window.formatTermString(f.term)) msg += `Term: ${window.formatTermString(f.term)}\n`;
   if (feeLines.length) msg += `\n${feeLines.join("\n")}\n`;
   msg += `\nTotal: Rs.${totalFee.toLocaleString("en-IN")}`;
   msg += `\nPaid: Rs.${paidAmount.toLocaleString("en-IN")}`;
@@ -19721,7 +19686,7 @@ async function sendSmsFeeSlip(feeId) {
 
     if (selectedTemplate) {
       container.innerHTML = selectedTemplate.render({
-        schoolName, slipNo, termStr: window.formatTermString ? window.formatTermString(window.formatTermString(f.term)) : f.term, printDate,
+        schoolName, slipNo, termStr: window.formatTermString ? window.formatTermString(f.term) : f.term, printDate,
         studentName: f.studentName, admissionNo: f.admissionNo, fatherName: f.fatherName,
         className: f.className, rollNo: f.rollNo, paymentMethod: f.paymentMethod,
         statusBg, statusColor, status: (f.status || "Pending").toUpperCase(),
