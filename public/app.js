@@ -306,22 +306,76 @@ try {
 
 // Auto-shorten long fee term descriptions
 window.formatTermString = function(val) {
-  if (typeof val === "string" && val.includes("fee of")) {
-      let session = '';
-      const hasTuition = /Tuition fee/i.test(val);
-      const hasLate = /Late fee/i.test(val);
-      
-      const sessMatch = val.match(/\((\d{2}-\d{2})\)/);
-      if (sessMatch) session = '(' + sessMatch[1] + ')';
+  if (!val || typeof val !== 'string') return val || '';
+  const lower = val.toLowerCase();
+  if (!lower.includes('fee of') && !lower.includes('tuition') && !lower.includes('late fee')) return val;
 
-      let types = [];
-      if (hasTuition) types.push('Tui');
-      if (hasLate) types.push('Late');
-      if (types.length > 0) {
-          return types.join(',') + ' fee ' + session;
-      }
+  // Split by comma
+  const parts = val.split(',').map(p => p.trim()).filter(Boolean);
+
+  const tuiMonths = new Set();
+  const lateMonths = new Set();
+  const otherItems = [];
+  let detectedSession = '';
+
+  const MONTH_ORDER = ['apr','may','jun','jul','aug','sep','oct','nov','dec','jan','feb','mar'];
+  const MONTH_NAMES = { apr:'Apr', may:'May', jun:'Jun', jul:'Jul', aug:'Aug', sep:'Sep', oct:'Oct', nov:'Nov', dec:'Dec', jan:'Jan', feb:'Feb', mar:'Mar' };
+
+  for (const part of parts) {
+    const sMatch = part.match(/\((?:20)?(\d{2}[-–]\d{2})\)/i);
+    if (sMatch && !detectedSession) detectedSession = sMatch[1];
+
+    // Only strip session parentheses like (26-27), preserve amounts like (₹1500)
+    const clean = part.replace(/\((?:20)?\d{2}[-–]\d{2}\)/gi, '').trim();
+    const isTuition = /tuition/i.test(clean);
+    const isLate = /late/i.test(clean);
+
+    // Extract month
+    const mMatch = clean.match(/(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i);
+    if (mMatch) {
+      const mKey = mMatch[1].substring(0,3).toLowerCase();
+      if (isTuition) tuiMonths.add(mKey);
+      else if (isLate) lateMonths.add(mKey);
+      else otherItems.push(clean);
+    } else {
+      if (clean) otherItems.push(clean);
+    }
   }
-  return val;
+
+  function formatMonthList(mSet) {
+    if (!mSet.size) return '';
+    const sorted = Array.from(mSet).sort((a,b) => MONTH_ORDER.indexOf(a) - MONTH_ORDER.indexOf(b));
+    // Check if consecutive in MONTH_ORDER
+    if (sorted.length > 2) {
+      const indices = sorted.map(m => MONTH_ORDER.indexOf(m));
+      let isConsecutive = true;
+      for (let i = 1; i < indices.length; i++) {
+        if (indices[i] !== indices[i-1] + 1) { isConsecutive = false; break; }
+      }
+      if (isConsecutive) {
+        return MONTH_NAMES[sorted[0]] + '–' + MONTH_NAMES[sorted[sorted.length-1]] + ' (' + sorted.length + ' mos)';
+      }
+    }
+    return sorted.map(m => MONTH_NAMES[m] || m).join(', ');
+  }
+
+  const resultSegments = [];
+  if (tuiMonths.size > 0) {
+    resultSegments.push('Tuition: ' + formatMonthList(tuiMonths));
+  }
+  if (lateMonths.size > 0) {
+    resultSegments.push('Late: ' + formatMonthList(lateMonths));
+  }
+  if (otherItems.length > 0) {
+    const uniqueOther = Array.from(new Set(otherItems));
+    resultSegments.push(uniqueOther.join(', '));
+  }
+
+  let formatted = resultSegments.join(' | ');
+  if (detectedSession && !formatted.includes(detectedSession)) {
+    formatted += ' (' + detectedSession + ')';
+  }
+  return formatted || val;
 };
 // ─── ROLE PERMISSION HELPERS ───────────────────────────────────────
 const ROLE_LEVEL = {
@@ -3186,7 +3240,9 @@ function renderTable() {
 
       // 3. Standard Text (High Contrast)
       if (key === "term" || key === "particulars") {
-          val = window.formatTermString ? window.formatTermString(val) : val;
+        const rawVal = val;
+        const formatted = window.formatTermString ? window.formatTermString(val) : val;
+        return `<td style="color:#0f172a; font-weight:600; min-width:140px; max-width:280px; white-space:normal; line-height:1.35; font-size:12px;" title="${escapeHtml(String(rawVal || ''))}">${escapeHtml(String(formatted || '-'))}</td>`;
       }
       
       // Resolve student name from ID for Weekly Evaluation
