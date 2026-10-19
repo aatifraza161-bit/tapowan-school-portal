@@ -511,9 +511,24 @@
   }
 
   // ── WebRTC Peer Negotiation per Student ──
+  function optimizeVideoAnswerSdp(sdp) {
+    if (!sdp || typeof sdp !== 'string') return sdp;
+    let lines = sdp.split('\r\n');
+    let inVideo = false;
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].startsWith('m=video')) inVideo = true;
+      else if (lines[i].startsWith('m=audio') || lines[i].startsWith('m=application')) inVideo = false;
+      if (inVideo && lines[i] === 'a=inactive') {
+        lines[i] = 'a=sendonly';
+      }
+    }
+    return lines.join('\r\n');
+  }
+
   function ensurePeerSenders(pc) {
     if (!pc) return;
     const senders = typeof pc.getSenders === 'function' ? pc.getSenders() : [];
+    const transceivers = typeof pc.getTransceivers === 'function' ? pc.getTransceivers() : [];
 
     // 1. Video sender (Whiteboard, Screen share, or Camera)
     const videoTrack = state.isWhiteboardActive && state.whiteboardStream
@@ -522,10 +537,18 @@
           ? state.screenStream.getVideoTracks()[0]
           : state.localMediaStream?.getVideoTracks()[0]);
     if (videoTrack) {
+      videoTrack.enabled = true;
+      const vTransceiver = transceivers.find(t => t.receiver?.track?.kind === 'video' || t.sender?.track?.kind === 'video');
+      if (vTransceiver) {
+        try { vTransceiver.direction = 'sendonly'; } catch (e) {}
+        if (vTransceiver.sender && typeof vTransceiver.sender.replaceTrack === 'function') {
+          vTransceiver.sender.replaceTrack(videoTrack).catch(() => {});
+        }
+      }
       const vSender = senders.find(s => s?.track?.kind === 'video');
       if (vSender && typeof vSender.replaceTrack === 'function') {
         vSender.replaceTrack(videoTrack).catch(() => {});
-      } else if (!vSender) {
+      } else if (!vSender && !vTransceiver) {
         try { pc.addTrack(videoTrack, state.localMediaStream || state.screenStream || state.whiteboardStream); } catch (e) {}
       }
       if (vSender && typeof vSender.getParameters === 'function') {
@@ -543,10 +566,17 @@
       : state.localMediaStream?.getAudioTracks()[0];
     if (audioTrack) {
       audioTrack.enabled = !state.isMuted;
+      const aTransceiver = transceivers.find(t => t.receiver?.track?.kind === 'audio' || t.sender?.track?.kind === 'audio');
+      if (aTransceiver) {
+        try { aTransceiver.direction = 'sendrecv'; } catch (e) {}
+        if (aTransceiver.sender && typeof aTransceiver.sender.replaceTrack === 'function') {
+          aTransceiver.sender.replaceTrack(audioTrack).catch(() => {});
+        }
+      }
       const aSender = senders.find(s => s?.track?.kind === 'audio');
       if (aSender && typeof aSender.replaceTrack === 'function') {
         aSender.replaceTrack(audioTrack).catch(() => {});
-      } else if (!aSender) {
+      } else if (!aSender && !aTransceiver) {
         try { pc.addTrack(audioTrack, state.localMediaStream); } catch (e) {}
       }
     }
@@ -563,7 +593,7 @@
       let desc = typeof offerSdp === 'string' ? JSON.parse(offerSdp) : offerSdp;
       await peer.pc.setRemoteDescription(new RTCSessionDescription(desc));
 
-      // Ensure both audio and video tracks are active
+      // Ensure both audio and video tracks are active with correct transceiver directions
       ensurePeerSenders(peer.pc);
 
       // Flush any queued ICE candidates
@@ -575,7 +605,9 @@
       }
 
       const answer = await peer.pc.createAnswer();
-      await peer.pc.setLocalDescription(answer);
+      const fixedSdp = optimizeVideoAnswerSdp(answer.sdp);
+      const fixedAnswer = new RTCSessionDescription({ type: answer.type, sdp: fixedSdp });
+      await peer.pc.setLocalDescription(fixedAnswer);
 
       const user = getLiveAdminUser();
       const roomId = state.activeRoom?.room_id;
