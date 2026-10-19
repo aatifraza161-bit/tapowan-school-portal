@@ -306,7 +306,7 @@ async function executePaymentApproval(payment, verifiedBy = 'WhatsApp Auto-Appro
   const className = String(payment.class_name || '').trim();
   const utr = String(payment.utr_number || '').trim();
   const amountNum = parseFloat(payment.amount) || 0;
-  const payId = payment.payId || ('ONLINE_' + Date.now().toString(36).toUpperCase());
+  const duePayId = payment.payId || payment.payid || '';
   const method = `Online UPI (${payment.payment_method || 'UPI'}${utr ? ' - UTR: ' + utr : ''})`;
   const today = new Date().toISOString().split('T')[0];
   const currentMonth = new Date().toLocaleString('en-US', { month: 'short' });
@@ -329,10 +329,10 @@ async function executePaymentApproval(payment, verifiedBy = 'WhatsApp Auto-Appro
 
   // 3. Find EXACT matching due in duemanagement table
   let targetDueRow = null;
-  if (payId) {
+  if (duePayId) {
     const byPayId = await db.execute({
       sql: "SELECT * FROM duemanagement WHERE payid = ? LIMIT 1",
-      args: [payId]
+      args: [duePayId]
     });
     if (byPayId.rows.length > 0) {
       targetDueRow = byPayId.rows[0];
@@ -361,11 +361,14 @@ async function executePaymentApproval(payment, verifiedBy = 'WhatsApp Auto-Appro
   const maxRes = await db.execute("SELECT COALESCE(MAX(CAST(id AS INTEGER)), 0) + 1 AS nextId FROM fees WHERE id IS NOT NULL;");
   const nextFeeId = maxRes.rows[0]?.nextId ? Number(maxRes.rows[0].nextId) : (Date.now() % 1000000);
 
-  // 5. Insert Official Paid Record into fees table
+  // 5. Generate fresh unique receipt payId and insert official record into fees table
+  const { generateUniquePayId } = require('./db-sqlite');
+  const receiptPayId = await generateUniquePayId('fees');
+
   await db.execute({
     sql: `INSERT INTO fees (id, admissionno, studentname, classname, rollno, fathername, term, month, feetypes, tuitionfee, totalfee, paidamount, balance, status, paymentdate, paymentmethod, onlineamount, cashamount, payid) 
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'Paid', ?, ?, ?, 0, ?)`,
-    args: [nextFeeId, admNo, studentName, className, rollNo, fatherName, feeSession, feeMonth, feeParticulars, amountNum, amountNum, amountNum, today, method, amountNum, payId]
+    args: [nextFeeId, admNo, studentName, className, rollNo, fatherName, feeSession, feeMonth, feeParticulars, amountNum, amountNum, amountNum, today, method, amountNum, receiptPayId]
   });
 
   // 6. Reconcile ONLY the exact single due record matching this payment

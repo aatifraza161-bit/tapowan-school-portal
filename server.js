@@ -3549,6 +3549,56 @@ app.post("/api/modules/:moduleName", authRequired, async (req, res) => {
 
     const row = await insert(moduleName, payload || req.body || {});
     
+    // --- ATOMIC FEE & DUE RECONCILIATION LOGIC ---
+    if (moduleName === "fees") {
+      try {
+        let dueIds = [];
+        if (payload.consolidatedDueMgmtIds) {
+          try {
+            const parsed = typeof payload.consolidatedDueMgmtIds === 'string' ? JSON.parse(payload.consolidatedDueMgmtIds) : payload.consolidatedDueMgmtIds;
+            if (Array.isArray(parsed)) dueIds = parsed.filter(id => id != null && !isNaN(Number(id))).map(Number);
+          } catch(e) {}
+        }
+
+        const totalPaid = parseFloat(payload.paidAmount) || 0;
+        let remainingPaid = totalPaid;
+
+        if (dueIds.length > 0) {
+          const duesToReconcile = [];
+          for (const dId of dueIds) {
+            try {
+              const res = await runRaw("SELECT * FROM dueManagement WHERE id = ?", [dId]);
+              if (res.rows && res.rows[0]) duesToReconcile.push(res.rows[0]);
+            } catch(e) {}
+          }
+
+          duesToReconcile.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+
+          for (const due of duesToReconcile) {
+            const dueBal = parseFloat(due.balance != null && due.balance !== '' ? due.balance : due.dueAmount) || 0;
+            const duePaid = parseFloat(due.paidAmount || 0) || 0;
+
+            if (remainingPaid >= dueBal) {
+              await runRaw("DELETE FROM dueManagement WHERE id = ?", [due.id]);
+              remainingPaid -= dueBal;
+            } else if (remainingPaid > 0) {
+              const newPaidAmt = duePaid + remainingPaid;
+              const newBal = Math.max(0, dueBal - remainingPaid);
+              await runRaw("UPDATE dueManagement SET paidAmount = ?, balance = ?, status = 'Partial', remarks = ? WHERE id = ?", [
+                newPaidAmt,
+                newBal,
+                `Partial payment of ₹${remainingPaid} via Fee Receipt #${row.id || ''}`,
+                due.id
+              ]);
+              remainingPaid = 0;
+            }
+          }
+        }
+      } catch (reconErr) {
+        console.error("[Fee Server Reconciliation Error]:", reconErr);
+      }
+    }
+    
     // If successful admission (not draft), send notification
     if (moduleName === "admissions" && row.isDraft !== "true" && row.status === "Pending") {
       sendAdmissionNotification(row);
@@ -5555,8 +5605,9 @@ async function runAutomatedFeeTask() {
     const allFees = await list("fees");
 
     // ── Auto-Sync: Remove Dues that have since been paid in Fees module ──
+    const isUnpaidStatus = (s) => ['unpaid', 'pending', 'due'].includes(String(s || '').trim().toLowerCase());
     const autoSyncDues = dueManagement.filter(d => 
-        d.status === "Unpaid" && (d.particulars || "").includes(" of ")
+        isUnpaidStatus(d.status) && (d.particulars || "").includes(" of ")
     );
     if (autoSyncDues.length > 0) {
         let syncCount = 0;
@@ -5565,14 +5616,26 @@ async function runAutomatedFeeTask() {
             if (parts.length < 2) continue;
             const feeName = parts[0].trim();
             const monthStored = parts[1].trim();
+            const isLateFee = feeName.toLowerCase().includes("late");
             
-            // Check if there's ANY fee record for this month with matching feeType
+            // Check if there's ANY fee record for this month with matching feeType or tuition payment
             const isTrackedInFees = allFees.some(f => {
                 if (f.admissionNo !== due.admissionNo) return false;
                 const isMatch = isMonthMatch(f.month, monthStored) || isMonthMatch(f.term, monthStored);
                 if (!isMatch) return false;
                 
-                return f.feeTypes && f.feeTypes.toLowerCase().includes(feeName.toLowerCase());
+                const feeTypesMatch = f.feeTypes && f.feeTypes.toLowerCase().includes(feeName.toLowerCase());
+                const dueMgmtMatch = f.dueMgmtParticulars && f.dueMgmtParticulars.toLowerCase().includes(feeName.toLowerCase());
+                const isTuitionPaid = feeName.toLowerCase().includes("tuition") && Number(f.tuitionFee) > 0;
+
+                // If this due is a Late Fee, check if tuition was already paid in full for this month
+                if (isLateFee) {
+                    const tuitionPaidForMonth = (Number(f.tuitionFee) > 0 || (f.feeTypes && f.feeTypes.toLowerCase().includes("tuition"))) &&
+                                                (String(f.status || "").toLowerCase() === "paid" || Number(f.balance || 0) <= 0);
+                    if (tuitionPaidForMonth) return true;
+                }
+
+                return feeTypesMatch || dueMgmtMatch || isTuitionPaid;
             });
 
             if (isTrackedInFees) {
@@ -5586,7 +5649,7 @@ async function runAutomatedFeeTask() {
 
     // ── Global Sync: Update ALL Unpaid Dues if Fee Structure changed ──
     let globalSyncCount = 0;
-    const unpaidDuesToSync = dueManagement.filter(d => d.status === "Unpaid" && (d.particulars || "").includes(" of "));
+    const unpaidDuesToSync = dueManagement.filter(d => isUnpaidStatus(d.status) && (d.particulars || "").includes(" of "));
     for (const due of unpaidDuesToSync) {
         const student = students.find(s => s.admissionNo === due.admissionNo);
         if (!student) continue;
@@ -5640,7 +5703,28 @@ async function runAutomatedFeeTask() {
                 
                 // Determine if it should be generated this month
                 const isLateFee = actualFeeName.toLowerCase().includes("late");
-                if (isLateFee && mName === "April") continue; // Usually no late fee for April
+                if (isLateFee) {
+                    if (mName === "April") continue; // Usually no late fee for April
+                    
+                    // 1. Guard against ghost late fees: If tuition is already paid in fees, do not generate late fee!
+                    const tuitionAlreadyPaid = allFees.some(f => {
+                        if (f.admissionNo !== admNo) return false;
+                        const isMatch = isMonthMatch(f.month, mName) || isMonthMatch(f.term, mName);
+                        if (!isMatch) return false;
+                        return (Number(f.tuitionFee) > 0 || (f.feeTypes && f.feeTypes.toLowerCase().includes("tuition"))) &&
+                               (String(f.status || "").toLowerCase() === "paid" || Number(f.balance || 0) <= 0);
+                    });
+                    if (tuitionAlreadyPaid) continue;
+
+                    // 2. Guard: Must have an active unpaid tuition due for this month to warrant a late fee
+                    const hasUnpaidTuitionDue = dueManagement.some(d =>
+                        d.admissionNo === admNo &&
+                        isMonthMatch(d.month, mName) &&
+                        isUnpaidStatus(d.status) &&
+                        !(d.particulars || "").toLowerCase().includes("late")
+                    );
+                    if (!hasUnpaidTuitionDue) continue;
+                }
                 
                 const shouldGenerate = !mObj.isCurrent || (isLateFee ? day >= 11 : day >= 1);
                 if (!shouldGenerate) continue;
@@ -5651,7 +5735,10 @@ async function runAutomatedFeeTask() {
                     if (f.admissionNo !== admNo) return false;
                     const isMatch = isMonthMatch(f.month, mName) || isMonthMatch(f.term, mName);
                     if (!isMatch) return false;
-                    return f.feeTypes && f.feeTypes.toLowerCase().includes(actualFeeName.toLowerCase());
+                    const feeTypesMatch = f.feeTypes && f.feeTypes.toLowerCase().includes(actualFeeName.toLowerCase());
+                    const dueMgmtMatch = f.dueMgmtParticulars && f.dueMgmtParticulars.toLowerCase().includes(actualFeeName.toLowerCase());
+                    const tuitionMatch = actualFeeName.toLowerCase().includes("tuition") && Number(f.tuitionFee) > 0;
+                    return feeTypesMatch || dueMgmtMatch || tuitionMatch;
                 });
 
                 const existsInDues = dueManagement.find(d => 

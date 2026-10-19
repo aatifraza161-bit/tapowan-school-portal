@@ -2432,7 +2432,7 @@ function renderForm(forceRefresh) {
     students: ["Active", "Inactive"],
     attendance: ["Present", "Absent", "Late", "Leave"],
     teacherAttendance: ["Present", "Absent", "Late", "Leave"],
-    fees: ["Paid", "Partial", "Pending"],
+    fees: ["Paid", "Partial", "Pending", "Advance"],
     hostel: ["Active", "Inactive"],
     library: ["Issued", "Returned"],
     users: ["Active", "Inactive"]
@@ -2779,9 +2779,9 @@ function renderForm(forceRefresh) {
     const calcBalance = () => {
       const total = parseFloat(formRefs.totalFee.value) || 0;
       const paid = parseFloat(formRefs.paidAmount.value) || 0;
-      const bal = Math.max(0, total - paid);
+      const bal = Math.round((total - paid) * 100) / 100;
       formRefs.balance.value = bal;
-      formRefs.status.value = bal <= 0 ? "Paid" : paid > 0 ? "Partial" : "Pending";
+      formRefs.status.value = bal < 0 ? "Advance" : bal === 0 ? "Paid" : paid > 0 ? "Partial" : "Pending";
     };
 
     if (formRefs.totalFee) formRefs.totalFee.addEventListener("input", calcBalance);
@@ -11851,9 +11851,11 @@ refs.dynamicForm.addEventListener("submit", async (e) => {
       checkedFeeBoxes.forEach(cb => {
         const label = (cb.dataset.label || "").trim();
         const baseAmt = parseFloat(cb.value) || 0;
+        const isMonthlyTerm = (cb.dataset.term || "").toLowerCase().includes("month");
         const isTuition = label.toLowerCase().includes("tuition");
+        const isMonthlyRecurring = isTuition || isMonthlyTerm;
         const qty = parseInt(cb.dataset.qty || "1", 10);
-        const amt = isTuition ? baseAmt * monthCount : baseAmt * qty;
+        const amt = isMonthlyRecurring ? baseAmt * monthCount : baseAmt * qty;
         const fieldKey = FEE_LABEL_MAP[label.toLowerCase()] || "otherFee";
         feeAccum[fieldKey] = (feeAccum[fieldKey] || 0) + amt;
       });
@@ -11974,11 +11976,8 @@ refs.dynamicForm.addEventListener("submit", async (e) => {
       await addRecord(currentModule, payload);
     }
 
-    // ── Post-Save: Remove consolidated dues from dueManagement (due is paid & moved to fees) ──
+    // ── Post-Save: Dues reconciliation (handled atomically server-side) ──
     if (currentModule === "fees" && (appliedDueMgmtIds.length > 0 || appliedFeeIds.length > 0)) {
-      for (const id of appliedDueMgmtIds) {
-        try { await api(`/api/modules/dueManagement/${id}`, { method: "DELETE" }); } catch (err) {}
-      }
       for (const id of appliedFeeIds) {
         try { await api(`/api/modules/fees/${id}`, { method: "PUT", body: JSON.stringify({ balance: "0", status: "Merged", remarks: "Merged into new receipt" }) }); } catch (err) {}
       }
@@ -17958,7 +17957,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
         const isChecked = prevIds.includes(String(f.id));
         label.innerHTML = `
           <input type="checkbox" id="${cbId}" name="bd-monthly-fee-checkbox" value="${val}"
-            data-label="${displayType}" data-fee-id="${f.id}" data-term="${window.formatTermString(f.term) || ""}"
+            data-label="${displayType}" data-fee-id="${f.id}" data-term="${(f.term || '').toLowerCase()}"
             data-qty="1"
             style="width:16px;height:16px;accent-color:#1e3a8a;cursor:pointer;flex-shrink:0;"
             ${isChecked ? "checked" : ""}>
@@ -18044,12 +18043,14 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
     let monthlyFee = 0;
     monthlyFeeEl?.querySelectorAll("input[name=\"bd-monthly-fee-checkbox\"]").forEach(cb => {
       const baseAmt = parseFloat(cb.value || 0) || 0;
+      const isMonthlyTerm = (cb.dataset.term || "").toLowerCase().includes("month");
       const isTuition = (cb.dataset.label || "").toLowerCase().includes("tuition");
+      const isMonthlyRecurring = isTuition || isMonthlyTerm;
       const qty = parseInt(cb.dataset.qty || "1", 10);
       
       const qtyCtrl = cb.closest("label").querySelector(".fee-qty-ctrl");
       if (qtyCtrl) {
-          if (cb.checked && !isTuition) {
+          if (cb.checked && !isMonthlyRecurring) {
               qtyCtrl.style.display = "flex";
           } else {
               qtyCtrl.style.display = "none";
@@ -18059,9 +18060,9 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
       // Dynamic UI Update: Show multiplier text
       const amtSpan = cb.closest("label").querySelector(".fee-amt-display");
       if (amtSpan) {
-        if (isTuition && monthCount > 1) {
-          amtSpan.innerHTML = `₹ ${baseAmt.toLocaleString("en-IN")} <span style="color:#64748b;font-size:0.75rem;">× ${monthCount}</span>`;
-        } else if (!isTuition && qty > 1) {
+        if (isMonthlyRecurring && monthCount > 1) {
+          amtSpan.innerHTML = `₹ ${baseAmt.toLocaleString("en-IN")} <span style="color:#64748b;font-size:0.75rem;">× ${monthCount} mo</span>`;
+        } else if (!isMonthlyRecurring && qty > 1) {
           amtSpan.innerHTML = `₹ ${baseAmt.toLocaleString("en-IN")} <span style="color:#64748b;font-size:0.75rem;">× ${qty}</span>`;
         } else {
           amtSpan.innerHTML = `₹ ${baseAmt.toLocaleString("en-IN")}`;
@@ -18069,7 +18070,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
       }
 
       if (cb.checked) {
-          if (isTuition) {
+          if (isMonthlyRecurring) {
             monthlyFee += baseAmt * monthCount;
           } else {
             monthlyFee += baseAmt * qty;

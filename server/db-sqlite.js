@@ -629,6 +629,24 @@ function normalizeRow(moduleName, row) {
   return row;
 }
 
+async function generateUniquePayId(moduleName = "fees") {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  for (let attempt = 0; attempt < 25; attempt++) {
+    let p = '';
+    for (let i = 0; i < 6; i++) p += chars.charAt(Math.floor(Math.random() * chars.length));
+    try {
+      const chk1 = await db.execute({ sql: "SELECT 1 FROM fees WHERE payId = ? LIMIT 1", args: [p] });
+      const chk2 = await db.execute({ sql: "SELECT 1 FROM dueManagement WHERE payId = ? LIMIT 1", args: [p] });
+      if (chk1.rows.length === 0 && chk2.rows.length === 0) {
+        return p;
+      }
+    } catch(e) {
+      return p;
+    }
+  }
+  return 'P' + Date.now().toString(36).toUpperCase().slice(-5);
+}
+
 async function _insert(moduleName, payload) {
   if (payload && payload.className) {
     payload.className = normalizeCanonicalClass(payload.className);
@@ -638,16 +656,18 @@ async function _insert(moduleName, payload) {
       payload.photo = payload.photoUrl;
     }
   }
-  if ((moduleName === "fees" || moduleName === "dueManagement") && !payload.payId) {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let p = ''; for (let i = 0; i < 6; i++) p += chars.charAt(Math.floor(Math.random() * chars.length));
-    payload.payId = p;
+  if ((moduleName === "fees" || moduleName === "dueManagement") && (!payload.payId || String(payload.payId).trim() === "")) {
+    payload.payId = await generateUniquePayId(moduleName);
   }
-  if (!payload.id) {
+  if (!payload.id || isNaN(Number(payload.id))) {
     try {
-      const maxRes = await getDb(moduleName).execute(`SELECT COALESCE(MAX(id), 0) + 1 AS nextId FROM ${moduleName}`);
-      payload.id = Number(maxRes.rows[0]?.nextId || (Date.now() % 1000000));
-    } catch(e) {}
+      const maxRes = await getDb(moduleName).execute(`SELECT COALESCE(MAX(CAST(id AS INTEGER)), 0) + 1 AS nextId FROM ${moduleName} WHERE id IS NOT NULL`);
+      payload.id = Number(maxRes.rows[0]?.nextId || maxRes.rows[0]?.nextid || (Date.now() % 1000000));
+    } catch(e) {
+      payload.id = Math.floor(100000 + Math.random() * 900000);
+    }
+  } else {
+    payload.id = Number(payload.id);
   }
   if (moduleName === "students" && payload && payload.photoUrl && payload.photoUrl.startsWith('data:image')) {
     payload.photoUrl = `/api/photo/students/${payload.id}`;
@@ -661,11 +681,11 @@ async function _insert(moduleName, payload) {
     } catch(e) {}
   }
   const fields = MODULES[moduleName];
-  const cols = payload.id ? `id, ${fields.join(", ")}` : fields.join(", ");
+  const cols = `id, ${fields.join(", ")}`;
   
   // Use positional ? params — Turso embedded replica silently fails with named :params
-  const placeholders = payload.id ? `?, ${fields.map(() => '?').join(", ")}` : fields.map(() => '?').join(", ");
-  const values = payload.id ? [payload.id, ...fields.map(f => payload[f] ?? "")] : fields.map(f => payload[f] ?? "");
+  const placeholders = `?, ${fields.map(() => '?').join(", ")}`;
+  const values = [payload.id, ...fields.map(f => payload[f] ?? "")];
   
   const res = await getDb(moduleName).execute({ sql: `INSERT INTO ${moduleName} (${cols}) VALUES (${placeholders})`, args: values });
   invalidateStoreCache();
@@ -1167,7 +1187,7 @@ const withRetry = (fn) => async (...args) => {
 
 module.exports = { 
   db, feeDb, MODULES, initDb, list, getById, getStore, getFullStore, resetAndSeed, runRaw, seedIfEmpty,
-  getDb, normalizeRow,
+  getDb, normalizeRow, generateUniquePayId,
   DEFAULT_TURSO_URL, tursoHttpUrl, invalidateQueryCache, invalidateStoreCache, getStoreVersion,
   insert: withRetry(insert), 
   update: withRetry(update), 
