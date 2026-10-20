@@ -200,33 +200,100 @@ async function startAppFlow() {
     const logoPath = path.join(__dirname, 'public', 'educore_logo.png');
     if (fs.existsSync(logoPath)) {
       const b64 = fs.readFileSync(logoPath).toString('base64');
-      logoImgHtml = `<img src="data:image/png;base64,${b64}" style="width: 76px; height: 76px; object-fit: contain; border-radius: 16px;" />`;
+      logoImgHtml = `<img src="data:image/png;base64,${b64}" style="width: 60px; height: 60px; object-fit: contain; margin-bottom: 22px; filter: drop-shadow(0 4px 14px rgba(2, 132, 199, 0.35));" />`;
     }
   } catch (_) {}
 
-  // Show immediate sleek loading state while servers spin up
+  // Show immediate WhatsApp-style native loading state
   if (mainWindow) {
     mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`
       <!DOCTYPE html>
       <html>
       <head>
-        <title>EduCore - Starting Up...</title>
+        <meta charset="utf-8" />
+        <title></title>
         <style>
-          body { margin: 0; background: #0f172a; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; -webkit-app-region: drag; }
-          .logo-box { width: 90px; height: 90px; border-radius: 22px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); display: flex; align-items: center; justify-content: center; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
-          .spinner { width: 34px; height: 34px; border: 3px solid rgba(59,130,246,0.2); border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite; margin-top: 20px; }
-          @keyframes spin { to { transform: rotate(360deg); } }
-          h2 { font-size: 1.4rem; font-weight: 800; margin: 0 0 6px 0; letter-spacing: -0.02em; }
-          p { font-size: 0.88rem; color: #94a3b8; margin: 0; }
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body {
+            margin: 0;
+            background: #111b21;
+            color: #e9edef;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            height: 100vh;
+            overflow: hidden;
+            -webkit-app-region: drag;
+            user-select: none;
+          }
+          .splash-center {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+          }
+          .splash-brand {
+            font-size: 21px;
+            font-weight: 600;
+            color: #e9edef;
+            letter-spacing: -0.015em;
+            margin-bottom: 24px;
+          }
+          .splash-progress-track {
+            width: 180px;
+            height: 3px;
+            background: rgba(255, 255, 255, 0.12);
+            border-radius: 3px;
+            overflow: hidden;
+            position: relative;
+          }
+          .splash-progress-bar {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            background: linear-gradient(90deg, #0284c7, #2563eb);
+            border-radius: 3px;
+            width: 45%;
+            box-shadow: 0 0 8px rgba(2, 132, 199, 0.6);
+            animation: progressSlide 1.5s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+          }
+          @keyframes progressSlide {
+            0% { left: -45%; width: 35%; }
+            50% { width: 55%; }
+            100% { left: 100%; width: 35%; }
+          }
+          .splash-footer {
+            padding-bottom: 30px;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 12px;
+            color: #8696a0;
+            letter-spacing: 0.01em;
+          }
+          .splash-footer svg {
+            width: 13px;
+            height: 13px;
+            fill: #8696a0;
+          }
         </style>
       </head>
       <body>
-        <div class="logo-box">
+        <div class="splash-center">
           ${logoImgHtml}
+          <div class="splash-brand">EduCore</div>
+          <div class="splash-progress-track">
+            <div class="splash-progress-bar"></div>
+          </div>
         </div>
-        <h2>EduCore</h2>
-        <p>Connecting to Cloud Portal & Background Engines...</p>
-        <div class="spinner"></div>
+        <div class="splash-footer">
+          <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+          <span>End-to-end encrypted school platform</span>
+        </div>
       </body>
       </html>
     `)}`);
@@ -253,19 +320,22 @@ async function startAppFlow() {
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1366,
-    height: 768,
-    title: "EduCore — School Management System",
+    width: 1080,
+    height: 720,
+    minWidth: 880,
+    minHeight: 600,
+    center: true,
+    title: "", // Clean titleless startup (like WhatsApp)
     icon: path.join(__dirname, 'public', 'icon.ico'),
     autoHideMenuBar: true,
-    // Native frameless with Windows overlay controls (like WhatsApp, VS Code, Edge)
+    // Native frameless with Windows 11 overlay controls (exact WhatsApp styling)
     titleBarStyle: 'hidden',
     titleBarOverlay: {
-      color: '#111827',       // Dark gunmetal matching app header
-      symbolColor: '#e2e8f0', // Light icons for contrast
-      height: 36              // Compact like WhatsApp
+      color: '#111b21',       // WhatsApp charcoal theme
+      symbolColor: '#8696a0', // Muted caption icons matching WhatsApp
+      height: 36
     },
-    backgroundColor: '#111827',
+    backgroundColor: '#111b21',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -273,8 +343,6 @@ function createWindow() {
       allowRunningInsecureContent: true
     }
   });
-
-  mainWindow.maximize();
 
   // Useful power shortcuts: F5 (Reload), Ctrl+Shift+R (Hard Refresh), F12 (DevTools), Ctrl+Shift+L (Toggle Cloud/Local)
   mainWindow.webContents.on('before-input-event', (event, input) => {

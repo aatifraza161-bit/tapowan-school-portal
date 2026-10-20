@@ -10,7 +10,8 @@
   right: 0;
   height: 36px;
   z-index: 2000000;
-  background: #111827;
+  background: #111b21;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   align-items: center;
   padding: 0 16px;
   user-select: none;
@@ -35,7 +36,7 @@
 .electron-titlebar-text {
   font-size: 12px;
   font-weight: 700;
-  color: #f1f5f9;
+  color: #e9edef;
   letter-spacing: -0.01em;
 }
 .electron-titlebar-sep {
@@ -46,17 +47,22 @@
 .electron-titlebar-subtitle {
   font-size: 11.5px;
   font-weight: 400;
-  color: #94a3b8;
+  color: #8696a0;
 }
 
-/* When running in Electron, push all content below the custom title bar */
+/* When running in Electron, WhatsApp-style dark canvas */
 html.is-electron body {
+  background: #111b21 !important;
   padding-top: 36px;
 }
 html.is-electron #authOverlay {
+  background: #111b21 !important;
   top: 36px;
   height: calc(100vh - 36px);
   min-height: calc(100vh - 36px);
+}
+html.is-electron #authOverlay .auth-dots {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px) !important;
 }
 html.is-electron .sidebar {
   top: 36px;

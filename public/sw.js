@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tps-cache-v20261020-native-titlebar-v1';
+const CACHE_NAME = 'tps-cache-v20261020-whatsapp-native-v1';
 
 self.addEventListener('install', event => {
   self.skipWaiting();
