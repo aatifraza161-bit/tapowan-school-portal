@@ -26694,10 +26694,12 @@ let authFaceScanInterval = null;
 let authFaceScanning = false;
 
 window.openAuthFaceModal = function() {
-  const modal = document.getElementById("authFaceModal");
-  if (!modal) return;
-  modal.classList.remove("hidden");
-  modal.style.display = "flex";
+  if (typeof showToast === "function") {
+    showToast("Direct Face ID login is temporarily disabled for security hardening. Please sign in with your username and password.", "warn");
+  } else {
+    alert("Direct Face ID login is temporarily disabled for security hardening. Please sign in with your username and password.");
+  }
+  return;
 
   const video = document.getElementById("authFaceVideo");
   const circle = document.getElementById("authFaceCircleFrame");
