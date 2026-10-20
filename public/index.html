@@ -52,7 +52,7 @@
   <link href="vendor/tom-select.css" rel="stylesheet">
   
   <script src="vendor/lordicon.js" defer></script>
-  <link rel="stylesheet" href="style.css?v=202610201830" />
+  <link rel="stylesheet" href="style.css?v=202610201840" />
 
   <script src="vendor/html2pdf.bundle.min.js" defer></script>
   <script src="vendor/xlsx.full.min.js" defer></script>
@@ -83,12 +83,12 @@
       <!-- Left Column: Modern White SaaS Card -->
       <div class="auth-form-column">
         <div>
-          <!-- Brand Header -->
+          <!-- Brand Header: EduCore -->
           <div class="auth-brand-row">
             <div class="auth-brand-icon">
-              <img src="tps_logo_new.png" alt="Tapowan Logo" />
+              <img src="educore_logo.png" alt="EduCore Logo" />
             </div>
-            <span class="auth-brand-name">Tapowan Public School</span>
+            <span class="auth-brand-name">EduCore</span>
           </div>
 
           <!-- Title & Subtitle -->
@@ -228,10 +228,10 @@
             "Education is the most powerful weapon which you can use to change the world. It breaks down barriers and opens endless possibilities."
           </p>
           <div class="auth-hero-author-row">
-            <img id="authHeroAuthorAvatar" class="auth-hero-author-avatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80" alt="Author" />
+            <img id="authHeroAuthorAvatar" class="auth-hero-author-avatar" src="authors/kalam.jpg" alt="Author" />
             <div class="auth-hero-author-meta">
-              <h4 id="authHeroAuthorName" class="auth-hero-author-name">Nelson Mandela</h4>
-              <p id="authHeroAuthorRole" class="auth-hero-author-role">Former President of South Africa & Nobel Laureate</p>
+              <h4 id="authHeroAuthorName" class="auth-hero-author-name">Dr. A.P.J. Abdul Kalam</h4>
+              <p id="authHeroAuthorRole" class="auth-hero-author-role">Former President of India & Aerospace Scientist</p>
             </div>
           </div>
         </div>
@@ -294,102 +294,95 @@
     (function initMotivationalQuoteEngine() {
       const MOTIVATIONAL_QUOTES = [
         {
-          headline: "Revolutionize Learning with Smarter Education",
-          quote: "Education is the most powerful weapon which you can use to change the world. It breaks down barriers and opens endless possibilities.",
-          author: "Nelson Mandela",
-          role: "Former President of South Africa & Nobel Laureate",
-          avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80"
-        },
-        {
           headline: "Dream Big, Ignite Your Inner Potential",
           quote: "You have to dream before your dreams can come true. Great dreams of great dreamers are always transcended.",
           author: "Dr. A.P.J. Abdul Kalam",
           role: "Former President of India & Aerospace Scientist",
-          avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80"
+          avatar: "authors/kalam.jpg"
+        },
+        {
+          headline: "Revolutionize Learning with Smarter Education",
+          quote: "Education is the most powerful weapon which you can use to change the world. It breaks down barriers and opens endless possibilities.",
+          author: "Nelson Mandela",
+          role: "Former President of South Africa & Nobel Laureate",
+          avatar: "authors/mandela.jpg"
         },
         {
           headline: "Arise, Awake and Realize Your Greatness",
           quote: "Arise, awake, and stop not until the goal is reached. All the power in the universe is already ours.",
           author: "Swami Vivekananda",
           role: "Philosopher, Thinker & Youth Visionary",
-          avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&auto=format&fit=crop&q=80"
+          avatar: "authors/vivekananda.jpg"
         },
         {
           headline: "Curiosity is the Spark of True Genius",
           quote: "The important thing is not to stop questioning. Curiosity has its own reason for existing.",
           author: "Albert Einstein",
           role: "Theoretical Physicist & Nobel Prize Laureate",
-          avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=120&auto=format&fit=crop&q=80"
+          avatar: "authors/einstein.jpg"
         },
         {
           headline: "Knowledge is the Shield of Human Dignity",
           quote: "Cultivation of mind should be the ultimate aim of human existence. Educate, agitate, and organize.",
           author: "Dr. B.R. Ambedkar",
           role: "Architect of the Indian Constitution & Jurist",
-          avatar: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=120&auto=format&fit=crop&q=80"
+          avatar: "authors/ambedkar.jpg"
         },
         {
           headline: "Where the Mind is Led Forward Without Fear",
           quote: "Don't limit a child to your own learning, for he was born in another time. Reach for boundless horizons.",
           author: "Rabindranath Tagore",
           role: "Poet, Educator & Asia's First Nobel Laureate",
-          avatar: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=120&auto=format&fit=crop&q=80"
+          avatar: "authors/tagore.jpg"
         },
         {
           headline: "One Pen Can Change the Entire World",
           quote: "One child, one teacher, one book, and one pen can change the world. Education is the only solution.",
           author: "Malala Yousafzai",
           role: "Global Education Activist & Nobel Laureate",
-          avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop&q=80"
+          avatar: "authors/malala.jpg"
         },
         {
           headline: "An Investment in Knowledge Pays Best Interest",
           quote: "Tell me and I forget. Teach me and I remember. Involve me and I learn.",
           author: "Benjamin Franklin",
           role: "Founding Father, Scientist & Statesman",
-          avatar: "https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=120&auto=format&fit=crop&q=80"
+          avatar: "authors/franklin.jpg"
         },
         {
           headline: "Excellence is Not an Act, But a Habit",
           quote: "We are what we repeatedly do. Excellence, then, is not an act, but a habit forged in dedication.",
           author: "Aristotle",
           role: "Ancient Greek Philosopher & Polymath",
-          avatar: "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=120&auto=format&fit=crop&q=80"
+          avatar: "authors/aristotle.jpg"
         },
         {
           headline: "Live as if You Were to Die Tomorrow",
           quote: "Live as if you were to die tomorrow. Learn as if you were to live forever.",
           author: "Mahatma Gandhi",
           role: "Leader of Independence & Champion of Peace",
-          avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80"
+          avatar: "authors/gandhi.jpg"
         },
         {
           headline: "Science is a Voyage of Fearless Discovery",
           quote: "I am the master of my failure... If I never fail, how will I learn? Success comes to those who dare.",
           author: "Sir C.V. Raman",
           role: "Nobel Laureate in Physics & Bharat Ratna",
-          avatar: "https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?w=120&auto=format&fit=crop&q=80"
+          avatar: "authors/raman.jpg"
         },
         {
           headline: "Optimism is Faith that Leads to Triumph",
           quote: "Optimism is the faith that leads to achievement. Nothing can be done without hope and confidence.",
           author: "Helen Keller",
           role: "Author, Educator & Human Rights Advocate",
-          avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&auto=format&fit=crop&q=80"
-        },
-        {
-          headline: "Patience and Perseverance Conquer All",
-          quote: "It does not matter how slowly you go as long as you do not stop. Every step forward is progress.",
-          author: "Confucius",
-          role: "Philosopher & Master Teacher",
-          avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80"
+          avatar: "authors/keller.jpg"
         },
         {
           headline: "Courage is the Secret to Real Freedom",
           quote: "Freedom is not worth having if it does not include the freedom to make mistakes and grow from them.",
           author: "Sarojini Naidu",
           role: "Nightingale of India & Freedom Fighter",
-          avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop&q=80"
+          avatar: "authors/naidu.jpg"
         }
       ];
 
@@ -1274,7 +1267,7 @@
   <!-- Pure 512-D ArcFace InsightFace GPU Engine -->
   <script src="https://cdn.lordicon.com/lordicon.js" defer></script>
   <script src="slip-templates.js?v=202610161235" defer></script>
-  <script src="app.js?v=202610201830" defer></script>
+  <script src="app.js?v=202610201840" defer></script>
   <script src="exam_module.js?v=202610161235" defer></script>
   <script src="reports_module.js?v=202610161235" defer></script>
   <script src="online_classes_module.js?v=202610161235" defer></script>

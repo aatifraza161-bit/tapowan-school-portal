@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tps-cache-v20261020-auth-split-v5';
+const CACHE_NAME = 'tps-cache-v20261020-auth-split-v6';
 
 self.addEventListener('install', event => {
   self.skipWaiting();
