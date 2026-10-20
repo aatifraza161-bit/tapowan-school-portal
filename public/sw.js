@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tps-cache-v20261016-vidya3';
+const CACHE_NAME = 'tps-cache-v20261020-auth-split-v5';
 
 self.addEventListener('install', event => {
   self.skipWaiting();
