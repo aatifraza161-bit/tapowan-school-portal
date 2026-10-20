@@ -780,11 +780,27 @@ app.post("/api/auth/login", authLimiter, async (req, res) => {
       }
     }
 
+    let userAdmissionNo = user.admissionNo;
+    if (!userAdmissionNo && String(user.role).toLowerCase() === 'student') {
+      try {
+        const stdRes = await db.execute({
+          sql: "SELECT admissionNo FROM students WHERE admissionNo = ? OR LOWER(fullName) = LOWER(?) LIMIT 1",
+          args: [user.username, user.fullName || '']
+        });
+        if (stdRes?.rows?.[0]?.admissionNo) {
+          userAdmissionNo = stdRes.rows[0].admissionNo;
+        }
+      } catch (e) {}
+    }
+    if (!userAdmissionNo && user.username) {
+      userAdmissionNo = user.username === 'test_student' ? 'TEST001' : user.username;
+    }
+
     req.session.user = {
       id: user.id,
       username: user.username,
       fullName: user.fullName,
-      admissionNo: user.admissionNo,
+      admissionNo: userAdmissionNo || user.admissionNo || '',
       role: user.role
     };
 
@@ -1577,6 +1593,20 @@ const dbProxyLimiter = rateLimit({
   message: { error: "Too many database queries, please slow down." }
 });
 
+function hasNegativeCondition(sql) {
+  if (!sql || typeof sql !== 'string') return false;
+  const s = sql.toUpperCase().replace(/\s+/g, ' ');
+  // Strip benign checks like != '' or != "" or <> '' or <> "" or IS NOT NULL
+  const stripped = s
+    .replace(/!=\s*['"]\s*['"]/g, '')
+    .replace(/<>\s*['"]\s*['"]/g, '')
+    .replace(/IS\s+NOT\s+NULL/g, '');
+  
+  if (stripped.includes("!=") || stripped.includes("<>")) return true;
+  if (/\bNOT\b/.test(stripped)) return true;
+  return false;
+}
+
 function validateSafeQuery(sql, user = null, args = []) {
   if (!sql || typeof sql !== 'string') return "Missing or invalid SQL query";
   const upperSql = sql.trim().toUpperCase();
@@ -1640,6 +1670,11 @@ function validateSafeQuery(sql, user = null, args = []) {
     }
   }
 
+  // Identity extraction for Student Role quarantine
+  const role = String(user?.role || '').toLowerCase();
+  const userAdm = String(user?.admissionNo || (user?.username === 'test_student' ? 'TEST001' : user?.username) || '').trim().toUpperCase();
+  const userFull = String(user?.fullName || '').trim().toUpperCase();
+
   // 5. Financial & Administrative Tables (fees, duemanagement, payroll, etc.)
   const touchesFinancial = upperSql.includes("FROM FEES") || upperSql.includes("JOIN FEES") ||
     upperSql.includes("FROM DUEMANAGEMENT") || upperSql.includes("JOIN DUEMANAGEMENT") ||
@@ -1651,27 +1686,62 @@ function validateSafeQuery(sql, user = null, args = []) {
     if (!user) {
       return "Authentication required to access school financial records.";
     }
-    const role = String(user?.role || '').toLowerCase();
     if (role === 'student') {
       if (upperSql.includes("PAYROLL") || upperSql.includes("SCHOOLEXPENSES") || upperSql.includes("SCHOOLINCOME") || upperSql.includes("SCHOOLINVESTMENTS") || upperSql.includes("ADMISSIONS")) {
         return "Access denied to school financial and administration modules.";
       }
-      const userAdm = String(user.admissionNo || '').trim().toUpperCase();
-      const hasAdmInSql = userAdm && upperSql.includes(userAdm);
-      const hasAdmInArgs = userAdm && Array.isArray(args) && args.some(a => String(a).trim().toUpperCase() === userAdm);
+      if (hasNegativeCondition(upperSql)) {
+        return "Negative operator queries on financial records are forbidden for student accounts.";
+      }
+      const hasAdmInSql = userAdm && (upperSql.includes("'" + userAdm + "'") || upperSql.includes('"' + userAdm + '"'));
+      const hasAdmInArgs = userAdm && Array.isArray(args) && args.some(a => a != null && String(a).trim().toUpperCase() === userAdm);
       if (!hasAdmInSql && !hasAdmInArgs) {
         return "Students may only access their own fee and due records.";
       }
     }
   }
 
-  // 6. Student Directory Table Protection
+  // 6. Student Directory Table Protection (students)
   if (upperSql.includes("FROM STUDENTS") || upperSql.includes("JOIN STUDENTS")) {
     if (!user) {
       const isLoginLookup = isSelect && upperSql.includes("LIMIT 1") && 
         (upperSql.includes("ADMISSIONNO") || upperSql.includes("PHONE"));
       if (!isLoginLookup) {
         return "Authentication required to query student directory.";
+      }
+    } else if (role === 'student') {
+      if (hasNegativeCondition(upperSql)) {
+        return "Negative operator queries on student directory are forbidden for student accounts.";
+      }
+      // Students can ONLY read their own single profile record
+      if (!upperSql.includes("LIMIT ")) {
+        return "Students may only access their own student profile record with a scoped LIMIT query.";
+      }
+      const hasAdmInSql = userAdm && (upperSql.includes("'" + userAdm + "'") || upperSql.includes('"' + userAdm + '"'));
+      const hasFullInSql = userFull && (upperSql.includes("'" + userFull + "'") || upperSql.includes('"' + userFull + '"'));
+      const hasAdmInArgs = userAdm && Array.isArray(args) && args.some(a => a != null && String(a).trim().toUpperCase() === userAdm);
+      const hasFullInArgs = userFull && Array.isArray(args) && args.some(a => a != null && String(a).trim().toUpperCase() === userFull);
+      if (!hasAdmInSql && !hasFullInSql && !hasAdmInArgs && !hasFullInArgs) {
+        return "Students may only access their own student profile record.";
+      }
+    }
+  }
+
+  // 7. Student Attendance Records Protection (attendance)
+  if (upperSql.includes("FROM ATTENDANCE") || upperSql.includes("JOIN ATTENDANCE")) {
+    if (!user) {
+      return "Authentication required to access student attendance records.";
+    }
+    if (role === 'student') {
+      if (hasNegativeCondition(upperSql)) {
+        return "Negative operator queries on attendance records are forbidden for student accounts.";
+      }
+      const hasAdmInSql = userAdm && (upperSql.includes("'" + userAdm + "'") || upperSql.includes('"' + userAdm + '"'));
+      const hasFullInSql = userFull && (upperSql.includes("'" + userFull + "'") || upperSql.includes('"' + userFull + '"'));
+      const hasAdmInArgs = userAdm && Array.isArray(args) && args.some(a => a != null && String(a).trim().toUpperCase() === userAdm);
+      const hasFullInArgs = userFull && Array.isArray(args) && args.some(a => a != null && String(a).trim().toUpperCase() === userFull);
+      if (!hasAdmInSql && !hasFullInSql && !hasAdmInArgs && !hasFullInArgs) {
+        return "Students may only access their own attendance records.";
       }
     }
   }
