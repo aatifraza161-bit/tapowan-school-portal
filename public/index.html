@@ -63,7 +63,7 @@
   <link href="vendor/tom-select.css" rel="stylesheet">
   
   <script src="vendor/lordicon.js" defer></script>
-  <link rel="stylesheet" href="style.css?v=202610202205" />
+  <link rel="stylesheet" href="style.css?v=202610202215" />
 
   <script src="vendor/html2pdf.bundle.min.js" defer></script>
   <script src="vendor/xlsx.full.min.js" defer></script>
@@ -84,6 +84,26 @@
 
 </head>
 <body>
+  <!-- Native Desktop App Title Bar (only visible in Electron — hidden on web) -->
+  <div id="electronTitleBar" class="electron-titlebar" style="display:none;">
+    <div class="electron-titlebar-drag">
+      <img src="educore_logo.png" alt="" class="electron-titlebar-icon" onerror="this.style.display='none'" />
+      <span class="electron-titlebar-text">EduCore</span>
+      <span class="electron-titlebar-sep">—</span>
+      <span class="electron-titlebar-subtitle">School Management System</span>
+    </div>
+  </div>
+  <script>
+    // Auto-detect Electron environment and show native title bar
+    (function() {
+      var isElectron = (typeof navigator !== 'undefined' && navigator.userAgent.indexOf('Electron') > -1);
+      if (isElectron) {
+        var tb = document.getElementById('electronTitleBar');
+        if (tb) tb.style.display = 'flex';
+        document.documentElement.classList.add('is-electron');
+      }
+    })();
+  </script>
   <div id="authOverlay" class="auth-overlay">
     <button id="closeAuthBtn" class="auth-close-btn" title="Close" type="button">
       <span class="material-symbols-outlined" style="font-size:20px;">close</span>

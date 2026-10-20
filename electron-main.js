@@ -212,7 +212,7 @@ async function startAppFlow() {
       <head>
         <title>EduCore - Starting Up...</title>
         <style>
-          body { margin: 0; background: #0f172a; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
+          body { margin: 0; background: #0f172a; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; -webkit-app-region: drag; }
           .logo-box { width: 90px; height: 90px; border-radius: 22px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); display: flex; align-items: center; justify-content: center; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
           .spinner { width: 34px; height: 34px; border: 3px solid rgba(59,130,246,0.2); border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite; margin-top: 20px; }
           @keyframes spin { to { transform: rotate(360deg); } }
@@ -255,9 +255,17 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1366,
     height: 768,
-    title: "EduCore - School Management System",
+    title: "EduCore — School Management System",
     icon: path.join(__dirname, 'public', 'icon.ico'),
     autoHideMenuBar: true,
+    // Native frameless with Windows overlay controls (like WhatsApp, VS Code, Edge)
+    titleBarStyle: 'hidden',
+    titleBarOverlay: {
+      color: '#111827',       // Dark gunmetal matching app header
+      symbolColor: '#e2e8f0', // Light icons for contrast
+      height: 36              // Compact like WhatsApp
+    },
+    backgroundColor: '#111827',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
