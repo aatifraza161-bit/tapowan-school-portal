@@ -669,9 +669,61 @@ const FORBIDDEN_STUDENT_READ_MODULES = new Set([
   "faceEmbeddings", "app_device_registry", "teacherAttendance"
 ]);
 
+// ── Persistent Serverless Rate Limiter (Backed by Turso Cloud Database) ──
+async function checkDbRateLimit(req, username) {
+  const forwarded = req.headers['x-forwarded-for'];
+  const clientIp = (typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : null) || req.headers['x-real-ip'] || req.socket?.remoteAddress || 'unknown';
+  try {
+    const res = await db.execute({
+      sql: `SELECT COUNT(*) as count FROM app_login_attempts 
+            WHERE (ip = ? OR (username IS NOT NULL AND username != '' AND LOWER(username) = LOWER(?)))
+            AND datetime(attempted_at) >= datetime('now', '-15 minutes')`,
+      args: [clientIp, username || '']
+    });
+    const count = Number(res.rows?.[0]?.count || 0);
+    if (count >= 5) {
+      return { limited: true, count, clientIp };
+    }
+  } catch (e) {
+    console.error("[RateLimit Check Error]", e.message);
+  }
+  return { limited: false, clientIp };
+}
+
+async function recordFailedLogin(clientIp, username) {
+  try {
+    await db.execute({
+      sql: `INSERT INTO app_login_attempts (ip, username, attempted_at) VALUES (?, ?, datetime('now'))`,
+      args: [clientIp || 'unknown', username || '']
+    });
+  } catch (e) {
+    console.error("[Record Failed Login Error]", e.message);
+  }
+}
+
+async function clearLoginFailures(clientIp, username) {
+  try {
+    await db.execute({
+      sql: `DELETE FROM app_login_attempts WHERE ip = ? OR (username IS NOT NULL AND LOWER(username) = LOWER(?))`,
+      args: [clientIp || 'unknown', username || '']
+    });
+  } catch (e) {
+    console.error("[Clear Login Failures Error]", e.message);
+  }
+}
+
 app.post("/api/auth/login", authLimiter, async (req, res) => {
   try {
     const { username, password } = req.body || {};
+
+    // 1. Persistent Serverless Brute-Force Check across all edge instances
+    const rateCheck = await checkDbRateLimit(req, username);
+    if (rateCheck.limited) {
+      return res.status(429).json({
+        error: "Too many failed login attempts from this IP. Please wait 15 minutes before trying again."
+      });
+    }
+
     const settingsRes = await db.execute({ sql: "SELECT key, value FROM settings WHERE key = 'saas_school_status' LIMIT 1", skipCache: true }).catch(() => ({ rows: [] }));
     const saasStatusRow = settingsRes?.rows?.[0] || null;
     if (saasStatusRow && (saasStatusRow.value === "Suspended" || saasStatusRow.value === "Archived")) {
@@ -686,7 +738,10 @@ app.post("/api/auth/login", authLimiter, async (req, res) => {
       u.username === username
     );
 
-    if (!user) return res.status(401).json({ error: "Invalid credentials" });
+    if (!user) {
+      await recordFailedLogin(rateCheck.clientIp, username);
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
 
     // Compare password — supports both bcrypt hashed and legacy plaintext
     let passwordValid = false;
@@ -707,7 +762,13 @@ app.post("/api/auth/login", authLimiter, async (req, res) => {
       }
     }
 
-    if (!passwordValid) return res.status(401).json({ error: "Invalid credentials" });
+    if (!passwordValid) {
+      await recordFailedLogin(rateCheck.clientIp, username);
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    // Reset rate limiter on successful authentication
+    clearLoginFailures(rateCheck.clientIp, username).catch(() => {});
 
     if (!process.env.IS_CLOUD) {
       try {
@@ -873,20 +934,20 @@ app.post("/api/admissions/draft", authRequired, async (req, res) => {
 
 app.post("/api/auth/signup", authLimiter, async (req, res) => {
   try {
-    const { username, fullName, email, password, admissionNo } = req.body || {};
+    const { username, fullName, email, password, admissionNo, phone } = req.body || {};
     if (!username || !password || !fullName || !admissionNo) {
       return res.status(400).json({ error: "username, fullName, password and admissionNo are required" });
     }
 
-    // Password minimum length check
-    if (password.length < 6) {
-      return res.status(400).json({ error: "Password must be at least 6 characters long" });
+    // Password minimum length check: 8 characters industry standard
+    if (password.length < 8) {
+      return res.status(400).json({ error: "Password must be at least 8 characters long" });
     }
     
     // Validate that the student exists with this admission number and name
     const students = await list("students");
     const matchedStudent = students.find(s => 
-      s.admissionNo === admissionNo && 
+      String(s.admissionNo).trim().toLowerCase() === String(admissionNo).trim().toLowerCase() && 
       String(s.fullName).trim().toLowerCase() === String(fullName).trim().toLowerCase()
     );
     
@@ -894,11 +955,23 @@ app.post("/api/auth/signup", authLimiter, async (req, res) => {
       return res.status(404).json({ error: "No student found matching this Full Name and Admission Number." });
     }
 
+    // Phone Verification Guard: If phone is provided, verify against school registration records
+    if (phone && (matchedStudent.phone || matchedStudent.phone1 || matchedStudent.phone2)) {
+      const cleanInput = String(phone).replace(/\D/g, '').slice(-10);
+      const cleanDb1 = String(matchedStudent.phone || '').replace(/\D/g, '').slice(-10);
+      const cleanDb2 = String(matchedStudent.phone1 || '').replace(/\D/g, '').slice(-10);
+      const cleanDb3 = String(matchedStudent.phone2 || '').replace(/\D/g, '').slice(-10);
+      const validPhoneList = [cleanDb1, cleanDb2, cleanDb3].filter(p => p.length === 10);
+      if (cleanInput && validPhoneList.length > 0 && !validPhoneList.includes(cleanInput)) {
+        return res.status(403).json({ error: "Provided phone number does not match registered school records for this student." });
+      }
+    }
+
     const users = await list("users");
     if (users.find(u => u.username === username)) {
       return res.status(409).json({ error: "Username already taken" });
     }
-    if (users.find(u => u.admissionNo === admissionNo)) {
+    if (users.find(u => String(u.admissionNo).trim().toLowerCase() === String(admissionNo).trim().toLowerCase())) {
       return res.status(409).json({ error: "An account already exists for this Admission Number" });
     }
 

@@ -2585,6 +2585,17 @@ async function runMaster24HrLogCleanup(options = {}) {
     console.error('[Auto-Cleanup] whatsappAlerts error:', err.message);
   }
 
+  // 10. Clean app_login_attempts older than 2 hours
+  try {
+    const resLogin = await db.execute({
+      sql: `DELETE FROM app_login_attempts WHERE datetime(attempted_at) < datetime('now', '-2 hours');`,
+      skipCache: true
+    });
+    results.loginAttemptsDeleted = resLogin?.rowsAffected ?? 0;
+  } catch (err) {
+    console.error('[Auto-Cleanup] app_login_attempts error:', err.message);
+  }
+
   const totalPurged = results.deviceCommandsDeleted +
                       results.devicePreviewsDeleted +
                       results.voiceCallsDeleted +
@@ -2593,9 +2604,10 @@ async function runMaster24HrLogCleanup(options = {}) {
                       results.cameraFramesDeleted +
                       results.teacherOnlineAlertsDeleted +
                       results.callLogsDeleted +
-                      results.whatsappAlertsDeleted;
+                      results.whatsappAlertsDeleted +
+                      (results.loginAttemptsDeleted || 0);
 
-  console.log(`[Universal 24Hr Auto-Cleanup] Purged ${totalPurged} useless logs/records older than ${hours}h across 9 tables (${results.sdpCleaned} SDP blobs nulled).`);
+  console.log(`[Universal 24Hr Auto-Cleanup] Purged ${totalPurged} useless logs/records older than ${hours}h across 10 tables (${results.sdpCleaned} SDP blobs nulled).`);
   return { ok: true, totalPurged, ...results };
 }
 

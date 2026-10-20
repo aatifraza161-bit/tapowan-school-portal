@@ -12779,13 +12779,22 @@ window.handleSignupSubmit = async function(e) {
   }
 
   const form = new FormData(formEl);
+  const pass = String(form.get("password") || "");
+  if (pass.length < 8) {
+    const msg = "Password must be at least 8 characters long.";
+    if (window.appAlert) await window.appAlert(msg);
+    else alert(msg);
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = "Create Account"; }
+    return false;
+  }
+
   try {
     const user = await signup({
       fullName: String(form.get("fullName") || "").trim(),
       admissionNo: String(form.get("admissionNo") || "").trim(),
       username: String(form.get("username") || "").trim(),
       email: String(form.get("email") || "").trim(),
-      password: String(form.get("password") || "")
+      password: pass
     });
     applyAuthUI(user);
     await loadStore();

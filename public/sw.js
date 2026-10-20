@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tps-cache-v20261020-auth-security-v1';
+const CACHE_NAME = 'tps-cache-v20261020-auth-security-v2';
 
 self.addEventListener('install', event => {
   self.skipWaiting();
