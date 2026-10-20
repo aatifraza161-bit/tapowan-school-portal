@@ -2454,66 +2454,153 @@ async function notifyAatifTeacherOnline({ teacherId, teacherName, deviceModel } 
  * @param {boolean} [options.forceAll=false] - If true, purges all non-active calls immediately.
  * @param {number} [options.olderThanHours=24] - Age cutoff in hours (default: 24).
  */
-async function cleanupCallLogs(options = {}) {
-  const forceAll = Boolean(options.forceAll);
-  const hours = Number(options.olderThanHours) || 24;
+/**
+ * 🧹 Universal 24-Hour Master Log Auto-Delete Engine.
+ * Automatically purges all useless logs, signaling records, stale preview sessions,
+ * expired device commands, transient WhatsApp alerts, and frame caches older than 24 hours.
+ */
+async function runMaster24HrLogCleanup(options = {}) {
+  const forceAll = Boolean(options.forceAll || options.force);
+  const hours = Number(options.olderThanHours || options.hours) || 24;
   const cutoffSql = `'-${hours} hours'`;
 
-  // 1. Auto-Clean WebRTC SDP Blobs: Once a call is ended, declined, or older than 24 hours, NULL out the SDP columns
-  // Keeps only essential call summary (caller_id, receiver_id, duration_sec, status, created_at)
-  const sqlNullSdp = `UPDATE app_voice_calls 
-    SET offer_sdp = NULL, answer_sdp = NULL, caller_ice = NULL, receiver_ice = NULL 
-    WHERE (status IN ('ended', 'declined', 'busy', 'missed', 'timeout') OR created_at < datetime('now', ${cutoffSql}))
-      AND (offer_sdp IS NOT NULL OR answer_sdp IS NOT NULL OR caller_ice IS NOT NULL OR receiver_ice IS NOT NULL);`;
+  const results = {
+    sdpCleaned: 0,
+    voiceCallsDeleted: 0,
+    deviceCommandsDeleted: 0,
+    devicePreviewsDeleted: 0,
+    cameraFramesDeleted: 0,
+    voiceRoomsDeleted: 0,
+    voiceSignalsDeleted: 0,
+    teacherOnlineAlertsDeleted: 0,
+    callLogsDeleted: 0,
+    whatsappAlertsDeleted: 0,
+    olderThanHours: hours,
+    timestamp: new Date().toISOString()
+  };
 
-  const sqlCalls = forceAll
-    ? "DELETE FROM app_voice_calls WHERE status NOT IN ('ringing', 'connected');"
-    : null; // Preserves call summary history while SDP is nulled
-
-  const sqlRooms = forceAll
-    ? "DELETE FROM app_voice_rooms WHERE status = 'ended';"
-    : `DELETE FROM app_voice_rooms WHERE datetime(created_at) < datetime('now', ${cutoffSql}) OR (status = 'ended' AND datetime(COALESCE(ended_at, created_at)) < datetime('now', ${cutoffSql}));`;
-
-  const sqlSignals = `DELETE FROM app_voice_signals WHERE datetime(created_at) < datetime('now', ${cutoffSql});`;
-
-  let sdpCleaned = 0;
-  let callsDeleted = 0;
-  let roomsDeleted = 0;
-  let signalsDeleted = 0;
-
+  // 1. Clean app_device_commands (Wake, ping, camera/flash commands) older than 24 hours
   try {
+    const resCmd = await db.execute({
+      sql: `DELETE FROM app_device_commands WHERE datetime(created_at) < datetime('now', ${cutoffSql});`,
+      skipCache: true
+    });
+    results.deviceCommandsDeleted = resCmd?.rowsAffected ?? 0;
+  } catch (err) {
+    console.error('[Auto-Cleanup] app_device_commands error:', err.message);
+  }
+
+  // 2. Clean app_device_previews (Ended camera preview signaling sessions with large SDP blobs)
+  try {
+    const sqlPreviews = forceAll
+      ? "DELETE FROM app_device_previews;"
+      : `DELETE FROM app_device_previews WHERE datetime(created_at) < datetime('now', ${cutoffSql}) OR status = 'ended';`;
+    const resPrev = await db.execute({ sql: sqlPreviews, skipCache: true });
+    results.devicePreviewsDeleted = resPrev?.rowsAffected ?? 0;
+  } catch (err) {
+    console.error('[Auto-Cleanup] app_device_previews error:', err.message);
+  }
+
+  // 3. Clean app_voice_calls (Voice call history older than 24 hours & SDP blobs)
+  try {
+    const sqlNullSdp = `UPDATE app_voice_calls 
+      SET offer_sdp = NULL, answer_sdp = NULL, caller_ice = NULL, receiver_ice = NULL 
+      WHERE (status IN ('ended', 'declined', 'busy', 'missed', 'timeout') OR datetime(created_at) < datetime('now', ${cutoffSql}))
+        AND (offer_sdp IS NOT NULL OR answer_sdp IS NOT NULL OR caller_ice IS NOT NULL OR receiver_ice IS NOT NULL);`;
     const resSdp = await db.execute({ sql: sqlNullSdp, skipCache: true });
-    sdpCleaned = resSdp?.rowsAffected ?? 0;
+    results.sdpCleaned = resSdp?.rowsAffected ?? 0;
+
+    const sqlCalls = forceAll
+      ? "DELETE FROM app_voice_calls WHERE status NOT IN ('ringing', 'connected');"
+      : `DELETE FROM app_voice_calls WHERE datetime(created_at) < datetime('now', ${cutoffSql});`;
+    const resCalls = await db.execute({ sql: sqlCalls, skipCache: true });
+    results.voiceCallsDeleted = resCalls?.rowsAffected ?? 0;
   } catch (err) {
-    console.error('[cleanupCallLogs] Error nulling SDP blobs:', err.message);
+    console.error('[Auto-Cleanup] app_voice_calls error:', err.message);
   }
 
-  if (sqlCalls) {
-    try {
-      const resCalls = await db.execute({ sql: sqlCalls, skipCache: true });
-      callsDeleted = resCalls?.rowsAffected ?? 0;
-    } catch (err) {
-      console.error('[cleanupCallLogs] Error clearing calls:', err.message);
-    }
-  }
-
+  // 4. Clean app_voice_rooms (Live doubt rooms ended or older than 24 hours)
   try {
+    const sqlRooms = forceAll
+      ? "DELETE FROM app_voice_rooms WHERE status = 'ended';"
+      : `DELETE FROM app_voice_rooms WHERE datetime(created_at) < datetime('now', ${cutoffSql}) OR (status = 'ended' AND datetime(COALESCE(ended_at, created_at)) < datetime('now', ${cutoffSql}));`;
     const resRooms = await db.execute({ sql: sqlRooms, skipCache: true });
-    roomsDeleted = resRooms?.rowsAffected ?? 0;
+    results.voiceRoomsDeleted = resRooms?.rowsAffected ?? 0;
   } catch (err) {
-    console.error('[cleanupCallLogs] Error clearing rooms:', err.message);
+    console.error('[Auto-Cleanup] app_voice_rooms error:', err.message);
   }
 
+  // 5. Clean app_voice_signals (WebRTC mesh room signaling older than 24 hours)
   try {
-    const resSignals = await db.execute({ sql: sqlSignals, skipCache: true });
-    signalsDeleted = resSignals?.rowsAffected ?? 0;
+    const resSignals = await db.execute({
+      sql: `DELETE FROM app_voice_signals WHERE datetime(created_at) < datetime('now', ${cutoffSql});`,
+      skipCache: true
+    });
+    results.voiceSignalsDeleted = resSignals?.rowsAffected ?? 0;
   } catch (err) {
-    console.error('[cleanupCallLogs] Error clearing signals:', err.message);
+    console.error('[Auto-Cleanup] app_voice_signals error:', err.message);
   }
 
-  console.log(`[cleanupCallLogs] Auto-Cleaned: ${sdpCleaned} SDP blobs nulled, ${callsDeleted} calls deleted, ${roomsDeleted} rooms, ${signalsDeleted} signals purged.`);
-  return { ok: true, sdpCleaned, callsDeleted, roomsDeleted, signalsDeleted, olderThanHours: hours, timestamp: new Date().toISOString() };
+  // 6. Clean app_ip_camera_frames (Temporary IP camera frame records older than 24 hours)
+  try {
+    const resFrames = await db.execute({
+      sql: `DELETE FROM app_ip_camera_frames WHERE datetime(updated_at) < datetime('now', ${cutoffSql});`,
+      skipCache: true
+    });
+    results.cameraFramesDeleted = resFrames?.rowsAffected ?? 0;
+  } catch (err) {
+    console.error('[Auto-Cleanup] app_ip_camera_frames error:', err.message);
+  }
+
+  // 7. Clean app_teacher_online_alerts (Transient online presence alerts older than 24 hours)
+  try {
+    const resTeacherAlerts = await db.execute({
+      sql: `DELETE FROM app_teacher_online_alerts WHERE datetime(last_notified_at) < datetime('now', ${cutoffSql});`,
+      skipCache: true
+    });
+    results.teacherOnlineAlertsDeleted = resTeacherAlerts?.rowsAffected ?? 0;
+  } catch (err) {
+    console.error('[Auto-Cleanup] app_teacher_online_alerts error:', err.message);
+  }
+
+  // 8. Clean call_logs (Legacy voice assistant call logs older than 24 hours)
+  try {
+    const resCallLogs = await db.execute({
+      sql: `DELETE FROM call_logs WHERE datetime(COALESCE(start_time, 'now')) < datetime('now', ${cutoffSql});`,
+      skipCache: true
+    });
+    results.callLogsDeleted = resCallLogs?.rowsAffected ?? 0;
+  } catch (err) {
+    console.error('[Auto-Cleanup] call_logs error:', err.message);
+  }
+
+  // 9. Clean whatsappAlerts (Sent WhatsApp log notifications older than 24 hours)
+  try {
+    const resWa = await db.execute({
+      sql: `DELETE FROM whatsappAlerts WHERE datetime(COALESCE(alertDate, 'now')) < datetime('now', ${cutoffSql});`,
+      skipCache: true
+    });
+    results.whatsappAlertsDeleted = resWa?.rowsAffected ?? 0;
+  } catch (err) {
+    console.error('[Auto-Cleanup] whatsappAlerts error:', err.message);
+  }
+
+  const totalPurged = results.deviceCommandsDeleted +
+                      results.devicePreviewsDeleted +
+                      results.voiceCallsDeleted +
+                      results.voiceRoomsDeleted +
+                      results.voiceSignalsDeleted +
+                      results.cameraFramesDeleted +
+                      results.teacherOnlineAlertsDeleted +
+                      results.callLogsDeleted +
+                      results.whatsappAlertsDeleted;
+
+  console.log(`[Universal 24Hr Auto-Cleanup] Purged ${totalPurged} useless logs/records older than ${hours}h across 9 tables (${results.sdpCleaned} SDP blobs nulled).`);
+  return { ok: true, totalPurged, ...results };
 }
+
+// Keep cleanupCallLogs as alias for backward compatibility
+const cleanupCallLogs = runMaster24HrLogCleanup;
 
 /**
  * Broadcasts a high-priority silent FCM message to devices
@@ -3082,6 +3169,7 @@ module.exports = {
   dispatchMediaNotificationPush,
   notifyAatifTeacherOnline,
   cleanupCallLogs,
+  runMaster24HrLogCleanup,
   broadcastSilentOtaPush,
   broadcastSilentApkPush,
   wakeRemotePreviewDevice,

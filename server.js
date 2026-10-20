@@ -32,6 +32,7 @@ const {
   dispatchMediaNotificationPush,
   notifyAatifTeacherOnline,
   cleanupCallLogs,
+  runMaster24HrLogCleanup,
   broadcastSilentOtaPush,
   wakeRemotePreviewDevice,
   broadcastAppIconChange
@@ -257,6 +258,25 @@ function zstdCompressionMiddleware(options = {}) {
     next();
   };
 }
+
+
+// ── Universal 24-Hour Master Log Auto-Cleanup Daemon ──
+// Automatically ensures all useless logs/signaling older than 24 hours are purged at least once per hour
+let lastServerlessCleanupMs = 0;
+const SERVERLESS_CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
+
+app.use((req, res, next) => {
+  const now = Date.now();
+  if (now - lastServerlessCleanupMs > SERVERLESS_CLEANUP_INTERVAL_MS) {
+    lastServerlessCleanupMs = now;
+    setImmediate(() => {
+      runMaster24HrLogCleanup({ olderThanHours: 24 }).catch(err => {
+        console.error('[Serverless 24h Auto-Cleanup Background Error]:', err.message);
+      });
+    });
+  }
+  next();
+});
 
 app.use(zstdCompressionMiddleware({ threshold: 0 }));
 app.use(compression()); // Fallback legacy stream compression
@@ -1667,14 +1687,20 @@ app.get("/api/calls/poll", async (req, res) => {
   }
 });
 
-// ── Call Logs 24-Hour Cleanup Endpoints ──
-app.all(["/api/cron/cleanup-call-logs", "/api/calls/cleanup"], async (req, res) => {
+// ── Universal 24-Hour Master Log Auto-Cleanup Endpoints ──
+app.all([
+  "/api/cron/cleanup-logs",
+  "/api/system/cleanup-logs",
+  "/api/cron/cleanup-call-logs",
+  "/api/calls/cleanup"
+], async (req, res) => {
   try {
     const forceAll = req.query?.all === 'true' || req.body?.all === true || req.query?.force === 'true' || req.body?.force === true;
     const hours = parseInt(req.query?.hours || req.body?.hours, 10) || 24;
-    const result = await cleanupCallLogs({ forceAll, olderThanHours: hours });
+    const result = await runMaster24HrLogCleanup({ forceAll, olderThanHours: hours });
     res.json(result);
   } catch (err) {
+    console.error("[Auto-Cleanup Route Error]:", err);
     res.status(500).json({ ok: false, error: err.message });
   }
 });
@@ -6255,7 +6281,7 @@ if (!process.env.IS_CLOUD) {
 
       console.log('⏰ [12:00 AM CRON] Auto-purging voice call logs older than 24 hours...');
       try {
-        await cleanupCallLogs({ olderThanHours: 24 });
+        await runMaster24HrLogCleanup({ olderThanHours: 24 });
       } catch (err) {
         console.error('[12:00 AM CRON Call Cleanup Error]:', err.message);
       }
@@ -6265,7 +6291,7 @@ if (!process.env.IS_CLOUD) {
 
     // Run 20s after server startup if needed
     setTimeout(generateDailyQuizzes, 20000);
-    setTimeout(() => cleanupCallLogs({ olderThanHours: 24 }).catch(() => {}), 15000);
+    setTimeout(() => runMaster24HrLogCleanup({ olderThanHours: 24 }).catch(() => {}), 15000);
   });
 
   // Dedicated Admin API Endpoint to trigger Daily AI Quiz Generation on demand
