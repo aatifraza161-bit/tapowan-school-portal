@@ -8,7 +8,7 @@ app.use(express.json());
 // Secure Server-Side Database Credentials (NEVER shipped in client APK)
 const TURSO_URL = process.env.TURSO_DATABASE_URL || 'https://cabhub-im-aatif-tlls64.aws-ap-south-1.turso.io/v2/pipeline';
 const TURSO_TOKEN = process.env.TURSO_AUTH_TOKEN || '';
-const ADMIN_API_KEY = process.env.CABHUB_ADMIN_KEY || 'cabhub_secure_admin_2026';
+const ADMIN_API_KEY = process.env.CABHUB_ADMIN_KEY || (process.env.SESSION_SECRET ? require('crypto').createHash('sha256').update(process.env.SESSION_SECRET + '_cabhub_key').digest('hex') : 'cabhub_secure_admin_2026');
 
 /**
  * Server-Side Turso Pipeline Execution

@@ -8,6 +8,16 @@
   let selectedExam = 'All Exams';
   let activeCharts = {};
 
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
   // Custom styling for Reports module
   if (!document.getElementById("reportsCustomStyles")) {
     const style = document.createElement("style");
@@ -477,13 +487,13 @@
       <div class="report-student-banner">
         <img src="${photoUrl}" class="report-student-avatar" onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(targetStudent.fullName)}&background=random'" />
         <div style="flex:1;">
-          <h2 style="margin:0 0 4px 0; font-size:1.5rem; font-weight:800;">${targetStudent.fullName}</h2>
+          <h2 style="margin:0 0 4px 0; font-size:1.5rem; font-weight:800;">${escapeHtml(targetStudent.fullName)}</h2>
           <div class="report-student-meta">
-            <span>Roll No: <b>${targetStudent.rollNo || '-'}</b></span>
-            <span>Class: <b>${targetStudent.className || selectedClass}</b></span>
-            <span>Adm No: <b>${targetStudent.admissionNo || '-'}</b></span>
-            <span>Father: <b>${targetStudent.fatherName || '-'}</b></span>
-            <span>Status: <b style="color:#4ade80;">${targetStudent.status || 'Active'}</b></span>
+            <span>Roll No: <b>${escapeHtml(targetStudent.rollNo || '-')}</b></span>
+            <span>Class: <b>${escapeHtml(targetStudent.className || selectedClass)}</b></span>
+            <span>Adm No: <b>${escapeHtml(targetStudent.admissionNo || '-')}</b></span>
+            <span>Father: <b>${escapeHtml(targetStudent.fatherName || '-')}</b></span>
+            <span>Status: <b style="color:#4ade80;">${escapeHtml(targetStudent.status || 'Active')}</b></span>
           </div>
         </div>
       </div>

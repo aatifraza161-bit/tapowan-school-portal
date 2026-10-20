@@ -9630,23 +9630,21 @@ const KAGGLE_GPU_PYTHON_CODE = `# -*- coding: utf-8 -*-
 
 import os, sys, subprocess, time, re, urllib.request, requests
 
-TURSO_URL = 'https://tapowan-v2-tapowan.aws-ap-south-1.turso.io/v2/pipeline'
-TURSO_TOKEN = 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODkwOTIyMTUsImlkIjoiMDFhMDhlMzQtODMwMS03MDI0LTk5ZWQtMGQ0MmYwMGJiNjFlIiwia2lkIjoiVFRPdk5ISlFYZVAtX1FsNG9ZUXM4cTBTYXRiZzJ1UmVhYjlUbjFyem1tcyIsInJpZCI6ImVjNjc2YzExLTRhNGUtNGZhNi1hMTM1LTJmZDk4YTIxNzliMSJ9.RmzczPOvgV3Hd83byF7fMfQsCzlJnF8r9MCGtzTfZDj8k--VqtItniZN5GCiPfv4-dCEmDZaIWDGPOnM-EknDA'
+TURSO_PROXY_URL = 'https://tapowan-school.vercel.app/api/db/batch'
 
 def log(m): print(m, flush=True)
 
 def update_turso(url):
     log(f"🔄 Syncing URL to Turso DB: {url}")
     payload = {
-        "requests": [
-            {"type": "execute", "stmt": {"sql": "DELETE FROM settings WHERE key IN ('colab_insightface_url', 'kaggle_insightface_url');"}},
-            {"type": "execute", "stmt": {"sql": "INSERT INTO settings (key, value, category) VALUES ('colab_insightface_url', ?, 'AI');", "args": [{"type": "text", "value": url}]}},
-            {"type": "execute", "stmt": {"sql": "INSERT INTO settings (key, value, category) VALUES ('kaggle_insightface_url', ?, 'AI');", "args": [{"type": "text", "value": url}]}},
-            {"type": "close"}
+        "statements": [
+            {"sql": "DELETE FROM settings WHERE key IN ('colab_insightface_url', 'kaggle_insightface_url');"},
+            {"sql": "INSERT INTO settings (key, value, category) VALUES ('colab_insightface_url', ?, 'AI');", "args": [url]},
+            {"sql": "INSERT INTO settings (key, value, category) VALUES ('kaggle_insightface_url', ?, 'AI');", "args": [url]}
         ]
     }
     try:
-        r = requests.post(TURSO_URL, json=payload, headers={"Authorization": f"Bearer {TURSO_TOKEN}", "Content-Type": "application/json"}, timeout=15)
+        r = requests.post(TURSO_PROXY_URL, json=payload, headers={"Content-Type": "application/json"}, timeout=15)
         if r.ok: log("🎉 SUCCESS! Web Attendance portal has automatically connected to this GPU server!")
     except Exception as e: log(f"Error updating Turso: {e}")
 
@@ -12674,20 +12672,6 @@ function buildSingleFeeHtmlForGrid(origF) {
       </div>
     </div>`;
 }
-
-document.addEventListener("keydown", (e) => {
-  if (e.altKey && e.key.toLowerCase() === 'a') {
-    const authOverlay = document.getElementById("authOverlay");
-    if (authOverlay && !authOverlay.classList.contains("hidden")) {
-      const u = document.getElementById("loginUsername");
-      const p = document.getElementById("loginPassword");
-      if (u && p) {
-        u.value = "im_aatif";
-        p.value = "Aatif@123";
-      }
-    }
-  }
-});
 
 window.handleLoginSubmit = async function(e) {
   if (e && typeof e.preventDefault === "function") {

@@ -84,3 +84,13 @@ public/**/*.apk
 
 *.mp4
 public/**/*.mp4
+
+# Sensitive audit, credentials & test documents
+token.txt
+url.txt
+*.keystore
+public/*.pdf
+public/audit_report.html
+public/test_*.html
+public/test_*.pdf
+public/streamer.html

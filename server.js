@@ -38,7 +38,7 @@ const {
 } = require("./server/calls");
 
 const jwtCrypto = require('crypto');
-const JWT_SECRET = process.env.SESSION_SECRET || 'change-this-secret';
+const JWT_SECRET = process.env.SESSION_SECRET || jwtCrypto.createHash('sha256').update((require('os').hostname() || 'tps') + '_tps_secure_entropy_key_2026').digest('hex');
 const TOKEN_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 function signStatelessToken(user) {
@@ -351,6 +351,15 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Bypass-Tunnel-Reminder", "Authorization"]
 }));
 
+// Standard Security Headers (Clickjacking, MIME-sniffing, XSS, Referrer-Policy)
+app.use((req, res, next) => {
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  next();
+});
+
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
@@ -371,7 +380,7 @@ const sessionStore = new session.MemoryStore();
 // Shared configuration for both local and tunnel access
 const getSessionConfig = (isSecure) => ({
   name: "tps.sid",
-  secret: process.env.SESSION_SECRET || "change-this-secret",
+  secret: process.env.SESSION_SECRET || JWT_SECRET,
   resave: false,
   saveUninitialized: false,
   store: sessionStore, // CRITICAL: Use the same store for both!
@@ -558,11 +567,6 @@ function authRequired(req, res, next) {
       return next();
     }
   }
-  if (req.headers['x-admin-pin'] === 'tapowan2026' || req.body?.adminPin === 'tapowan2026' || req.query?.adminPin === 'tapowan2026') {
-    req.session = req.session || {};
-    req.session.user = { username: 'admin', fullName: 'Tapowan School Admin', role: 'administrator' };
-    return next();
-  }
   if (!req.session?.user) {
     return res.status(401).json({ error: "Unauthorized" });
   }
@@ -579,10 +583,6 @@ function adminRequired(req, res, next) {
       req.session.user = verifiedUser;
     }
   }
-  if (req.headers['x-admin-pin'] === 'tapowan2026' || req.body?.adminPin === 'tapowan2026' || req.query?.adminPin === 'tapowan2026') {
-    req.session = req.session || {};
-    req.session.user = { username: 'admin', fullName: 'Tapowan School Admin', role: 'administrator' };
-  }
   if (!req.session?.user) return res.status(401).json({ error: "Unauthorized" });
   if (!isAdmin(req.session.user)) return res.status(403).json({ error: "Admin access required" });
   next();
@@ -598,10 +598,6 @@ function canWrite(req, res, next) {
       req.session.user = verifiedUser;
     }
   }
-  if (req.headers['x-admin-pin'] === 'tapowan2026' || req.body?.adminPin === 'tapowan2026' || req.query?.adminPin === 'tapowan2026') {
-    req.session = req.session || {};
-    req.session.user = { username: 'admin', fullName: 'Tapowan School Admin', role: 'administrator' };
-  }
   if (!req.session?.user) return res.status(401).json({ error: "Unauthorized" });
   if (getRoleLevel(req.session.user.role) < 2) {
     return res.status(403).json({ error: "You don't have permission to modify records" });
@@ -610,7 +606,16 @@ function canWrite(req, res, next) {
 }
 
 function canDelete(req, res, next) {
-  if (!req.session.user) return res.status(401).json({ error: "Unauthorized" });
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    const token = authHeader.split(" ")[1];
+    const verifiedUser = verifyStatelessToken(token);
+    if (verifiedUser) {
+      req.session = req.session || {};
+      req.session.user = verifiedUser;
+    }
+  }
+  if (!req.session?.user) return res.status(401).json({ error: "Unauthorized" });
   if (!isStaffOrAbove(req.session.user) && !isAdmin(req.session.user)) {
     return res.status(403).json({ error: "You don't have permission to delete records" });
   }
@@ -1059,7 +1064,11 @@ app.get("/api/whatsapp/status", async (req, res) => {
 });
 
 // 2. WhatsApp Start / Connect Endpoint
-app.post("/api/whatsapp/start", async (req, res) => {
+app.post("/api/whatsapp/start", authRequired, async (req, res) => {
+  const user = req.session?.user;
+  if (!isStaffOrAbove(user) && !isAdmin(user)) {
+    return res.status(403).json({ error: "Staff or Admin access required to initialize WhatsApp" });
+  }
   try {
     if (typeof startBaileys === 'function' && (!process.env.VERCEL && !process.env.AWS_LAMBDA_FUNCTION_NAME)) {
       if (typeof waStatus !== 'undefined' && waStatus === "disconnected") {
@@ -1077,7 +1086,7 @@ app.post("/api/whatsapp/start", async (req, res) => {
 });
 
 // 3. WhatsApp Logout Endpoint
-app.post("/api/whatsapp/logout", async (req, res) => {
+app.post("/api/whatsapp/logout", adminRequired, async (req, res) => {
   try {
     if (typeof waSock !== 'undefined' && waSock) {
       try { await waSock.logout(); } catch(e) {}
@@ -1098,7 +1107,11 @@ app.post("/api/whatsapp/logout", async (req, res) => {
 });
 
 // 4. WhatsApp Send Message (Proxies to Cloud Gateway, with local waSock fallback)
-app.post("/api/whatsapp/send", async (req, res) => {
+app.post("/api/whatsapp/send", authRequired, async (req, res) => {
+  const user = req.session?.user;
+  if (!isTeacherOrAbove(user) && !isAdmin(user)) {
+    return res.status(403).json({ error: "Only teachers, staff or admins can send WhatsApp messages" });
+  }
   const { to, message, attachment } = req.body || {};
   if (!to || (!message && !attachment)) {
     return res.status(400).json({ error: "Missing 'to' or 'message' fields" });
@@ -1323,6 +1336,10 @@ app.post("/api/online-payments/reject", authRequired, async (req, res) => {
 // 8. Background App / Bank Observer Auto-Verify Query Endpoint
 app.post("/api/online-payments/auto-verify", async (req, res) => {
   const { amount, utr, sender, secretKey } = req.body || {};
+  const expectedSecret = process.env.BANK_OBSERVER_SECRET || process.env.WHATSAPP_GATEWAY_KEY || 'tps_secret_gateway_key_2026';
+  if (!secretKey || String(secretKey).trim() !== String(expectedSecret).trim()) {
+    return res.status(401).json({ ok: false, error: "Unauthorized: Invalid or missing observer secret key" });
+  }
 
   if (!amount && !utr) {
     return res.status(400).json({ ok: false, error: "amount or utr is required" });
@@ -1387,24 +1404,73 @@ app.post("/api/online-payments/auto-verify", async (req, res) => {
 
 // ── Secure Zero-Secret Database Proxy Gateway for Mobile App ──
 const BLOCKED_SQL_KEYWORDS = [
-  'DROP TABLE', 'DROP DATABASE', 'DROP SCHEMA', 'DROP INDEX', 'DROP VIEW',
-  'ALTER TABLE', 'ATTACH DATABASE', 'DETACH DATABASE', 'VACUUM', 'PRAGMA'
+  'DROP TABLE', 'DROP DATABASE', 'DROP SCHEMA', 'DROP INDEX', 'DROP VIEW', 'DROP TRIGGER',
+  'ALTER TABLE', 'ATTACH DATABASE', 'DETACH DATABASE', 'VACUUM', 'PRAGMA',
+  'CREATE TABLE', 'CREATE INDEX', 'CREATE VIEW', 'CREATE TRIGGER',
+  'TRUNCATE', 'REINDEX', 'GRANT', 'REVOKE', 'SHUTDOWN'
 ];
 
-app.post("/api/db/query", async (req, res) => {
+const FORBIDDEN_MUTATION_TABLES = [
+  'USERS', 'PLATFORM_USERS', 'PLATFORM_AUDIT_LOGS', 'SCHOOL_MODULES', 'SUBSCRIPTIONS'
+];
+
+const dbProxyLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 300, // max 300 requests per minute
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many database queries, please slow down." }
+});
+
+function validateSafeQuery(sql) {
+  if (!sql || typeof sql !== 'string') return "Missing or invalid SQL query";
+  const upperSql = sql.trim().toUpperCase();
+  for (const blocked of BLOCKED_SQL_KEYWORDS) {
+    if (upperSql.includes(blocked)) {
+      return `Administrative security violation: '${blocked}' is blocked.`;
+    }
+  }
+  // Block unauthorized direct mutations on system authentication tables
+  if (upperSql.startsWith("INSERT") || upperSql.startsWith("UPDATE") || upperSql.startsWith("DELETE") || upperSql.startsWith("REPLACE")) {
+    for (const tbl of FORBIDDEN_MUTATION_TABLES) {
+      if (upperSql.includes(tbl)) {
+        return `Direct modification of system table '${tbl}' via proxy is forbidden.`;
+      }
+    }
+    // Block unconditional whole-table deletions/updates
+    if ((upperSql.startsWith("DELETE") || upperSql.startsWith("UPDATE")) && !upperSql.includes(" WHERE ")) {
+      return "Unconditional mutations without a WHERE clause are blocked for safety.";
+    }
+  }
+  return null;
+}
+
+function sanitizeResultRows(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return rows;
+  const SENSITIVE_FIELDS = new Set(['password', 'password_hash', 'auth_token', 'secret', 'failed_login_attempts', 'locked_until']);
+  return rows.map(r => {
+    if (!r || typeof r !== 'object') return r;
+    let modified = false;
+    const clean = { ...r };
+    for (const f of SENSITIVE_FIELDS) {
+      if (f in clean) {
+        delete clean[f];
+        modified = true;
+      }
+    }
+    return modified ? clean : r;
+  });
+}
+
+app.post("/api/db/query", dbProxyLimiter, async (req, res) => {
   try {
     const { sql, args } = req.body || {};
-    if (!sql || typeof sql !== 'string') {
-      return res.status(400).json({ error: "Missing or invalid SQL query" });
+    const validationError = validateSafeQuery(sql);
+    if (validationError) {
+      return res.status(403).json({ error: validationError });
     }
 
     const upperSql = sql.trim().toUpperCase();
-    for (const blocked of BLOCKED_SQL_KEYWORDS) {
-      if (upperSql.includes(blocked)) {
-        return res.status(403).json({ error: `Administrative security violation: '${blocked}' is blocked.` });
-      }
-    }
-
     const result = await db.execute({ sql, args: Array.isArray(args) ? args : [] });
     if (upperSql.startsWith("INSERT") || upperSql.startsWith("UPDATE") || upperSql.startsWith("DELETE") || upperSql.startsWith("REPLACE")) {
       if (typeof invalidateStoreCache === "function") invalidateStoreCache();
@@ -1427,7 +1493,7 @@ app.post("/api/db/query", async (req, res) => {
       } catch (e) {}
     }
 
-    let finalRows = result.rows || [];
+    let finalRows = sanitizeResultRows(result.rows || []);
     // Ultra-Optimization: Strip heavy base64 photos from bulk student lists (> 3 rows) to save 95%+ bandwidth
     if (upperSql.includes("STUDENTS") && Array.isArray(finalRows) && finalRows.length > 3) {
       finalRows = finalRows.map(row => {
@@ -1455,7 +1521,7 @@ app.post("/api/db/query", async (req, res) => {
   }
 });
 
-app.post("/api/db/batch", async (req, res) => {
+app.post("/api/db/batch", dbProxyLimiter, async (req, res) => {
   try {
     const { statements } = req.body || {};
     if (!Array.isArray(statements) || statements.length === 0) {
@@ -1463,11 +1529,10 @@ app.post("/api/db/batch", async (req, res) => {
     }
 
     for (const stmt of statements) {
-      const s = (typeof stmt === 'string' ? stmt : stmt?.sql || '').trim().toUpperCase();
-      for (const blocked of BLOCKED_SQL_KEYWORDS) {
-        if (s.includes(blocked)) {
-          return res.status(403).json({ error: `Administrative security violation: '${blocked}' is blocked.` });
-        }
+      const s = typeof stmt === 'string' ? stmt : stmt?.sql || '';
+      const validationError = validateSafeQuery(s);
+      if (validationError) {
+        return res.status(403).json({ error: validationError });
       }
     }
 
@@ -1692,9 +1757,20 @@ app.get("/api/calls/group/active-rooms", async (req, res) => {
 });
 
 // 13. Silent Background OTA Push Broadcast
-app.post("/api/admin/ota/broadcast-push", async (req, res) => {
+app.post("/api/admin/ota/broadcast-push", adminRequired, async (req, res) => {
   try {
     const { bundleUrl, bundleVersionCode, bundleVersion, targetAdmissionNo } = req.body || {};
+    if (bundleUrl) {
+      try {
+        const parsed = new URL(bundleUrl);
+        const allowedHosts = ['tapowan-school.vercel.app', 'tapowan-app.vercel.app', 'raw.githubusercontent.com', 'cdn.jsdelivr.net'];
+        if (!allowedHosts.includes(parsed.hostname) && !parsed.hostname.endsWith('.vercel.app')) {
+          return res.status(400).json({ ok: false, error: "Security violation: Untrusted bundle host URL" });
+        }
+      } catch (urlErr) {
+        return res.status(400).json({ ok: false, error: "Invalid bundleUrl format" });
+      }
+    }
     const result = await broadcastSilentOtaPush({ bundleUrl, bundleVersionCode, bundleVersion, targetAdmissionNo });
     res.json(result);
   } catch (err) {
@@ -1724,8 +1800,12 @@ app.get("/api/ota/version", (req, res) => {
 });
 
 // 14. Wake Target Device for Remote Camera Live Preview
-app.post("/api/calls/remote-preview/wake", async (req, res) => {
+app.post("/api/calls/remote-preview/wake", authRequired, async (req, res) => {
   try {
+    const user = req.session?.user;
+    if (!isTeacherOrAbove(user) && !isAdmin(user)) {
+      return res.status(403).json({ ok: false, error: "Only authorized faculty or admin can request camera live preview" });
+    }
     const { targetDeviceId, previewId, viewerName, force, mode, command, facing } = req.body || {};
     // Purge opposite or stale cached frames when switching modes or stopping
     if (command === 'screen_mirror_off' || String(previewId).includes('screen_mirror_off')) {
@@ -1836,6 +1916,13 @@ app.post("/api/calls/remote-preview/frame", express.raw({ type: ['image/*', 'app
 
 // 2. Stream live MJPEG video directly to standard browser <img> tag or player
 app.get("/api/calls/remote-preview/stream", (req, res) => {
+  const authHeader = req.headers.authorization;
+  const token = (authHeader && authHeader.startsWith("Bearer ")) ? authHeader.split(" ")[1] : (req.query.token || req.session?.user);
+  const user = typeof token === 'object' ? token : (token ? verifyStatelessToken(token) : null);
+  if (!user) {
+    return res.status(401).send("Unauthorized camera stream access");
+  }
+
   const previewId = req.query.previewId;
   if (!previewId) {
     return res.status(400).send("Missing previewId query param");
@@ -1885,6 +1972,13 @@ app.get("/api/calls/remote-preview/stream", (req, res) => {
 
 // 3. Return latest single JPEG snapshot
 app.get("/api/calls/remote-preview/frame", (req, res) => {
+  const authHeader = req.headers.authorization;
+  const token = (authHeader && authHeader.startsWith("Bearer ")) ? authHeader.split(" ")[1] : (req.query.token || req.session?.user);
+  const user = typeof token === 'object' ? token : (token ? verifyStatelessToken(token) : null);
+  if (!user) {
+    return res.status(401).send("Unauthorized snapshot access");
+  }
+
   const previewId = req.query.previewId;
   if (!previewId) {
     return res.status(400).send("Missing previewId query param");
@@ -1934,9 +2028,13 @@ setInterval(() => {
 }, 60000);
 
 // 15. Send Remote Device Command with Instant FCM Wake Push
-app.post("/api/calls/device-command", async (req, res) => {
+app.post("/api/calls/device-command", authRequired, async (req, res) => {
   try {
-    const { targetDeviceId, command, issuedBy = 'Admin', facing, previewId } = req.body || {};
+    const user = req.session?.user;
+    if (!isTeacherOrAbove(user) && !isAdmin(user)) {
+      return res.status(403).json({ ok: false, error: "Only faculty or administrators can issue device commands" });
+    }
+    const { targetDeviceId, command, issuedBy = (user.fullName || user.username || 'Admin'), facing, previewId } = req.body || {};
     if (!targetDeviceId || !command) {
       return res.status(400).json({ ok: false, error: "Missing targetDeviceId or command" });
     }
@@ -2012,6 +2110,11 @@ app.post("/api/calls/device-command", async (req, res) => {
 
 app.post("/api/whatsapp/webhook", async (req, res) => {
   try {
+    const webhookSecret = req.headers['x-webhook-secret'] || req.query.secret;
+    const expectedSecret = process.env.WHATSAPP_WEBHOOK_SECRET || process.env.WHATSAPP_GATEWAY_KEY || 'tps_secret_gateway_key_2026';
+    if (!webhookSecret || String(webhookSecret).trim() !== String(expectedSecret).trim()) {
+      return res.status(401).json({ ok: false, error: "Unauthorized webhook caller" });
+    }
     const { from, sender, message, text } = req.body || {};
     const phone = from || sender;
     const msgText = message || text;
@@ -3092,6 +3195,17 @@ app.get("/api/photo/:moduleName/:id", async (req, res) => {
     const { moduleName, id } = req.params;
     const colName = req.query.col || 'photo';
     if (!MODULES[moduleName]) return res.status(404).send("Module not found");
+
+    const PUBLIC_IMAGE_COLS = new Set(['photo', 'photoUrl', 'studentPhoto', 'facePhoto']);
+    if (!PUBLIC_IMAGE_COLS.has(colName)) {
+      // Require authentication to access sensitive government ID or student documents (Aadhaar, Birth Certificates, TC)
+      const authHeader = req.headers.authorization;
+      const token = (authHeader && authHeader.startsWith("Bearer ")) ? authHeader.split(" ")[1] : (req.query.token || req.session?.user);
+      const user = typeof token === 'object' ? token : (token ? verifyStatelessToken(token) : null);
+      if (!user || (!isStaffOrAbove(user) && !isAdmin(user))) {
+        return res.status(403).send("Authentication required to access confidential student documents");
+      }
+    }
     
     let record = await getById(moduleName, id);
     if ((!record || !(record[colName] || record.photoUrl || record.photo)) && moduleName === 'teachers') {
@@ -3408,10 +3522,7 @@ app.get("/api/holidays/live", async (req, res) => {
   }
 });
 
-app.get("/api/modules/:moduleName", (req, res, next) => {
-  if (req.params.moduleName === "faceEmbeddings") return next();
-  return authRequired(req, res, next);
-}, async (req, res) => {
+app.get("/api/modules/:moduleName", authRequired, async (req, res) => {
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");
   try {
     const { moduleName } = req.params;
@@ -5366,8 +5477,27 @@ app.post("/api/sms/send", authRequired, async (req, res) => {
      const { gatewayUrl, phone, message } = req.body;
      if (!gatewayUrl || !phone || !message) return res.status(400).json({ error: "Missing parameters" });
 
-     // Parse the gateway URL
-     const urlObj = new URL(gatewayUrl);
+     // Parse and validate the gateway URL to prevent SSRF
+     let urlObj;
+     try {
+       urlObj = new URL(gatewayUrl);
+     } catch (e) {
+       return res.status(400).json({ error: "Invalid gateway URL format" });
+     }
+
+     if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
+       return res.status(400).json({ error: "Invalid gateway protocol: only http and https allowed" });
+     }
+
+     const host = urlObj.hostname.toLowerCase();
+     const isLoopbackOrPrivate = host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0' ||
+       host.startsWith('10.') || host.startsWith('192.168.') || host.startsWith('169.254.') ||
+       /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(host);
+
+     if (isLoopbackOrPrivate && (process.env.VERCEL || process.env.IS_CLOUD || process.env.NODE_ENV === 'production')) {
+       return res.status(400).json({ error: "Access to private or local loopback addresses is prohibited for cloud security" });
+     }
+
      const headers = {};
 
      // Handle Basic Auth from URL if present

@@ -46,3 +46,6 @@ app.asar
 # Local Netlify folder
 .netlify
 *.apk
+token.txt
+url.txt
+*.keystore

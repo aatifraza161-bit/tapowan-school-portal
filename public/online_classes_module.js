@@ -2281,8 +2281,7 @@
       const authHeaders = {
         'Accept': 'application/json',
         'Bypass-Tunnel-Reminder': 'true',
-        ...(token ? { 'Authorization': 'Bearer ' + token } : {}),
-        'x-admin-pin': 'tapowan2026'
+        ...(token ? { 'Authorization': 'Bearer ' + token } : {})
       };
 
       // Try fast dedicated calling directory first
@@ -6113,8 +6112,7 @@
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                ...(token ? { 'Authorization': 'Bearer ' + token } : {}),
-                'x-admin-pin': 'tapowan2026'
+                ...(token ? { 'Authorization': 'Bearer ' + token } : {})
               },
               body: JSON.stringify({
                 sql: "SELECT admissionNo, fullName, className, rollNo, phone FROM students WHERE admissionNo LIKE ? OR fullName LIKE ? OR phone LIKE ? ORDER BY fullName ASC LIMIT 12",
@@ -6124,7 +6122,7 @@
             const data = await sRes.json();
             const rows = data.rows || [];
             if (!rows.length) {
-              studentSuggestions.innerHTML = '<div style="padding: 10px; font-size: 12px; color: #94a3b8; text-align: center;">No students found matching "' + query + '"</div>';
+              studentSuggestions.innerHTML = '<div style="padding: 10px; font-size: 12px; color: #94a3b8; text-align: center;">No students found matching "' + escapeHtml(query) + '"</div>';
               studentSuggestions.style.display = 'block';
               return;
             }
@@ -6134,12 +6132,12 @@
               const cls = s.className || s[2];
               const roll = s.rollNo || s[3];
               return `
-                <div class="vn-student-opt" data-adm="${adm}" data-name="${name}" data-class="${cls}" style="padding: 8px 12px; border-bottom: 1px solid #334155; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: background 0.15s;" onmouseover="this.style.background='#334155'" onmouseout="this.style.background='transparent'">
+                <div class="vn-student-opt" data-adm="${escapeHtml(adm)}" data-name="${escapeHtml(name)}" data-class="${escapeHtml(cls)}" style="padding: 8px 12px; border-bottom: 1px solid #334155; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: background 0.15s;" onmouseover="this.style.background='#334155'" onmouseout="this.style.background='transparent'">
                   <div>
-                    <span style="font-weight: 700; color: #f8fafc; font-size: 13px;">${name}</span>
-                    <span style="color: #94a3b8; font-size: 11.5px; margin-left: 6px;">Class ${cls} • Roll ${roll || '-'}</span>
+                    <span style="font-weight: 700; color: #f8fafc; font-size: 13px;">${escapeHtml(name)}</span>
+                    <span style="color: #94a3b8; font-size: 11.5px; margin-left: 6px;">Class ${escapeHtml(cls)} • Roll ${escapeHtml(roll || '-')}</span>
                   </div>
-                  <span style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: 700;">Adm: ${adm}</span>
+                  <span style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: 700;">Adm: ${escapeHtml(adm)}</span>
                 </div>
               `;
             }).join('');
@@ -6152,7 +6150,7 @@
                 const cls = opt.getAttribute('data-class');
                 selectedStudentObj = { admissionNo: adm, fullName: name, className: cls };
                 studentInput.value = adm;
-                studentMatchBox.innerHTML = `✅ <strong>Selected:</strong> ${name} (Adm: <strong>${adm}</strong>, Class: ${cls})`;
+                studentMatchBox.innerHTML = `✅ <strong>Selected:</strong> ${escapeHtml(name)} (Adm: <strong>${escapeHtml(adm)}</strong>, Class: ${escapeHtml(cls)})`;
                 studentMatchBox.style.display = 'block';
                 studentSuggestions.style.display = 'none';
               };
@@ -6223,8 +6221,7 @@
           headers: { 
             'Content-Type': 'application/json',
             'Bypass-Tunnel-Reminder': 'true',
-            ...(token ? { 'Authorization': 'Bearer ' + token } : {}),
-            'x-admin-pin': 'tapowan2026'
+            ...(token ? { 'Authorization': 'Bearer ' + token } : {})
           },
           body: JSON.stringify({
             title,
@@ -6235,8 +6232,7 @@
             audioBase64: selectedAudioBase64,
             audioMime: selectedAudioMime,
             audioFilename: selectedAudioName || 'voice_announcement.mp3',
-            durationSec: selectedAudioDuration,
-            adminPin: 'tapowan2026'
+            durationSec: selectedAudioDuration
           })
         });
 
@@ -6823,8 +6819,7 @@
             headers: {
               'Content-Type': 'application/json',
               'Bypass-Tunnel-Reminder': 'true',
-              ...(token ? { 'Authorization': 'Bearer ' + token } : {}),
-              'x-admin-pin': 'tapowan2026'
+              ...(token ? { 'Authorization': 'Bearer ' + token } : {})
             },
             body: JSON.stringify({
               title,
@@ -6838,8 +6833,7 @@
               targetType,
               targetClass,
               targetId,
-              showInCarousel,
-              adminPin: 'tapowan2026'
+              showInCarousel
             })
           });
 
