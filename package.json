@@ -56,6 +56,8 @@
       "**/*",
       "!dist/**/*",
       "!dist",
+      "!build/**/*",
+      "!build",
       "!app_extracted/**/*",
       "!temp_extract/**/*",
       "!student-mobile-app/**/*",
@@ -99,7 +101,8 @@
       "shortcutName": "EduCore",
       "runAfterFinish": true,
       "installerIcon": "public/icon.ico",
-      "uninstallerIcon": "public/icon.ico"
+      "uninstallerIcon": "public/icon.ico",
+      "include": "build/installer.nsh"
     }
   },
   "devDependencies": {

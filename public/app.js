@@ -5,60 +5,204 @@ window.WHATSAPP_ICON_SVG = WHATSAPP_ICON_SVG;
 window.WHATSAPP_ICON_SVG_18 = WHATSAPP_ICON_SVG_18;
 
 
-// Custom Modal Replacements for native confirm/alert to fix Electron focus lock bug
-window.appConfirm = function(message) {
-  return new Promise(resolve => {
-    const overlay = document.createElement("div");
-    overlay.className = "admission-modal-overlay";
-    overlay.style.zIndex = "999999";
-    overlay.style.display = "flex";
-    overlay.innerHTML = `
-      <div class="admission-modal" style="max-width: 400px; text-align: center; padding: 24px;">
-        <h3 style="margin-top: 0; color: #1e293b; font-size: 1.2rem;">Confirm Action</h3>
-        <p style="color: #475569; margin: 16px 0 24px;">${message}</p>
-        <div style="display: flex; gap: 12px; justify-content: center;">
-          <button class="tbl-btn custom-confirm-no" style="background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0;">Cancel</button>
-          <button class="tbl-btn del custom-confirm-yes">Yes, Confirm</button>
-        </div>
+// Modern Designed Modals (WhatsApp Desktop & Cloud SaaS Style)
+function createDesignedModalOverlay({
+  title = 'Confirmation',
+  message = '',
+  confirmText = 'Confirm',
+  cancelText = 'Cancel',
+  type = 'primary', // 'danger' | 'success' | 'primary' | 'info'
+  hasCancel = true,
+  isPrompt = false,
+  defaultValue = '',
+  resolve
+}) {
+  const existing = document.querySelector('.educore-modal-overlay');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'educore-modal-overlay';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+
+  let iconSvg = '';
+  if (type === 'danger') {
+    iconSvg = `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`;
+  } else if (type === 'success') {
+    iconSvg = `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>`;
+  } else {
+    iconSvg = `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`;
+  }
+
+  const safeEscape = (str) => {
+    if (str === null || str === undefined) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  };
+
+  overlay.innerHTML = `
+    <div class="educore-modal-card">
+      <div class="educore-modal-accent ${type}"></div>
+      <div class="educore-modal-icon-wrap ${type}">
+        ${iconSvg}
       </div>
-    `;
-    document.body.appendChild(overlay);
-    
-    overlay.querySelector(".custom-confirm-no").addEventListener("click", () => {
+      <div style="font-size: 0.72rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px;">EduCore</div>
+      <h3 class="educore-modal-title">${safeEscape(title)}</h3>
+      <div class="educore-modal-body">${safeEscape(message)}</div>
+      ${isPrompt ? `<input type="text" class="educore-modal-input" id="educorePromptInput" value="${safeEscape(defaultValue)}" />` : ''}
+      <div class="educore-modal-actions">
+        ${hasCancel ? `<button type="button" class="educore-modal-btn educore-modal-btn-cancel">${safeEscape(cancelText)}</button>` : ''}
+        <button type="button" class="educore-modal-btn educore-modal-btn-confirm ${type}">${safeEscape(confirmText)}</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  const card = overlay.querySelector('.educore-modal-card');
+  const confirmBtn = overlay.querySelector('.educore-modal-btn-confirm');
+  const cancelBtn = overlay.querySelector('.educore-modal-btn-cancel');
+  const promptInput = overlay.querySelector('#educorePromptInput');
+
+  if (promptInput) {
+    promptInput.focus();
+    promptInput.select();
+  } else if (confirmBtn) {
+    confirmBtn.focus();
+  }
+
+  const closeWith = (val) => {
+    overlay.style.opacity = '0';
+    if (card) card.style.transform = 'scale(0.92) translateY(10px)';
+    setTimeout(() => {
       overlay.remove();
-      resolve(false);
+      window.removeEventListener('keydown', handleKey);
+      resolve(val);
+    }, 150);
+  };
+
+  const handleKey = (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeWith(isPrompt ? null : false);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      closeWith(isPrompt ? (promptInput ? promptInput.value : '') : true);
+    }
+  };
+  window.addEventListener('keydown', handleKey);
+
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeWith(isPrompt ? null : false);
     });
-    overlay.querySelector(".custom-confirm-yes").addEventListener("click", () => {
-      overlay.remove();
-      resolve(true);
+  }
+
+  if (confirmBtn) {
+    confirmBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeWith(isPrompt ? (promptInput ? promptInput.value : '') : true);
+    });
+  }
+
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      closeWith(isPrompt ? null : false);
+    }
+  });
+}
+
+window.appConfirm = function(message, options = {}) {
+  return new Promise(resolve => {
+    if (typeof options === 'string') {
+      options = { title: options };
+    }
+    const msgStr = String(message || '');
+    const msgLower = msgStr.toLowerCase();
+    const isDanger = options.type === 'danger' || 
+      /delete|remove|end meeting|end class|leave|clear|terminate|drop|reset|cancel/i.test(msgLower);
+    const isSuccess = options.type === 'success' || 
+      /approve|finalize|success|congratulat|paid/i.test(msgLower);
+
+    const type = options.type || (isDanger ? 'danger' : isSuccess ? 'success' : 'primary');
+    const title = options.title || (isDanger ? 'Confirm Action' : isSuccess ? 'Approve Action' : 'Confirmation');
+    const confirmText = options.confirmText || (
+      isDanger ? (/end/i.test(msgLower) ? 'End Meeting' : /delete/i.test(msgLower) ? 'Delete' : 'Yes, Proceed') :
+      isSuccess ? 'Approve' : 'Confirm'
+    );
+    const cancelText = options.cancelText || 'Cancel';
+
+    createDesignedModalOverlay({
+      title,
+      message: msgStr,
+      confirmText,
+      cancelText,
+      type,
+      hasCancel: true,
+      isPrompt: false,
+      resolve
     });
   });
 };
 
-window.appAlert = function(message) {
+window.appAlert = function(message, options = {}) {
   return new Promise(resolve => {
-    const overlay = document.createElement("div");
-    overlay.className = "admission-modal-overlay";
-    overlay.style.zIndex = "999999";
-    overlay.style.display = "flex";
-    overlay.innerHTML = `
-      <div class="admission-modal" style="max-width: 400px; text-align: center; padding: 24px;">
-        <h3 style="margin-top: 0; color: #1e293b; font-size: 1.2rem;">Notice</h3>
-        <p style="color: #475569; margin: 16px 0 24px;">${message}</p>
-        <div style="display: flex; justify-content: center;">
-          <button class="tbl-btn custom-alert-ok">OK</button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(overlay);
-    overlay.querySelector(".custom-alert-ok").addEventListener("click", () => {
-      overlay.remove();
-      resolve(true);
+    if (typeof options === 'string') {
+      options = { title: options };
+    }
+    const msgStr = String(message || '');
+    const msgLower = msgStr.toLowerCase();
+    const isDanger = options.type === 'danger' || /error|fail|warning|invalid|denied|forbidden|cannot/i.test(msgLower);
+    const isSuccess = options.type === 'success' || /success|complete|saved|created|updated/i.test(msgLower);
+
+    const type = options.type || (isDanger ? 'danger' : isSuccess ? 'success' : 'info');
+    const title = options.title || (isDanger ? 'Notice' : isSuccess ? 'Success' : 'Information');
+    const confirmText = options.confirmText || 'Got It';
+
+    createDesignedModalOverlay({
+      title,
+      message: msgStr,
+      confirmText,
+      type,
+      hasCancel: false,
+      isPrompt: false,
+      resolve
     });
   });
 };
 
-window.alert = function(msg) { window.appAlert(msg); };
+window.appPrompt = function(message, defaultValue = '', options = {}) {
+  return new Promise(resolve => {
+    if (typeof options === 'string') {
+      options = { title: options };
+    }
+    const title = options.title || 'Input Required';
+    const confirmText = options.confirmText || 'OK';
+    const cancelText = options.cancelText || 'Cancel';
+
+    createDesignedModalOverlay({
+      title,
+      message: String(message || ''),
+      confirmText,
+      cancelText,
+      type: 'primary',
+      hasCancel: true,
+      isPrompt: true,
+      defaultValue: String(defaultValue || ''),
+      resolve
+    });
+  });
+};
+
+// Global overrides for native popups
+window.alert = function(msg) { return window.appAlert(msg); };
+window.confirm = function(msg) { return window.appConfirm(msg); };
+window.prompt = function(msg, def) { return window.appPrompt(msg, def); };
 
 const FACE_KEY = "school_face_embeddings_v2";
 const CLASS_STANDARD_OPTIONS = ["Nursery", "LKG", "UKG", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
@@ -12968,7 +13112,12 @@ refs.enrollFaceBtn?.addEventListener("click", async () => {
 
 refs.syncAllStudentFacesBtn?.addEventListener("click", async () => {
   const btn = refs.syncAllStudentFacesBtn;
-  if (!window.confirm("Do you want to automatically generate AI Face Embeddings for all registered students from their profile photos?")) return;
+  if (!await window.appConfirm("Do you want to automatically generate AI Face Embeddings for all registered students from their profile photos?", {
+    title: "Generate AI Face Embeddings?",
+    confirmText: "Generate Embeddings",
+    cancelText: "Cancel",
+    type: "primary"
+  })) return;
   
   btn.disabled = true;
   const oldText = btn.textContent;
@@ -24672,7 +24821,12 @@ window.openEditTimetableSlotModal = async function(className, day, period, slotI
 
   // Delete Entry completely (for duplicates)
   delBtn.onclick = async () => {
-    if (!confirm("Are you sure you want to delete this slot entry? This completely removes the entry (useful if duplicate subjects exist).")) return;
+    if (!await window.appConfirm("Are you sure you want to delete this slot entry? This completely removes the entry (useful if duplicate subjects exist).", {
+      title: "Delete Slot Entry?",
+      confirmText: "Delete Slot",
+      cancelText: "Cancel",
+      type: "danger"
+    })) return;
     delBtn.disabled = true;
     try {
       let res = null;
@@ -26621,7 +26775,12 @@ async function loadActiveReleasesList() {
 }
 
 window.deleteAppRelease = async function(id) {
-  if (!confirm("Are you sure you want to delete this release?")) return;
+  if (!await window.appConfirm("Are you sure you want to delete this release?", {
+    title: "Delete App Release?",
+    confirmText: "Delete",
+    cancelText: "Cancel",
+    type: "danger"
+  })) return;
   try {
     await fetchDirectFromTurso("DELETE FROM app_updates WHERE id = ?", [id]);
     if (typeof showToast === 'function') showToast("Release deleted", "info");

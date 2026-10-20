@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tps-cache-v20261020-white-titlebar-v1';
+const CACHE_NAME = 'tps-cache-v20261020-designed-modals-v1';
 
 self.addEventListener('install', event => {
   self.skipWaiting();

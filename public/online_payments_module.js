@@ -293,7 +293,15 @@
    * Approve a pending online payment
    */
   window.approveOnlinePayment = async function (paymentId, studentName, amount, utr) {
-    const confirmed = confirm(`Are you sure you want to APPROVE the fee payment of ₹${amount} for ${studentName}?\n\nUTR: ${utr}\n\nThis will instantly clear the student's due, generate an official fee receipt, and notify the student.`);
+    const confirmed = await window.appConfirm(
+      `Are you sure you want to APPROVE the fee payment of ₹${amount} for ${studentName}?\n\nUTR: ${utr}\n\nThis will instantly clear the student's due, generate an official fee receipt, and notify the student.`,
+      {
+        title: 'Approve Payment?',
+        confirmText: 'Approve Fee',
+        cancelText: 'Cancel',
+        type: 'success'
+      }
+    );
     if (!confirmed) return;
 
     try {

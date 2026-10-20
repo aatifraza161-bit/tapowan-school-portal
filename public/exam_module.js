@@ -1226,8 +1226,8 @@
 
       const resetBtn = document.getElementById("btnResetSubjectRules");
       if (resetBtn) {
-        resetBtn.onclick = () => {
-          if (!confirm("Reset to default CBSE rules? (Maths, Science, Hindi, English, SST as Main; Computer, Sanskrit, Drawing, GK as Additional)")) return;
+        resetBtn.onclick = async () => {
+          if (!await window.appConfirm("Reset to default CBSE rules? (Maths, Science, Hindi, English, SST as Main; Computer, Sanskrit, Drawing, GK as Additional)", { title: "Reset CBSE Rules?", confirmText: "Reset Rules", type: "danger" })) return;
           customRules = {
             passingPercentage: 33,
             mainSubjects: ['Hindi', 'English', 'Mathematics', 'Science', 'Social Science', 'EVS'],
@@ -1587,7 +1587,7 @@
       if (!cls || !ex || !sub) return;
 
       const confirmMsg = `⚠️ CRITICAL CONFIRMATION ⚠️\n\nAre you ABSOLUTELY sure you want to permanently delete all marks for:\n\n• Subject: ${sub}\n• Class: ${cls}\n• Exam: ${ex}\n\nThis will remove marks for ALL students in this class and update their report card totals. This cannot be undone!`;
-      if (!confirm(confirmMsg)) return;
+      if (!await window.appConfirm(confirmMsg, { title: "Permanent Delete Warning", confirmText: "Permanently Delete", type: "danger" })) return;
 
       delBtn.disabled = true;
       delBtn.innerHTML = `
@@ -1806,7 +1806,7 @@
   };
 
   window.deleteEntireExam = async function(btn) {
-      if (!confirm("Are you sure you want to delete ALL marks for this exam? This cannot be undone.")) return;
+      if (!await window.appConfirm("Are you sure you want to delete ALL marks for this exam? This cannot be undone.", { title: "Delete All Marks?", confirmText: "Delete All Marks", type: "danger" })) return;
       const idsStr = btn.getAttribute("data-ids");
       const ids = JSON.parse(idsStr);
       
@@ -1986,7 +1986,7 @@
   }
 
   window.deleteMarksEntry = async function(id, className, examName, session) {
-    if (!confirm("Are you sure you want to delete this marks entry?")) return;
+    if (!await window.appConfirm("Are you sure you want to delete this marks entry?", { title: "Delete Marks Entry?", confirmText: "Delete Entry", type: "danger" })) return;
     try {
         if (typeof api === 'function') {
             await api('/api/modules/exams/' + id, { method: 'DELETE' });
@@ -2909,7 +2909,7 @@
 
         tbody.querySelectorAll('.sched-del-btn').forEach(btn => {
             btn.onclick = async () => {
-                if (!confirm("Are you sure you want to delete this schedule?")) return;
+                if (!await window.appConfirm("Are you sure you want to delete this schedule?", { title: "Delete Exam Schedule?", confirmText: "Delete Schedule", type: "danger" })) return;
                 const id = btn.dataset.id;
                 try {
                     if (typeof api === 'function') {
@@ -7735,7 +7735,7 @@ function getMarksheetHtml(exam, theme, config) {
   });
 
   document.getElementById("tdDeleteBtn").addEventListener("click", async () => {
-    if (!confirm("Are you sure you want to delete your custom template? This will revert to the default.")) return;
+    if (!await window.appConfirm("Are you sure you want to delete your custom template? This will revert to the default.", { title: "Delete Custom Template?", confirmText: "Delete Template", type: "danger" })) return;
     
     const store = typeof getStore !== 'undefined' ? getStore() : {};
     const key = currentDesignerMode === "admit" ? "customAdmitTemplate" : "customResultTemplate";

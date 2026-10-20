@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 const { app, BrowserWindow, autoUpdater, dialog, ipcMain } = require('electron');
-const { spawn } = require('child_process');
+const { spawn, execSync } = require('child_process');
 const http = require('http');
 const https = require('https');
 const fs = require('fs');
@@ -379,15 +379,46 @@ app.whenReady().then(() => {
   });
 });
 
-app.on('window-all-closed', function () {
-  if (process.platform !== 'darwin') app.quit();
+function killBackgroundProcesses() {
+  if (app.isQuittingDone) return;
+  app.isQuitting = true;
+  console.log("Shutting down background processes...");
+
+  // Force-kill each tracked child process and its child tree
+  bgProcesses.forEach(proc => {
+    try {
+      if (proc && proc.pid) {
+        if (process.platform === 'win32') {
+          try { execSync(`taskkill /F /T /PID ${proc.pid}`, { stdio: 'ignore' }); } catch (_) {}
+        } else {
+          try { proc.kill('SIGKILL'); } catch (_) {}
+        }
+      }
+    } catch (_) {}
+  });
+
+  // Explicitly kill background worker executables by image name on Windows
+  if (process.platform === 'win32') {
+    try { execSync('taskkill /F /IM face_server.exe /T', { stdio: 'ignore' }); } catch (_) {}
+    try { execSync('taskkill /F /IM vidya_ai.exe /T', { stdio: 'ignore' }); } catch (_) {}
+  }
+
+  app.isQuittingDone = true;
+}
+
+app.on('before-quit', () => {
+  killBackgroundProcesses();
 });
 
 app.on('will-quit', () => {
-  app.isQuitting = true;
-  console.log("Shutting down background processes...");
-  bgProcesses.forEach(proc => {
-    try { proc.kill('SIGINT'); } catch (e) {}
-  });
-  spawn('taskkill', ['/F', '/T', '/PID', process.pid], { windowsHide: true });
+  killBackgroundProcesses();
+});
+
+app.on('window-all-closed', function () {
+  killBackgroundProcesses();
+  if (process.platform !== 'darwin') app.quit();
+});
+
+process.on('exit', () => {
+  killBackgroundProcesses();
 });

@@ -770,8 +770,9 @@
       }
 
       if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-        const useWhiteboard = confirm(
-          'Direct screen sharing is restricted by your mobile browser policy.\n\nWould you like to open the Live Interactive Smart Whiteboard & Slide Presenter to write, draw, or present diagrams live to students?'
+        const useWhiteboard = await window.appConfirm(
+          'Direct screen sharing is restricted by your mobile browser policy.\n\nWould you like to open the Live Interactive Smart Whiteboard & Slide Presenter to write, draw, or present diagrams live to students?',
+          { title: 'Screen Share Restricted', confirmText: 'Open Whiteboard', cancelText: 'Cancel', type: 'primary' }
         );
         if (useWhiteboard) {
           toggleWhiteboard();
@@ -1069,8 +1070,14 @@
     }
     const btnClear = document.getElementById('btnWbClear');
     if (btnClear) {
-      btnClear.onclick = () => {
-        if (confirm('Clear the entire smart whiteboard?')) {
+      btnClear.onclick = async () => {
+        const ok = await window.appConfirm('Clear the entire smart whiteboard?', {
+          title: 'Clear Whiteboard?',
+          confirmText: 'Clear Whiteboard',
+          cancelText: 'Cancel',
+          type: 'danger'
+        });
+        if (ok) {
           ctx.fillStyle = '#ffffff';
           ctx.fillRect(0, 0, canvas.width, canvas.height);
         }
@@ -1291,7 +1298,13 @@
     if (typeof window.renderAll === 'function') window.renderAll();
 
     if (state.activeRoom) {
-      if (!confirm('You are currently hosting a live classroom session. Do you want to end your broadcast and inspect this session instead?')) {
+      const ok = await window.appConfirm('You are currently hosting a live classroom session. Do you want to end your broadcast and inspect this session instead?', {
+        title: 'End Active Broadcast?',
+        confirmText: 'End & Inspect',
+        cancelText: 'Stay in Live',
+        type: 'danger'
+      });
+      if (!ok) {
         return;
       }
       stopClassroomStudio();
@@ -3893,24 +3906,39 @@
       }
     };
 
-    window.zoomMuteAll = function() {
-      if (confirm('Broadcast Mute command to all participants in this live meeting?')) {
+    window.zoomMuteAll = async function() {
+      const ok = await window.appConfirm('Broadcast Mute command to all participants in this live meeting?', {
+        title: 'Mute All Participants?',
+        confirmText: 'Mute All',
+        cancelText: 'Cancel',
+        type: 'primary'
+      });
+      if (ok) {
         if (typeof broadcastMuteAllStudents === 'function') broadcastMuteAllStudents();
         showStudioToast('🔇 Muted all participants');
       }
     };
 
-    window.zoomTriggerBreakout = function() {
+    window.zoomTriggerBreakout = async function() {
       if (typeof triggerStudioBreakout === 'function') {
         triggerStudioBreakout();
       } else {
-        prompt('Enter number of breakout rooms to form for students:', '2');
-        showStudioToast('🔲 Breakout rooms initialized');
+        const count = await window.appPrompt('Enter number of breakout rooms to form for students:', '2', {
+          title: 'Breakout Rooms',
+          confirmText: 'Initialize'
+        });
+        if (count) showStudioToast('🔲 Breakout rooms initialized: ' + count);
       }
     };
 
-    window.zoomEndMeeting = function() {
-      if (confirm('End meeting for all participants? (Click Cancel to keep meeting running)')) {
+    window.zoomEndMeeting = async function() {
+      const ok = await window.appConfirm('End meeting for all participants? (Click Cancel to keep meeting running)', {
+        title: 'End Meeting?',
+        confirmText: 'End for All',
+        cancelText: 'Cancel',
+        type: 'danger'
+      });
+      if (ok) {
         if (activeCameraStream) {
           activeCameraStream.getTracks().forEach(t => t.stop());
           activeCameraStream = null;
@@ -4519,8 +4547,14 @@
     }
   };
 
-  window.endStudioPoll = function() {
-    if (!confirm('Close and end this live poll?')) return;
+  window.endStudioPoll = async function() {
+    const ok = await window.appConfirm('Close and end this live poll?', {
+      title: 'End Live Poll?',
+      confirmText: 'End Poll',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+    if (!ok) return;
     const user = getLiveAdminUser();
     const roomId = state.activeRoom?.room_id;
     state.activePoll = null;
@@ -4826,7 +4860,7 @@
           <!-- 1. TOP HEADER BAR -->
           <div style="background: #0a0e1a; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b; flex-wrap: wrap; gap: 10px;">
             <div style="display: flex; align-items: center; gap: 12px;">
-              <button onclick="window.confirm('Leave this live classroom?') && stopClassroomStudio()" style="background: #172033; color: white; border: 1px solid #334155; width: 34px; height: 34px; border-radius: 17px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px;">
+              <button onclick="window.appConfirm('Leave this live classroom?', { title: 'Leave Classroom?', confirmText: 'Leave', type: 'danger' }).then(ok => ok && stopClassroomStudio())" style="background: #172033; color: white; border: 1px solid #334155; width: 34px; height: 34px; border-radius: 17px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px;">
                 ‹
               </button>
               <div>
@@ -5089,7 +5123,7 @@
                     <button onclick="window.broadcastStudioAnnouncement()" style="background: transparent; border: none; text-align: left; color: #cbd5e1; font-size: 11.5px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px;">📢 Send Announcement</button>
                     <button onclick="window.shareStudioNote()" style="background: transparent; border: none; text-align: left; color: #cbd5e1; font-size: 11.5px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px;">📄 Share Notes</button>
                     <button onclick="window.openStudioPollCreator()" style="background: transparent; border: none; text-align: left; color: #cbd5e1; font-size: 11.5px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px;">📊 Launch Live Poll / Quiz</button>
-                    <button onclick="confirm('End this classroom session for all students?') && stopClassroomStudio()" style="background: transparent; border: none; text-align: left; color: #ef4444; font-size: 11.5px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px;">🚪 End Class for All</button>
+                    <button onclick="window.appConfirm('End this classroom session for all students?', { title: 'End Class for All?', confirmText: 'End Class', type: 'danger' }).then(ok => ok && stopClassroomStudio())" style="background: transparent; border: none; text-align: left; color: #ef4444; font-size: 11.5px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px;">🚪 End Class for All</button>
                   </div>
                 </div>
 
@@ -5742,7 +5776,13 @@
   }
 
   window.terminateRoomAdmin = async function(roomId) {
-    if (!confirm('Are you sure you want to end this live session?')) return;
+    const ok = await window.appConfirm('Are you sure you want to end this live session?', {
+      title: 'End Live Session?',
+      confirmText: 'End Session',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+    if (!ok) return;
     try {
       updateHeaderLiveBadge(null);
       const user = getLiveAdminUser();
