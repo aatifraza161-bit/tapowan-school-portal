@@ -3078,6 +3078,88 @@ Do NOT include markdown backticks or explanations.`;
   }
 });
 
+// 📝 Exam Paper OCR Proxy Endpoint
+app.post("/api/ocr/exam-paper", async (req, res) => {
+  try {
+    const { imageBase64, mimeType = 'image/jpeg', subject = '' } = req.body || {};
+
+    if (!imageBase64) {
+      return res.status(400).json({ success: false, error: "Please provide imageBase64" });
+    }
+
+    const pureBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+    const isHindi = isHindiSubject(subject);
+    const passes = isHindi 
+      ? [{ lang: 'hin', engine: '3' }, { lang: 'eng', engine: '2' }]
+      : [{ lang: 'eng', engine: '2' }, { lang: 'hin', engine: '3' }];
+
+    let extractedText = '';
+    let methodUsed = '';
+
+    for (const pass of passes) {
+      try {
+        const formParams = new URLSearchParams();
+        formParams.append('base64Image', `data:${mimeType};base64,${pureBase64}`);
+        formParams.append('apikey', 'K87899142388957');
+        formParams.append('language', pass.lang);
+        formParams.append('detectOrientation', 'true');
+        formParams.append('scale', 'true');
+        formParams.append('OCREngine', pass.engine);
+
+        let ocrResp = await fetch('https://api.ocr.space/parse/image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: formParams.toString()
+        });
+
+        let ocrData = null;
+        if (ocrResp.ok) {
+          ocrData = await ocrResp.json().catch(() => null);
+        }
+
+        if (!ocrResp.ok || !ocrData || ocrData.IsErroredOnProcessing || !ocrData.ParsedResults?.[0]?.ParsedText) {
+          formParams.set('apikey', 'helloworld');
+          ocrResp = await fetch('https://api.ocr.space/parse/image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: formParams.toString()
+          });
+          if (ocrResp.ok) {
+            ocrData = await ocrResp.json().catch(() => null);
+          }
+        }
+
+        if (ocrData && !ocrData.IsErroredOnProcessing) {
+          const text = ocrData.ParsedResults?.[0]?.ParsedText || '';
+          if (text.trim().length > 10) {
+            extractedText = text;
+            methodUsed = `OCR.space (${pass.lang.toUpperCase()} Engine ${pass.engine})`;
+            break;
+          }
+        }
+      } catch (passErr) {
+        console.warn(`[OCR Exam Paper] Pass ${pass.lang} failed:`, passErr.message);
+      }
+    }
+
+    if (extractedText) {
+      return res.json({
+        success: true,
+        rawText: extractedText,
+        method: methodUsed
+      });
+    }
+
+    return res.status(422).json({
+      success: false,
+      error: "Could not extract text from the exam paper image. Please ensure clear focus and lighting."
+    });
+  } catch (err) {
+    console.error("[OCR Exam Paper] Error:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 
 //  Vidya AI Logs Endpoint 
 app.get("/api/vidya-logs", authRequired, async (req, res) => {
