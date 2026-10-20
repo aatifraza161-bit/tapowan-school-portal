@@ -204,7 +204,7 @@ async function startAppFlow() {
     }
   } catch (_) {}
 
-  // Show immediate WhatsApp-style native loading state
+  // Show immediate clean native loading state
   if (mainWindow) {
     mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`
       <!DOCTYPE html>
@@ -216,8 +216,8 @@ async function startAppFlow() {
           * { box-sizing: border-box; margin: 0; padding: 0; }
           body {
             margin: 0;
-            background: #111b21;
-            color: #e9edef;
+            background: #ffffff;
+            color: #0f172a;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             display: flex;
             flex-direction: column;
@@ -237,15 +237,15 @@ async function startAppFlow() {
           }
           .splash-brand {
             font-size: 21px;
-            font-weight: 600;
-            color: #e9edef;
-            letter-spacing: -0.015em;
+            font-weight: 700;
+            color: #0f172a;
+            letter-spacing: -0.02em;
             margin-bottom: 24px;
           }
           .splash-progress-track {
             width: 180px;
             height: 3px;
-            background: rgba(255, 255, 255, 0.12);
+            background: rgba(0, 0, 0, 0.08);
             border-radius: 3px;
             overflow: hidden;
             position: relative;
@@ -258,7 +258,7 @@ async function startAppFlow() {
             background: linear-gradient(90deg, #0284c7, #2563eb);
             border-radius: 3px;
             width: 45%;
-            box-shadow: 0 0 8px rgba(2, 132, 199, 0.6);
+            box-shadow: 0 0 8px rgba(2, 132, 199, 0.4);
             animation: progressSlide 1.5s cubic-bezier(0.65, 0, 0.35, 1) infinite;
           }
           @keyframes progressSlide {
@@ -272,13 +272,13 @@ async function startAppFlow() {
             align-items: center;
             gap: 7px;
             font-size: 12px;
-            color: #8696a0;
+            color: #64748b;
             letter-spacing: 0.01em;
           }
           .splash-footer svg {
             width: 13px;
             height: 13px;
-            fill: #8696a0;
+            fill: #64748b;
           }
         </style>
       </head>
@@ -328,14 +328,14 @@ function createWindow() {
     title: "", // Clean titleless startup (like WhatsApp)
     icon: path.join(__dirname, 'public', 'icon.ico'),
     autoHideMenuBar: true,
-    // Native frameless with Windows 11 overlay controls (exact WhatsApp styling)
+    // Native frameless with Windows 11 overlay controls in Clean White Light Mode
     titleBarStyle: 'hidden',
     titleBarOverlay: {
-      color: '#111b21',       // WhatsApp charcoal theme
-      symbolColor: '#8696a0', // Muted caption icons matching WhatsApp
+      color: '#ffffff',       // Pure white title bar matching the white background
+      symbolColor: '#0f172a', // Dark native window caption controls
       height: 36
     },
-    backgroundColor: '#111b21',
+    backgroundColor: '#ffffff',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
