@@ -320,16 +320,16 @@ body{
   overflow-y: auto;
 }
 
-/* Brand Row */
+/* Brand Row - Enterprise SaaS Brand Lockup */
 .auth-brand-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   margin-bottom: 14px;
 }
 .auth-brand-icon {
-  width: 36px;
-  height: 36px;
+  width: 42px;
+  height: 42px;
   border-radius: 10px;
   background: transparent;
   display: flex;
@@ -343,13 +343,62 @@ body{
   height: 100%;
   object-fit: contain;
   display: block;
+  filter: drop-shadow(0 3px 8px rgba(2, 132, 199, 0.22));
+}
+.auth-brand-text-wrap {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 .auth-brand-name {
-  font-size: 1.2rem;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  font-size: 1.42rem;
   font-weight: 800;
-  color: #101828;
-  letter-spacing: -0.025em;
-  line-height: 1;
+  letter-spacing: -0.035em;
+  line-height: 1.1;
+  display: inline-flex;
+  align-items: baseline;
+}
+.auth-brand-name .brand-edu {
+  color: #0f172a;
+  font-weight: 800;
+}
+.auth-brand-name .brand-core {
+  background: linear-gradient(135deg, #0284c7 0%, #2563eb 60%, #1d4ed8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 800;
+  margin-left: 0.5px;
+}
+.auth-brand-name .brand-tm {
+  font-size: 0.52rem;
+  font-weight: 700;
+  color: #94a3b8;
+  vertical-align: super;
+  margin-left: 2px;
+  -webkit-text-fill-color: #94a3b8;
+}
+.auth-brand-subtitle {
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.auth-brand-subtitle::before {
+  content: '';
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+  flex-shrink: 0;
 }
 
 /* Title Section */
