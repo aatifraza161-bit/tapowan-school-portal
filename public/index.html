@@ -182,7 +182,7 @@
               <label class="auth-field-label" for="signupPassword">Password</label>
               <div class="auth-field-box">
                 <span class="material-symbols-outlined auth-field-icon">lock</span>
-                <input id="signupPassword" class="auth-clean-input" name="password" type="password" placeholder="Create strong password" required />
+                <input id="signupPassword" class="auth-clean-input" name="password" type="password" placeholder="Create strong password (min 6 characters)" minlength="6" required />
                 <button type="button" class="auth-clean-eye" onclick="window.toggleAuthPasswordVisibility && window.toggleAuthPasswordVisibility('signupPassword', this)" title="Show/Hide password">
                   <span class="material-symbols-outlined">visibility</span>
                 </button>

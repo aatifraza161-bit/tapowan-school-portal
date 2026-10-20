@@ -42,6 +42,15 @@ const jwtCrypto = require('crypto');
 const JWT_SECRET = process.env.SESSION_SECRET || jwtCrypto.createHash('sha256').update((require('os').hostname() || 'tps') + '_tps_secure_entropy_key_2026').digest('hex');
 const TOKEN_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
 
+// Global Token Revocation & Invalidation Store
+const invalidatedTokensMap = new Map();
+setInterval(() => {
+  const now = Date.now();
+  for (const [t, exp] of invalidatedTokensMap.entries()) {
+    if (now > exp) invalidatedTokensMap.delete(t);
+  }
+}, 60 * 60 * 1000);
+
 function signStatelessToken(user) {
   const tokenData = { ...user, exp: Date.now() + TOKEN_EXPIRY_MS };
   const payload = Buffer.from(JSON.stringify(tokenData)).toString('base64');
@@ -51,6 +60,8 @@ function signStatelessToken(user) {
 
 function verifyStatelessToken(token) {
   try {
+    if (!token || typeof token !== 'string') return null;
+    if (invalidatedTokensMap.has(token)) return null;
     const parts = token.split('.');
     if (parts.length !== 2) return null;
     const payload = parts[0];
@@ -371,12 +382,15 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Bypass-Tunnel-Reminder", "Authorization"]
 }));
 
-// Standard Security Headers (Clickjacking, MIME-sniffing, XSS, Referrer-Policy)
+app.disable('x-powered-by');
+
+// Standard Security Headers (Clickjacking, MIME-sniffing, XSS, Referrer-Policy, HSTS)
 app.use((req, res, next) => {
   res.setHeader("X-Frame-Options", "SAMEORIGIN");
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-XSS-Protection", "1; mode=block");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
   next();
 });
 
@@ -645,9 +659,15 @@ function canDelete(req, res, next) {
 // Modules teachers can write to
 const TEACHER_WRITE_MODULES = new Set(["attendance", "teacherAttendance"]);
 // Modules only admin/staff can write to  
-const ADMIN_STAFF_ONLY_MODULES = new Set(["users", "payroll", "fees", "dueManagement", "admissions", "schoolInvestments", "schoolIncome", "schoolExpenses", "booksAndDress", "feeStructures", "whatsappAlerts", "settings"]);
+const ADMIN_STAFF_ONLY_MODULES = new Set(["users", "payroll", "fees", "dueManagement", "admissions", "schoolInvestments", "schoolIncome", "schoolExpenses", "booksAndDress", "feeStructures", "whatsappAlerts", "settings", "faceEmbeddings"]);
 // Modules only admin can access at all
-const ADMIN_ONLY_MODULES = new Set(["users"]);
+const ADMIN_ONLY_MODULES = new Set(["users", "settings", "schoolInvestments", "payroll"]);
+// Modules completely forbidden to student role (prevents privilege escalation)
+const FORBIDDEN_STUDENT_READ_MODULES = new Set([
+  "users", "payroll", "admissions", "schoolInvestments", "schoolIncome", 
+  "schoolExpenses", "booksAndDress", "whatsappAlerts", "settings", 
+  "faceEmbeddings", "app_device_registry", "teacherAttendance"
+]);
 
 app.post("/api/auth/login", authLimiter, async (req, res) => {
   try {
@@ -912,6 +932,11 @@ app.post("/api/auth/signup", authLimiter, async (req, res) => {
 });
 
 app.post("/api/auth/logout", (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    const token = authHeader.split(" ")[1];
+    invalidatedTokensMap.set(token, Date.now() + TOKEN_EXPIRY_MS);
+  }
   req.session.destroy(() => res.json({ ok: true }));
 });
 
@@ -955,13 +980,44 @@ app.post("/api/saas/cache-bust", async (req, res) => {
 app.get("/api/store", authRequired, async (req, res) => {
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");
   try {
-    const store = await getStore();
+    const user = req.session?.user;
+    const role = String(user?.role || "").toLowerCase();
+    const rawStore = await getStore();
+    let store = { ...rawStore };
+
     try {
       const freshSettings = await db.execute({ sql: "SELECT * FROM settings", skipCache: true });
       if (freshSettings && Array.isArray(freshSettings.rows)) {
         store.settings = freshSettings.rows.map(r => normalizeRow("settings", r));
       }
     } catch (_) {}
+
+    // ROLE-BASED ACCESS CONTROL (RBAC): Quarantine and isolate student access
+    if (role === "student") {
+      const admNo = String(user?.admissionNo || "").trim().toLowerCase();
+      const studentStore = {
+        holidays: store.holidays || [],
+        timetable: (store.timetable || []).filter(t => !user.className || String(t.className).toLowerCase() === String(user.className).toLowerCase()),
+        app_notices: store.app_notices || [],
+        app_updates: store.app_updates || [],
+        app_reels: store.app_reels || [],
+        school_banners: store.school_banners || [],
+        feestructures: store.feestructures || [],
+        app_recommended_lessons: store.app_recommended_lessons || [],
+        // Strictly scoped personal records only
+        fees: (store.fees || []).filter(f => String(f.admissionNo || '').trim().toLowerCase() === admNo),
+        dueManagement: (store.dueManagement || []).filter(d => String(d.admissionNo || '').trim().toLowerCase() === admNo),
+        attendance: (store.attendance || []).filter(a => String(a.rollNo || a.studentName || '').toLowerCase() === String(user.fullName || '').toLowerCase() || String(a.admissionNo || '').trim().toLowerCase() === admNo),
+        students: (store.students || []).filter(s => String(s.admissionNo || '').trim().toLowerCase() === admNo)
+      };
+      return res.json(studentStore);
+    }
+
+    // Strip user accounts & passwords for non-admins
+    if (role !== "admin" && role !== "administrator") {
+      delete store.users;
+    }
+
     res.json(store);
   } catch (err) {
     console.error("API /api/store route error:", err);
@@ -1422,7 +1478,7 @@ app.post("/api/online-payments/auto-verify", async (req, res) => {
   }
 });
 
-// ── Secure Zero-Secret Database Proxy Gateway for Mobile App ──
+// ── Secure Zero-Secret Database Proxy Gateway with Strict RBAC & Threat Quarantine ──
 const BLOCKED_SQL_KEYWORDS = [
   'DROP TABLE', 'DROP DATABASE', 'DROP SCHEMA', 'DROP INDEX', 'DROP VIEW', 'DROP TRIGGER',
   'ALTER TABLE', 'ATTACH DATABASE', 'DETACH DATABASE', 'VACUUM', 'PRAGMA',
@@ -1434,6 +1490,12 @@ const FORBIDDEN_MUTATION_TABLES = [
   'USERS', 'PLATFORM_USERS', 'PLATFORM_AUDIT_LOGS', 'SCHOOL_MODULES', 'SUBSCRIPTIONS'
 ];
 
+const ALLOWED_UNAUTH_MUTATION_TABLES = [
+  'APP_DEVICE_REGISTRY', 'APP_PUSH_TOKENS', 'TEACHERATTENDANCE', 'ATTENDANCE',
+  'APP_LEARNING_PROGRESS', 'APP_QUIZ_ATTEMPTS', 'APP_VOICE_SIGNALS',
+  'APP_VOICE_CALLS', 'APP_VOICE_ROOMS', 'APP_TEACHER_CHATS', 'APP_ONLINE_PAYMENTS'
+];
+
 const dbProxyLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 300, // max 300 requests per minute
@@ -1442,16 +1504,22 @@ const dbProxyLimiter = rateLimit({
   message: { error: "Too many database queries, please slow down." }
 });
 
-function validateSafeQuery(sql) {
+function validateSafeQuery(sql, user = null, args = []) {
   if (!sql || typeof sql !== 'string') return "Missing or invalid SQL query";
   const upperSql = sql.trim().toUpperCase();
+
+  // 1. Block dangerous DDL & admin statements
   for (const blocked of BLOCKED_SQL_KEYWORDS) {
     if (upperSql.includes(blocked)) {
       return `Administrative security violation: '${blocked}' is blocked.`;
     }
   }
-  // Block unauthorized direct mutations on system authentication tables
-  if (upperSql.startsWith("INSERT") || upperSql.startsWith("UPDATE") || upperSql.startsWith("DELETE") || upperSql.startsWith("REPLACE")) {
+
+  const isMutation = upperSql.startsWith("INSERT") || upperSql.startsWith("UPDATE") || upperSql.startsWith("DELETE") || upperSql.startsWith("REPLACE");
+  const isSelect = upperSql.startsWith("SELECT") || upperSql.startsWith("WITH");
+
+  // 2. Block direct mutations on sensitive authentication & platform tables
+  if (isMutation) {
     for (const tbl of FORBIDDEN_MUTATION_TABLES) {
       if (upperSql.includes(tbl)) {
         return `Direct modification of system table '${tbl}' via proxy is forbidden.`;
@@ -1461,13 +1529,90 @@ function validateSafeQuery(sql) {
     if ((upperSql.startsWith("DELETE") || upperSql.startsWith("UPDATE")) && !upperSql.includes(" WHERE ")) {
       return "Unconditional mutations without a WHERE clause are blocked for safety.";
     }
+
+    const isStaff = isStaffOrAbove(user) || isAdmin(user);
+    if (!isStaff) {
+      let matchesAllowed = false;
+      for (const tbl of ALLOWED_UNAUTH_MUTATION_TABLES) {
+        if (upperSql.includes(tbl)) {
+          matchesAllowed = true;
+          break;
+        }
+      }
+      if (!matchesAllowed) {
+        return "Authentication with staff/faculty privileges is required to modify this table.";
+      }
+      const role = String(user?.role || '').toLowerCase();
+      if (role === 'student' && (upperSql.includes("FEES") || upperSql.includes("DUEMANAGEMENT") || upperSql.includes("STUDENTS") || upperSql.includes("SETTINGS") || upperSql.includes("TIMETABLE") || upperSql.includes("FEESTRUCTURES"))) {
+        return "Students cannot modify administrative records.";
+      }
+    }
   }
+
+  // 3. Biometric Face Data Protection (Strictly restricted to faculty/admin)
+  if (upperSql.includes("FACEEMBEDDINGS") || upperSql.includes("FACEPHOTOS")) {
+    const isFac = isTeacherOrAbove(user) || isAdmin(user);
+    if (!isFac) {
+      return "Access to biometric face data is restricted to authorized school faculty only.";
+    }
+  }
+
+  // 4. User Accounts Table Protection
+  if (upperSql.includes("FROM USERS") || upperSql.includes("FROM PLATFORM_USERS") || upperSql.includes("JOIN USERS")) {
+    const isAdm = isAdmin(user) || isTeacherOrAbove(user);
+    const isSingleLoginLookup = isSelect && upperSql.includes("LIMIT 1") && 
+      (upperSql.includes("USERNAME =") || upperSql.includes("USERNAME=") || upperSql.includes("EMAIL =") || upperSql.includes("EMAIL=") || upperSql.includes("FULLNAME"));
+    if (!isAdm && !isSingleLoginLookup) {
+      return "Access to user accounts table requires administrator privileges.";
+    }
+  }
+
+  // 5. Financial & Administrative Tables (fees, duemanagement, payroll, etc.)
+  const touchesFinancial = upperSql.includes("FROM FEES") || upperSql.includes("JOIN FEES") ||
+    upperSql.includes("FROM DUEMANAGEMENT") || upperSql.includes("JOIN DUEMANAGEMENT") ||
+    upperSql.includes("FROM PAYROLL") || upperSql.includes("FROM SCHOOLEXPENSES") ||
+    upperSql.includes("FROM SCHOOLINCOME") || upperSql.includes("FROM SCHOOLINVESTMENTS") ||
+    upperSql.includes("FROM ADMISSIONS");
+
+  if (touchesFinancial) {
+    if (!user) {
+      return "Authentication required to access school financial records.";
+    }
+    const role = String(user?.role || '').toLowerCase();
+    if (role === 'student') {
+      if (upperSql.includes("PAYROLL") || upperSql.includes("SCHOOLEXPENSES") || upperSql.includes("SCHOOLINCOME") || upperSql.includes("SCHOOLINVESTMENTS") || upperSql.includes("ADMISSIONS")) {
+        return "Access denied to school financial and administration modules.";
+      }
+      const userAdm = String(user.admissionNo || '').trim().toUpperCase();
+      const hasAdmInSql = userAdm && upperSql.includes(userAdm);
+      const hasAdmInArgs = userAdm && Array.isArray(args) && args.some(a => String(a).trim().toUpperCase() === userAdm);
+      if (!hasAdmInSql && !hasAdmInArgs) {
+        return "Students may only access their own fee and due records.";
+      }
+    }
+  }
+
+  // 6. Student Directory Table Protection
+  if (upperSql.includes("FROM STUDENTS") || upperSql.includes("JOIN STUDENTS")) {
+    if (!user) {
+      const isLoginLookup = isSelect && upperSql.includes("LIMIT 1") && 
+        (upperSql.includes("ADMISSIONNO") || upperSql.includes("PHONE"));
+      if (!isLoginLookup) {
+        return "Authentication required to query student directory.";
+      }
+    }
+  }
+
   return null;
 }
 
 function sanitizeResultRows(rows) {
   if (!Array.isArray(rows) || rows.length === 0) return rows;
-  const SENSITIVE_FIELDS = new Set(['password', 'password_hash', 'auth_token', 'secret', 'failed_login_attempts', 'locked_until']);
+  const SENSITIVE_FIELDS = new Set([
+    'password', 'password_hash', 'appPassword', 'app_password', 
+    'auth_token', 'secret', 'jwt_secret', 'session_secret', 
+    'failed_login_attempts', 'locked_until'
+  ]);
   return rows.map(r => {
     if (!r || typeof r !== 'object') return r;
     let modified = false;
@@ -1485,7 +1630,15 @@ function sanitizeResultRows(rows) {
 app.post("/api/db/query", dbProxyLimiter, async (req, res) => {
   try {
     const { sql, args } = req.body || {};
-    const validationError = validateSafeQuery(sql);
+    let user = req.session?.user || null;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.split(" ")[1];
+      const verified = verifyStatelessToken(token);
+      if (verified) user = verified;
+    }
+
+    const validationError = validateSafeQuery(sql, user, Array.isArray(args) ? args : []);
     if (validationError) {
       return res.status(403).json({ error: validationError });
     }
@@ -1548,9 +1701,18 @@ app.post("/api/db/batch", dbProxyLimiter, async (req, res) => {
       return res.status(400).json({ error: "Missing or invalid statements array" });
     }
 
+    let user = req.session?.user || null;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.split(" ")[1];
+      const verified = verifyStatelessToken(token);
+      if (verified) user = verified;
+    }
+
     for (const stmt of statements) {
       const s = typeof stmt === 'string' ? stmt : stmt?.sql || '';
-      const validationError = validateSafeQuery(s);
+      const stmtArgs = typeof stmt === 'object' && Array.isArray(stmt?.args) ? stmt.args : [];
+      const validationError = validateSafeQuery(s, user, stmtArgs);
       if (validationError) {
         return res.status(403).json({ error: validationError });
       }
@@ -3637,11 +3799,30 @@ app.get("/api/modules/:moduleName", authRequired, async (req, res) => {
     if (!MODULES[moduleName]) {
       return res.status(404).json({ error: "Unknown module" });
     }
-    // Students can only access limited modules
+    // Students can only access safe modules with strict personal data scoping
     const user = req.session?.user;
     const role = String(user?.role || "").toLowerCase();
-    if (role === "student" && ADMIN_ONLY_MODULES.has(moduleName)) {
-      return res.status(403).json({ error: "Access denied" });
+    if (role === "student") {
+      if (FORBIDDEN_STUDENT_READ_MODULES.has(moduleName)) {
+        return res.status(403).json({ error: "Access denied: student accounts cannot access administrative modules." });
+      }
+      const userAdm = String(user.admissionNo || '').trim().toLowerCase();
+      if (moduleName === "fees" || moduleName === "dueManagement") {
+        const allItems = await list(moduleName);
+        return res.json(allItems.filter(item => String(item.admissionNo || '').trim().toLowerCase() === userAdm));
+      }
+      if (moduleName === "attendance") {
+        const allItems = await list(moduleName);
+        const userName = String(user.fullName || '').trim().toLowerCase();
+        return res.json(allItems.filter(item => 
+          (item.admissionNo && String(item.admissionNo).trim().toLowerCase() === userAdm) ||
+          (item.studentName && String(item.studentName).trim().toLowerCase() === userName)
+        ));
+      }
+      if (moduleName === "students") {
+        const allItems = await list(moduleName);
+        return res.json(allItems.filter(item => String(item.admissionNo || '').trim().toLowerCase() === userAdm));
+      }
     }
     if (moduleName === "holidays") {
       return res.json(await fetchAndSyncLiveHolidays(false));

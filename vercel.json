@@ -1,6 +1,8 @@
 {
   "version": 2,
-  "regions": ["bom1"],
+  "regions": [
+    "bom1"
+  ],
   "functions": {
     "api/index.js": {
       "memory": 256,
@@ -41,12 +43,49 @@
     }
   ],
   "rewrites": [
-    { "source": "/educore", "destination": "/educore.html" },
-    { "source": "/ecosystem", "destination": "/educore.html" },
-    { "source": "/api/(.*)", "destination": "/api/index.js" },
-    { "source": "/banners/(.*)", "destination": "/api/index.js" }
+    {
+      "source": "/educore",
+      "destination": "/educore.html"
+    },
+    {
+      "source": "/ecosystem",
+      "destination": "/educore.html"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index.js"
+    },
+    {
+      "source": "/banners/(.*)",
+      "destination": "/api/index.js"
+    }
   ],
   "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=31536000; includeSubDomains; preload"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(self), microphone=(self), geolocation=(self)"
+        }
+      ]
+    },
     {
       "source": "/(.*)\\.apk",
       "headers": [

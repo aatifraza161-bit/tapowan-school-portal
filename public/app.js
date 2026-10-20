@@ -1238,25 +1238,51 @@ function normalizeApiBaseUrl(v) {
   return s.replace(/\/$/, "");
 }
 
+const ALLOWED_API_ORIGINS = new Set([
+  "https://tapowan-school.vercel.app",
+  "https://tapowan-app.vercel.app",
+  "https://tapowan-school.pages.dev",
+  "https://master.tapowan-school.pages.dev"
+]);
+
+function isAllowedApiOrigin(urlStr) {
+  if (!urlStr) return false;
+  try {
+    const parsed = new URL(urlStr, window.location.origin);
+    if (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") return true;
+    return ALLOWED_API_ORIGINS.has(parsed.origin);
+  } catch (e) {
+    return false;
+  }
+}
+
 function getApiBaseUrl() {
-  // When running locally in Electron (localhost), always use relative URLs
   const host = (window.location.hostname || "").toLowerCase();
   if (host === "localhost" || host === "127.0.0.1") return "";
-  
+  if (host.includes("vercel.app") || host.includes("netlify.app") || host.includes("onrender.com")) return "";
+  if (host.includes("pages.dev")) return "https://tapowan-school.vercel.app";
+
   const qs = new URLSearchParams(window.location.search || "");
   const fromQuery = normalizeApiBaseUrl(qs.get("api"));
-  if (fromQuery) localStorage.setItem("API_BASE_URL", fromQuery);
-  const fromStorage = normalizeApiBaseUrl(localStorage.getItem("API_BASE_URL"));
-  const fromWindow = normalizeApiBaseUrl(window.API_BASE_URL);
-  
-  if (fromWindow && (fromWindow.includes("serveo") || fromWindow.includes("lhr.life"))) {
-      if (fromStorage && fromStorage !== fromWindow) {
-          localStorage.removeItem("API_BASE_URL");
-      }
-      return fromQuery || fromWindow;
+  if (fromQuery) {
+    if (isAllowedApiOrigin(fromQuery)) {
+      localStorage.setItem("API_BASE_URL", fromQuery);
+    } else {
+      console.warn("[Security] Blocked unauthorized API origin parameter:", fromQuery);
+      localStorage.removeItem("API_BASE_URL");
+    }
   }
-  
-  return fromQuery || fromStorage || fromWindow || "";
+
+  const fromStorage = normalizeApiBaseUrl(localStorage.getItem("API_BASE_URL"));
+  if (fromStorage && !isAllowedApiOrigin(fromStorage)) {
+    localStorage.removeItem("API_BASE_URL");
+  }
+
+  const validStorage = isAllowedApiOrigin(fromStorage) ? fromStorage : "";
+  const fromWindow = normalizeApiBaseUrl(window.API_BASE_URL);
+  const validWindow = isAllowedApiOrigin(fromWindow) ? fromWindow : "";
+
+  return validStorage || validWindow || "https://tapowan-school.vercel.app";
 }
 
 let API_BASE_URL = getApiBaseUrl();
@@ -13235,6 +13261,12 @@ refs.studentProfileTabs?.forEach((btn) => {
 
 async function syncFaceEmbeddingsFromServer() {
   try {
+    // Biometric Privacy Protection: Only faculty and staff with attendance duties can download facial recognition descriptors
+    const role = String(currentUser?.role || '').toLowerCase();
+    if (!currentUser || role === 'student') {
+      return;
+    }
+
     let rows = serverStore?.faceEmbeddings;
     if (!Array.isArray(rows) || !rows.length) {
       rows = await api("/api/modules/faceEmbeddings").catch(() => null);
