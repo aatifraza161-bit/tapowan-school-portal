@@ -1763,8 +1763,8 @@ app.post("/api/admin/ota/broadcast-push", adminRequired, async (req, res) => {
     if (bundleUrl) {
       try {
         const parsed = new URL(bundleUrl);
-        const allowedHosts = ['tapowan-school.vercel.app', 'tapowan-app.vercel.app', 'raw.githubusercontent.com', 'cdn.jsdelivr.net'];
-        if (!allowedHosts.includes(parsed.hostname) && !parsed.hostname.endsWith('.vercel.app')) {
+        const allowedHosts = ['tapowan-school.vercel.app', 'tapowan-app.vercel.app', 'raw.githubusercontent.com', 'cdn.jsdelivr.net', 'master.tapowan-school.pages.dev', 'tapowan-school.pages.dev'];
+        if (!allowedHosts.includes(parsed.hostname) && !parsed.hostname.endsWith('.vercel.app') && !parsed.hostname.endsWith('.pages.dev')) {
           return res.status(400).json({ ok: false, error: "Security violation: Untrusted bundle host URL" });
         }
       } catch (urlErr) {
