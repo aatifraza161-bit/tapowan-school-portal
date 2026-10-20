@@ -1403,6 +1403,9 @@ function applyAuthUI(session) {
     if (auth) {
       auth.classList.remove("hidden");
       auth.style.display = "flex";
+      if (typeof window.renderRandomMotivationalQuote === "function") {
+        try { window.renderRandomMotivationalQuote(); } catch (_) {}
+      }
     }
     if (appContainer) appContainer.style.display = "none";
     if (vidyaFab) vidyaFab.style.display = "none";
@@ -1515,16 +1518,16 @@ function setAuthMode(mode) {
   if (refs.signupForm) refs.signupForm.classList.toggle("hidden", isLogin);
   if (refs.showLoginBtn) refs.showLoginBtn.classList.toggle("active", isLogin);
   if (refs.showSignupBtn) refs.showSignupBtn.classList.toggle("active", !isLogin);
-  if (refs.authSubtitle) refs.authSubtitle.textContent = isLogin ? "Sign in to continue to Tapowan Public School" : "Create an account to join Tapowan Public School";
+  if (refs.authSubtitle) refs.authSubtitle.textContent = isLogin ? "Sign in to access your dashboard and continue managing school operations." : "Enter your details to register as a student or staff member.";
 
   const mainTitle = document.getElementById("authMainTitle");
-  if (mainTitle) mainTitle.textContent = isLogin ? "Sign in" : "Sign up";
+  if (mainTitle) mainTitle.textContent = isLogin ? "Welcome Back!" : "Create Account";
 
   const switchPrompt = document.getElementById("authTopSwitchPrompt");
-  if (switchPrompt) switchPrompt.textContent = isLogin ? "Not a member yet?" : "Already a member?";
+  if (switchPrompt) switchPrompt.textContent = isLogin ? "Don't have an Account?" : "Already have an account?";
 
   const switchBtn = document.getElementById("authTopSwitchBtn");
-  if (switchBtn) switchBtn.textContent = isLogin ? "Sign Up" : "Sign in";
+  if (switchBtn) switchBtn.textContent = isLogin ? "Sign Up" : "Sign In";
 }
 
 function getSaasEnabledModulesSet() {
@@ -12694,7 +12697,7 @@ window.handleLoginSubmit = async function(e) {
     if (subtitle) subtitle.textContent = "Please enter username and password";
     if (submitBtn) {
       submitBtn.disabled = false;
-      submitBtn.innerHTML = "Login";
+      submitBtn.innerHTML = "Sign In";
     }
     return false;
   }
@@ -12733,7 +12736,7 @@ window.handleLoginSubmit = async function(e) {
   } finally {
     if (submitBtn) {
       submitBtn.disabled = false;
-      submitBtn.innerHTML = "Login";
+      submitBtn.innerHTML = "Sign In";
     }
   }
 };
