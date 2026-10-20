@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tps-cache-v20261020-auth-split-v6';
+const CACHE_NAME = 'tps-cache-v20261020-auth-split-v7';
 
 self.addEventListener('install', event => {
   self.skipWaiting();
@@ -11,9 +11,21 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Network-First: Always fetch latest JS, CSS, HTML, and API requests directly
+// Network-First: Always fetch latest JS, CSS, HTML, and Media requests directly
 self.addEventListener('fetch', event => {
-  if (event.request.url.includes('/api/') || event.request.url.includes('.js') || event.request.url.includes('.css') || event.request.url.includes('.html')) {
+  const url = event.request.url;
+  if (
+    url.includes('/api/') ||
+    url.includes('.js') ||
+    url.includes('.css') ||
+    url.includes('.html') ||
+    url.includes('.png') ||
+    url.includes('.jpg') ||
+    url.includes('.jpeg') ||
+    url.includes('.svg') ||
+    url.includes('.webp') ||
+    url.includes('.ico')
+  ) {
     return;
   }
   event.respondWith(
