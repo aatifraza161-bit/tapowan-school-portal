@@ -21,7 +21,7 @@
     if (localStorage.getItem("token")) {
       document.write('<style id="preloaderStyle">#authOverlay { display: none !important; } .app { display: grid !important; }</style>');
     } else {
-      document.write('<style id="preloaderStyle">#authOverlay { display: flex !important; } .app { display: none !important; }</style>');
+      document.write('<style id="preloaderStyle">#authOverlay { display: flex !important; } .app, #mobileBottomNav { display: none !important; }</style>');
     }
     try {
       var cachedTpsUser = JSON.parse(localStorage.getItem("tps_user") || "null");

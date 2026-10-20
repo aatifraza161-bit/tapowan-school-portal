@@ -281,30 +281,7 @@ body{
   pointer-events: none;
 }
 .auth-close-btn {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  border: 1px solid #d0d5dd;
-  color: #344054;
-  font-size: 1.15rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 10002;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-}
-.auth-close-btn:hover {
-  background: #ffffff;
-  color: #0c3c35;
-  transform: scale(1.08) rotate(90deg);
-  border-color: #0c3c35;
+  display: none !important;
 }
 
 /* ─── Modern Split Luxury SaaS Card ─── */
@@ -2275,19 +2252,37 @@ tbody td:last-child { padding-right: 24px; }
     overflow-y: visible !important;
   }
   .auth-overlay {
-    padding: 12px 8px !important;
-    align-items: flex-start !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+    z-index: 1000000 !important;
+    overflow-y: auto !important;
   }
   .auth-card {
     width: 100% !important;
     max-width: 100% !important;
-    margin: 10px auto !important;
-    border-radius: 18px !important;
-    padding: 10px !important;
+    min-height: 100vh !important;
+    height: auto !important;
+    border-radius: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    grid-template-columns: 1fr !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
   }
-  .auth-form-column { padding: 12px 8px !important; }
-  .auth-main-title { font-size: 1.3rem !important; }
+  .auth-form-column {
+    padding: 36px 24px calc(24px + env(safe-area-inset-bottom, 16px)) !important;
+    min-height: 100vh !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+  }
+  .auth-main-title { font-size: 1.6rem !important; }
   .auth-hero-showcase { display: none !important; }
+  .auth-close-btn { display: none !important; }
+  .auth-dots { display: none !important; }
   .concentric-gauge-wrap {
     display: flex !important;
     flex-direction: column !important;
@@ -4918,4 +4913,10 @@ img[src*="student-photos"],
   width: 0%;
   background: linear-gradient(90deg, #3b82f6, #10b981);
   transition: width 0.3s ease;
+}
+
+/* Hide bottom navigation bar completely on login overlay */
+#authOverlay:not(.hidden) ~ #mobileBottomNav,
+.auth-overlay:not(.hidden) ~ #mobileBottomNav {
+  display: none !important;
 }
