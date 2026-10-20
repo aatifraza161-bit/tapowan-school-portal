@@ -1607,6 +1607,72 @@ function hasNegativeCondition(sql) {
   return false;
 }
 
+function validateStudentWhereClause(sql, userAdm, userFull, args = [], allowOr = false) {
+  if (!sql || typeof sql !== 'string') return "Missing SQL statement";
+  const upper = sql.trim().toUpperCase();
+
+  // 1. Block UNION and UNION ALL
+  if (/\bUNION\b/.test(upper)) {
+    return "UNION queries are forbidden for student accounts.";
+  }
+
+  // 2. Block Subqueries
+  if (/\(\s*SELECT\b/.test(upper)) {
+    return "Subqueries are forbidden for student accounts.";
+  }
+
+  // 3. Block SQL comments
+  if (upper.includes("--") || upper.includes("/*")) {
+    return "SQL comment syntax is forbidden in student queries.";
+  }
+
+  // 4. Block common SQL injection tautologies
+  if (/\b(\d+)\s*=\s*\1\b/.test(upper) || /\b['"]([^'"]+)['"]\s*=\s*['"]\1['"]\b/.test(upper) || /\bTRUE\b/.test(upper) || /\bNULL\s+IS\s+NULL\b/.test(upper)) {
+    return "Tautological conditions ('OR 1=1') are forbidden.";
+  }
+
+  // 5. Block aggregate COUNT queries
+  if (/\bCOUNT\s*\(/.test(upper)) {
+    return "Aggregate COUNT queries are forbidden for student accounts.";
+  }
+
+  // 6. Check for OR
+  const hasOr = /\bOR\b/.test(upper);
+  if (hasOr && !allowOr) {
+    return "Disjunctive queries ('OR') are forbidden for student accounts on this table.";
+  }
+
+  // If allowOr is true (only on students table), every disjunctive branch MUST strictly constrain to userAdm or userFull
+  if (hasOr && allowOr) {
+    const whereMatch = upper.match(/\bWHERE\s+([\s\S]+?)(?:\bLIMIT\b|\bORDER\b|\bGROUP\b|$)/);
+    if (!whereMatch || !whereMatch[1]) {
+      return "Invalid WHERE clause for student query.";
+    }
+    const whereBody = whereMatch[1];
+    const branches = whereBody.split(/\bOR\b/);
+    for (const b of branches) {
+      const cleanBranch = b.trim();
+      if (/\b(\d+)\s*=\s*\1\b/.test(cleanBranch) || /\b['"]([^'"]+)['"]\s*=\s*['"]\1['"]\b/.test(cleanBranch) || /\bTRUE\b/.test(cleanBranch)) {
+        return "Tautological conditions ('OR 1=1') are forbidden.";
+      }
+      const touchesAdm = cleanBranch.includes("ADMISSIONNO");
+      const touchesFull = cleanBranch.includes("FULLNAME");
+      if (!touchesAdm && !touchesFull) {
+        return "Every disjunctive branch ('OR') must strictly constrain to your own admission number or name.";
+      }
+      const hasLiteralAdm = userAdm && (cleanBranch.includes("'" + userAdm + "'") || cleanBranch.includes('"' + userAdm + '"'));
+      const hasLiteralFull = userFull && (cleanBranch.includes("'" + userFull + "'") || cleanBranch.includes('"' + userFull + '"'));
+      const hasParam = cleanBranch.includes("?");
+      const hasArgMatch = hasParam && Array.isArray(args) && args.some(a => a != null && (String(a).trim().toUpperCase() === userAdm || (userFull && String(a).trim().toUpperCase() === userFull)));
+      if (!hasLiteralAdm && !hasLiteralFull && !hasArgMatch) {
+        return "Every disjunctive branch ('OR') must match your own verified student identity.";
+      }
+    }
+  }
+
+  return null;
+}
+
 function validateSafeQuery(sql, user = null, args = []) {
   if (!sql || typeof sql !== 'string') return "Missing or invalid SQL query";
   const upperSql = sql.trim().toUpperCase();
@@ -1690,6 +1756,9 @@ function validateSafeQuery(sql, user = null, args = []) {
       if (upperSql.includes("PAYROLL") || upperSql.includes("SCHOOLEXPENSES") || upperSql.includes("SCHOOLINCOME") || upperSql.includes("SCHOOLINVESTMENTS") || upperSql.includes("ADMISSIONS")) {
         return "Access denied to school financial and administration modules.";
       }
+      const studentErr = validateStudentWhereClause(sql, userAdm, userFull, args, false);
+      if (studentErr) return studentErr;
+
       if (hasNegativeCondition(upperSql)) {
         return "Negative operator queries on financial records are forbidden for student accounts.";
       }
@@ -1710,12 +1779,15 @@ function validateSafeQuery(sql, user = null, args = []) {
         return "Authentication required to query student directory.";
       }
     } else if (role === 'student') {
+      const studentErr = validateStudentWhereClause(sql, userAdm, userFull, args, true);
+      if (studentErr) return studentErr;
+
       if (hasNegativeCondition(upperSql)) {
         return "Negative operator queries on student directory are forbidden for student accounts.";
       }
       // Students can ONLY read their own single profile record
-      if (!upperSql.includes("LIMIT ")) {
-        return "Students may only access their own student profile record with a scoped LIMIT query.";
+      if (!upperSql.includes("LIMIT 1")) {
+        return "Students may only access their own student profile record with a scoped LIMIT 1 query.";
       }
       const hasAdmInSql = userAdm && (upperSql.includes("'" + userAdm + "'") || upperSql.includes('"' + userAdm + '"'));
       const hasFullInSql = userFull && (upperSql.includes("'" + userFull + "'") || upperSql.includes('"' + userFull + '"'));
@@ -1733,6 +1805,9 @@ function validateSafeQuery(sql, user = null, args = []) {
       return "Authentication required to access student attendance records.";
     }
     if (role === 'student') {
+      const studentErr = validateStudentWhereClause(sql, userAdm, userFull, args, false);
+      if (studentErr) return studentErr;
+
       if (hasNegativeCondition(upperSql)) {
         return "Negative operator queries on attendance records are forbidden for student accounts.";
       }
