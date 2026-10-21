@@ -24964,15 +24964,32 @@ function runSmartTimetableGeneration() {
 
 async function applySmartTimetable() {
   if (window._pendingSmartTimetable) {
-    const store = getStore();
-    store.timetable = window._pendingSmartTimetable;
+    const modal = document.getElementById("smartTimetablePreviewModal");
+    const applyBtn = modal ? modal.querySelector("button.btn-success, [onclick*='applySmartTimetable']") : null;
+    const oldBtnHtml = applyBtn ? applyBtn.innerHTML : '';
+    if (applyBtn) {
+      applyBtn.innerHTML = '<span class="spinner" style="width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;display:inline-block;animation:spin 0.6s linear infinite;margin-right:6px;vertical-align:middle;"></span>Saving...';
+      applyBtn.disabled = true;
+    }
     try {
-      await saveStore(store);
+      await window.api("/api/store/import", {
+        method: "POST",
+        body: JSON.stringify({ timetable: window._pendingSmartTimetable })
+      });
+      const store = getStore();
+      store.timetable = window._pendingSmartTimetable;
+      try { localStorage.setItem("school_data", JSON.stringify(store)); } catch (_) {}
       if (typeof showToast === 'function') showToast("Smart Timetable applied successfully!", "success");
-      document.getElementById("smartTimetablePreviewModal")?.remove();
+      modal?.remove();
+      if (typeof renderTable === 'function') renderTable();
       if (window.renderAll) window.renderAll();
     } catch (e) {
       if (typeof showToast === 'function') showToast("Error saving timetable: " + e.message, "error");
+    } finally {
+      if (applyBtn) {
+        applyBtn.innerHTML = oldBtnHtml || "Apply & Save";
+        applyBtn.disabled = false;
+      }
     }
   }
 }

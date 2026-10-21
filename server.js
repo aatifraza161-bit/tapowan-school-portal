@@ -391,7 +391,7 @@ app.use((req, res, next) => {
   res.setHeader("X-XSS-Protection", "1; mode=block");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
-  res.setHeader("Content-Security-Policy", "default-src 'self' https://tapowan-school.vercel.app https://tapowan-app.vercel.app; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://tapowan-school.vercel.app https://tapowan-app.vercel.app https://*.vercel.app https://*.pages.dev https://*.turso.io; frame-ancestors 'none';");
+  res.setHeader("Content-Security-Policy", "default-src 'self' https://tapowan-school.vercel.app https://tapowan-app.vercel.app; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://tapowan-school.vercel.app https://tapowan-app.vercel.app https://*.vercel.app https://*.pages.dev https://*.turso.io https://cdn.jsdelivr.net https://fonts.googleapis.com https://fonts.gstatic.com; frame-ancestors 'none';");
   next();
 });
 

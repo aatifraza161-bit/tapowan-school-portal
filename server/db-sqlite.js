@@ -267,6 +267,22 @@ const db = {
     }
 
     return results;
+  },
+
+  transaction: async () => {
+    const queue = [];
+    return {
+      execute: async (statement) => {
+        queue.push(statement);
+      },
+      commit: async () => {
+        if (queue.length === 0) return [];
+        return await db.batch(queue);
+      },
+      rollback: async () => {
+        queue.length = 0;
+      }
+    };
   }
 };
 
@@ -868,10 +884,40 @@ function getStoreVersion() {
 
 async function replaceAll(moduleName, rows) {
   invalidateStoreCache();
-  const tx = await db.transaction();
-  await tx.execute(`DELETE FROM ${moduleName}`);
-  await tx.commit();
-  for (const r of rows) await insert(moduleName, r);
+  await db.execute(`DELETE FROM ${moduleName}`);
+  if (!Array.isArray(rows) || rows.length === 0) {
+    invalidateQueryCache(moduleName);
+    return;
+  }
+
+  const fields = MODULES[moduleName] || [];
+  if (!fields.length) return;
+
+  const cols = `id, ${fields.join(", ")}`;
+  const placeholders = `?, ${fields.map(() => '?').join(", ")}`;
+  const insertSql = `INSERT INTO ${moduleName} (${cols}) VALUES (${placeholders})`;
+
+  let currentId = 1;
+  const statements = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    const rowId = (r.id && !isNaN(Number(r.id))) ? Number(r.id) : currentId++;
+    if (r.className) {
+      r.className = normalizeCanonicalClass(r.className);
+    }
+    const values = [rowId, ...fields.map(f => r[f] ?? "")];
+    statements.push({ sql: insertSql, args: values });
+  }
+
+  const CHUNK = 50;
+  for (let i = 0; i < statements.length; i += CHUNK) {
+    const chunk = statements.slice(i, i + CHUNK);
+    await db.batch(chunk);
+  }
+
+  invalidateQueryCache(moduleName);
+  invalidateStoreCache();
 }
 
 async function rawList(moduleName) {
