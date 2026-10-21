@@ -2092,6 +2092,69 @@ app.get("/api/calls/group/active-rooms", async (req, res) => {
   }
 });
 
+// ── Call Automation & Interactive IVR Fee Reminder Engine ──
+const callAutomation = require('./server/call-automation');
+
+// A. TTS Audio Stream (Supports Hindi, English, Hinglish audio mixing into WebRTC stream)
+app.get('/api/calls/ivr/tts-audio', (req, res) => {
+  callAutomation.handleTtsAudio(req, res);
+});
+
+// B. Target students with pending dues & contact details
+app.get('/api/calls/ivr/target-students', authRequired, async (req, res) => {
+  try {
+    const data = await callAutomation.getTargetStudentsWithDues(req.query || {});
+    res.json({ ok: true, count: data.length, students: data });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// C. Initiate WebRTC Automated IVR Call
+app.post('/api/calls/ivr/initiate', authRequired, async (req, res) => {
+  try {
+    const operator = req.user || {};
+    const result = await callAutomation.initiateIvrCall({
+      ...(req.body || {}),
+      operatorId: operator.username || operator.id || 'admin',
+      operatorName: operator.fullName || 'Admin Operator'
+    });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// D. Handle IVR Keypress ('1' -> Payment Link + Dynamic QR Code via WhatsApp)
+app.post('/api/calls/ivr/keypress', async (req, res) => {
+  try {
+    const result = await callAutomation.handleIvrKeypress(req.body || {});
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// E. IVR Call Audit Logs
+app.get('/api/calls/ivr/logs', authRequired, async (req, res) => {
+  try {
+    const data = await callAutomation.getIvrLogs(req.query || {});
+    res.json({ ok: true, ...data });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// F. IVR Campaign Stats
+app.get('/api/calls/ivr/stats', authRequired, async (req, res) => {
+  try {
+    const stats = await callAutomation.getIvrStats();
+    res.json({ ok: true, stats });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // 13. Silent Background OTA Push Broadcast
 app.post("/api/admin/ota/broadcast-push", adminRequired, async (req, res) => {
   try {

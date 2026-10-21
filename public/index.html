@@ -592,6 +592,7 @@
             <button id="appReleasesBtn" type="button" class="btn-action hidden" onclick="if(window.openAppReleaseControlModal) window.openAppReleaseControlModal()" style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;font-weight:700;"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px;">system_update</span> App Releases</button>
             <button id="liveOtaStreamBtn" type="button" class="btn-action hidden" onclick="if(window.openLiveOtaStreamPanel) window.openLiveOtaStreamPanel()" style="background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;font-weight:700;"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px;">cell_tower</span> Live Devices & Status</button>
             <button id="onlinePaymentsAccessControlBtn" type="button" class="btn-action hidden" onclick="if(window.openOnlinePaymentAccessControlModal) window.openOnlinePaymentAccessControlModal()" style="background:linear-gradient(135deg, #4f46e5, #7c3aed); color:#ffffff; border:none; font-weight:700; box-shadow:0 2px 6px rgba(79,70,229,0.3);"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px;">security</span> Access Control & WA Gateway</button>
+            <button id="dueIvrLaunchBtn" type="button" class="btn-action hidden" onclick="if(window.navigateToModule) window.navigateToModule('callAutomation'); else { window.currentModule = 'callAutomation'; currentModule = 'callAutomation'; renderAll(); }" style="background:linear-gradient(135deg, #1e3a8a, #3b82f6); color:#ffffff; border:none; font-weight:700; box-shadow:0 2px 6px rgba(30,58,138,0.25);"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px;">ring_volume</span> Call Automation & IVR</button>
           </div>
         </div>
         <div class="table-wrap">
@@ -956,6 +957,10 @@
       <section id="onlinePaymentsPanel" class="panel hidden" style="background:transparent; padding:0; box-shadow:none;">
       </section>
 
+      <!-- WebRTC Automated Voice Calling & Interactive IVR Panel -->
+      <section id="callAutomationPanel" class="panel hidden" style="background:transparent; padding:0; box-shadow:none;">
+      </section>
+
       </div><!-- /content-area -->
 
     </main>
@@ -1307,6 +1312,7 @@
   <script src="reports_module.js?v=202610210830" defer></script>
   <script src="online_classes_module.js?v=202610210830" defer></script>
   <script src="online_payments_module.js?v=202610210830" defer></script>
+  <script src="call_automation_module.js?v=202610211130" defer></script>
   
   <!-- Register PWA Service Worker -->
   <script>

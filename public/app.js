@@ -518,6 +518,12 @@ const moduleConfig = {
     fields: [], 
     columns: [] 
   },
+  callAutomation: {
+    title: "Call Automation & IVR",
+    subtitle: "Automated WebRTC fee reminder calls with interactive DTMF keypress actions",
+    fields: [],
+    columns: []
+  },
   onlinePayments: { 
     title: "Online Fee Requests", 
     subtitle: "Review & approve UPI fee payments from students", 
@@ -531,7 +537,7 @@ const moduleSections = [
   { label: "ACADEMIC", modules: ["onlineClasses", "subjects", "exams", "timetable", "holidays", "weeklyEvaluation"] },
   { label: "ANALYTICS", modules: ["reportsAnalytics"] },
   { label: "DAILY", modules: ["attendance", "teacherAttendance"] },
-  { label: "FINANCE", modules: ["fees", "dueManagement", "onlinePayments", "payroll", "booksAndDress", "bookSales", "whatsappAlerts"] },
+  { label: "FINANCE", modules: ["fees", "dueManagement", "callAutomation", "onlinePayments", "payroll", "booksAndDress", "bookSales", "whatsappAlerts"] },
   { label: "RESOURCES", modules: ["library", "transport", "hostel", "users", "backup"] }
 ];
 
@@ -540,7 +546,7 @@ const moduleIcons = {
   onlineClasses: "videocam",
   subjects: "menu_book", exams: "assignment", timetable: "schedule",
   attendance: "event_available", teacherAttendance: "how_to_reg",
-  fees: "payments", dueManagement: "pending_actions", onlinePayments: "contactless", payroll: "receipt_long", booksAndDress: "inventory_2", bookSales: "shopping_bag", whatsappAlerts: "chat",
+  fees: "payments", dueManagement: "pending_actions", callAutomation: "ring_volume", onlinePayments: "contactless", payroll: "receipt_long", booksAndDress: "inventory_2", bookSales: "shopping_bag", whatsappAlerts: "chat",
   library: "local_library", transport: "directions_bus", hostel: "apartment", users: "group", aiAssistant: "psychology", holidays: "event", backup: "cloud_sync",
   reportsAnalytics: "analytics",
   weeklyEvaluation: "military_tech"
@@ -2639,6 +2645,8 @@ function renderForm(forceRefresh) {
   }
 
   if (currentModule === "dueManagement") {
+    const dueIvrBtn = document.getElementById("dueIvrLaunchBtn");
+    if (dueIvrBtn) dueIvrBtn.classList.remove("hidden");
     const store = getStore();
     const studentOptions = (store.students || []).map((s) => ({
       value: s.fullName,
@@ -8583,6 +8591,7 @@ function renderAll(forceFormRefresh) {
   const isBookSales = currentModule === "bookSales";
   const isOnlineClasses = currentModule === "onlineClasses";
   const isOnlinePayments = currentModule === "onlinePayments";
+  const isCallAutomation = currentModule === "callAutomation";
 
   const sc = document.getElementById("statsCards");
   if (sc) {
@@ -8611,8 +8620,8 @@ function renderAll(forceFormRefresh) {
   }
   const contentArea = document.querySelector(".content-area");
   if (contentArea) {
-    contentArea.querySelectorAll(".panel:not(#facePanel):not(#assistantPanel):not(#waAlertPanel):not(#bd-panel):not(#ai-panel):not(#schoolCalendarPanel):not(#examPanel):not(#backupPanel):not(#reportsPanel):not(#bookSalesPanel):not(#onlineClassesPanel):not(#onlinePaymentsPanel)").forEach(p => {
-      p.style.display = (isBD || isWA || isAI || isExams || isDashboard || isBackup || isReports || isBookSales || isOnlineClasses || isOnlinePayments) ? "none" : "";
+    contentArea.querySelectorAll(".panel:not(#facePanel):not(#assistantPanel):not(#waAlertPanel):not(#bd-panel):not(#ai-panel):not(#schoolCalendarPanel):not(#examPanel):not(#backupPanel):not(#reportsPanel):not(#bookSalesPanel):not(#onlineClassesPanel):not(#onlinePaymentsPanel):not(#callAutomationPanel)").forEach(p => {
+      p.style.display = (isBD || isWA || isAI || isExams || isDashboard || isBackup || isReports || isBookSales || isOnlineClasses || isOnlinePayments || isCallAutomation) ? "none" : "";
     });
   }
 
@@ -8642,6 +8651,12 @@ function renderAll(forceFormRefresh) {
   }
 
   const onlinePaymentsPanel = document.getElementById("onlinePaymentsPanel");
+  const callAutomationPanel = document.getElementById("callAutomationPanel");
+  if (callAutomationPanel && !isCallAutomation) {
+    callAutomationPanel.classList.add("hidden");
+    callAutomationPanel.style.display = "none";
+  }
+
   if (onlinePaymentsPanel && !isOnlinePayments) {
     onlinePaymentsPanel.classList.add("hidden");
     onlinePaymentsPanel.style.display = "none";
@@ -8722,6 +8737,32 @@ function renderAll(forceFormRefresh) {
           clearInterval(checkInterval);
           if (currentModule === "onlineClasses") {
             window.renderOnlineClassesWorkspace();
+          }
+        }
+      }, 100);
+      setTimeout(() => clearInterval(checkInterval), 5000);
+    }
+    return;
+  }
+
+  if (isCallAutomation) {
+    renderNav();
+    renderHeader();
+    if (callAutomationPanel) {
+      callAutomationPanel.classList.remove("hidden");
+      callAutomationPanel.style.display = "block";
+    }
+    if (typeof window.renderCallAutomationWorkspace === "function") {
+      window.renderCallAutomationWorkspace();
+    } else {
+      if (callAutomationPanel) {
+        callAutomationPanel.innerHTML = '<div style="padding: 40px; text-align: center; color: #64748b;"><div style="font-size: 32px; margin-bottom: 12px;">⏳</div>Loading Call Automation & IVR...</div>';
+      }
+      const checkInterval = setInterval(() => {
+        if (typeof window.renderCallAutomationWorkspace === "function") {
+          clearInterval(checkInterval);
+          if (currentModule === "callAutomation") {
+            window.renderCallAutomationWorkspace();
           }
         }
       }, 100);

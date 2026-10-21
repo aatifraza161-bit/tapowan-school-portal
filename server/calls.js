@@ -213,7 +213,7 @@ async function getFcmAccessToken() {
 /**
  * Send High-Priority Incoming Call Push Notification via Direct Firebase FCM v1 & Expo
  */
-async function sendIncomingCallPush({ receiverId, receiverName, receiverRole, callerId, callerName, callerRole, callerAvatar, callId, offerSdp }) {
+async function sendIncomingCallPush({ receiverId, receiverName, receiverRole, callerId, callerName, callerRole, callerAvatar, callId, offerSdp, extraData = {} }) {
   const pushStartTime = Date.now();
   try {
     const sReceiverId = String(receiverId || '').trim();
@@ -382,7 +382,8 @@ async function sendIncomingCallPush({ receiverId, receiverName, receiverRole, ca
                 callerRole: callerRole,
                 callerAvatar: (callerAvatar && !callerAvatar.startsWith('data:') && callerAvatar.length < 500) ? callerAvatar : '',
                 sound: 'default',
-                vibrate: '[0, 800, 500, 800, 500, 800]'
+                vibrate: '[0, 800, 500, 800, 500, 800]',
+                ...(extraData && typeof extraData === 'object' ? extraData : {})
               };
               if (offerSdp && typeof offerSdp === 'string' && offerSdp.length < 3200) {
                 fcmData.offerSdp = offerSdp;
@@ -449,6 +450,7 @@ async function sendIncomingCallPush({ receiverId, receiverName, receiverRole, ca
           callerAvatar: (callerAvatar && !callerAvatar.startsWith('data:') && callerAvatar.length < 500) ? callerAvatar : '',
           categoryId: 'call_incoming',
           categoryIdentifier: 'call_incoming',
+          ...(extraData && typeof extraData === 'object' ? extraData : {}),
           ...(offerSdp && typeof offerSdp === 'string' && offerSdp.length < 3200 ? { offerSdp } : {})
         },
         _displayInForeground: true
@@ -480,7 +482,7 @@ async function sendIncomingCallPush({ receiverId, receiverName, receiverRole, ca
  * 1. Initiate 1-on-1 Voice Call
  * Strictly blocks student-to-student calls!
  */
-async function initiateCall({ callerId, callerName, callerRole, callerAvatar, receiverId, receiverName, receiverRole, receiverAvatar, offerSdp, callId: clientCallId }) {
+async function initiateCall({ callerId, callerName, callerRole, callerAvatar, receiverId, receiverName, receiverRole, receiverAvatar, offerSdp, callId: clientCallId, extraData = {} }) {
   if (!callerId || !receiverId) {
     return { ok: false, status: 400, error: "Missing callerId or receiverId" };
   }
@@ -589,7 +591,8 @@ async function initiateCall({ callerId, callerName, callerRole, callerAvatar, re
     callerRole: callRecord.caller_role,
     callerAvatar: callRecord.caller_avatar,
     callId: callRecord.call_id,
-    offerSdp: offerSdp || null
+    offerSdp: offerSdp || null,
+    extraData: extraData
   }).catch(err => {
     console.warn("sendIncomingCallPush async error:", err.message);
     return null;
