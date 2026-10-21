@@ -24716,8 +24716,8 @@ function openSmartTimetableModal() {
               <input type="number" id="st_normalDuration" value="40" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px; font-family:inherit;">
             </div>
             <div style="flex:1;">
-              <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:5px; color:#334155;">Math/Science Extra (mins)</label>
-              <input type="number" id="st_extraDuration" value="10" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px; font-family:inherit;">
+              <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:5px; color:#334155;">Math/Science Extra (mins, 0 for uniform periods)</label>
+              <input type="number" id="st_extraDuration" value="0" min="0" max="60" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px; font-family:inherit;">
             </div>
           </div>
           <div style="display:flex; gap:15px; margin-top:5px;">
@@ -24763,7 +24763,8 @@ function formatMinutesToTime(mins) {
 function runSmartTimetableGeneration() {
   const startTimeStr = document.getElementById("st_startTime").value;
   let normalDur = parseInt(document.getElementById("st_normalDuration").value) || 40;
-  let extraDur = parseInt(document.getElementById("st_extraDuration").value) || 10;
+  let extraDur = parseInt(document.getElementById("st_extraDuration").value);
+  if (isNaN(extraDur) || extraDur < 0) extraDur = 0;
   let lunchDur = parseInt(document.getElementById("st_lunchDuration").value) || 20;
   let lunchAfter = parseInt(document.getElementById("st_lunchAfter").value) || 4;
   const depTime = document.getElementById("st_departureTime") ? document.getElementById("st_departureTime").value : "14:00";
@@ -24848,9 +24849,11 @@ function runSmartTimetableGeneration() {
     return s.includes('math') || s.includes('sci') || s.includes('s.st') || s.includes('sst') || s.includes('eng') || s.includes('hind');
   };
 
+  // Fix §6.2: Precise subject match — excludes Social Science, Computer Science, etc.
   const isMathSci = (subName) => {
-    const s = String(subName).toLowerCase();
-    return s.includes('math') || s.includes('sci');
+    const s = String(subName || '').toLowerCase().trim();
+    if (s.includes('social') || s.includes('comp') || s.includes('s.st') || s.includes('sst') || s.includes('art') || s.includes('draw')) return false;
+    return s.includes('math') || s === 'science' || s.startsWith('science') || s.endsWith('science') || s === 'general science';
   };
 
   const sortedClasses = [...classes].sort((a, b) => {
@@ -24970,8 +24973,8 @@ function runSmartTimetableGeneration() {
       dailySubjectsList.forEach((sub, idx) => {
         const periodNum = idx + 1;
         const grid = globalPeriodGrid[periodNum - 1];
-        // Math/Sci end = grid start + mathSciDur (runs past the next bell — real-world approach)
-        const endFmt = (sub && isMathSci(sub.subjectName))
+        // Math/Sci end: only extends past the bell if extraDur > 0 and it is pure Math/Science
+        const endFmt = (sub && isMathSci(sub.subjectName) && extraDur > 0)
           ? formatMinutesToTime(grid.startMins + mathSciDur)
           : grid.end;
 
@@ -25119,6 +25122,8 @@ window.openFreeTeachersModal = function() {
   const teachers = store.teachers || [];
   const timetable = store.timetable || [];
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const currentDayName = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][new Date().getDay()];
+  const defaultDay = days.includes(currentDayName) ? currentDayName : "Monday";
   
   const modalHtml = `
     <div id="freeTeachersModal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:99999; display:flex; align-items:center; justify-content:center;">
@@ -25126,13 +25131,13 @@ window.openFreeTeachersModal = function() {
         <h3 style="margin-top:0; color:#1e293b; display:flex; align-items:center; gap:8px;">
           <span class="material-icons" style="color:#10b981;">directions_run</span> Free Teachers Checker
         </h3>
-        <p style="color:#64748b; font-size:0.9rem;">Find out which teachers are available (leisure) for a specific day and period.</p>
+        <p style="color:#64748b; font-size:0.9rem;">Find out which teachers are available (leisure) for substitution, cross-referenced with live attendance.</p>
         
         <div style="display:flex; gap:15px; margin-top:20px;">
           <div style="flex:1;">
             <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:5px; color:#334155;">Select Day</label>
             <select id="ftDay" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px;">
-              ${days.map(d => `<option value="${d}">${d}</option>`).join('')}
+              ${days.map(d => `<option value="${d}" ${d === defaultDay ? 'selected' : ''}>${d}${d === currentDayName ? ' (Today)' : ''}</option>`).join('')}
             </select>
           </div>
           <div style="flex:1;">
@@ -25204,7 +25209,11 @@ window.checkFreeTeachers = function() {
   const trulyAvailable = freeTeachers.filter(t => !absentOrLeaveSet.has(t.trim().toLowerCase()));
   const onLeave = freeTeachers.filter(t => absentOrLeaveSet.has(t.trim().toLowerCase()));
 
-  let html = `<h4 style="margin:0 0 10px 0; color:#334155;">${trulyAvailable.length} Available for Substitution${onLeave.length > 0 ? ` (${onLeave.length} On Leave/Absent Today)` : ''}</h4><div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">`;
+  const currentDayName = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][new Date().getDay()];
+  const isToday = day.toLowerCase() === currentDayName.toLowerCase();
+  const dayNote = isToday ? '' : `<div style="font-size:0.75rem; color:#64748b; margin-bottom:8px;">Showing timetable schedule for ${day}. (Live leave/attendance badges reflect today's status).</div>`;
+
+  let html = `<h4 style="margin:0 0 4px 0; color:#334155;">${trulyAvailable.length} Available for Substitution${onLeave.length > 0 ? ` (${onLeave.length} On Leave/Absent Today)` : ''}</h4>${dayNote}<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">`;
   
   trulyAvailable.forEach(t => {
     html += `
