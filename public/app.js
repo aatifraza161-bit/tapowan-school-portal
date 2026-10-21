@@ -553,7 +553,7 @@ const moduleIcons = {
 };
 
 const moduleOrder = Object.keys(moduleConfig);
-const printableModules = new Set(["students", "exams", "fees", "announcements", "dueManagement"]);
+const printableModules = new Set(["students", "exams", "fees", "announcements", "dueManagement", "timetable"]);
 let currentModule = "dashboard";
 try {
   Object.defineProperty(window, 'currentModule', {
@@ -9375,6 +9375,196 @@ function exportCurrentCsv() {
   downloadBlob(`${currentModule}-${todayStr()}.csv`, csv, "text/csv;charset=utf-8");
 }
 
+function buildTimetableCardHtml(daySelect, dayRecords, uniqueClasses, headerCols) {
+  let dayTitle = daySelect.toUpperCase();
+  if (daySelect === "Thursday" || daySelect === "Friday") {
+    dayTitle = "THURSDAY & FRIDAY";
+  } else if (daySelect === "Monday" || daySelect === "Tuesday") {
+    dayTitle = "MONDAY & TUESDAY";
+  }
+
+  // Extract period timings from dayRecords or defaults
+  const periodTimings = {};
+  dayRecords.forEach(r => {
+    if (r.period && r.startTime && r.endTime && !periodTimings[r.period]) {
+      periodTimings[r.period] = `${r.startTime} - ${r.endTime}`;
+    }
+  });
+
+  const defaultTimings = {
+    'Period 1': '07:45 AM - 08:25 AM',
+    'Period 2': '08:25 AM - 09:05 AM',
+    'Period 3': '09:05 AM - 09:40 AM',
+    'Period 4': '09:40 AM - 10:15 AM',
+    'Period 5': '10:35 AM - 11:10 AM',
+    'Period 6': '11:10 AM - 11:45 AM',
+    'Period 7': '11:45 AM - 12:25 PM'
+  };
+
+  let theadHtml = '<tr style="background:#f8fafc;"><th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:800;color:#0f172a;border-bottom:2px solid #cbd5e1;border-right:1.5px solid #cbd5e1;">CLASS</th>';
+
+  headerCols.forEach(col => {
+    if (col === 'LUNCH') {
+      theadHtml += '<th style="padding:6px 2px;text-align:center;background:#e2e8f0;border-bottom:2px solid #cbd5e1;border-left:1.5px solid #cbd5e1;border-right:1.5px solid #cbd5e1;"><div style="font-size:9.5px;font-weight:800;color:#0f172a;line-height:1.1;">LUNCH</div><div style="font-size:7.5px;font-weight:700;color:#64748b;margin-top:1px;">10:15 - 10:35</div></th>';
+    } else {
+      const timeStr = periodTimings[col] || defaultTimings[col] || '';
+      theadHtml += '<th style="padding:6px 2px;text-align:center;border-bottom:2px solid #cbd5e1;border-right:1px solid #e2e8f0;"><div style="font-size:10.5px;font-weight:800;color:#0f172a;letter-spacing:0.3px;">' + col.toUpperCase() + '</div><div style="font-size:8.5px;font-weight:700;color:#2563eb;margin-top:1px;">' + timeStr + '</div></th>';
+    }
+  });
+  theadHtml += '</tr>';
+
+  let tbodyHtml = '';
+  uniqueClasses.forEach((cls, rIdx) => {
+    tbodyHtml += '<tr><td style="padding:4px 8px;font-weight:800;font-size:11px;color:#0f172a;border-bottom:1px solid #e2e8f0;border-right:1.5px solid #cbd5e1;background:#ffffff;white-space:nowrap;">' + cls + '</td>';
+    
+    headerCols.forEach(col => {
+      if (col === 'LUNCH') {
+        if (rIdx === 0) {
+          tbodyHtml += '<td rowspan="' + uniqueClasses.length + '" style="background:#f1f5f9;text-align:center;vertical-align:middle;padding:0;border-left:1.5px solid #cbd5e1;border-right:1.5px solid #cbd5e1;border-bottom:1.5px solid #cbd5e1;"><div style="font-weight:900;color:#475569;font-size:11px;line-height:2.2;letter-spacing:0;">L<br>U<br>N<br>C<br>H</div></td>';
+        }
+      } else {
+        const rec = dayRecords.find(r => r.className === cls && r.period === col);
+        if (rec && rec.subject && rec.subject.toLowerCase() !== 'free') {
+          const isKarate = rec.subject.toLowerCase().includes('karate');
+          const bg = isKarate ? '#fef3c7' : '#eff6ff';
+          const border = isKarate ? '#fde68a' : '#dbeafe';
+          const titleColor = isKarate ? '#b45309' : '#2563eb';
+          const subColor = isKarate ? '#78350f' : '#475569';
+          tbodyHtml += '<td style="padding:3px;border-bottom:1px solid #e2e8f0;border-right:1px solid #e2e8f0;"><div style="background:' + bg + ';border:1px solid ' + border + ';border-radius:6px;padding:4px 2px;text-align:center;min-height:32px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;"><div style="font-size:10px;font-weight:800;color:' + titleColor + ';line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + rec.subject + '</div><div style="font-size:8.5px;font-weight:600;color:' + subColor + ';margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (rec.teacher || '-') + '</div></div></td>';
+        } else {
+          tbodyHtml += '<td style="padding:3px;border-bottom:1px solid #e2e8f0;border-right:1px solid #e2e8f0;"><div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:4px 2px;text-align:center;min-height:32px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;"><div style="font-size:10px;font-weight:700;color:#94a3b8;line-height:1.1;">Free</div><div style="font-size:8.5px;font-weight:600;color:#cbd5e1;margin-top:1px;">-</div></div></td>';
+        }
+      }
+    });
+    tbodyHtml += '</tr>';
+  });
+
+  return `
+    <div id="timetableCardContainer" style="width:1080px;background:#ffffff;border-radius:12px;padding:16px 20px;box-shadow:0 10px 25px rgba(0,0,0,0.06);color:#0f172a;box-sizing:border-box;font-family:'Poppins',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+      <!-- Header -->
+      <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #e2e8f0;padding-bottom:10px;margin-bottom:12px;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <img src="logo.png" style="width:44px;height:44px;object-fit:contain;" onerror="this.style.display='none'">
+          <div>
+            <div style="font-size:20px;font-weight:900;color:#1e3a8a;letter-spacing:0.5px;line-height:1.1;">TAPOWAN PUBLIC SCHOOL</div>
+            <div style="font-size:11.5px;font-weight:800;color:#dc2626;letter-spacing:0.5px;margin-top:2px;text-transform:uppercase;">CLASS ROUTINE 2026–27  •  ${dayTitle}</div>
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <div style="display:inline-block;background:#eff6ff;color:#2563eb;border:1.5px solid #bfdbfe;padding:4px 14px;border-radius:9999px;font-size:11px;font-weight:700;">Final Bell: 12:25 NOON</div>
+          <div style="font-size:9.5px;color:#64748b;font-weight:600;margin-top:3px;">Campus: Prem Nagar  •  Zero-Clash Verified</div>
+        </div>
+      </div>
+
+      <!-- Routine Grid Table -->
+      <table style="width:100%;border-collapse:separate;border-spacing:0;border:1.5px solid #cbd5e1;border-radius:8px;overflow:hidden;background:#ffffff;table-layout:fixed;">
+        <colgroup>
+          <col style="width:8.5%;">
+          <col style="width:12.5%;">
+          <col style="width:12.5%;">
+          <col style="width:12.5%;">
+          <col style="width:12.5%;">
+          <col style="width:4%;">
+          <col style="width:12.5%;">
+          <col style="width:12.5%;">
+          <col style="width:12.5%;">
+        </colgroup>
+        <thead>${theadHtml}</thead>
+        <tbody>${tbodyHtml}</tbody>
+      </table>
+
+      <!-- Footer -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:9px;color:#94a3b8;font-weight:600;">
+        <div>Tapowan Public School ERP • Official Academic Routine</div>
+        <div>CBSE Pattern • 7 Daily Periods • 20 Min Recess • Prem Nagar Campus</div>
+      </div>
+    </div>
+  `;
+}
+
+function buildTimetablePrintableDoc(daySelect, dayRecords, uniqueClasses, headerCols) {
+  const innerHtml = buildTimetableCardHtml(daySelect, dayRecords, uniqueClasses, headerCols);
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Timetable - ${daySelect}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 16px;
+      background: #f8fafc;
+      display: flex;
+      justify-content: center;
+      font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    @media print {
+      @page { size: landscape; margin: 6mm; }
+      body { padding: 0; background: #ffffff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      #timetableCardContainer { box-shadow: none !important; border-radius: 0 !important; width: 100% !important; padding: 0 !important; }
+    }
+  </style>
+</head>
+<body>
+  ${innerHtml}
+</body>
+</html>`;
+}
+
+function exportTimetableModernPdf(daySelect, dayRecords, uniqueClasses, headerCols) {
+  const containerHtml = buildTimetableCardHtml(daySelect, dayRecords, uniqueClasses, headerCols);
+  const printableFullDoc = buildTimetablePrintableDoc(daySelect, dayRecords, uniqueClasses, headerCols);
+
+  const exportWrap = document.createElement("div");
+  exportWrap.id = "tpsTimetablePdfWrap";
+  exportWrap.style.cssText = "position:fixed;left:-9999px;top:0;width:1080px;background:#ffffff;z-index:-9999;box-sizing:border-box;";
+  exportWrap.innerHTML = containerHtml;
+  document.body.appendChild(exportWrap);
+
+  if (typeof showToast === "function") {
+    showToast(`Generating Timetable PDF for ${daySelect}...`, "info");
+  }
+
+  const opt = {
+    margin: [6, 6, 6, 6],
+    filename: `timetable-${daySelect.toLowerCase()}-${todayStr()}.pdf`,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: {
+      scale: 2,
+      useCORS: true,
+      scrollY: 0,
+      scrollX: 0,
+      windowWidth: 1080
+    },
+    jsPDF: {
+      unit: 'mm',
+      format: 'a4',
+      orientation: 'landscape'
+    }
+  };
+
+  if (window.html2pdf) {
+    window.html2pdf().set(opt).from(exportWrap).save().then(() => {
+      exportWrap.remove();
+      if (typeof showToast === "function") {
+        showToast("Timetable PDF downloaded successfully!", "success");
+      }
+    }).catch(err => {
+      console.error("html2pdf export failed:", err);
+      exportWrap.remove();
+      openPrintWindowOrFallback(printableFullDoc, `Timetable - ${daySelect}`, { autoPrint: true });
+    });
+  } else {
+    exportWrap.remove();
+    openPrintWindowOrFallback(printableFullDoc, `Timetable - ${daySelect}`, { autoPrint: true });
+  }
+}
+window.buildTimetableCardHtml = buildTimetableCardHtml;
+window.buildTimetablePrintableDoc = buildTimetablePrintableDoc;
+window.exportTimetableModernPdf = exportTimetableModernPdf;
+
 function exportCurrentPdf() {
   const rows = getCurrentList();
   if (!rows.length) return window.alert("No records to export.");
@@ -9447,52 +9637,13 @@ function exportCurrentPdf() {
 
     const allPeriods = Array.from(new Set(dayRecords.map(r => parseInt(r.period.replace(/\D/g,'')) || 0))).filter(p=>p>0).sort((a,b)=>a-b);
     let lunchAfter = 4;
-    
-    let head = ["CLASS"];
     let headerCols = [];
     allPeriods.forEach(p => {
        if (p > lunchAfter && !headerCols.includes("LUNCH")) headerCols.push("LUNCH");
        headerCols.push("Period " + p);
     });
-    
-    headerCols.forEach(col => {
-       if (col === "LUNCH") head.push("LUNCH BREAK");
-       else head.push(col.toUpperCase());
-    });
 
-    const body = uniqueClasses.map(cls => {
-       let rowArr = [cls];
-       let classRecords = dayRecords.filter(r => r.className === cls);
-       
-       headerCols.forEach(col => {
-          if (col === "LUNCH") {
-              rowArr.push("---");
-          } else {
-              let rec = classRecords.find(r => r.period === col);
-              if (rec) {
-                 rowArr.push(rec.subject + "\n" + (rec.teacher || "-"));
-              } else {
-                 rowArr.push("Free\n-");
-              }
-          }
-       });
-       return rowArr;
-    });
-
-    const doc = new window.jspdf.jsPDF('landscape', 'pt', 'a4');
-    doc.setFontSize(14);
-    doc.text(`Timetable - ${daySelect}`, 40, 40);
-    
-    doc.autoTable({ 
-       head: [head], 
-       body: body, 
-       startY: 50, 
-       styles: { fontSize: 8, cellPadding: 4, halign: 'center', valign: 'middle' },
-       headStyles: { fillColor: [30, 58, 138], textColor: 255, fontStyle: 'bold' },
-       columnStyles: { 0: { fontStyle: 'bold', halign: 'left' } }
-    });
-    
-    doc.save(`timetable-${daySelect}-${todayStr()}.pdf`);
+    exportTimetableModernPdf(daySelect, dayRecords, uniqueClasses, headerCols);
     return;
   }
   if (currentModule === "weeklyEvaluation") {
@@ -9830,6 +9981,42 @@ function buildPrintableHtml(title, contentHtml) {
 function printDocumentByModule() {
   if (!printableModules.has(currentModule)) return;
   const store = getStore();
+
+  // ── Timetable → Modern Card Routine Studio ──────────────────────────────
+  if (currentModule === "timetable") {
+    const rows = getCurrentList();
+    const daySelect = refs.dayFilter?.value || "Monday";
+    const dayRecords = (rows && rows.length ? rows : (store.timetable || [])).filter(r => r.day === daySelect);
+    if (!dayRecords.length) return window.alert("No timetable records found for " + daySelect);
+
+    const uniqueClasses = Array.from(new Set(dayRecords.map(r => r.className)));
+    const classOrder = ["nursery", "lkg", "ukg", "i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix", "x", "xi", "xii"];
+    uniqueClasses.sort((a, b) => {
+        const getBase = (cls) => {
+            let base = cls.split('-')[0].toLowerCase().trim();
+            base = base.replace('class ', '').replace('class', '');
+            return base;
+        };
+        const idxA = classOrder.indexOf(getBase(a));
+        const idxB = classOrder.indexOf(getBase(b));
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB || a.localeCompare(b);
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return a.localeCompare(b, undefined, {numeric: true});
+    });
+
+    const allPeriods = Array.from(new Set(dayRecords.map(r => parseInt(r.period.replace(/\D/g,'')) || 0))).filter(p=>p>0).sort((a,b)=>a-b);
+    let lunchAfter = 4;
+    let headerCols = [];
+    allPeriods.forEach(p => {
+       if (p > lunchAfter && !headerCols.includes("LUNCH")) headerCols.push("LUNCH");
+       headerCols.push("Period " + p);
+    });
+
+    const fullPrintHtml = buildTimetablePrintableDoc(daySelect, dayRecords, uniqueClasses, headerCols);
+    openPrintWindowOrFallback(fullPrintHtml, `Timetable - ${daySelect}`, { autoPrint: true });
+    return;
+  }
 
   // ── Students → Premium ID Cards ──────────────────────────────────────────
   if (currentModule === "students") {
