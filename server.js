@@ -5181,12 +5181,34 @@ app.post("/api/timetable/slot/save", authRequired, async (req, res) => {
       return res.status(403).json({ error: "Only Authorized Teachers & Staff can edit timetable slots" });
     }
 
-    const { id, className, day, period, subject, teacher, roomNo } = req.body || {};
+    const { id, className, day, period, subject, teacher, roomNo, allowClash } = req.body || {};
     if (!className || !day || !period) {
       return res.status(400).json({ error: "Missing required fields: className, day, period" });
     }
 
     const { db, getStore, invalidateQueryCache } = require("./server/db-sqlite");
+
+    // Server-side teacher clash prevention
+    if (teacher && teacher.trim() !== '' && teacher.trim().toLowerCase() !== 'free' && !allowClash) {
+      const clashQuery = id && parseInt(id, 10) > 0
+        ? {
+            sql: `SELECT className, period, day, teacher FROM timetable WHERE UPPER(TRIM(teacher)) = UPPER(TRIM(?)) AND UPPER(TRIM(day)) = UPPER(TRIM(?)) AND UPPER(TRIM(period)) = UPPER(TRIM(?)) AND id != ? LIMIT 1`,
+            args: [teacher.trim(), day.trim(), period.trim(), parseInt(id, 10)]
+          }
+        : {
+            sql: `SELECT className, period, day, teacher FROM timetable WHERE UPPER(TRIM(teacher)) = UPPER(TRIM(?)) AND UPPER(TRIM(day)) = UPPER(TRIM(?)) AND UPPER(TRIM(period)) = UPPER(TRIM(?)) AND UPPER(TRIM(className)) != UPPER(TRIM(?)) LIMIT 1`,
+            args: [teacher.trim(), day.trim(), period.trim(), className.trim()]
+          };
+      const clashRes = await db.execute(clashQuery);
+      if (clashRes.rows && clashRes.rows.length > 0) {
+        const cRow = clashRes.rows[0];
+        return res.status(409).json({
+          error: `Teacher Clash: "${teacher}" is already assigned to ${cRow.className} for ${cRow.period} on ${cRow.day}.`,
+          clash: true,
+          clashingClass: cRow.className
+        });
+      }
+    }
     
     // Check if updating existing by id
     if (id && parseInt(id, 10) > 0) {

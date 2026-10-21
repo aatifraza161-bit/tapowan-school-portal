@@ -24723,15 +24723,15 @@ function openSmartTimetableModal() {
           <div style="display:flex; gap:15px; margin-top:5px;">
             <div style="flex:1;">
               <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:5px; color:#334155;">Lunch Duration (mins)</label>
-              <input type="number" id="st_lunchDuration" value="20" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px; font-family:inherit;">
+              <input type="number" id="st_lunchDuration" value="20" min="0" max="120" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px; font-family:inherit;">
             </div>
             <div style="flex:1;">
               <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:5px; color:#334155;">Lunch After Period #</label>
-              <input type="number" id="st_lunchAfter" value="4" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px; font-family:inherit;">
+              <input type="number" id="st_lunchAfter" value="4" min="1" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px; font-family:inherit;">
             </div>
           </div>
             <div style="margin-top:15px;">
-              <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:5px; color:#334155;">School Departure Time</label>
+              <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:5px; color:#334155;">School Departure Time <span style="color:#64748b;font-weight:400;font-size:0.8rem;">(warns if schedule overruns)</span></label>
               <input type="time" id="st_departureTime" value="14:00" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px; font-family:inherit;">
             </div>
         </div>
@@ -24762,15 +24762,63 @@ function formatMinutesToTime(mins) {
 
 function runSmartTimetableGeneration() {
   const startTimeStr = document.getElementById("st_startTime").value;
-  const normalDur = parseInt(document.getElementById("st_normalDuration").value) || 40;
-  const extraDur = parseInt(document.getElementById("st_extraDuration").value) || 10;
-  const lunchDur = parseInt(document.getElementById("st_lunchDuration").value) || 20;
-  const lunchAfter = parseInt(document.getElementById("st_lunchAfter").value) || 4;
+  let normalDur = parseInt(document.getElementById("st_normalDuration").value) || 40;
+  let extraDur = parseInt(document.getElementById("st_extraDuration").value) || 10;
+  let lunchDur = parseInt(document.getElementById("st_lunchDuration").value) || 20;
+  let lunchAfter = parseInt(document.getElementById("st_lunchAfter").value) || 4;
   const depTime = document.getElementById("st_departureTime") ? document.getElementById("st_departureTime").value : "14:00";
   const totalPeriods = parseInt(document.getElementById("st_totalPeriods")?.value) || 7;
-  const mathSciDur = normalDur + extraDur;
 
-  document.getElementById("smartTimetableModal").remove();
+  // ── INPUT VALIDATION (Fix 8) ────────────────────────────────
+  const validationErrors = [];
+  if (!startTimeStr) validationErrors.push("Start time is required.");
+  if (normalDur <= 0) validationErrors.push("Normal period duration must be > 0 minutes.");
+  if (extraDur < 0) extraDur = 0;
+  if (lunchDur < 0) lunchDur = 0;
+  if (totalPeriods < 1 || totalPeriods > 15) validationErrors.push("Total periods must be 1–15.");
+  if (lunchAfter >= totalPeriods) {
+    validationErrors.push('"Lunch After Period" (' + lunchAfter + ') must be less than Total Periods (' + totalPeriods + '). Otherwise lunch removes all remaining periods and junior early-leave disappears.');
+  }
+  if (validationErrors.length > 0) {
+    if (window.appAlert) window.appAlert('⚠ Cannot generate timetable:\n\n' + validationErrors.join('\n'));
+    else alert('⚠ Cannot generate timetable:\n\n' + validationErrors.join('\n'));
+    return;
+  }
+
+  const mathSciDur = normalDur + extraDur;
+  const depMins = parseTimeToMinutes(depTime);
+  const startMins = parseTimeToMinutes(startTimeStr);
+
+  // ── DEPARTURE OVERRUN WARNING (Fix 3) ──────────────────────
+  // Worst case: every period is Math/Sci (longest slot), plus lunch
+  const worstEnd = startMins + (totalPeriods * mathSciDur) + lunchDur;
+  if (worstEnd > depMins) {
+    const over = worstEnd - depMins;
+    const overStr = (Math.floor(over/60) > 0 ? Math.floor(over/60) + 'h ' : '') + (over%60) + 'm';
+    const msg = '⚠ Schedule Overrun Warning:\n\nWith ' + totalPeriods + ' periods (Math/Science at ' + mathSciDur + ' min each) + ' + lunchDur + ' min lunch, the day could run ' + overStr + ' past departure time (' + depTime + ').\n\nGenerate anyway?';
+    if (!window.confirm(msg)) {
+      document.getElementById("smartTimetableModal")?.remove();
+      openSmartTimetableModal();
+      return;
+    }
+  }
+
+  // ── GLOBAL PERIOD BELL SCHEDULE (Fix 1) ────────────────────
+  // One uniform time grid for ALL classes so Period 4 starts at the exact
+  // same wall-clock time in every class. This eliminates real-time overlaps
+  // that look "free" when compared only by period index.
+  const globalPeriodGrid = [];
+  {
+    let t = startMins;
+    for (let p = 1; p <= totalPeriods; p++) {
+      globalPeriodGrid.push({ startMins: t, endMins: t + normalDur,
+        start: formatMinutesToTime(t), end: formatMinutesToTime(t + normalDur) });
+      t += normalDur;
+      if (p === lunchAfter) t += lunchDur;
+    }
+  }
+
+  document.getElementById("smartTimetableModal")?.remove();
   
   const store = getStore();
   const classes = store.classes || [];
@@ -24889,22 +24937,22 @@ function runSmartTimetableGeneration() {
         const clsLower = classSec.toLowerCase();
         const isEligibleForFallback = clsLower.includes("nursery") || clsLower.includes("lkg") || clsLower.includes("ukg") || (classNum >= 1 && classNum <= 3);
 
+        // Fix 5: Fallback uses REAL subjects from DB — never invents phantom names
         if (!pickedSub && isEligibleForFallback) {
            const freeTeachers = allSchoolTeachers.filter(t => !teacherBusy[day][period].has(t));
-           const substitute = freeTeachers.length > 0 ? freeTeachers[Math.floor(Math.random() * freeTeachers.length)] : "-";
-           
-           let cores = ["English", "Hindi", "Math", "Science", "S.st"];
-           if (clsLower.includes("nursery") || clsLower.includes("lkg")) {
-               cores = ["English", "Hindi", "Math"];
-           } else if (clsLower.includes("ukg")) {
-               cores = ["English", "Hindi", "Math", "E.V.S"];
+           if (freeTeachers.length > 0) {
+             const substitute = freeTeachers[Math.floor(Math.random() * freeTeachers.length)];
+             // Only use subjects the substitute actually teaches for this class (or any class sub)
+             let subForSub = classSubs.filter(s => s.teacher === substitute);
+             if (subForSub.length === 0) subForSub = classSubs; // fall back to class's own subjects
+             if (subForSub.length > 0) {
+               subForSub.sort((a, b) => (subjectCounts[a.subjectName]||0) - (subjectCounts[b.subjectName]||0));
+               const nonConsec = subForSub.filter(s => !prevSub || s.subjectName !== prevSub.subjectName);
+               const chosen = nonConsec.length > 0 ? nonConsec[0] : subForSub[0];
+               pickedSub = { subjectName: chosen.subjectName, teacher: substitute };
+             }
            }
-           
-           cores.sort((a, b) => (subjectCounts[a] || 0) - (subjectCounts[b] || 0));
-           let nonConsecutiveCores = cores.filter(core => !prevSub || core !== prevSub.subjectName);
-           let randomCore = nonConsecutiveCores.length > 0 ? nonConsecutiveCores[0] : cores[0];
-           
-           pickedSub = { subjectName: randomCore, teacher: substitute };
+           // If still null: absolute Free (no phantom subjects invented)
         }
 
         if (pickedSub) {
@@ -24918,35 +24966,27 @@ function runSmartTimetableGeneration() {
         }
       });
 
-      // Now calculate start and end times for this class's day
-      let currentMins = parseTimeToMinutes(startTimeStr);
+      // Fix 1: Use global period grid — same bell times for ALL classes
       dailySubjectsList.forEach((sub, idx) => {
         const periodNum = idx + 1;
-        let duration = normalDur;
-        if (sub && isMathSci(sub.subjectName)) {
-          duration = mathSciDur;
-        }
-
-        const startFmt = formatMinutesToTime(currentMins);
-        currentMins += duration;
-        const endFmt = formatMinutesToTime(currentMins);
+        const grid = globalPeriodGrid[periodNum - 1];
+        // Math/Sci end = grid start + mathSciDur (runs past the next bell — real-world approach)
+        const endFmt = (sub && isMathSci(sub.subjectName))
+          ? formatMinutesToTime(grid.startMins + mathSciDur)
+          : grid.end;
 
         newTimetable.push({
           id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
           className: classSec,
           day: day,
           period: "Period " + periodNum,
-          startTime: startFmt,
+          startTime: grid.start,
           endTime: endFmt,
-            departureTime: formatMinutesToTime(parseTimeToMinutes(depTime)),
+          departureTime: formatMinutesToTime(depMins),
           subject: sub ? sub.subjectName : "Free",
           teacher: sub ? (sub.teacher || "") : "",
           roomNo: c.roomNo || ""
         });
-        
-        if (periodNum === lunchAfter) {
-           currentMins += lunchDur;
-        }
       });
     });
   });
@@ -25098,14 +25138,12 @@ window.openFreeTeachersModal = function() {
           <div style="flex:1;">
             <label style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:5px; color:#334155;">Select Period</label>
             <select id="ftPeriod" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px;">
-              <option value="Period 1">Period 1</option>
-              <option value="Period 2">Period 2</option>
-              <option value="Period 3">Period 3</option>
-              <option value="Period 4">Period 4</option>
-              <option value="Period 5">Period 5</option>
-              <option value="Period 6">Period 6</option>
-              <option value="Period 7">Period 7</option>
-              <option value="Period 8">Period 8</option>
+              ${(()=>{
+                const tt = (store.timetable || []);
+                let maxP = 8;
+                tt.forEach(r => { const m = String(r.period||'').match(/\d+/); if(m && parseInt(m[0])>maxP) maxP=parseInt(m[0]); });
+                return Array.from({length:maxP},(_,i)=>'<option value="Period '+(i+1)+'">Period '+(i+1)+'</option>').join('');
+              })()}
             </select>
           </div>
         </div>
@@ -25132,13 +25170,30 @@ window.checkFreeTeachers = function() {
   const store = getStore();
   const allTeachers = (store.teachers || []).map(t => t.fullName || t.name).filter(Boolean);
   
-  // Find teachers who ARE busy
-  const busyRecords = (store.timetable || []).filter(r => r.day === day && r.period === period && r.teacher);
-  const busyTeachers = busyRecords.map(r => r.teacher);
+  // Fix 7: Case-insensitive + trimmed comparison — prevents "A. Raza" vs "Aatif Raza" silent mismatch
+  const _dayNorm = (day||'').trim().toLowerCase();
+  const _perNorm = (period||'').trim().toLowerCase();
+  const busyRecords = (store.timetable || []).filter(r =>
+    (r.day||'').trim().toLowerCase() === _dayNorm &&
+    (r.period||'').trim().toLowerCase() === _perNorm &&
+    r.teacher
+  );
+  const busyTeacherNorms = new Set(busyRecords.map(r => r.teacher.trim().toLowerCase()));
 
-  // Find free teachers
-  const freeTeachers = allTeachers.filter(t => !busyTeachers.includes(t));
+  // Cross-reference today's teacher attendance for leaves / absences
+  const todayDateStr = typeof todayStr === 'function' ? todayStr() : new Date().toISOString().split('T')[0];
+  const attendanceList = store.teacherAttendance || [];
+  const absentOrLeaveSet = new Set();
+  attendanceList.forEach(a => {
+    if (a.date === todayDateStr && a.teacherName) {
+      const st = String(a.status || '').toLowerCase();
+      if (st.includes('absent') || st.includes('leave')) {
+        absentOrLeaveSet.add(a.teacherName.trim().toLowerCase());
+      }
+    }
+  });
 
+  const freeTeachers = allTeachers.filter(t => !busyTeacherNorms.has(t.trim().toLowerCase()));
   const resultsDiv = document.getElementById("ftResults");
   
   if (freeTeachers.length === 0) {
@@ -25146,18 +25201,30 @@ window.checkFreeTeachers = function() {
     return;
   }
 
-  let html = `<h4 style="margin:0 0 10px 0; color:#334155;">${freeTeachers.length} Available Teachers</h4><div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">`;
+  const trulyAvailable = freeTeachers.filter(t => !absentOrLeaveSet.has(t.trim().toLowerCase()));
+  const onLeave = freeTeachers.filter(t => absentOrLeaveSet.has(t.trim().toLowerCase()));
+
+  let html = `<h4 style="margin:0 0 10px 0; color:#334155;">${trulyAvailable.length} Available for Substitution${onLeave.length > 0 ? ` (${onLeave.length} On Leave/Absent Today)` : ''}</h4><div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">`;
   
-  freeTeachers.forEach(t => {
+  trulyAvailable.forEach(t => {
     html += `
       <div style="padding:10px 15px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; display:flex; align-items:center; gap:8px;">
         <span class="material-icons" style="color:#22c55e; font-size:1.2rem;">check_circle</span>
-        <span style="color:#166534; font-weight:600; font-size:0.9rem;">${t}</span>
+        <span style="color:#166534; font-weight:600; font-size:0.9rem;">${t} <span style="font-size:0.75rem; color:#15803d; font-weight:500;">(Available)</span></span>
       </div>
     `;
   });
+
+  onLeave.forEach(t => {
+    html += `
+      <div style="padding:10px 15px; background:#fffbeb; border:1px solid #fde68a; border-radius:8px; display:flex; align-items:center; gap:8px;" title="This teacher has no class this period, but is marked Absent/Leave in today's attendance.">
+        <span class="material-icons" style="color:#d97706; font-size:1.2rem;">event_busy</span>
+        <span style="color:#92400e; font-weight:600; font-size:0.9rem;">${t} <span style="font-size:0.75rem; color:#b45309; font-weight:500;">(On Leave/Absent)</span></span>
+      </div>
+    `;
+  });
+
   html += `</div>`;
-  
   resultsDiv.innerHTML = html;
 };
 
@@ -25318,7 +25385,7 @@ window.openEditTimetableSlotModal = async function(className, day, period, slotI
   cancelBtn.onclick = closeModal;
   modalWrap.onclick = (e) => { if (e.target === modalWrap) closeModal(); };
 
-  // Save changes
+  // Save changes — Fix 2: clash check BEFORE saving
   saveBtn.onclick = async () => {
     let finalSubject = subSelect.value === "__custom__" ? customSub.value.trim() : subSelect.value;
     if (!finalSubject && customSub.value.trim()) finalSubject = customSub.value.trim();
@@ -25326,6 +25393,28 @@ window.openEditTimetableSlotModal = async function(className, day, period, slotI
 
     const finalTeacher = teacherSelect.value.trim();
     const finalRoom = roomInput.value.trim();
+
+    // Clash check: teacher already assigned to another class at this exact day+period?
+    if (finalTeacher) {
+      const dayNorm2 = (day||'').trim().toLowerCase();
+      const perNorm2 = (period||'').trim().toLowerCase();
+      const clashRec = (getStore().timetable || []).find(r =>
+        r.teacher && r.teacher.trim().toLowerCase() === finalTeacher.toLowerCase() &&
+        (r.day||'').trim().toLowerCase() === dayNorm2 &&
+        (r.period||'').trim().toLowerCase() === perNorm2 &&
+        !(actualSlotId && r.id == actualSlotId)
+      );
+      if (clashRec) {
+        const confirmMsg = '⚠ Teacher Clash Detected!\n\n"' + finalTeacher + '" is already assigned to ' + clashRec.className + ' for ' + period + ' on ' + day + '.\n\nSaving will create a double-booking. Continue anyway?';
+        const proceed = window.appConfirm
+          ? await window.appConfirm(confirmMsg)
+          : window.confirm(confirmMsg);
+        if (!proceed) {
+          statusMsg.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;color:#f59e0b;">warning</span> Cancelled — pick a different teacher.';
+          return;
+        }
+      }
+    }
 
     saveBtn.disabled = true;
     saveBtn.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px;animation:spin 1s linear infinite;">sync</span> Saving...`;
@@ -25342,7 +25431,8 @@ window.openEditTimetableSlotModal = async function(className, day, period, slotI
             period,
             subject: finalSubject,
             teacher: finalTeacher,
-            roomNo: finalRoom
+            roomNo: finalRoom,
+            allowClash: true
           })
         });
       } catch (err) {
@@ -25356,7 +25446,8 @@ window.openEditTimetableSlotModal = async function(className, day, period, slotI
             period,
             subject: finalSubject,
             teacher: finalTeacher,
-            roomNo: finalRoom
+            roomNo: finalRoom,
+            allowClash: true
           })
         });
         res = await resp.json();
