@@ -482,10 +482,16 @@ async function sendIncomingCallPush({ receiverId, receiverName, receiverRole, ca
  * 1. Initiate 1-on-1 Voice Call
  * Strictly blocks student-to-student calls!
  */
-async function initiateCall({ callerId, callerName, callerRole, callerAvatar, receiverId, receiverName, receiverRole, receiverAvatar, offerSdp, callId: clientCallId, extraData = {} }) {
+async function initiateCall({ callerId, callerName, callerRole, callerAvatar, receiverId, receiverName, receiverRole, receiverAvatar, offerSdp, callId: clientCallId, extraData = {}, ...restParams }) {
   if (!callerId || !receiverId) {
     return { ok: false, status: 400, error: "Missing callerId or receiverId" };
   }
+
+  // Merge any root-level extra fields (e.g. isAutomatedIvr, dueAmount, speechText) into extraData
+  const mergedExtraData = {
+    ...restParams,
+    ...extraData
+  };
 
   // STRICT ACCESS CONTROL POLICY: Block student to student calls ONLY
   if (isStudent(callerRole) && isStudent(receiverRole)) {
@@ -592,7 +598,7 @@ async function initiateCall({ callerId, callerName, callerRole, callerAvatar, re
     callerAvatar: callRecord.caller_avatar,
     callId: callRecord.call_id,
     offerSdp: offerSdp || null,
-    extraData: extraData
+    extraData: mergedExtraData
   }).catch(err => {
     console.warn("sendIncomingCallPush async error:", err.message);
     return null;
