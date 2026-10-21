@@ -62,15 +62,15 @@ async function run() {
         },
         data: {
           type: 'SILENT_OTA',
-          bundleUrl: 'https://tapowan-app.vercel.app/bundles/index.android.bundle',
-          bundle_url: 'https://tapowan-app.vercel.app/bundles/index.android.bundle',
+          bundleUrl: 'https://tapowan-school.pages.dev/bundles/index.android.bundle',
+          bundle_url: 'https://tapowan-school.pages.dev/bundles/index.android.bundle',
           bundleVersion: '3.4.1',
           bundle_version: '3.4.1',
           version: '3.4.1',
-          bundleVersionCode: '365',
-          bundle_version_code: '365',
-          versionCode: '365',
-          version_code: '365',
+          bundleVersionCode: '366',
+          bundle_version_code: '366',
+          versionCode: '366',
+          version_code: '366',
           force: 'true',
           forceDownload: 'true'
         }
