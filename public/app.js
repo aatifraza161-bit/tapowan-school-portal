@@ -1655,12 +1655,11 @@ async function loadStore() {
       cleanupOrphanedFaces();
     }
   } catch (err) {
+    if (err?.message === "Session expired" || !currentUser || !localStorage.getItem("token")) {
+      return;
+    }
     console.error("loadStore failed:", err);
     throw err;
-    // Keep existing serverStore intact on failure rather than wiping it
-    if (!serverStore || typeof serverStore !== "object") {
-      serverStore = {};
-    }
   }
 }
 
@@ -15156,6 +15155,9 @@ function patchApp() {
   let lastKnownCoreSignature = '';
 
   setInterval(async () => {
+    // 0. Only poll if user is authenticated with a valid token
+    if (!currentUser || !localStorage.getItem("token")) return;
+
     // 1. Only poll if tab is active and visible
     if (document.visibilityState !== 'visible') return;
 
@@ -15171,7 +15173,7 @@ function patchApp() {
     if (isUserTyping) return;
 
     // 3. Do not poll if any modal dialog is currently open
-    const modalOpen = document.querySelector('.modal-backdrop:not(.hidden), .modal:not(.hidden)');
+    const modalOpen = document.querySelector('.modal-backdrop:not(.hidden), .modal:not(.hidden), [id$="Modal"], #smartTimetablePreviewModal, .educore-modal-overlay');
     if (modalOpen && modalOpen.style.display !== 'none') return;
 
     if (!lastKnownCoreSignature) {
@@ -15191,7 +15193,10 @@ function patchApp() {
           needsStoreDownload = true;
         }
       } catch (sigErr) {
-        // Fallback to direct check if signature route is unavailable
+        if (sigErr?.message === "Session expired" || !currentUser || !localStorage.getItem("token")) {
+          return;
+        }
+        // Fallback to direct check if signature route is temporarily unavailable
         needsStoreDownload = true;
       }
 
@@ -15216,6 +15221,9 @@ function patchApp() {
         }
       }
     } catch (err) {
+      if (err?.message === "Session expired" || !currentUser || !localStorage.getItem("token")) {
+        return;
+      }
       console.warn('[Live Update] Poll note:', err.message);
     }
   }, 30000); // Sensible 30s interval

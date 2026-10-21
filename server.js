@@ -1,4 +1,5 @@
 const path = require("path");
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 const fs = require("fs");
 const express = require("express");
 const session = require("express-session");
@@ -39,7 +40,7 @@ const {
 } = require("./server/calls");
 
 const jwtCrypto = require('crypto');
-const JWT_SECRET = process.env.SESSION_SECRET || jwtCrypto.createHash('sha256').update((require('os').hostname() || 'tps') + '_tps_secure_entropy_key_2026').digest('hex');
+const JWT_SECRET = process.env.SESSION_SECRET || '4254c771cea1bcdedfad14810151037a8cd18cd9681f1c279c2928248a56db73';
 const TOKEN_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 // Global Token Revocation & Invalidation Store
@@ -85,7 +86,6 @@ const os = require("os");
 const http = require("http");
 const zlib = require("zlib");
 const compression = require("compression");
-require('dotenv').config({ path: path.join(__dirname, '.env') });
 const { GoogleGenAI } = require('@google/genai');
 const pino = require('pino');
 const qrcode = require('qrcode');
