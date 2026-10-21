@@ -172,27 +172,75 @@ async function getTargetStudentsWithDues({ className = '', minDue = 0, search = 
 }
 
 /**
- * 3. Formulate Speech and Acknowledgment Templates
+ * 3. Formulate Speech and Acknowledgment Templates with Smart Name & Role Recognition
  */
-function buildIvrScript({ studentName, className, dueAmount, lang = 'hi' }) {
+function buildIvrScript({ studentName, className, dueAmount, lang = 'hi', admissionNo = '' }) {
   const cleanAmt = Math.round(Number(dueAmount || 0));
-  const sName = studentName || 'Student';
-  const cName = className || 'Class';
+  const rawName = String(studentName || '').replace(/\s*\([^)]*\)/g, '').replace(/👨‍🏫|👩‍🏫|📞/g, '').trim();
+  const sAdm = String(admissionNo || '').trim();
+  const cName = String(className || '').trim();
+
+  // Role detection: check if recipient is a Teacher or Faculty
+  const isFaculty = Boolean(
+    cName.toLowerCase() === 'faculty' ||
+    cName.toLowerCase() === 'teacher' ||
+    sAdm.startsWith('EMP-') ||
+    rawName.toLowerCase().includes('teacher') ||
+    rawName.toLowerCase().includes('sir') ||
+    rawName.toLowerCase().includes('madam')
+  );
+
+  // Clean title words out of the name
+  const cleanName = rawName
+    .replace(/\b(teacher|sir|madam|miss|mr|mrs|shri|smt)\b/gi, '')
+    .trim() || (isFaculty ? 'शिक्षक' : 'विद्यार्थी');
+
+  // Devanagari transliteration map for 100% natural Indian Hindi TTS pronunciation
+  const nameMapHi = {
+    'aatif': 'आतिफ',
+    'aatif raza': 'आतिफ रज़ा',
+    'rizwan': 'रिज़वान',
+    'rizwan teacher': 'रिज़वान',
+    'sumant': 'सुमंत',
+    'sunil': 'सुनील',
+    'aliza': 'अलीज़ा',
+    'snehlata': 'स्नेहलता',
+    'ruhi': 'रूही'
+  };
+  const phoneticName = nameMapHi[cleanName.toLowerCase()] || cleanName;
 
   if (lang === 'en') {
+    if (isFaculty) {
+      return {
+        speechText: `Hello ${cleanName} Sir! This is an automated fee reminder from Tapowan Public School. Kindly clear the outstanding fee balance of ${cleanAmt} Rupees. Press 1 now to immediately receive your official payment link and UPI Q-R code on WhatsApp, or press 2 to speak with the school fee counter.`,
+        ackText: `Thank you ${cleanName} Sir! Your payment link and official UPI Q-R code have been sent to your WhatsApp number. Have a great day!`
+      };
+    }
     return {
-      speechText: `Hello! This is an automated fee reminder from Tapowan Public School for ${sName}, ${cName}. Your outstanding school fee balance is ${cleanAmt} Rupees. Press 1 now to immediately receive your official payment link and UPI Q-R code on WhatsApp, or press 2 to speak with the school fee counter.`,
-      ackText: `Thank you! Your payment link and official UPI Q-R code have been sent to your WhatsApp number. You can also pay directly on your phone screen. Have a great day!`
+      speechText: `Hello! This is an automated fee reminder from Tapowan Public School for student ${cleanName}, ${cName || 'Class'}. Your outstanding school fee balance is ${cleanAmt} Rupees. Press 1 now to immediately receive your official payment link and UPI Q-R code on WhatsApp, or press 2 to speak with the school fee counter.`,
+      ackText: `Thank you! Your payment link and official UPI Q-R code have been sent to your WhatsApp number. Have a great day!`
     };
   } else if (lang === 'hinglish') {
+    if (isFaculty) {
+      return {
+        speechText: `Namaste ${cleanName} Sir! Yeh Tapowan Public School se fee reminder call hai. Aapki pending fee ${cleanAmt} rupaye clear karne ki request hai. WhatsApp payment link aur UPI Q-R code ke liye abhi 1 dabayein, ya school se baat karne ke liye 2 dabayein.`,
+        ackText: `Dhanyawaad ${cleanName} Sir! Aapka payment link aur Q-R code aapke registered WhatsApp number par bhej diya gaya hai. Shubh din!`
+      };
+    }
     return {
-      speechText: `Namaste! Yeh Tapowan Public School se automated fee reminder call hai. Dear ${sName}, ${cName}, aapki pending school fee ${cleanAmt} rupaye hai. Instant WhatsApp payment link aur UPI Q-R code paane ke liye abhi 1 dabayein, ya school se baat karne ke liye 2 dabayein.`,
-      ackText: `Dhanyawaad! Aapka payment link aur Q-R code aapke registered WhatsApp number par bhej diya gaya hai. Aap screen par bhi pay kar sakte hain. Shubh din!`
+      speechText: `Namaste! Yeh Tapowan Public School se automated fee reminder call hai. Dear student ${cleanName}, ${cName || 'Class'}, aapki pending school fee ${cleanAmt} rupaye hai. Instant WhatsApp payment link aur UPI Q-R code paane ke liye abhi 1 dabayein, ya school se baat karne ke liye 2 dabayein.`,
+      ackText: `Dhanyawaad! Aapka payment link aur Q-R code aapke registered WhatsApp number par bhej diya gaya hai. Shubh din!`
     };
   } else {
     // Default Hindi
+    if (isFaculty) {
+      return {
+        speechText: `नमस्ते ${phoneticName} सर! यह तपोवन पब्लिक स्कूल से फीस रिमाइंडर कॉल है। आपकी बकाया राशि ${cleanAmt} रुपये क्लियर करने का अनुरोध है। तुरंत अपने व्हाट्सएप पर पेमेंट लिंक और यूपीआई क्यू-आर कोड प्राप्त करने के लिए अभी 1 दबाएं, या स्कूल फीस काउंटर से बात करने के लिए 2 दबाएं।`,
+        ackText: `धन्यवाद ${phoneticName} सर! आपका पेमेंट लिंक और ऑफिशियल यूपीआई क्यू-आर कोड आपके व्हाट्सएप नंबर पर भेज दिया गया है। धन्यवाद!`
+      };
+    }
     return {
-      speechText: `नमस्ते! यह तपोवन पब्लिक स्कूल से एक ऑटोमेटेड फीस सूचना है। प्रिय ${sName}, कक्षा ${cName}, आपकी कुल बकाया फीस ${cleanAmt} रुपये है। तुरंत अपने व्हाट्सएप पर पेमेंट लिंक और यूपीआई क्यू-आर कोड प्राप्त करने के लिए अभी 1 दबाएं, या स्कूल फीस काउंटर से बात करने के लिए 2 दबाएं।`,
+      speechText: `नमस्ते! यह तपोवन पब्लिक स्कूल से एक ऑटोमेटेड फीस सूचना है। प्रिय विद्यार्थी ${phoneticName}, ${cName ? 'कक्षा ' + cName + ',' : ''} आपकी कुल बकाया फीस ${cleanAmt} रुपये है। तुरंत अपने व्हाट्सएप पर पेमेंट लिंक और यूपीआई क्यू-आर कोड प्राप्त करने के लिए अभी 1 दबाएं, या स्कूल फीस काउंटर से बात करने के लिए 2 दबाएं।`,
       ackText: `धन्यवाद! आपका पेमेंट लिंक और ऑफिशियल यूपीआई क्यू-आर कोड आपके व्हाट्सएप नंबर पर भेज दिया गया है। आप अपने फोन स्क्रीन पर भी सीधे भुगतान कर सकते हैं। धन्यवाद!`
     };
   }
@@ -218,7 +266,7 @@ async function initiateIvrCall({
   }
 
   const cleanAmt = Math.round(Number(dueAmount || 0));
-  const scripts = buildIvrScript({ studentName, className, dueAmount: cleanAmt, lang });
+  const scripts = buildIvrScript({ studentName, className, dueAmount: cleanAmt, lang, admissionNo });
   const finalSpeech = customSpeech && customSpeech.trim() ? customSpeech.trim() : scripts.speechText;
   const finalAck = scripts.ackText;
 
@@ -474,6 +522,52 @@ async function getIvrStats() {
   }
 }
 
+/**
+ * 7. Get IVR Session Details by callId (Used by recipient mobile app to retrieve personalized speech)
+ */
+async function getIvrSessionDetails(callId) {
+  try {
+    if (!callId) return { ok: false, error: 'callId required' };
+    const res = await db.execute({
+      sql: `SELECT * FROM app_ivr_call_logs WHERE call_id = ? LIMIT 1`,
+      args: [callId],
+      skipCache: true
+    });
+    const row = res?.rows?.[0];
+    if (!row) {
+      return { ok: false, error: 'Session not found' };
+    }
+    const cleanAmt = Math.round(Number(row.due_amount || row.dueamount || 0));
+    const lang = row.language || 'hi';
+    const sName = row.student_name || row.studentname || '';
+    const cName = row.class_name || row.classname || '';
+    const adm = row.admission_no || row.admissionno || '';
+
+    const scripts = buildIvrScript({
+      studentName: sName,
+      className: cName,
+      dueAmount: cleanAmt,
+      lang: lang,
+      admissionNo: adm
+    });
+
+    return {
+      ok: true,
+      callId: row.call_id,
+      admissionNo: adm,
+      studentName: sName,
+      className: cName,
+      dueAmount: cleanAmt,
+      lang: lang,
+      speechText: scripts.speechText,
+      ackText: scripts.ackText
+    };
+  } catch (err) {
+    console.error('[CallAutomation getIvrSessionDetails Error]:', err.message);
+    return { ok: false, error: err.message };
+  }
+}
+
 module.exports = {
   handleTtsAudio,
   getTargetStudentsWithDues,
@@ -481,5 +575,6 @@ module.exports = {
   initiateIvrCall,
   handleIvrKeypress,
   getIvrLogs,
-  getIvrStats
+  getIvrStats,
+  getIvrSessionDetails
 };

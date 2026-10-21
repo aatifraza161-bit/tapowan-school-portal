@@ -2155,6 +2155,22 @@ app.get('/api/calls/ivr/stats', authRequired, async (req, res) => {
   }
 });
 
+// G. IVR Call Session Details (Directly accessible by active callId for mobile app speech personalization)
+const handleIvrSessionDetails = async (req, res) => {
+  try {
+    const callId = String(req.query.callId || req.query.call_id || '').trim();
+    if (!callId) {
+      return res.status(400).json({ ok: false, error: 'callId parameter is required' });
+    }
+    const session = await callAutomation.getIvrSessionDetails(callId);
+    res.json(session);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+};
+app.get('/api/calls/ivr/session-details', handleIvrSessionDetails);
+app.get('/calls/ivr/session-details', handleIvrSessionDetails);
+
 // 13. Silent Background OTA Push Broadcast
 app.post("/api/admin/ota/broadcast-push", adminRequired, async (req, res) => {
   try {

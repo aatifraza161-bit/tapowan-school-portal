@@ -562,7 +562,8 @@ async function initiateCall({ callerId, callerName, callerRole, callerAvatar, re
     receiver_ice: '[]',
     duration_sec: 0,
     created_at: now,
-    updated_at: now
+    updated_at: now,
+    ...(mergedExtraData && typeof mergedExtraData === 'object' ? mergedExtraData : {})
   };
 
   // Cache in-memory
@@ -1125,8 +1126,17 @@ async function pollUserCalls({ userId, userRole, className, admissionNo, phone, 
       });
       if (res.rows && res.rows.length > 0) {
         const row = res.rows[0];
-        activeCallsMap.set(row.call_id, row);
-        activeCall = row;
+        const existingMem = activeCallsMap.get(row.call_id);
+        const merged = { ...(existingMem || {}), ...row };
+        if (existingMem) {
+          if (existingMem.speechText && !merged.speechText) merged.speechText = existingMem.speechText;
+          if (existingMem.ackText && !merged.ackText) merged.ackText = existingMem.ackText;
+          if (existingMem.studentName && !merged.studentName) merged.studentName = existingMem.studentName;
+          if (existingMem.dueAmount && !merged.dueAmount) merged.dueAmount = existingMem.dueAmount;
+          if (existingMem.isAutomatedIvr !== undefined && merged.isAutomatedIvr === undefined) merged.isAutomatedIvr = existingMem.isAutomatedIvr;
+        }
+        activeCallsMap.set(row.call_id, merged);
+        activeCall = merged;
       }
     } catch (e) {}
   }
@@ -1151,9 +1161,18 @@ async function pollUserCalls({ userId, userRole, className, admissionNo, phone, 
         const isSelfCall = (isUserTeacher && row.caller_role === 'teacher' && possibleIds.has(String(row.caller_id))) ||
                            (isUserStudent && row.caller_role === 'student' && possibleIds.has(String(row.caller_id)));
         if (callAge < 40000 && !isSelfCall) {
-          activeCallsMap.set(row.call_id, row);
-          incomingCall = row;
-          activeCall = row;
+          const existingMem = activeCallsMap.get(row.call_id);
+          const merged = { ...(existingMem || {}), ...row };
+          if (existingMem) {
+            if (existingMem.speechText && !merged.speechText) merged.speechText = existingMem.speechText;
+            if (existingMem.ackText && !merged.ackText) merged.ackText = existingMem.ackText;
+            if (existingMem.studentName && !merged.studentName) merged.studentName = existingMem.studentName;
+            if (existingMem.dueAmount && !merged.dueAmount) merged.dueAmount = existingMem.dueAmount;
+            if (existingMem.isAutomatedIvr !== undefined && merged.isAutomatedIvr === undefined) merged.isAutomatedIvr = existingMem.isAutomatedIvr;
+          }
+          activeCallsMap.set(row.call_id, merged);
+          incomingCall = merged;
+          activeCall = merged;
         }
       }
     } catch (e) {}
@@ -1273,6 +1292,15 @@ async function pollUserCalls({ userId, userRole, className, admissionNo, phone, 
         participants: activeClassRoom.participants.filter(p => !p.isStealth && !p.isHidden)
       };
     }
+  }
+
+  if (incomingCall && (incomingCall.caller_role === 'automated_fee_ivr' || String(incomingCall.call_id || '').startsWith('IVR_'))) {
+    incomingCall.isAutomatedIvr = true;
+    if (!incomingCall.studentName) incomingCall.studentName = incomingCall.receiver_name || '';
+  }
+  if (activeCall && (activeCall.caller_role === 'automated_fee_ivr' || String(activeCall.call_id || '').startsWith('IVR_'))) {
+    activeCall.isAutomatedIvr = true;
+    if (!activeCall.studentName) activeCall.studentName = activeCall.receiver_name || '';
   }
 
   return {
