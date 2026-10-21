@@ -1518,6 +1518,7 @@ function isAllowedApiOrigin(urlStr) {
   try {
     const parsed = new URL(urlStr, window.location.origin);
     if (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") return true;
+    if (parsed.hostname.endsWith(".vercel.app") || parsed.hostname.endsWith(".pages.dev")) return true;
     return ALLOWED_API_ORIGINS.has(parsed.origin);
   } catch (e) {
     return false;
@@ -1690,13 +1691,22 @@ function applyAuthUI(session) {
   if (loggedIn) {
     if (auth) {
       auth.classList.add("hidden");
-      auth.style.display = "none";
+      auth.style.setProperty("display", "none", "important");
+      auth.style.setProperty("visibility", "hidden", "important");
+      auth.style.setProperty("opacity", "0", "important");
+      auth.style.setProperty("pointer-events", "none", "important");
     }
-    if (appContainer) appContainer.style.display = ""; 
+    if (appContainer) {
+      appContainer.style.setProperty("display", "grid", "important");
+    }
     if (vidyaFab) vidyaFab.style.display = "flex";
   } else {
     if (auth) {
       auth.classList.remove("hidden");
+      auth.style.removeProperty("display");
+      auth.style.removeProperty("visibility");
+      auth.style.removeProperty("opacity");
+      auth.style.removeProperty("pointer-events");
       auth.style.display = "flex";
       if (typeof window.renderRandomMotivationalQuote === "function") {
         try { window.renderRandomMotivationalQuote(); } catch (_) {}
@@ -1708,7 +1718,16 @@ function applyAuthUI(session) {
 
   if (refs.authOverlay) {
     refs.authOverlay.classList.toggle("hidden", loggedIn);
-    refs.authOverlay.style.display = loggedIn ? "none" : "flex";
+    if (loggedIn) {
+      refs.authOverlay.style.setProperty("display", "none", "important");
+      refs.authOverlay.style.setProperty("visibility", "hidden", "important");
+      refs.authOverlay.style.setProperty("pointer-events", "none", "important");
+    } else {
+      refs.authOverlay.style.removeProperty("display");
+      refs.authOverlay.style.removeProperty("visibility");
+      refs.authOverlay.style.removeProperty("pointer-events");
+      refs.authOverlay.style.display = "flex";
+    }
   }
 
   const activeName = document.getElementById("activeUserBadgeName");
@@ -13257,12 +13276,20 @@ window.handleLoginSubmit = async function(e) {
     const authOverlay = document.getElementById("authOverlay");
     if (authOverlay) {
       authOverlay.classList.add("hidden");
-      authOverlay.style.display = "none";
+      authOverlay.style.setProperty("display", "none", "important");
+      authOverlay.style.setProperty("visibility", "hidden", "important");
+      authOverlay.style.setProperty("opacity", "0", "important");
+      authOverlay.style.setProperty("pointer-events", "none", "important");
     }
     const landingPage = document.getElementById("landingPage");
-    if (landingPage) landingPage.classList.add("hidden");
+    if (landingPage) {
+      landingPage.classList.add("hidden");
+      landingPage.style.setProperty("display", "none", "important");
+    }
     const appContainer = document.querySelector(".app");
-    if (appContainer) appContainer.style.display = "";
+    if (appContainer) {
+      appContainer.style.setProperty("display", "grid", "important");
+    }
     return false;
   } catch (err) {
     console.error("Login failed:", err);

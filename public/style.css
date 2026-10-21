@@ -2545,12 +2545,19 @@ tbody td:last-child { padding-right: 24px; }
   .auth-overlay {
     padding: 24px 14px !important;
     background: #eceef1 !important;
-    display: flex !important;
+    display: flex;
     align-items: center !important;
     justify-content: center !important;
     z-index: 1000000 !important;
     overflow-y: auto !important;
     box-sizing: border-box !important;
+  }
+  .auth-overlay.hidden,
+  #authOverlay.hidden {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
   }
   .auth-card {
     width: 100% !important;
