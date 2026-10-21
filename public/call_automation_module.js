@@ -945,6 +945,18 @@
   };
 
   function cleanupCall() {
+    // Notify server that call is ended so recipient phone terminates cleanly and DB is updated
+    if (currentCallStudent?.callId) {
+      const callIdToClose = currentCallStudent.callId;
+      fetchWithAuth('/api/calls/end', {
+        method: 'POST',
+        body: JSON.stringify({
+          callId: callIdToClose,
+          userId: 'tps_fee_automation'
+        })
+      }).catch(() => {});
+    }
+
     if (callTimerInterval) {
       clearInterval(callTimerInterval);
       callTimerInterval = null;

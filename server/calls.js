@@ -680,6 +680,19 @@ async function respondCall({ callId, userId, action, answerSdp }) {
   call.updated_at = now;
   activeCallsMap.set(callId, call);
 
+  // Sync automated IVR call logs status
+  if (action === 'answer') {
+    db.execute({
+      sql: "UPDATE app_ivr_call_logs SET status = 'connected', updated_at = CURRENT_TIMESTAMP WHERE call_id = ?",
+      args: [callId]
+    }).catch(() => {});
+  } else if (action === 'decline' || action === 'busy') {
+    db.execute({
+      sql: "UPDATE app_ivr_call_logs SET status = 'declined', updated_at = CURRENT_TIMESTAMP WHERE call_id = ?",
+      args: [callId]
+    }).catch(() => {});
+  }
+
   // Broadcast CALL_ENDED push immediately when call is declined or busy so caller stops ringing
   if (action === 'decline' || action === 'busy') {
     sendCallEndedPush({
@@ -947,6 +960,14 @@ async function endCall({ callId, durationSec = 0 }) {
       call.caller_ice = null;
       call.receiver_ice = null;
     }
+  } catch (e) {}
+
+  // Sync automated IVR call logs on end
+  try {
+    await db.execute({
+      sql: "UPDATE app_ivr_call_logs SET status = CASE WHEN status = 'declined' THEN 'declined' WHEN status = 'ringing' AND ? = 0 THEN 'no_answer' ELSE 'completed' END, duration_sec = COALESCE(NULLIF(?, 0), duration_sec), updated_at = CURRENT_TIMESTAMP WHERE call_id = ?",
+      args: [durationSec || 0, durationSec || 0, callId]
+    });
   } catch (e) {}
 
   setTimeout(() => activeCallsMap.delete(callId), 15000);
