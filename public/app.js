@@ -9401,26 +9401,26 @@ function buildTimetableCardHtml(daySelect, dayRecords, uniqueClasses, headerCols
     'Period 7': '11:45 AM - 12:25 PM'
   };
 
-  let theadHtml = '<tr style="background:#f8fafc;"><th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:800;color:#0f172a;border-bottom:2px solid #cbd5e1;border-right:1.5px solid #cbd5e1;">CLASS</th>';
+  let theadHtml = '<tr style="background:#f8fafc;"><th style="padding:6px 8px;text-align:left;font-size:11px;font-weight:800;color:#0f172a;border-bottom:2px solid #cbd5e1;border-right:1.5px solid #cbd5e1;">CLASS</th>';
 
   headerCols.forEach(col => {
     if (col === 'LUNCH') {
-      theadHtml += '<th style="padding:6px 2px;text-align:center;background:#e2e8f0;border-bottom:2px solid #cbd5e1;border-left:1.5px solid #cbd5e1;border-right:1.5px solid #cbd5e1;"><div style="font-size:9.5px;font-weight:800;color:#0f172a;line-height:1.1;">LUNCH</div><div style="font-size:7.5px;font-weight:700;color:#64748b;margin-top:1px;">10:15 - 10:35</div></th>';
+      theadHtml += '<th style="padding:4px 2px;text-align:center;background:#e2e8f0;border-bottom:2px solid #cbd5e1;border-left:1.5px solid #cbd5e1;border-right:1.5px solid #cbd5e1;"><div style="font-size:9.5px;font-weight:800;color:#0f172a;line-height:1.1;">LUNCH</div><div style="font-size:7.5px;font-weight:700;color:#64748b;margin-top:1px;">10:15 - 10:35</div></th>';
     } else {
       const timeStr = periodTimings[col] || defaultTimings[col] || '';
-      theadHtml += '<th style="padding:6px 2px;text-align:center;border-bottom:2px solid #cbd5e1;border-right:1px solid #e2e8f0;"><div style="font-size:10.5px;font-weight:800;color:#0f172a;letter-spacing:0.3px;">' + col.toUpperCase() + '</div><div style="font-size:8.5px;font-weight:700;color:#2563eb;margin-top:1px;">' + timeStr + '</div></th>';
+      theadHtml += '<th style="padding:5px 2px;text-align:center;border-bottom:2px solid #cbd5e1;border-right:1px solid #e2e8f0;"><div style="font-size:10.5px;font-weight:800;color:#0f172a;letter-spacing:0.3px;">' + col.toUpperCase() + '</div><div style="font-size:8.5px;font-weight:700;color:#2563eb;margin-top:1px;">' + timeStr + '</div></th>';
     }
   });
   theadHtml += '</tr>';
 
   let tbodyHtml = '';
   uniqueClasses.forEach((cls, rIdx) => {
-    tbodyHtml += '<tr><td style="padding:4px 8px;font-weight:800;font-size:11px;color:#0f172a;border-bottom:1px solid #e2e8f0;border-right:1.5px solid #cbd5e1;background:#ffffff;white-space:nowrap;">' + cls + '</td>';
+    tbodyHtml += '<tr><td style="padding:3px 8px;font-weight:800;font-size:11px;color:#0f172a;border-bottom:1px solid #e2e8f0;border-right:1.5px solid #cbd5e1;background:#ffffff;white-space:nowrap;vertical-align:middle;">' + cls + '</td>';
     
     headerCols.forEach(col => {
       if (col === 'LUNCH') {
         if (rIdx === 0) {
-          tbodyHtml += '<td rowspan="' + uniqueClasses.length + '" style="background:#f1f5f9;text-align:center;vertical-align:middle;padding:0;border-left:1.5px solid #cbd5e1;border-right:1.5px solid #cbd5e1;border-bottom:1.5px solid #cbd5e1;"><div style="font-weight:900;color:#475569;font-size:11px;line-height:2.2;letter-spacing:0;">L<br>U<br>N<br>C<br>H</div></td>';
+          tbodyHtml += '<td rowspan="' + uniqueClasses.length + '" style="background:#f1f5f9;text-align:center;vertical-align:middle;padding:0;border-left:1.5px solid #cbd5e1;border-right:1.5px solid #cbd5e1;border-bottom:1.5px solid #cbd5e1;"><div style="font-weight:900;color:#475569;font-size:11px;line-height:2.1;letter-spacing:0;">L<br>U<br>N<br>C<br>H</div></td>';
         }
       } else {
         const rec = dayRecords.find(r => r.className === cls && r.period === col);
@@ -9430,9 +9430,9 @@ function buildTimetableCardHtml(daySelect, dayRecords, uniqueClasses, headerCols
           const border = isKarate ? '#fde68a' : '#dbeafe';
           const titleColor = isKarate ? '#b45309' : '#2563eb';
           const subColor = isKarate ? '#78350f' : '#475569';
-          tbodyHtml += '<td style="padding:3px;border-bottom:1px solid #e2e8f0;border-right:1px solid #e2e8f0;"><div style="background:' + bg + ';border:1px solid ' + border + ';border-radius:6px;padding:4px 2px;text-align:center;min-height:32px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;"><div style="font-size:10px;font-weight:800;color:' + titleColor + ';line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + rec.subject + '</div><div style="font-size:8.5px;font-weight:600;color:' + subColor + ';margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (rec.teacher || '-') + '</div></div></td>';
+          tbodyHtml += '<td style="padding:2.5px 2px;border-bottom:1px solid #e2e8f0;border-right:1px solid #e2e8f0;vertical-align:middle;"><div style="background:' + bg + ';border:1px solid ' + border + ';border-radius:5px;padding:3px 2px;text-align:center;min-height:33px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;"><div style="font-size:10px;font-weight:800;color:' + titleColor + ';line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + rec.subject + '</div><div style="font-size:8.5px;font-weight:600;color:' + subColor + ';margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (rec.teacher || '-') + '</div></div></td>';
         } else {
-          tbodyHtml += '<td style="padding:3px;border-bottom:1px solid #e2e8f0;border-right:1px solid #e2e8f0;"><div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:4px 2px;text-align:center;min-height:32px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;"><div style="font-size:10px;font-weight:700;color:#94a3b8;line-height:1.1;">Free</div><div style="font-size:8.5px;font-weight:600;color:#cbd5e1;margin-top:1px;">-</div></div></td>';
+          tbodyHtml += '<td style="padding:2.5px 2px;border-bottom:1px solid #e2e8f0;border-right:1px solid #e2e8f0;vertical-align:middle;"><div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:5px;padding:3px 2px;text-align:center;min-height:33px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;"><div style="font-size:10px;font-weight:700;color:#94a3b8;line-height:1.15;">Free</div><div style="font-size:8.5px;font-weight:600;color:#cbd5e1;margin-top:1px;">-</div></div></td>';
         }
       }
     });
@@ -9440,24 +9440,24 @@ function buildTimetableCardHtml(daySelect, dayRecords, uniqueClasses, headerCols
   });
 
   return `
-    <div id="timetableCardContainer" style="width:1080px;background:#ffffff;border-radius:12px;padding:16px 20px;box-shadow:0 10px 25px rgba(0,0,0,0.06);color:#0f172a;box-sizing:border-box;font-family:'Poppins',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+    <div id="timetableCardContainer" style="width:1120px;margin:0 auto;background:#ffffff;padding:12px 16px;box-sizing:border-box;color:#0f172a;font-family:'Poppins',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
       <!-- Header -->
-      <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #e2e8f0;padding-bottom:10px;margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #e2e8f0;padding-bottom:8px;margin-bottom:10px;">
         <div style="display:flex;align-items:center;gap:12px;">
-          <img src="logo.png" style="width:44px;height:44px;object-fit:contain;" onerror="this.style.display='none'">
+          <img src="logo.png" style="width:40px;height:40px;object-fit:contain;" onerror="this.style.display='none'">
           <div>
-            <div style="font-size:20px;font-weight:900;color:#1e3a8a;letter-spacing:0.5px;line-height:1.1;">TAPOWAN PUBLIC SCHOOL</div>
-            <div style="font-size:11.5px;font-weight:800;color:#dc2626;letter-spacing:0.5px;margin-top:2px;text-transform:uppercase;">CLASS ROUTINE 2026–27  •  ${dayTitle}</div>
+            <div style="font-size:19px;font-weight:900;color:#1e3a8a;letter-spacing:0.5px;line-height:1.1;">TAPOWAN PUBLIC SCHOOL</div>
+            <div style="font-size:11px;font-weight:800;color:#dc2626;letter-spacing:0.5px;margin-top:2px;text-transform:uppercase;">CLASS ROUTINE 2026–27  •  ${dayTitle}</div>
           </div>
         </div>
         <div style="text-align:right;">
-          <div style="display:inline-block;background:#eff6ff;color:#2563eb;border:1.5px solid #bfdbfe;padding:4px 14px;border-radius:9999px;font-size:11px;font-weight:700;">Final Bell: 12:25 NOON</div>
-          <div style="font-size:9.5px;color:#64748b;font-weight:600;margin-top:3px;">Campus: Prem Nagar  •  Zero-Clash Verified</div>
+          <div style="display:inline-block;background:#eff6ff;color:#2563eb;border:1.5px solid #bfdbfe;padding:3px 12px;border-radius:9999px;font-size:10.5px;font-weight:700;">Final Bell: 12:25 NOON</div>
+          <div style="font-size:9px;color:#64748b;font-weight:600;margin-top:2px;">Campus: Prem Nagar  •  Zero-Clash Verified</div>
         </div>
       </div>
 
       <!-- Routine Grid Table -->
-      <table style="width:100%;border-collapse:separate;border-spacing:0;border:1.5px solid #cbd5e1;border-radius:8px;overflow:hidden;background:#ffffff;table-layout:fixed;">
+      <table style="width:100%;border-collapse:separate;border-spacing:0;border:1.5px solid #cbd5e1;border-radius:6px;overflow:hidden;background:#ffffff;table-layout:fixed;">
         <colgroup>
           <col style="width:8.5%;">
           <col style="width:12.5%;">
@@ -9474,7 +9474,7 @@ function buildTimetableCardHtml(daySelect, dayRecords, uniqueClasses, headerCols
       </table>
 
       <!-- Footer -->
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:9px;color:#94a3b8;font-weight:600;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:9px;color:#64748b;font-weight:600;">
         <div>Tapowan Public School ERP • Official Academic Routine</div>
         <div>CBSE Pattern • 7 Daily Periods • 20 Min Recess • Prem Nagar Campus</div>
       </div>
@@ -9491,19 +9491,49 @@ function buildTimetablePrintableDoc(daySelect, dayRecords, uniqueClasses, header
   <title>Timetable - ${daySelect}</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800;900&display=swap" rel="stylesheet">
   <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      padding: 16px;
-      background: #f8fafc;
-      display: flex;
-      justify-content: center;
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    html, body {
+      margin: 0 !important;
+      padding: 0 !important;
+      background: #ffffff !important;
       font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
+    #timetableCardContainer {
+      width: 100% !important;
+      max-width: 100% !important;
+      margin: 0 auto !important;
+      padding: 4mm 6mm !important;
+      box-shadow: none !important;
+      border-radius: 0 !important;
+    }
+    table {
+      width: 100% !important;
+      table-layout: fixed !important;
+      border-collapse: separate !important;
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+    }
+    tr {
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+    }
+    @page {
+      size: A4 landscape;
+      margin: 6mm 8mm;
+    }
     @media print {
-      @page { size: landscape; margin: 6mm; }
-      body { padding: 0; background: #ffffff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      #timetableCardContainer { box-shadow: none !important; border-radius: 0 !important; width: 100% !important; padding: 0 !important; }
+      @page {
+        size: A4 landscape;
+        margin: 6mm 8mm;
+      }
+      body {
+        margin: 0 !important;
+        padding: 0 !important;
+      }
     }
   </style>
 </head>
@@ -9519,7 +9549,7 @@ function exportTimetableModernPdf(daySelect, dayRecords, uniqueClasses, headerCo
 
   const exportWrap = document.createElement("div");
   exportWrap.id = "tpsTimetablePdfWrap";
-  exportWrap.style.cssText = "position:fixed;left:-9999px;top:0;width:1080px;background:#ffffff;z-index:-9999;box-sizing:border-box;";
+  exportWrap.style.cssText = "position:fixed;left:-9999px;top:0;width:1120px;background:#ffffff;z-index:-9999;box-sizing:border-box;margin:0;padding:0;";
   exportWrap.innerHTML = containerHtml;
   document.body.appendChild(exportWrap);
 
@@ -9527,32 +9557,87 @@ function exportTimetableModernPdf(daySelect, dayRecords, uniqueClasses, headerCo
     showToast(`Generating Timetable PDF for ${daySelect}...`, "info");
   }
 
-  const opt = {
-    margin: [6, 6, 6, 6],
-    filename: `timetable-${daySelect.toLowerCase()}-${todayStr()}.pdf`,
-    image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: {
-      scale: 2,
-      useCORS: true,
-      scrollY: 0,
-      scrollX: 0,
-      windowWidth: 1080
-    },
-    jsPDF: {
-      unit: 'mm',
-      format: 'a4',
-      orientation: 'landscape'
+  const renderWithCanvas = (canvas) => {
+    try {
+      const JsPdfClass = (window.jspdf && window.jspdf.jsPDF) ? window.jspdf.jsPDF : (window.jsPDF || null);
+      if (!JsPdfClass) {
+        throw new Error("jsPDF constructor not found");
+      }
+
+      const pdf = new JsPdfClass({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: 'a4',
+        compress: true
+      });
+
+      const pageWidth = 297;
+      const pageHeight = 210;
+      const marginX = 8;
+      const marginY = 8;
+      const printableWidth = pageWidth - (marginX * 2); // 281mm
+      const printableHeight = pageHeight - (marginY * 2); // 194mm
+
+      const canvasRatio = canvas.width / canvas.height;
+      const printableRatio = printableWidth / printableHeight;
+
+      let renderW = printableWidth;
+      let renderH = printableWidth / canvasRatio;
+
+      if (renderH > printableHeight) {
+        renderH = printableHeight;
+        renderW = printableHeight * canvasRatio;
+      }
+
+      // Center perfectly on A4 page horizontally and vertically
+      const posX = marginX + (printableWidth - renderW) / 2;
+      const posY = marginY + (printableHeight - renderH) / 2;
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.98);
+      pdf.addImage(imgData, 'JPEG', posX, posY, renderW, renderH);
+
+      pdf.save(`timetable-${daySelect.toLowerCase()}-${todayStr()}.pdf`);
+      exportWrap.remove();
+
+      if (typeof showToast === "function") {
+        showToast("Timetable PDF downloaded successfully!", "success");
+      }
+    } catch (err) {
+      console.error("jsPDF direct render failed, falling back to print studio:", err);
+      exportWrap.remove();
+      openPrintWindowOrFallback(printableFullDoc, `Timetable - ${daySelect}`, { autoPrint: true });
     }
   };
 
-  if (window.html2pdf) {
+  if (window.html2canvas) {
+    window.html2canvas(exportWrap, {
+      scale: 2.2,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      scrollY: 0,
+      scrollX: 0,
+      windowWidth: 1120
+    }).then(renderWithCanvas).catch(err => {
+      console.error("html2canvas failed:", err);
+      exportWrap.remove();
+      openPrintWindowOrFallback(printableFullDoc, `Timetable - ${daySelect}`, { autoPrint: true });
+    });
+  } else if (window.html2pdf) {
+    const opt = {
+      margin: [8, 8, 8, 8],
+      filename: `timetable-${daySelect.toLowerCase()}-${todayStr()}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2.0, useCORS: true, backgroundColor: '#ffffff', windowWidth: 1120 },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
+      pagebreak: { mode: 'avoid-all' }
+    };
     window.html2pdf().set(opt).from(exportWrap).save().then(() => {
       exportWrap.remove();
       if (typeof showToast === "function") {
         showToast("Timetable PDF downloaded successfully!", "success");
       }
     }).catch(err => {
-      console.error("html2pdf export failed:", err);
+      console.error("html2pdf fallback failed:", err);
       exportWrap.remove();
       openPrintWindowOrFallback(printableFullDoc, `Timetable - ${daySelect}`, { autoPrint: true });
     });
