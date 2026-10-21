@@ -4113,7 +4113,7 @@ async function addRecord(moduleName, formData) {
     }
   }
   if (moduleName === "users") {
-    if (!record.password) record.password = "welcome123";
+    if (!record.password || String(record.password).trim().length < 8) { throw new Error("Password is required and must be at least 8 characters long."); }
     if (!record.lastLogin) record.lastLogin = nowStr();
     if (!record.status) record.status = "Active";
   }

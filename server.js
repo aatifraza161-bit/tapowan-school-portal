@@ -384,13 +384,14 @@ app.use(cors({
 
 app.disable('x-powered-by');
 
-// Standard Security Headers (Clickjacking, MIME-sniffing, XSS, Referrer-Policy, HSTS)
+// Standard Security Headers (Clickjacking, MIME-sniffing, XSS, Referrer-Policy, HSTS, CSP)
 app.use((req, res, next) => {
   res.setHeader("X-Frame-Options", "DENY");
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-XSS-Protection", "1; mode=block");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
+  res.setHeader("Content-Security-Policy", "default-src 'self' https://tapowan-school.vercel.app https://tapowan-app.vercel.app; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://tapowan-school.vercel.app https://tapowan-app.vercel.app https://*.vercel.app https://*.pages.dev https://*.turso.io; frame-ancestors 'none';");
   next();
 });
 
@@ -1122,8 +1123,13 @@ const CLOUD_GATEWAY_URL = process.env.WHATSAPP_GATEWAY_URL || 'https://tapowan-w
 const CLOUD_GATEWAY_PIN = process.env.WHATSAPP_GATEWAY_PIN || 'tapowan2026';
 const CLOUD_GATEWAY_KEY = process.env.WHATSAPP_GATEWAY_KEY || 'tps_secret_gateway_key_2026';
 
-// 1. WhatsApp Status Endpoint (Checks local waSock first on desktop, falls back to Render)
-app.get("/api/whatsapp/status", async (req, res) => {
+// 1. WhatsApp Status Endpoint (Requires Staff or Admin authentication)
+app.get("/api/whatsapp/status", authRequired, async (req, res) => {
+  const user = req.session?.user;
+  if (!isStaffOrAbove(user) && !isAdmin(user)) {
+    return res.status(403).json({ error: "Staff or Admin access required to view WhatsApp status" });
+  }
+
   // If local waSock is active on desktop (connected or waiting for QR)
   if (typeof waStatus !== 'undefined' && (waStatus === 'connected' || waStatus === 'qr')) {
     return res.json({ status: waStatus, qr: waQr, phone: 'Local Desktop Gateway' });
@@ -4044,9 +4050,18 @@ app.post("/api/modules/:moduleName", authRequired, async (req, res) => {
     if (ADMIN_STAFF_ONLY_MODULES.has(moduleName) && !isStaffOrAbove(user) && !isAdmin(user)) {
       return res.status(403).json({ error: "Insufficient permissions" });
     }
-    // Prevent non-admins from creating users with elevated roles
-    if (moduleName === "users" && !isAdmin(user)) {
-      return res.status(403).json({ error: "Only admins can manage users" });
+    // Prevent non-admins from creating users with elevated roles & validate password
+    if (moduleName === "users") {
+      if (!isAdmin(user)) {
+        return res.status(403).json({ error: "Only admins can manage users" });
+      }
+      let payload = req.body || {};
+      if (!payload.password || typeof payload.password !== 'string' || payload.password.trim().length < 8) {
+        return res.status(400).json({ error: "Password is required and must be at least 8 characters long" });
+      }
+      if (!payload.password.startsWith('$2')) {
+        payload.password = bcrypt.hashSync(payload.password.trim(), 10);
+      }
     }
     // --- Fee Reconciliation Logic Removed ---
 
@@ -4223,9 +4238,20 @@ app.put("/api/modules/:moduleName/:id", authRequired, async (req, res) => {
     if (ADMIN_STAFF_ONLY_MODULES.has(moduleName) && !isStaffOrAbove(user) && !isAdmin(user)) {
       return res.status(403).json({ error: "Only admin and staff can edit this module" });
     }
-    // Users module: only admin
-    if (moduleName === "users" && !isAdmin(user)) {
-      return res.status(403).json({ error: "Only admins can edit users" });
+    // Users module: only admin & validate password if provided
+    if (moduleName === "users") {
+      if (!isAdmin(user)) {
+        return res.status(403).json({ error: "Only admins can edit users" });
+      }
+      if (req.body && req.body.password !== undefined) {
+        if (!req.body.password || String(req.body.password).trim() === '') {
+          delete req.body.password; // Do not overwrite existing password with empty string
+        } else if (String(req.body.password).trim().length < 8) {
+          return res.status(400).json({ error: "Password must be at least 8 characters long" });
+        } else if (!String(req.body.password).startsWith('$2')) {
+          req.body.password = bcrypt.hashSync(String(req.body.password).trim(), 10);
+        }
+      }
     }
 
     let existingSubject = null;

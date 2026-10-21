@@ -5082,7 +5082,9 @@ async function addRecord(moduleName, formData) {
     }
   }
   if (moduleName === "users") {
-    if (!record.password) record.password = "welcome123";
+    if (!record.password || String(record.password).trim().length < 8) {
+      throw new Error("Password is required and must be at least 8 characters long.");
+    }
     if (!record.lastLogin) record.lastLogin = nowStr();
     if (!record.status) record.status = "Active";
   }
@@ -11941,6 +11943,25 @@ refs.dynamicForm.addEventListener("submit", async (e) => {
         payload[field] = el && el.checked ? "true" : "";
       } else {
         payload[field] = (form.get(field) || "").toString().trim();
+      }
+    }
+
+    // ── Users module: strict password validation ──
+    if (currentModule === "users") {
+      if (editRecordId != null && Number(editRecordId) > 0) {
+        if (!payload.password || payload.password.trim() === "") {
+          delete payload.password; // Keep existing password if left blank on edit
+        } else if (payload.password.trim().length < 8) {
+          if (typeof showToast === "function") showToast("Password must be at least 8 characters long", "error");
+          else alert("Password must be at least 8 characters long");
+          return;
+        }
+      } else {
+        if (!payload.password || payload.password.trim().length < 8) {
+          if (typeof showToast === "function") showToast("Password is required and must be at least 8 characters long", "error");
+          else alert("Password is required and must be at least 8 characters long");
+          return;
+        }
       }
     }
 
@@ -26847,48 +26868,13 @@ function setupAppReleaseFormListener() {
   });
 }
 
-// ─── Instant Face ID Login Engine (Colab GPU 512-D) ───
-let authFaceStream = null;
-let authFaceScanInterval = null;
-let authFaceScanning = false;
-
+// ─── Face ID Authentication Status (Disabled for Security Compliance) ───
 window.openAuthFaceModal = function() {
   if (typeof showToast === "function") {
-    showToast("Direct Face ID login is temporarily disabled for security hardening. Please sign in with your username and password.", "warn");
+    showToast("Direct Face ID login has been retired for security compliance. Please sign in with your verified username and password.", "warn");
   } else {
-    alert("Direct Face ID login is temporarily disabled for security hardening. Please sign in with your username and password.");
+    alert("Direct Face ID login has been retired for security compliance. Please sign in with your verified username and password.");
   }
-  return;
-
-  const video = document.getElementById("authFaceVideo");
-  const circle = document.getElementById("authFaceCircleFrame");
-  const status = document.getElementById("authFaceStatus");
-  const subStatus = document.getElementById("authFaceSubStatus");
-
-  if (circle) circle.classList.remove("matched");
-  if (status) {
-    status.className = "face-auth-status-text";
-    status.textContent = "Align your face inside the circle...";
-  }
-
-  const cloudApi = localStorage.getItem("tps_insightface_api_url") || "https://sheriff-independence-reliability-growth.trycloudflare.com";
-  if (subStatus) subStatus.textContent = "Colab GPU AI Engine Ready (512-D ArcFace)";
-
-  authFaceScanning = false;
-
-  navigator.mediaDevices?.getUserMedia({
-    video: { facingMode: "user", width: { ideal: 480 }, height: { ideal: 480 } }
-  }).then(stream => {
-    authFaceStream = stream;
-    if (video) {
-      video.srcObject = stream;
-      video.play().catch(() => {});
-    }
-    startAuthFaceScanLoop();
-  }).catch(err => {
-    if (status) status.textContent = "Camera access required for Face ID";
-    if (subStatus) subStatus.textContent = err.message;
-  });
 };
 
 window.closeAuthFaceModal = function() {
@@ -26897,116 +26883,7 @@ window.closeAuthFaceModal = function() {
     modal.classList.add("hidden");
     modal.style.display = "none";
   }
-  if (authFaceScanInterval) {
-    clearInterval(authFaceScanInterval);
-    authFaceScanInterval = null;
-  }
-  if (authFaceStream) {
-    authFaceStream.getTracks().forEach(t => t.stop());
-    authFaceStream = null;
-  }
 };
-
-function startAuthFaceScanLoop() {
-  if (authFaceScanInterval) clearInterval(authFaceScanInterval);
-  const video = document.getElementById("authFaceVideo");
-  const canvas = document.createElement("canvas");
-  const circle = document.getElementById("authFaceCircleFrame");
-  const status = document.getElementById("authFaceStatus");
-
-  authFaceScanInterval = setInterval(async () => {
-    if (!video || !video.videoWidth || authFaceScanning) return;
-    authFaceScanning = true;
-
-    try {
-      canvas.width = Math.min(video.videoWidth, 480);
-      canvas.height = Math.min(video.videoHeight, 480);
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-      const blob = await new Promise(res => canvas.toBlob(res, "image/jpeg", 0.85));
-      if (!blob) { authFaceScanning = false; return; }
-
-      const fd = new FormData();
-      fd.append("file", blob, "face.jpg");
-
-      const cloudApi = localStorage.getItem("tps_insightface_api_url") || "https://sheriff-independence-reliability-growth.trycloudflare.com";
-      const ctrl = new AbortController();
-      const tid = setTimeout(() => ctrl.abort(), 3500);
-
-      const resp = await fetch(`${cloudApi}/extract`, {
-        method: "POST",
-        body: fd,
-        headers: { "ngrok-skip-browser-warning": "true" },
-        signal: ctrl.signal
-      }).catch(() => null);
-      clearTimeout(tid);
-
-      if (resp && resp.ok) {
-        const data = await resp.json();
-        if (data.faces && data.faces.length > 0) {
-          const liveEmb = data.faces[0].embedding;
-          if (liveEmb && liveEmb.length > 0) {
-            const fs = getFaceStore();
-            let best = null;
-            let minDist = 999;
-            const is512 = liveEmb.length === 512;
-            const threshold = is512 ? 0.92 : 0.48;
-
-            for (const key of Object.keys(fs)) {
-              const item = fs[key];
-              const desc = item.descriptor;
-              if (Array.isArray(desc) && desc.length === liveEmb.length) {
-                let sum = 0;
-                for (let i = 0; i < liveEmb.length; i++) {
-                  const d = liveEmb[i] - desc[i];
-                  sum += d * d;
-                }
-                const dist = Math.sqrt(sum);
-                if (dist < minDist) {
-                  minDist = dist;
-                  best = item;
-                }
-              }
-            }
-
-            if (best && minDist <= threshold) {
-              clearInterval(authFaceScanInterval);
-              if (circle) circle.classList.add("matched");
-              if (status) {
-                status.className = "face-auth-status-text success";
-                status.textContent = `🎉 Welcome, ${best.name}! Logging in...`;
-              }
-
-              try {
-                const loginRes = await api("/api/auth/face-login", {
-                  method: "POST",
-                  body: JSON.stringify({ name: best.name, admissionNo: best.tag })
-                });
-
-                if (loginRes && loginRes.user) {
-                  if (loginRes.token) localStorage.setItem("token", loginRes.token);
-                  applyAuthUI(loginRes.user);
-                  await loadStore();
-                  renderAll();
-                  closeAuthFaceModal();
-                  return;
-                }
-              } catch(loginErr) {
-                if (status) status.textContent = "Login failed: " + loginErr.message;
-              }
-            } else {
-              if (status) status.textContent = "Scanning face... Hold still";
-            }
-          }
-        }
-      }
-    } catch(err) {
-      console.warn("Face auth scan error:", err);
-    }
-    authFaceScanning = false;
-  }, 400);
-}
 
 // Wire events on load
 document.addEventListener("DOMContentLoaded", () => {
