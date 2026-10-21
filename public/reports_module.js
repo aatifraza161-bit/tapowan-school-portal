@@ -23,20 +23,21 @@
     const style = document.createElement("style");
     style.id = "reportsCustomStyles";
     style.innerHTML = `
-      #reportsPanel { background: transparent; padding: 0; box-shadow: none; }
-      .report-card { background: #ffffff; border-radius: 16px; padding: 24px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); margin-bottom: 25px; border: 1px solid #e2e8f0; }
-      .report-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
-      .report-header h3 { font-size: 1.6rem; color: #0f172a; margin: 0; font-weight: 800; letter-spacing: -0.02em; display: flex; align-items: center; gap: 10px; }
+      #reportsPanel { background: transparent; padding: 0; box-shadow: none; font-family: 'Outfit', sans-serif; }
+      .report-card { background: #ffffff; border-radius: 16px; padding: 24px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); margin-bottom: 25px; border: 1px solid #e2e8f0; font-family: 'Outfit', sans-serif; }
+      .report-header { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
       .report-tabs { display: flex; gap: 8px; background: #f1f5f9; padding: 6px; border-radius: 12px; }
-      .report-tab-btn { background: transparent; border: none; padding: 9px 18px; border-radius: 8px; font-weight: 700; font-size: 0.9rem; color: #64748b; cursor: pointer; transition: all 0.25s ease; }
-      .report-tab-btn.active { background: #ffffff; color: #0f172a; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+      .report-tab-btn { background: transparent; border: none; padding: 9px 18px; border-radius: 8px; font-weight: 700; font-size: 0.9rem; color: #64748b; cursor: pointer; transition: all 0.25s ease; font-family: 'Outfit', sans-serif; display: inline-flex; align-items: center; gap: 4px; }
+      .report-tab-btn.active { background: var(--brand, #1e3a8a); color: #ffffff; box-shadow: 0 2px 8px rgba(30,58,138,0.25); }
       .report-tab-btn:hover:not(.active) { color: #0f172a; background: rgba(255,255,255,0.5); }
 
-      .report-controls-bar { display: flex; gap: 12px; align-items: center; background: #f8fafc; padding: 14px 18px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 24px; flex-wrap: wrap; }
-      .report-select { padding: 9px 14px; border-radius: 8px; border: 1.5px solid #cbd5e1; font-size: 0.9rem; font-weight: 600; color: #0f172a; background: #ffffff; min-width: 180px; outline: none; transition: border-color 0.2s; }
-      .report-select:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+      .report-controls-bar { display: flex; gap: 12px; align-items: center; background: #f8fafc; padding: 14px 18px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 24px; flex-wrap: wrap; font-family: 'Outfit', sans-serif; }
+      .report-select { padding: 9px 14px; border-radius: 8px; border: 1.5px solid #cbd5e1; font-size: 0.9rem; font-weight: 600; color: #0f172a; background: #ffffff; min-width: 180px; outline: none; transition: border-color 0.2s; font-family: 'Outfit', sans-serif; }
+      .report-select:focus { border-color: var(--brand, #1e3a8a); box-shadow: 0 0 0 3px rgba(30,58,138,0.1); }
       
-      .report-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
+      .report-stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+      @media (max-width: 992px) { .report-stats-grid { grid-template-columns: repeat(2, 1fr); } }
+      @media (max-width: 520px) { .report-stats-grid { grid-template-columns: 1fr; } }
       .report-stat-box { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.02); display: flex; flex-direction: column; }
       .report-stat-label { font-size: 0.8rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
       .report-stat-value { font-size: 1.7rem; font-weight: 800; color: #0f172a; }
@@ -117,13 +118,10 @@
     panel.innerHTML = `
       <div class="report-card">
         <div class="report-header">
-          <h3>
-            <span style="font-size: 1.8rem;">📈</span> Report & Analytics
-          </h3>
           <div class="report-tabs">
-            <button id="rptTabSchool" class="report-tab-btn ${activeReportTab === 'school' ? 'active' : ''}">School Overview</button>
-            <button id="rptTabClass" class="report-tab-btn ${activeReportTab === 'class' ? 'active' : ''}">Class Wise</button>
-            <button id="rptTabStudent" class="report-tab-btn ${activeReportTab === 'student' ? 'active' : ''}">Single Student</button>
+            <button id="rptTabSchool" class="report-tab-btn ${activeReportTab === 'school' ? 'active' : ''}"><span class="material-symbols-outlined" style="font-size:16px;">analytics</span> School Overview</button>
+            <button id="rptTabClass" class="report-tab-btn ${activeReportTab === 'class' ? 'active' : ''}"><span class="material-symbols-outlined" style="font-size:16px;">class</span> Class Wise</button>
+            <button id="rptTabStudent" class="report-tab-btn ${activeReportTab === 'student' ? 'active' : ''}"><span class="material-symbols-outlined" style="font-size:16px;">person</span> Single Student</button>
           </div>
         </div>
         <div id="reportControlsArea"></div>
@@ -191,8 +189,8 @@
 
     ctrl.innerHTML = `
       <div class="report-controls-bar">
-        <div style="flex:1; color:#475569; font-weight:600; font-size:0.9rem;">
-          📊 Displaying holistic growth analytics across all classes and student cohorts.
+        <div style="flex:1; color:#475569; font-weight:600; font-size:0.9rem; display:flex; align-items:center; gap:6px;">
+          <span class="material-symbols-outlined" style="font-size:18px; color:var(--brand, #1e3a8a);">insights</span> Displaying holistic growth analytics across all classes and student cohorts.
         </div>
         <div style="display:flex; align-items:center; gap:8px;">
           <label style="font-size:0.85rem; font-weight:700; color:#475569;">Exam Filter:</label>
@@ -318,7 +316,7 @@
     };
 
     if (!selectedClass) {
-      body.innerHTML = `<div class="report-empty-state"><i>🏫</i><h4>Please select a class</h4><p>Choose a class from the dropdown above to inspect results.</p></div>`;
+      body.innerHTML = `<div class="report-empty-state"><span class="material-symbols-outlined" style="font-size:48px; color:#94a3b8; display:block; margin:0 auto 12px;">school</span><h4>Please select a class</h4><p>Choose a class from the dropdown above to inspect results.</p></div>`;
       return;
     }
 
@@ -454,7 +452,7 @@
     const targetStudent = studentsInClass.find(s => String(s.admissionNo || '').trim().toLowerCase() === String(selectedStudent || '').trim().toLowerCase()) || studentsInClass[0];
 
     if (!targetStudent) {
-      body.innerHTML = `<div class="report-empty-state"><i>👤</i><h4>No student selected</h4><p>Select a class and student to view their comprehensive academic report.</p></div>`;
+      body.innerHTML = `<div class="report-empty-state"><span class="material-symbols-outlined" style="font-size:48px; color:#94a3b8; display:block; margin:0 auto 12px;">person_search</span><h4>No student selected</h4><p>Select a class and student to view their comprehensive academic report.</p></div>`;
       return;
     }
 

@@ -29,23 +29,12 @@
     if (!container) return;
 
     container.innerHTML = `
-      <div style="padding: 20px 24px; max-width: 1400px; margin: 0 auto;">
-        <!-- Header -->
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 24px;">
-          <div>
-            <div style="display: flex; align-items: center; gap: 10px;">
-              <span class="material-symbols-outlined" style="font-size: 32px; color: #2563eb; background: #eff6ff; padding: 8px; border-radius: 12px;">payments</span>
-              <div>
-                <h1 style="font-size: 1.5rem; font-weight: 800; color: #0f172a; margin: 0;">Online Fee Requests</h1>
-                <p style="font-size: 0.88rem; color: #64748b; margin: 4px 0 0 0;">Review & approve UPI fee submissions from students (PhonePe, Google Pay, Paytm).</p>
-              </div>
-            </div>
-          </div>
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <button type="button" onclick="window.refreshOnlinePaymentsList()" style="background: #ffffff; color: #334155; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 10px 16px; font-weight: 700; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: all 0.2s;">
-              <span class="material-symbols-outlined" style="font-size: 18px;">refresh</span> Refresh Requests
-            </button>
-          </div>
+      <div style="padding: 20px 24px; max-width: 1400px; margin: 0 auto; font-family: 'Outfit', sans-serif;">
+        <!-- Action Toolbar -->
+        <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 20px;">
+          <button type="button" onclick="window.refreshOnlinePaymentsList()" class="btn-action" style="background: #ffffff; color: var(--brand, #1e3a8a); border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 10px 18px; font-weight: 700; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); font-family: 'Outfit', sans-serif;">
+            <span class="material-symbols-outlined" style="font-size: 18px;">refresh</span> Refresh Requests
+          </button>
         </div>
 
         <!-- 3 Quick Stats Cards -->
@@ -250,7 +239,7 @@
             <div style="display: flex; align-items: center; gap: 6px;">
               <code style="font-family: monospace; font-size: 0.85rem; font-weight: 700; color: #0f172a; background: #f1f5f9; padding: 2px 6px; border-radius: 6px;">${utr}</code>
               ${utr !== 'N/A' ? `
-                <button type="button" title="Copy UTR" onclick="navigator.clipboard.writeText('${utr}'); alert('UTR Copied: ${utr}');" style="background: none; border: none; cursor: pointer; color: #64748b; padding: 2px;">
+                <button type="button" title="Copy UTR" onclick="navigator.clipboard.writeText('${utr}'); if(window.showToast) window.showToast('UTR Copied: ${utr}', 'info'); else alert('UTR Copied: ${utr}');" style="background: none; border: none; cursor: pointer; color: #64748b; padding: 2px;">
                   <span class="material-symbols-outlined" style="font-size: 16px;">content_copy</span>
                 </button>
               ` : ''}
@@ -278,8 +267,8 @@
     }).join('');
 
     tableContainer.innerHTML = `
-      <div style="overflow-x: auto;">
-        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+      <div class="table-wrap" style="overflow-x: auto; width: 100%;">
+        <table style="width: 100%; min-width: 880px; border-collapse: collapse; text-align: left; font-family: 'Outfit', sans-serif;">
           <thead>
             <tr style="background: #f8fafc; border-bottom: 1.5px solid #e2e8f0;">
               <th style="padding: 12px 16px; font-size: 0.75rem; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">#</th>
@@ -321,11 +310,19 @@
       });
 
       if (!data || !data.ok) {
-        alert(`Approval Failed: ${(data && data.error) || 'Server error'}`);
+        if (typeof window.showToast === 'function') {
+          window.showToast(`Approval Failed: ${(data && data.error) || 'Server error'}`, 'error');
+        } else {
+          alert(`Approval Failed: ${(data && data.error) || 'Server error'}`);
+        }
         return;
       }
 
-      alert(`✅ Success: Payment of ₹${amount} approved for ${studentName}!\nDue balance cleared and official receipt generated.`);
+      if (typeof window.showToast === 'function') {
+        window.showToast(`Payment of ₹${amount} approved for ${studentName}! Due balance cleared.`, 'success');
+      } else {
+        alert(`Payment of ₹${amount} approved for ${studentName}! Due balance cleared.`);
+      }
       
       // Refresh current list and reload store if available
       window.refreshOnlinePaymentsList();
@@ -333,7 +330,11 @@
         window.loadAllData().catch(() => {});
       }
     } catch (err) {
-      alert(`Network Error: ${err.message}`);
+      if (typeof window.showToast === 'function') {
+        window.showToast(`Network Error: ${err.message}`, 'error');
+      } else {
+        alert(`Network Error: ${err.message}`);
+      }
     }
   };
 
@@ -341,7 +342,9 @@
    * Reject a pending online payment
    */
   window.rejectOnlinePayment = async function (paymentId, studentName) {
-    const reason = prompt(`Enter reason for rejecting payment of ${studentName}:`, "Payment not received in school bank account");
+    const reason = typeof window.appPrompt === 'function'
+      ? await window.appPrompt(`Enter reason for rejecting payment of ${studentName}:`, "Payment not received in school bank account")
+      : prompt(`Enter reason for rejecting payment of ${studentName}:`, "Payment not received in school bank account");
     if (reason === null) return; // user cancelled
 
     try {
@@ -351,14 +354,26 @@
       });
 
       if (!data || !data.ok) {
-        alert(`Rejection Failed: ${(data && data.error) || 'Server error'}`);
+        if (typeof window.showToast === 'function') {
+          window.showToast(`Rejection Failed: ${(data && data.error) || 'Server error'}`, 'error');
+        } else {
+          alert(`Rejection Failed: ${(data && data.error) || 'Server error'}`);
+        }
         return;
       }
 
-      alert(`Payment marked as Rejected.`);
+      if (typeof window.showToast === 'function') {
+        window.showToast('Payment marked as Rejected.', 'warning');
+      } else {
+        alert('Payment marked as Rejected.');
+      }
       window.refreshOnlinePaymentsList();
     } catch (err) {
-      alert(`Network Error: ${err.message}`);
+      if (typeof window.showToast === 'function') {
+        window.showToast(`Network Error: ${err.message}`, 'error');
+      } else {
+        alert(`Network Error: ${err.message}`);
+      }
     }
   };
 

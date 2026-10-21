@@ -44,6 +44,19 @@
     iceCandidatePoolSize: 10
   };
 
+  // Modular Alert Interceptor: routes to showToast or appAlert, eliminating native alerts
+  const alert = function(msg) {
+    if (!msg) return;
+    const str = String(msg);
+    if (typeof window.showToast === 'function') {
+      const isErr = /error|fail|cannot|denied|require|ended|too large|restricted|not available|already in progress/i.test(str);
+      const isSuccess = /success|copied|started|sent|muted/i.test(str);
+      window.showToast(str, isErr ? 'error' : isSuccess ? 'success' : 'info');
+    } else if (typeof window.appAlert === 'function') {
+      window.appAlert(str);
+    }
+  };
+
   function getOnlineClassesApiBase() {
     if (typeof API_BASE_URL !== 'undefined' && API_BASE_URL) {
       return API_BASE_URL;
@@ -3460,7 +3473,7 @@
               <div style="max-width: 800px; margin: 0 auto; width: 100%;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #27272a; padding-bottom: 12px;">
                   <div>
-                    <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: #fff;">Zoom Workplace Admin Settings</h2>
+                    <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: #fff;">EduCore Workplace Admin Settings</h2>
                     <p style="margin: 4px 0 0; font-size: 13px; color: #a1a1aa;">Manage hardware audio, video resolution and classroom policies</p>
                   </div>
                   <button onclick="window.zoomSwitchTab('home')" style="background: #27272a; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer;">← Return to Meeting</button>
@@ -3482,7 +3495,7 @@
                   </div>
 
                   <div style="padding-top: 12px; border-top: 1px solid #27272a;">
-                    <button onclick="alert('VoIP diagnostics complete: WebRTC Audio & Video pipelines operating normally.')" style="background: #0b5cff; color: white; border: none; padding: 9px 20px; border-radius: 8px; font-weight: 700; cursor: pointer;">Run VoIP Diagnostic Test</button>
+                    <button onclick="if(window.showToast) window.showToast('VoIP diagnostics complete: WebRTC Audio & Video pipelines operating normally.', 'success'); else alert('VoIP diagnostics complete: WebRTC Audio & Video pipelines operating normally.');" style="background: #0b5cff; color: white; border: none; padding: 9px 20px; border-radius: 8px; font-weight: 700; cursor: pointer;">Run VoIP Diagnostic Test</button>
                   </div>
                 </div>
               </div>
@@ -3950,33 +3963,43 @@
       }
     };
 
-    window.zoomCopyInviteLink = function() {
+    window.zoomCopyInviteLink = async function() {
       const link = 'https://tapowan-school.vercel.app/live-class/tps-zoom';
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(link).then(() => {
+        try {
+          await navigator.clipboard.writeText(link);
           showStudioToast('🔗 Meeting invite link copied to clipboard!');
-        }).catch(() => {
-          prompt('Meeting Invite Link:', link);
-        });
+          return;
+        } catch (_) {}
+      }
+      if (typeof window.appPrompt === 'function') {
+        await window.appPrompt('Meeting Invite Link:', link);
       } else {
         prompt('Meeting Invite Link:', link);
       }
     };
 
     window.zoomShowMeetingInfo = function() {
-      alert(
-        'TAPOWAN PUBLIC SCHOOL\'s Zoom Meeting\n' +
+      const info = 'TAPOWAN PUBLIC SCHOOL\'s Meeting\n' +
         '------------------------------------\n' +
         'Meeting ID: 842 9102 3844\n' +
         'Host: TAPOWAN PUBLIC SCHOOL (Admin)\n' +
         'Passcode: 2026tps\n' +
         'Invite Link: https://tapowan-school.vercel.app/live-class/tps-zoom\n' +
-        'Encryption: Enhanced 256-Bit WebRTC AES'
-      );
+        'Encryption: Enhanced 256-Bit WebRTC AES';
+      if (typeof window.appAlert === 'function') {
+        window.appAlert(info, { title: 'Classroom Meeting Info' });
+      } else {
+        alert(info);
+      }
     };
 
     window.zoomShowAiCompanion = function() {
-      alert('✨ Zoom AI Companion is active and taking real-time notes and lecture summary.');
+      if (typeof window.showToast === 'function') {
+        window.showToast('AI Companion is active and taking real-time notes and lecture summary.', 'info');
+      } else {
+        alert('AI Companion is active and taking real-time notes and lecture summary.');
+      }
     };
 
     window.zoomToggleViewLayout = function() {
@@ -4404,10 +4427,12 @@
     renderStudioSubTabContent();
   };
 
-  window.replyToStudioQuestion = function(qId) {
+  window.replyToStudioQuestion = async function(qId) {
     const q = state.qnaList.find(item => item.id === qId);
     if (!q) return;
-    const ans = prompt(`Answer question from ${q.askedBy}:\n\n"${q.question}"`);
+    const ans = typeof window.appPrompt === 'function'
+      ? await window.appPrompt(`Answer question from ${q.askedBy}:\n\n"${q.question}"`, '')
+      : prompt(`Answer question from ${q.askedBy}:\n\n"${q.question}"`);
     if (!ans || !ans.trim()) return;
     const user = getLiveAdminUser();
     const roomId = state.activeRoom?.room_id;
@@ -4437,10 +4462,14 @@
     }
   };
 
-  window.shareStudioNote = function() {
-    const title = prompt('Enter Note Title (e.g. Important Points, Formula):', 'Important Concept');
+  window.shareStudioNote = async function() {
+    const title = typeof window.appPrompt === 'function'
+      ? await window.appPrompt('Enter Note Title (e.g. Important Points, Formula):', 'Important Concept')
+      : prompt('Enter Note Title (e.g. Important Points, Formula):', 'Important Concept');
     if (title === null) return;
-    const content = prompt('Enter Note Content:', '');
+    const content = typeof window.appPrompt === 'function'
+      ? await window.appPrompt('Enter Note Content:', '')
+      : prompt('Enter Note Content:', '');
     if (!content || !content.trim()) return;
 
     const user = getLiveAdminUser();
@@ -4473,8 +4502,10 @@
     }
   };
 
-  window.broadcastStudioAnnouncement = function() {
-    const text = prompt('Broadcast Announcement to All Connected Students:\n(Shows instantly on student devices)', '');
+  window.broadcastStudioAnnouncement = async function() {
+    const text = typeof window.appPrompt === 'function'
+      ? await window.appPrompt('Broadcast Announcement to All Connected Students:\n(Shows instantly on student devices)', '')
+      : prompt('Broadcast Announcement to All Connected Students:\n(Shows instantly on student devices)', '');
     if (!text || !text.trim()) return;
 
     const user = getLiveAdminUser();
@@ -4495,15 +4526,25 @@
         })
       }).then(() => {
         showStudioToast('📢 Announcement broadcasted to all students!');
-      }).catch(err => alert('Failed to broadcast announcement: ' + err.message));
+      }).catch(err => {
+        if (typeof window.showToast === 'function') {
+          window.showToast('Failed to broadcast announcement: ' + err.message, 'error');
+        } else {
+          alert('Failed to broadcast announcement: ' + err.message);
+        }
+      });
     }
   };
 
-  window.openStudioPollCreator = function() {
-    const question = prompt('Enter Poll / Quiz Question for students:', 'Did everyone understand this concept?');
+  window.openStudioPollCreator = async function() {
+    const question = typeof window.appPrompt === 'function'
+      ? await window.appPrompt('Enter Poll / Quiz Question for students:', 'Did everyone understand this concept?')
+      : prompt('Enter Poll / Quiz Question for students:', 'Did everyone understand this concept?');
     if (!question || !question.trim()) return;
 
-    const rawOptions = prompt('Enter answer choices (comma-separated):', 'Yes perfectly, Needs revision, Have doubts');
+    const rawOptions = typeof window.appPrompt === 'function'
+      ? await window.appPrompt('Enter answer choices (comma-separated):', 'Yes perfectly, Needs revision, Have doubts')
+      : prompt('Enter answer choices (comma-separated):', 'Yes perfectly, Needs revision, Have doubts');
     if (!rawOptions || !rawOptions.trim()) return;
 
     const options = rawOptions.split(',').map((opt, idx) => ({
@@ -4513,7 +4554,11 @@
     })).filter(o => o.text.length > 0);
 
     if (options.length < 2) {
-      alert('Please provide at least 2 choices separated by commas.');
+      if (typeof window.showToast === 'function') {
+        window.showToast('Please provide at least 2 choices separated by commas.', 'warning');
+      } else {
+        alert('Please provide at least 2 choices separated by commas.');
+      }
       return;
     }
 
@@ -4633,17 +4678,27 @@
     }
   };
 
-  window.triggerStudioBreakout = function() {
+  window.triggerStudioBreakout = async function() {
     const participants = (state.activeRoom?.participants || []).filter(p => !p.isHost && p.id !== state.activeRoom?.host_id);
     if (participants.length === 0) {
-      alert('No students currently connected to split into discussion groups.');
+      if (typeof window.showToast === 'function') {
+        window.showToast('No students currently connected to split into discussion groups.', 'warning');
+      } else {
+        alert('No students currently connected to split into discussion groups.');
+      }
       return;
     }
-    const groupCount = prompt(`Connected students: ${participants.length}\nHow many breakout discussion groups would you like to form?`, '2');
+    const groupCount = typeof window.appPrompt === 'function'
+      ? await window.appPrompt(`Connected students: ${participants.length}\nHow many breakout discussion groups would you like to form?`, '2')
+      : prompt(`Connected students: ${participants.length}\nHow many breakout discussion groups would you like to form?`, '2');
     if (!groupCount) return;
     const num = parseInt(groupCount, 10);
     if (isNaN(num) || num < 2) {
-      alert('Please enter a number of groups of 2 or more.');
+      if (typeof window.showToast === 'function') {
+        window.showToast('Please enter a number of groups of 2 or more.', 'warning');
+      } else {
+        alert('Please enter a number of groups of 2 or more.');
+      }
       return;
     }
     window.broadcastStudioAnnouncement(`Teacher has formed ${num} collaborative breakout groups!`);

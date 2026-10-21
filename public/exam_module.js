@@ -3,6 +3,19 @@
   let activeExamTab = 'entry'; // 'entry', 'admit', 'result'
   const SCHOOL_NAME = "Tapowan Public School";
 
+  // Modular Alert Interceptor: routes to showToast or appAlert, eliminating native alerts
+  const alert = function(msg) {
+    if (!msg) return;
+    const str = String(msg);
+    if (typeof window.showToast === 'function') {
+      const isErr = /error|fail|cannot|denied|require|warning|please|select/i.test(str);
+      const isSuccess = /success|saved|deleted|reverted/i.test(str);
+      window.showToast(str, isErr ? 'warning' : isSuccess ? 'success' : 'info');
+    } else if (typeof window.appAlert === 'function') {
+      window.appAlert(str);
+    }
+  };
+
   const formatParentName = (name) => {
     if (!name) return '';
     const lower = String(name).trim().toLowerCase();
@@ -85,23 +98,23 @@
         body { margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         #admitPreviewContainer, #resultPreviewContainer { padding: 0 !important; gap: 0 !important; background: transparent !important; border-radius: 0 !important; min-height: auto !important; }
       }
-      #examPanel { background: transparent; padding: 0; box-shadow: none; }
-      .exam-card { background: white; border-radius: 16px; padding: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); margin-bottom: 25px; border: 1px solid #e2e8f0; }
+      #examPanel { background: transparent; padding: 0; box-shadow: none; font-family: 'Outfit', sans-serif; }
+      .exam-card { background: white; border-radius: 16px; padding: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); margin-bottom: 25px; border: 1px solid #e2e8f0; font-family: 'Outfit', sans-serif; }
       .exam-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 15px; }
       .exam-header h3 { font-size: 1.8rem; color: inherit; margin: 0; font-weight: 800; letter-spacing: -0.02em; }
       .exam-tabs { display: flex; gap: 8px; background: #f1f5f9; padding: 6px; border-radius: 12px; }
-      .exam-tab-btn { background: transparent; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; font-size: 0.95rem; color: inherit; cursor: pointer; transition: all 0.3s ease; }
-      .exam-tab-btn.active { background: white; color: inherit; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+      .exam-tab-btn { background: transparent; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; font-size: 0.95rem; color: inherit; cursor: pointer; transition: all 0.3s ease; font-family: 'Outfit', sans-serif; }
+      .exam-tab-btn.active { background: var(--brand, #1e3a8a); color: #ffffff; box-shadow: 0 2px 8px rgba(30,58,138,0.25); }
       .exam-tab-btn:hover:not(.active) { color: inherit; }
 
       .exam-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; align-items: end; }
       .exam-field label { display: block; font-size: 0.8rem; font-weight: 700; color: inherit; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
-      .exam-field select, .exam-field input { width: 100%; padding: 12px 16px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 0.95rem; background: transparent; transition: all 0.3s ease; font-weight: 500; color: inherit; box-sizing: border-box; }
-      .exam-field select:focus, .exam-field input:focus { border-color: inherit; background: white; outline: none; box-shadow: 0 0 0 4px rgba(59,130,246,0.1); }
+      .exam-field select, .exam-field input { width: 100%; padding: 12px 16px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 0.95rem; background: transparent; transition: all 0.3s ease; font-weight: 500; color: inherit; box-sizing: border-box; font-family: 'Outfit', sans-serif; }
+      .exam-field select:focus, .exam-field input:focus { border-color: var(--brand, #1e3a8a); background: white; outline: none; box-shadow: 0 0 0 4px rgba(30,58,138,0.1); }
       
-      .exam-btn { padding: 12px 24px; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; transition: all 0.3s ease; display: inline-flex; align-items: center; gap: 8px; justify-content: center; font-size: 0.95rem; }
-      .exam-btn-primary { background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; box-shadow: 0 4px 12px rgba(37,99,235,0.2); }
-      .exam-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(37,99,235,0.3); }
+      .exam-btn { padding: 12px 24px; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; transition: all 0.3s ease; display: inline-flex; align-items: center; gap: 8px; justify-content: center; font-size: 0.95rem; font-family: 'Outfit', sans-serif; }
+      .exam-btn-primary { background: var(--brand, #1e3a8a); color: white; box-shadow: 0 4px 12px rgba(30,58,138,0.25); }
+      .exam-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(30,58,138,0.35); }
       .exam-btn-secondary { background: #f1f5f9; color: inherit; }
       .exam-btn-secondary:hover { background: #e2e8f0; color: inherit; }
 
@@ -859,7 +872,7 @@
 
     if (newIsMain) {
       btn.className = 'sub-role-toggle role-main';
-      btn.innerHTML = '⭐ Main';
+      btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:2px;">star</span>Main';
       btn.title = 'Main Subject: CBSE Pattern with PA1 (10) + NB (5) + Enr (5) + Theory (80) = 100';
       if (row && row.classList.contains('cbse-mode')) {
         const paInp = row.querySelector('.sub-pa');
@@ -1004,8 +1017,8 @@
                 </select>
               </div>
               <div style="display:flex; gap:6px; background:#e2e8f0; padding:3px; border-radius:8px;">
-                <button type="button" class="rule-btn rule-btn-main ${isMain ? 'active' : ''}" onclick="window.setRuleSubjectType(this, 'main')" style="padding:6px 14px; border:none; border-radius:6px; font-weight:800; font-size:0.8rem; cursor:pointer; transition:all 0.2s; background:${isMain ? '#2563eb' : 'transparent'}; color:${isMain ? '#ffffff' : '#64748b'};">⭐ Main</button>
-                <button type="button" class="rule-btn rule-btn-additional ${!isMain ? 'active' : ''}" onclick="window.setRuleSubjectType(this, 'additional')" style="padding:6px 14px; border:none; border-radius:6px; font-weight:800; font-size:0.8rem; cursor:pointer; transition:all 0.2s; background:${!isMain ? '#d97706' : 'transparent'}; color:${!isMain ? '#ffffff' : '#64748b'};">➕ Additional</button>
+                <button type="button" class="rule-btn rule-btn-main ${isMain ? 'active' : ''}" onclick="window.setRuleSubjectType(this, 'main')" style="padding:6px 14px; border:none; border-radius:6px; font-weight:800; font-size:0.8rem; cursor:pointer; transition:all 0.2s; background:${isMain ? '#2563eb' : 'transparent'}; color:${isMain ? '#ffffff' : '#64748b'}; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">star</span>Main</button>
+                <button type="button" class="rule-btn rule-btn-additional ${!isMain ? 'active' : ''}" onclick="window.setRuleSubjectType(this, 'additional')" style="padding:6px 14px; border:none; border-radius:6px; font-weight:800; font-size:0.8rem; cursor:pointer; transition:all 0.2s; background:${!isMain ? '#d97706' : 'transparent'}; color:${!isMain ? '#ffffff' : '#64748b'}; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">add_circle</span>Additional</button>
               </div>
             </div>
           </div>
@@ -1016,7 +1029,7 @@
         <div style="margin-bottom:18px;">
           <label style="display:block; font-size:0.8rem; font-weight:800; color:#475569; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;">Select Target Class</label>
           <select id="rulesClassDropdown" style="width:100%; padding:10px 14px; border:2px solid #cbd5e1; border-radius:10px; font-size:0.95rem; font-weight:700; background:#ffffff;">
-            <option value="all" ${selectedClass === 'all' ? 'selected' : ''}>🌟 All Classes (Global Default Rules)</option>
+            <option value="all" ${selectedClass === 'all' ? 'selected' : ''}>All Classes (Global Default Rules)</option>
             ${allClasses.map(c => `<option value="${c}" ${selectedClass === c ? 'selected' : ''}>Class: ${c}</option>`).join('')}
           </select>
         </div>
@@ -1026,8 +1039,8 @@
             <span class="material-symbols-outlined" style="font-size:18px;">info</span>
             Subject Configuration & Maximum Marks:
           </div>
-          <div>• <strong>⭐ Main Subjects</strong>: Academic core subjects deciding Pass or Fail (score &ge; 33% required).</div>
-          <div style="margin-top:2px;">• <strong>➕ Additional Subjects</strong>: Non-failing subjects (e.g. Moral Science, Computer, Drawing). Low marks never fail a student!</div>
+          <div>• <strong>Main Subjects</strong>: Academic core subjects deciding Pass or Fail (score &ge; 33% required).</div>
+          <div style="margin-top:2px;">• <strong>Additional Subjects</strong>: Non-failing subjects (e.g. Moral Science, Computer, Drawing). Low marks never fail a student!</div>
           <div style="margin-top:2px;">• <strong>Max Marks</strong>: Set standard scale (100, 50, etc.). 50-mark subjects auto-scale passing marks to 17.</div>
         </div>
 
@@ -1129,8 +1142,8 @@
                 </select>
               </div>
               <div style="display:flex; gap:6px; background:#e2e8f0; padding:3px; border-radius:8px;">
-                <button type="button" class="rule-btn rule-btn-main ${isMain ? 'active' : ''}" onclick="window.setRuleSubjectType(this, 'main')" style="padding:6px 14px; border:none; border-radius:6px; font-weight:800; font-size:0.8rem; cursor:pointer; transition:all 0.2s; background:${isMain ? '#2563eb' : 'transparent'}; color:${isMain ? '#ffffff' : '#64748b'};">⭐ Main</button>
-                <button type="button" class="rule-btn rule-btn-additional ${!isMain ? 'active' : ''}" onclick="window.setRuleSubjectType(this, 'additional')" style="padding:6px 14px; border:none; border-radius:6px; font-weight:800; font-size:0.8rem; cursor:pointer; transition:all 0.2s; background:${!isMain ? '#d97706' : 'transparent'}; color:${!isMain ? '#ffffff' : '#64748b'};">➕ Additional</button>
+                <button type="button" class="rule-btn rule-btn-main ${isMain ? 'active' : ''}" onclick="window.setRuleSubjectType(this, 'main')" style="padding:6px 14px; border:none; border-radius:6px; font-weight:800; font-size:0.8rem; cursor:pointer; transition:all 0.2s; background:${isMain ? '#2563eb' : 'transparent'}; color:${isMain ? '#ffffff' : '#64748b'}; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">star</span>Main</button>
+                <button type="button" class="rule-btn rule-btn-additional ${!isMain ? 'active' : ''}" onclick="window.setRuleSubjectType(this, 'additional')" style="padding:6px 14px; border:none; border-radius:6px; font-weight:800; font-size:0.8rem; cursor:pointer; transition:all 0.2s; background:${!isMain ? '#d97706' : 'transparent'}; color:${!isMain ? '#ffffff' : '#64748b'}; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">add_circle</span>Additional</button>
               </div>
             </div>
           `;
@@ -1725,7 +1738,7 @@
     if(exams.length === 0) {
       container.innerHTML = `
          <div class="empty-state">
-           <i>📋</i>
+           <span class="material-symbols-outlined" style="font-size:44px;color:#94a3b8;display:block;margin:0 auto 12px;">assignment</span>
            <h4>Ready to enter marks</h4>
            <p>Select a class and click "Load Students" to begin.</p>
          </div>
@@ -1752,8 +1765,8 @@
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px;">
             <h4 style="margin:0; color: inherit; font-size:1.1rem;">Previous Marks Entries</h4>
         </div>
-        <div style="overflow-x:auto;">
-          <table style="width:100%; border-collapse: collapse; text-align: left; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+        <div class="table-wrap exam-table-wrap" style="overflow-x:auto; width:100%;">
+          <table style="width:100%; min-width:880px; border-collapse: collapse; text-align: left; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-family:'Outfit',sans-serif;">
             <thead style="background: #f1f5f9; color: #475569; font-size: 0.9rem;">
               <tr>
                 <th style="padding: 12px 15px; font-weight: 600;">Class</th>
@@ -1928,7 +1941,8 @@
           </button>
         ` : ''}
       </div>
-      <table class="exam-data-table">
+      <div class="table-wrap exam-table-wrap" style="width:100%; overflow-x:auto;">
+        <table class="exam-data-table" style="min-width:680px; width:100%;">
         <thead>
           <tr>
             <th style="width:80px;">Roll No</th>
@@ -1981,7 +1995,7 @@
       `;
     });
 
-    html += `</tbody></table>`;
+    html += `</tbody></table></div>`;
     container.innerHTML = html;
   }
 
@@ -2507,7 +2521,7 @@
           statusReasonEl.textContent = "★ All Main Subjects Passed (Additional subjects exempt)";
           statusReasonEl.style.color = "#86efac";
         } else if (resultStatus === "PENDING") {
-          statusReasonEl.textContent = "⏳ " + (evalRes.pendingReason || "Awaiting complete subject evaluation");
+          statusReasonEl.textContent = "⏱ " + (evalRes.pendingReason || "Awaiting complete subject evaluation");
           statusReasonEl.style.color = "#fcd34d";
         } else {
           const failedNames = evalRes.failedMainSubjects.map(f => f.subject).join(", ");
@@ -2822,8 +2836,8 @@
       
       <div style="margin-top: 40px;">
         <h4 style="margin:0 0 15px 0; color: inherit; font-size:1.1rem; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px;">Saved Schedules</h4>
-        <div style="overflow-x:auto;">
-          <table style="width:100%; border-collapse: collapse; text-align: left; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+        <div class="table-wrap exam-table-wrap" style="overflow-x:auto; width:100%;">
+          <table style="width:100%; min-width:880px; border-collapse: collapse; text-align: left; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-family:'Outfit',sans-serif;">
             <thead style="background: #f1f5f9; color: #475569; font-size: 0.9rem;">
               <tr>
                 <th style="padding: 12px 15px; font-weight: 600;">Class</th>
@@ -5738,7 +5752,7 @@ function generateDynamicMarksheet(exam, themeId, config) {
                 <style>@media print { .ai-remark-btn { display: none !important; } }</style>
                 <div style="font-size: 12px; display: flex; align-items: flex-end;">
                     <span style="font-weight: bold; margin-right: 10px;">Remark:</span>
-                    <button class="ai-remark-btn" contenteditable="false" onclick="generateAIRemark(this)" data-student="${exam.studentName}" data-grade="${exam.grade}" data-perc="${exam.percentage}" style="margin-right: 10px; cursor:pointer; background:#8b5cf6; color:white; border:none; border-radius:4px; padding:3px 8px; font-size:10px; display:inline-flex; align-items:center; gap:3px;">✨ AI Remark</button>
+                    <button class="ai-remark-btn" contenteditable="false" onclick="generateAIRemark(this)" data-student="${exam.studentName}" data-grade="${exam.grade}" data-perc="${exam.percentage}" style="margin-right: 10px; cursor:pointer; background:#1e3a8a; color:white; border:none; border-radius:4px; padding:3px 8px; font-size:10px; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:12px;">smart_toy</span> AI Remark</button>
                     <span class="ai-remark-target" style="flex: 1; border-bottom: 1px solid #000; height: 18px; outline:none;" contenteditable="true"></span>
                 </div>
             </div>
@@ -6175,13 +6189,13 @@ function getMarksheetHtml(exam, theme, config) {
             Showing all students
           </span>
           <button id="resultPrintBtn" class="exam-btn exam-btn-secondary" style="height:40px; display:inline-flex; align-items:center; gap:6px; font-weight:700; white-space:nowrap; padding:0 16px;">
-            🖨️ Print Results
+            <span class="material-symbols-outlined" style="font-size:18px;">print</span> Print Results
           </button>
         </div>
       </div>
       <div id="resultPreviewContainer" contenteditable="true" style="outline:none; background:#e2e8f0; padding:40px 20px; border-radius:12px; min-height:300px; display:flex; flex-direction:column; align-items:center; gap:40px;">
          <div class="empty-state">
-           <i>📊</i>
+           <span class="material-symbols-outlined" style="font-size:44px;color:#94a3b8;display:block;margin:0 auto 12px;">bar_chart</span>
            <h4>Ready to generate</h4>
            <p>Select criteria and click Generate to view marksheets.</p>
          </div>
@@ -7930,7 +7944,7 @@ window.generateAIRemark = async function(btn) {
     if (!targetSpan) return;
     
     const originalText = btn.innerHTML;
-    btn.innerHTML = '⏳ Generating...';
+    btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:2px;">hourglass_top</span> Generating...';
     btn.disabled = true;
     
     try {

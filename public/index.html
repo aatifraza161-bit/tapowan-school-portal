@@ -46,7 +46,6 @@
   <!-- PWA Setup -->
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#1e293b" />
-  <link rel="apple-touch-icon" href="logo.png" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -535,6 +534,10 @@
 
               <!-- Menu Actions -->
               <div style="padding:6px;">
+                <button type="button" id="educoreSettingsBtn" onclick="if(window.openEduCoreSettingsModal) window.openEduCoreSettingsModal();" style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 14px;border:none;background:transparent;color:#334155;border-radius:10px;font-weight:700;font-size:0.86rem;cursor:pointer;text-align:left;transition:all 0.15s;margin-bottom:2px;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+                  <span class="material-symbols-outlined" style="font-size:18px;color:#1e3a8a;">settings</span>
+                  EduCore Workplace Settings
+                </button>
                 <button type="button" id="logoutBtn" style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 14px;border:none;background:transparent;color:#dc2626;border-radius:10px;font-weight:700;font-size:0.86rem;cursor:pointer;text-align:left;transition:all 0.15s;" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='transparent'">
                   <span class="material-symbols-outlined" style="font-size:18px;color:#dc2626;">logout</span>
                   Logout
@@ -1284,8 +1287,6 @@
 
   <script src="vendor/jspdf.umd.min.js" defer></script>
   <script src="vendor/jspdf.plugin.autotable.min.js" defer></script>
-  <script src="vendor/chart.umd.min.js" defer></script>
-  <script src="vendor/xlsx.full.min.js" defer></script>
   <script src="vendor/tom-select.complete.min.js" defer></script>
   <script src="vendor/html2canvas.min.js" defer></script>
   <script src="vendor/jszip.min.js" defer></script>
@@ -1301,13 +1302,11 @@
     }
   </script>
   <!-- Pure 512-D ArcFace InsightFace GPU Engine -->
-  <script src="https://cdn.lordicon.com/lordicon.js" defer></script>
-  <script src="slip-templates.js?v=202610161235" defer></script>
-  <script src="app.js?v=202610202325" defer></script>
-  <script src="exam_module.js?v=202610202325" defer></script>
-  <script src="reports_module.js?v=202610161235" defer></script>
-  <script src="online_classes_module.js?v=202610202325" defer></script>
-  <script src="online_payments_module.js?v=202610202325" defer></script>
+  <script src="app.js?v=202610210830" defer></script>
+  <script src="exam_module.js?v=202610210830" defer></script>
+  <script src="reports_module.js?v=202610210830" defer></script>
+  <script src="online_classes_module.js?v=202610210830" defer></script>
+  <script src="online_payments_module.js?v=202610210830" defer></script>
   
   <!-- Register PWA Service Worker -->
   <script>
