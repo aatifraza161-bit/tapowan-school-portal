@@ -4733,13 +4733,44 @@ function startGenericEditById(moduleName, recordId) {
       // Dispatch change events after all values are set, so auto-fill doesn't get overwritten
       toDispatch.forEach(el => el.dispatchEvent(new Event("change")));
 
-      // Special handling to preserve totalFee/paidAmount for fees module edits
+      // Special handling to preserve totalFee/paidAmount & pre-tick checkboxes for fees module edits
       if (moduleName === "fees") {
         setTimeout(() => {
           const totalFeeInput = refs.dynamicForm.querySelector("[name='totalFee']");
           const paidInput = refs.dynamicForm.querySelector("[name='paidAmount']");
           const balanceInput = refs.dynamicForm.querySelector("[name='balance']");
           
+          // Pre-tick month selector checkboxes matching record.month
+          if (record.month) {
+            const months = String(record.month).split(',').map(m => m.trim().toLowerCase());
+            refs.dynamicForm.querySelectorAll("#bd-month-selector input[type='checkbox']").forEach(cb => {
+              if (months.includes(cb.value.toLowerCase())) {
+                cb.checked = true;
+              }
+            });
+          }
+
+          // Pre-tick fee component checkboxes matching existing record fees
+          refs.dynamicForm.querySelectorAll("#bd-monthly-fee-input input[name='bd-monthly-fee-checkbox']").forEach(cb => {
+            const label = (cb.dataset.label || "").trim().toLowerCase();
+            const isTuition = label.includes("tuition") && parseFloat(record.tuitionFee || 0) > 0;
+            const isAdmission = label.includes("admission") && parseFloat(record.admissionFee || 0) > 0;
+            const isComputer = label.includes("computer") && parseFloat(record.computerFee || 0) > 0;
+            const isTransport = label.includes("transport") && parseFloat(record.transportFee || 0) > 0;
+            const isHostel = label.includes("hostel") && parseFloat(record.hostelFee || 0) > 0;
+            const isExam = label.includes("exam") && parseFloat(record.examFee || 0) > 0;
+            const isLate = label.includes("late") && parseFloat(record.lateFee || 0) > 0;
+            const isDevelopment = label.includes("development") && parseFloat(record.developmentFee || 0) > 0;
+            const isLab = label.includes("lab") && parseFloat(record.labFee || 0) > 0;
+            const isSports = label.includes("sports") && parseFloat(record.sportsFee || 0) > 0;
+            const isLibrary = label.includes("library") && parseFloat(record.libraryFee || 0) > 0;
+
+            if (isTuition || isAdmission || isComputer || isTransport || isHostel || isExam || isLate || isDevelopment || isLab || isSports || isLibrary) {
+              cb.checked = true;
+              if (cb.closest("label")) cb.closest("label").style.background = "#eff6ff";
+            }
+          });
+
           // If the form recalculated to 0 but the record had a value (e.g. Pending mobile payments), restore it
           if (totalFeeInput && parseFloat(totalFeeInput.value) === 0 && record.totalFee) {
             totalFeeInput.value = record.totalFee;
@@ -12102,7 +12133,16 @@ refs.dynamicForm.addEventListener("submit", async (e) => {
           const fieldKey = FEE_LABEL_MAP[label.toLowerCase()] || "otherFee";
           feeAccum[fieldKey] = (feeAccum[fieldKey] || 0) + amt;
         });
-        Object.entries(feeAccum).forEach(([k, v]) => { payload[k] = String(v); });
+        // Set accumulated values; if editing, retain untouched existing components
+        feeComponentKeys.forEach(k => {
+          if (feeAccum[k] !== undefined) {
+            payload[k] = String(feeAccum[k]);
+          } else if (isEditingFee && existingFee && existingFee[k] && parseFloat(existingFee[k]) > 0) {
+            payload[k] = String(existingFee[k]);
+          } else {
+            payload[k] = "";
+          }
+        });
         payload.feeTypes = checkedFeeBoxes.map(cb => cb.dataset.label || "School Fee").join(", ");
       }
 
@@ -12265,11 +12305,8 @@ refs.dynamicForm.addEventListener("submit", async (e) => {
       await addRecord(currentModule, payload);
     }
 
-    // ── Post-Save: Dues reconciliation (handled atomically server-side) ──
-    if (currentModule === "fees" && (appliedDueMgmtIds.length > 0 || appliedFeeIds.length > 0)) {
-      for (const id of appliedFeeIds) {
-        try { await api(`/api/modules/fees/${id}`, { method: "PUT", body: JSON.stringify({ balance: "0", status: "Merged", remarks: "Merged into new receipt" }) }); } catch (err) {}
-      }
+    // ── Post-Save: Dues reconciliation is handled atomically on the server ──
+    if (currentModule === "fees") {
       appliedDueMgmtAmount = 0;
       appliedDueMgmtParticulars = "";
       appliedDueMgmtIds = [];
@@ -18236,12 +18273,13 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
             const isTuition = (f.feeType || "").toLowerCase().includes("tuition") || (f.feeType || "").toLowerCase().includes("monthly fee");
             let amt = parseFloat(f.amount) || 0;
             if (isTuition) {
-              if (student.monthlyFee && parseFloat(student.monthlyFee) >= 0) {
-                amt = parseFloat(student.monthlyFee);
-              } else if (discountAmt > 0) {
-                amt = Math.max(0, amt - discountAmt);
+              let baseAmt = (student.monthlyFee && parseFloat(student.monthlyFee) >= 0)
+                ? parseFloat(student.monthlyFee)
+                : (parseFloat(f.amount) || 0);
+              if (discountAmt > 0) {
+                baseAmt = Math.max(0, baseAmt - discountAmt);
               }
-              return { ...f, amount: amt };
+              return { ...f, amount: baseAmt };
             }
             if ((f.feeType || "").toLowerCase().includes("transport") && student.transportFee && parseFloat(student.transportFee) > 0) {
               return { ...f, amount: parseFloat(student.transportFee) };
@@ -20692,26 +20730,35 @@ async function renderDueManagementForm(cfg, studentOptions, classOptions, initia
   formRefs.remarks = remarksField.querySelector("input");
   row3.appendChild(remarksField);
   
-  // Row 4: Financials
+  // Row 4: Financials & Payment Method
   const row4 = document.createElement("div");
-  row4.className = "due-form-row four-cols";
-  ["dueAmount", "paidAmount", "balance", "status"].forEach(fn => {
+  row4.className = "due-form-row";
+  row4.style.cssText = "display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-bottom: 16px;";
+  ["dueAmount", "paidAmount", "balance", "status", "paymentMethod"].forEach(fn => {
     const field = document.createElement("div");
     field.className = "field";
     const label = document.createElement("label");
     label.textContent = toLabel(fn);
-    const input = (fn === "status") ? document.createElement("select") : document.createElement("input");
+    let input;
     
     if (fn === "status") {
+      input = document.createElement("select");
       input.innerHTML = `<option value="Pending">Pending</option><option value="Partial">Partial</option><option value="Paid">Paid</option><option value="Advance">Advance</option>`;
       input.disabled = true;
       input.style.background = "#f1f5f9";
+    } else if (fn === "paymentMethod") {
+      input = document.createElement("select");
+      input.innerHTML = `<option value="Cash">Cash</option><option value="Online">Online / UPI</option><option value="Cheque">Cheque</option><option value="Bank Transfer">Bank Transfer</option>`;
+      input.value = initialValues.paymentMethod || "Cash";
     } else {
+      input = document.createElement("input");
       input.type = "number";
     }
     
     input.name = fn;
-    input.value = initialValues[fn] || (fn === "status" ? "Pending" : "0");
+    if (fn !== "paymentMethod") {
+      input.value = initialValues[fn] || (fn === "status" ? "Pending" : "0");
+    }
     if (fn === "balance") { input.readOnly = true; input.style.background = "#fff7ed"; input.style.fontWeight = "bold"; }
     
     formRefs[fn] = input;

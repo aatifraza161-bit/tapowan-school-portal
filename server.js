@@ -4195,10 +4195,7 @@ app.post("/api/modules/:moduleName", authRequired, async (req, res) => {
             const parsedFeeIds = typeof payload.consolidatedFeeIds === 'string' ? JSON.parse(payload.consolidatedFeeIds) : payload.consolidatedFeeIds;
             if (Array.isArray(parsedFeeIds) && parsedFeeIds.length > 0) {
               for (const fId of parsedFeeIds) {
-                await runRaw("UPDATE fees SET balance = '0', status = 'Merged', remarks = ? WHERE id = ?", [
-                  `Merged into Fee Receipt #${row.id}`,
-                  fId
-                ]);
+                await runRaw("UPDATE fees SET balance = '0', status = 'Merged' WHERE id = ?", [fId]);
               }
             }
           } catch(fMergeErr) {
