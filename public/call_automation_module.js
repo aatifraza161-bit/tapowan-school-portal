@@ -613,16 +613,9 @@
       mediaSource.connect(audioDestination);
       mediaSource.connect(activeAudioContext.destination); // Operator can monitor call audio locally
 
-      // When audio finishes playing: wait for keypress or replay
+      // When audio finishes playing: line remains active until the recipient cuts the call
       audioEl.onended = () => {
-        updateHudStatus("Reminder Completed • Waiting for Keypress [ 1 ]...", "#38bdf8");
-        // Give 8 seconds for recipient to press 1 before completing call
-        setTimeout(() => {
-          if (activePeerConnection && !currentCallStudent?.keyOneReceived) {
-            updateHudStatus("Call Finished", "#94a3b8");
-            setTimeout(cleanupCall, 2500);
-          }
-        }, 8000);
+        updateHudStatus("Reminder Completed • Line Active (Press 1 or Hang Up)", "#38bdf8");
       };
 
       // 7. Start polling for remote answer
@@ -752,10 +745,8 @@
         console.warn('Keypress dispatch error:', err);
       }
 
-      // Automatically wrap up call smoothly after 6 seconds
-      setTimeout(() => {
-        cleanupCall();
-      }, 6000);
+      // Line remains active until the recipient cuts the call or operator ends call
+      updateHudStatus("✅ Key 1 Confirmed • Payment Sent • Line Active", "#10b981");
     }
   }
 
