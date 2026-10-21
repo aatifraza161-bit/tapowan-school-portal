@@ -584,7 +584,7 @@ function normalizeRow(moduleName, row) {
     row.paidAmount = String(row.paidamount ?? row.paidAmount ?? "0");
     row.balance = String(row.balance ?? "0");
     row.payId = row.payid ?? row.payId ?? "";
-    row.status = row.status ?? "Unpaid";
+    row.status = (row.status === "Unpaid" || !row.status) ? "Pending" : row.status;
     row.session = row.session ?? "";
     row.month = row.month ?? "";
     row.particulars = row.particulars ?? "";

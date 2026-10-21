@@ -10,6 +10,17 @@
   let pendingFilterText = '';
   let pendingClassFilter = 'All';
 
+  async function fetchWithAuth(url, opts = {}) {
+    if (typeof window.api === 'function') {
+      return window.api(url, opts);
+    }
+    const token = localStorage.getItem('token');
+    const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    const res = await fetch(url, { credentials: 'include', ...opts, headers });
+    return res.json();
+  }
+
   /**
    * Main workspace renderer invoked when currentModule === 'onlinePayments'
    */
@@ -118,11 +129,10 @@
     if (!tableContainer) return;
 
     try {
-      const res = await fetch('/api/online-payments/pending');
-      const data = await res.json();
+      const data = await fetchWithAuth('/api/online-payments/pending');
 
-      if (!data.ok) {
-        tableContainer.innerHTML = `<div style="padding:30px; text-align:center; color:#ef4444; font-weight:600;">Error: ${data.error || 'Failed to load requests'}</div>`;
+      if (!data || !data.ok) {
+        tableContainer.innerHTML = `<div style="padding:30px; text-align:center; color:#ef4444; font-weight:600;">Error: ${(data && data.error) || 'Failed to load requests'}</div>`;
         return;
       }
 
@@ -305,15 +315,13 @@
     if (!confirmed) return;
 
     try {
-      const res = await fetch('/api/online-payments/approve', {
+      const data = await fetchWithAuth('/api/online-payments/approve', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ paymentId })
       });
-      const data = await res.json();
 
-      if (!data.ok) {
-        alert(`Approval Failed: ${data.error || 'Server error'}`);
+      if (!data || !data.ok) {
+        alert(`Approval Failed: ${(data && data.error) || 'Server error'}`);
         return;
       }
 
@@ -337,15 +345,13 @@
     if (reason === null) return; // user cancelled
 
     try {
-      const res = await fetch('/api/online-payments/reject', {
+      const data = await fetchWithAuth('/api/online-payments/reject', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ paymentId, remarks: reason })
       });
-      const data = await res.json();
 
-      if (!data.ok) {
-        alert(`Rejection Failed: ${data.error || 'Server error'}`);
+      if (!data || !data.ok) {
+        alert(`Rejection Failed: ${(data && data.error) || 'Server error'}`);
         return;
       }
 

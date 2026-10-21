@@ -1492,6 +1492,7 @@ async function api(path, options = {}) {
   }
   return response.json();
 }
+window.api = api;
 
 async function warmupBackend() {
   if (!API_BASE_URL) return;
@@ -4461,23 +4462,52 @@ function renderStudentProfile() {
     const store = getStore();
     const academicOrder = ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"];
     const targetAdm = String(student.admissionNo || "").trim().toLowerCase();
-    const fees = (store.fees || []).filter((f) => Boolean(targetAdm && String(f.admissionNo || "").trim().toLowerCase() === targetAdm));
+    const fees = (store.fees || []).filter((f) => Boolean(targetAdm && String(f.admissionNo || "").trim().toLowerCase() === targetAdm && String(f.status || "").toLowerCase() !== "merged"));
     
     const rows = academicOrder.map(m => {
-       // Filter records where the month string contains this specific month name
-       const monthRecord = fees.find(f => String(f.month).includes(m));
-       let total = parseFloat(monthRecord?.totalFee) || 0;
-       let paid  = parseFloat(monthRecord?.paidAmount) || 0;
-       let bal   = parseFloat(monthRecord?.balance) || 0;
-       const status = monthRecord?.status || "Pending";
-       
-       if (monthRecord && typeof monthRecord.month === 'string') {
-           const numMonths = monthRecord.month.split(',').map(s => s.trim()).filter(Boolean).length;
+       const matchingFees = fees.filter(f => {
+         const mList = String(f.month || "").split(",").map(s => s.trim().toLowerCase());
+         return mList.includes(m.toLowerCase()) || String(f.month || "").toLowerCase().includes(m.toLowerCase());
+       });
+
+       let total = 0;
+       let paid = 0;
+       let bal = 0;
+       let status = "Pending";
+
+       if (matchingFees.length > 0) {
+         matchingFees.forEach(rec => {
+           const monthsInRec = String(rec.month || "").split(",").map(s => s.trim()).filter(Boolean);
+           const numMonths = Math.max(1, monthsInRec.length);
+
+           const recTotal = parseFloat(rec.totalFee) || 0;
+           const recPaid = parseFloat(rec.paidAmount) || 0;
+           const recBal = parseFloat(rec.balance) || 0;
+           const admissionFee = parseFloat(rec.admissionFee) || 0;
+           const examFee = parseFloat(rec.examFee) || 0;
+
            if (numMonths > 1) {
-               total = total / numMonths;
-               paid = paid / numMonths;
-               bal = bal / numMonths;
+             const isFirstMonth = monthsInRec[0].toLowerCase() === m.toLowerCase();
+             const oneTimeCharges = isFirstMonth ? (admissionFee + examFee) : 0;
+             const recurringCharges = Math.max(0, recTotal - admissionFee - examFee) / numMonths;
+             total += (recurringCharges + oneTimeCharges);
+             paid += (recPaid / numMonths);
+             bal += (recBal / numMonths);
+           } else {
+             total += recTotal;
+             paid += recPaid;
+             bal += recBal;
            }
+         });
+
+         bal = Math.round(bal * 100) / 100;
+         total = Math.round(total * 100) / 100;
+         paid = Math.round(paid * 100) / 100;
+
+         if (bal <= 0 && paid > 0) status = "Paid";
+         else if (paid > 0 && bal > 0) status = "Partial";
+         else if (paid === 0 && total > 0) status = "Pending";
+         else status = matchingFees[matchingFees.length - 1].status || "Paid";
        }
        
        const statusColor = status.toLowerCase()==='paid'?'#16a34a':status.toLowerCase()==='partial'?'#d97706':'#dc2626';
@@ -5074,11 +5104,11 @@ async function addRecord(moduleName, formData) {
       record.paymentDate = todayStr();
     }
     // Only set balance/status if not already correctly set by form submit handler
-    if (!record.balance || record.balance === "0") {
-      record.balance = String(Math.max(0, balance));
+    if (record.balance === undefined || record.balance === "") {
+      record.balance = String(balance);
     }
     if (!record.status) {
-      record.status = balance <= 0 ? "Paid" : paid > 0 ? "Partial" : "Pending";
+      record.status = balance < 0 ? "Advance" : balance === 0 ? "Paid" : paid > 0 ? "Partial" : "Pending";
     }
   }
   if (moduleName === "users") {
@@ -5226,13 +5256,15 @@ window.getClassWiseFeeStats = function(store) {
 
   // Aggregate fees table (Fee receipts & outstanding balances)
   fees.forEach(f => {
+    const st = String(f.status || '').toLowerCase();
+    if (st === 'merged') return; // Skip merged records to prevent double-counting in billed total
+
     const adm = f.admissionNo || f.admissionno;
     let cls = f.className || f.classname;
     if (!cls && adm) cls = studentClassMap[String(adm).trim().toLowerCase()];
     const entry = getClsEntry(cls);
     const bal = Number(f.balance || 0);
     const paid = Number(f.paidAmount || f.paidamount || 0);
-    const st = String(f.status || '').toLowerCase();
     const isUnpaid = st !== 'paid' && bal > 0;
 
     if (isUnpaid) {
@@ -12029,30 +12061,50 @@ refs.dynamicForm.addEventListener("submit", async (e) => {
         "exam":            "examFee",
         "late fee":        "lateFee",
         "late fine":       "lateFee",
+        "transport fee":   "transportFee",
+        "transport":       "transportFee",
+        "transpot fee":    "transportFee",
+        "hostel fee":      "hostelFee",
+        "hostel":          "hostelFee",
         "activity fee":    "otherFee",
         "activity":        "otherFee",
       };
       
-      ["tuitionFee","admissionFee","computerFee","developmentFee","labFee","sportsFee","libraryFee","examFee","lateFee","otherFee"].forEach(k => { payload[k] = ""; });
-      const feeAccum = {};
-      const monthContainer = formEl.querySelector("#bd-month-selector");
-      const checkedMonths = Array.from(monthContainer?.querySelectorAll("input[type='checkbox']:checked") || []).map(i => i.value);
-      const monthCount = Math.max(1, checkedMonths.length);
-      payload.month = checkedMonths.join(", ");
+      const feeComponentKeys = ["tuitionFee","admissionFee","computerFee","developmentFee","labFee","sportsFee","libraryFee","examFee","lateFee","transportFee","hostelFee","otherFee"];
+      const isEditingFee = editRecordId != null && Number(editRecordId) > 0;
+      const existingFee = isEditingFee ? (store.fees || []).find(f => String(f.id) === String(editRecordId)) : null;
 
-      checkedFeeBoxes.forEach(cb => {
-        const label = (cb.dataset.label || "").trim();
-        const baseAmt = parseFloat(cb.value) || 0;
-        const isMonthlyTerm = (cb.dataset.term || "").toLowerCase().includes("month");
-        const isTuition = label.toLowerCase().includes("tuition");
-        const isMonthlyRecurring = isTuition || isMonthlyTerm;
-        const qty = parseInt(cb.dataset.qty || "1", 10);
-        const amt = isMonthlyRecurring ? baseAmt * monthCount : baseAmt * qty;
-        const fieldKey = FEE_LABEL_MAP[label.toLowerCase()] || "otherFee";
-        feeAccum[fieldKey] = (feeAccum[fieldKey] || 0) + amt;
-      });
-      Object.entries(feeAccum).forEach(([k, v]) => { payload[k] = String(v); });
-      payload.feeTypes = checkedFeeBoxes.map(cb => cb.dataset.label || "School Fee").join(", ");
+      if (isEditingFee && checkedFeeBoxes.length === 0 && existingFee) {
+        // Retain existing breakdown when editing receipt without modifying fee checkboxes
+        payload.monthlyFee = existingFee.monthlyFee != null ? String(existingFee.monthlyFee) : payload.monthlyFee;
+        payload.monthlyFeeLabel = existingFee.monthlyFeeLabel != null ? String(existingFee.monthlyFeeLabel) : payload.monthlyFeeLabel;
+        payload.feeTypes = existingFee.feeTypes != null ? String(existingFee.feeTypes) : payload.feeTypes;
+        if (!payload.month && existingFee.month) payload.month = existingFee.month;
+        feeComponentKeys.forEach(k => {
+          payload[k] = existingFee[k] != null ? String(existingFee[k]) : "";
+        });
+      } else {
+        feeComponentKeys.forEach(k => { payload[k] = ""; });
+        const feeAccum = {};
+        const monthContainer = formEl.querySelector("#bd-month-selector");
+        const checkedMonths = Array.from(monthContainer?.querySelectorAll("input[type='checkbox']:checked") || []).map(i => i.value);
+        const monthCount = Math.max(1, checkedMonths.length);
+        if (checkedMonths.length > 0) payload.month = checkedMonths.join(", ");
+
+        checkedFeeBoxes.forEach(cb => {
+          const label = (cb.dataset.label || "").trim();
+          const baseAmt = parseFloat(cb.value) || 0;
+          const isMonthlyTerm = (cb.dataset.term || "").toLowerCase().includes("month");
+          const isTuition = label.toLowerCase().includes("tuition");
+          const isMonthlyRecurring = isTuition || isMonthlyTerm;
+          const qty = parseInt(cb.dataset.qty || "1", 10);
+          const amt = isMonthlyRecurring ? baseAmt * monthCount : baseAmt * qty;
+          const fieldKey = FEE_LABEL_MAP[label.toLowerCase()] || "otherFee";
+          feeAccum[fieldKey] = (feeAccum[fieldKey] || 0) + amt;
+        });
+        Object.entries(feeAccum).forEach(([k, v]) => { payload[k] = String(v); });
+        payload.feeTypes = checkedFeeBoxes.map(cb => cb.dataset.label || "School Fee").join(", ");
+      }
 
       const selectedItems = [];
       formEl.querySelectorAll(".bd-item-checkbox:checked").forEach(cb => {
@@ -12067,6 +12119,33 @@ refs.dynamicForm.addEventListener("submit", async (e) => {
 
       const total = parseFloat(payload.totalFee) || 0;
       const paid  = parseFloat(payload.paidAmount) || 0;
+      if (total < 0 || paid < 0) {
+        showToast("Fee amounts cannot be negative.", "error");
+        return;
+      }
+      if (total <= 0 && paid <= 0) {
+        showToast("Receipt amount must be greater than zero.", "error");
+        return;
+      }
+
+      // Check if student already has a non-merged receipt for this month
+      if (editRecordId == null && payload.admissionNo && payload.month) {
+        const studentFees = (store.fees || []).filter(f => 
+          String(f.admissionNo || '').trim().toLowerCase() === String(payload.admissionNo).trim().toLowerCase() &&
+          String(f.status || '').toLowerCase() !== 'merged'
+        );
+        const inputMonths = String(payload.month).split(',').map(m => m.trim().toLowerCase()).filter(Boolean);
+        const existingReceipt = studentFees.find(f => {
+          if (!f.month) return false;
+          const rMonths = String(f.month).split(',').map(m => m.trim().toLowerCase()).filter(Boolean);
+          return inputMonths.some(m => rMonths.includes(m));
+        });
+        if (existingReceipt) {
+          const confirmAdd = confirm(`Notice: Student ${payload.studentName || payload.admissionNo} already has a fee receipt (#${existingReceipt.id} - ₹${existingReceipt.paidAmount || existingReceipt.totalFee}) for month ${existingReceipt.month}.\n\nDo you want to proceed with recording an additional receipt?`);
+          if (!confirmAdd) return;
+        }
+      }
+
       const bal   = Math.round((total - paid) * 100) / 100;
       payload.balance = String(bal);
       payload.status  = bal < 0 ? "Advance" : bal === 0 ? "Paid" : paid > 0 ? "Partial" : "Pending";
@@ -12113,27 +12192,45 @@ refs.dynamicForm.addEventListener("submit", async (e) => {
     } else if (currentModule === "dueManagement") {
       const due = parseFloat(payload.dueAmount) || 0;
       const paid = parseFloat(payload.paidAmount) || 0;
+      if (due < 0 || paid < 0) {
+        showToast("Due amounts cannot be negative.", "error");
+        return;
+      }
       const bal = due - paid;
-      payload.balance = String(Math.max(0, bal));
-      payload.status = bal <= 0 ? "Paid" : paid > 0 ? "Partial" : "Pending";
+      payload.balance = String(bal);
+      payload.status = bal < 0 ? "Advance" : (bal === 0 ? "Paid" : (paid > 0 ? "Partial" : "Pending"));
       
       if (bal <= 0 && paid > 0) {
-        // Due is fully paid - move payment into fees module and remove from dueManagement
+        // Due is fully paid (or overpaid) - move payment into fees module and remove from dueManagement
+        const partLower = String(payload.particulars || "").toLowerCase();
+        let compKey = "tuitionFee";
+        if (partLower.includes("late")) compKey = "lateFee";
+        else if (partLower.includes("transport")) compKey = "transportFee";
+        else if (partLower.includes("admission")) compKey = "admissionFee";
+        else if (partLower.includes("computer")) compKey = "computerFee";
+        else if (partLower.includes("development")) compKey = "developmentFee";
+        else if (partLower.includes("lab")) compKey = "labFee";
+        else if (partLower.includes("sports")) compKey = "sportsFee";
+        else if (partLower.includes("library")) compKey = "libraryFee";
+        else if (partLower.includes("exam")) compKey = "examFee";
+        else if (!partLower.includes("tuition")) compKey = "otherFee";
+
+        const currentSession = (typeof getCurrentSession === "function" ? getCurrentSession() : "") || "2026-27";
         const feePayload = {
           admissionNo: payload.admissionNo || "",
           studentName: payload.studentName || "",
           className: payload.className || "",
           rollNo: payload.rollNo || "",
-          term: payload.session || "2026-27",
+          term: payload.session || currentSession,
           month: payload.month || "",
           feeTypes: payload.particulars || "Tuition Fee",
-          tuitionFee: String(paid),
+          [compKey]: String(due),
           totalFee: String(due),
           paidAmount: String(paid),
-          balance: "0",
-          status: "Paid",
-          paymentDate: today,
-          paymentMethod: "Cash",
+          balance: String(bal),
+          status: bal < 0 ? "Advance" : "Paid",
+          paymentDate: todayStr(),
+          paymentMethod: payload.paymentMethod || "Cash",
           payId: payload.payId || ""
         };
         await addRecord("fees", feePayload);
@@ -12388,11 +12485,11 @@ async function handleImportFile(e) {
         
         // Auto-fix balance if missing or obviously wrong (0 while total/paid differ)
         if (payload.balance === "" || (parseFloat(payload.balance) === 0 && bal !== 0)) {
-           payload.balance = String(Math.max(0, bal));
+           payload.balance = String(bal);
         }
         // Auto-fix status if missing
         if (!payload.status || payload.status.trim() === "") {
-           payload.status = bal <= 0 ? "Paid" : paid > 0 ? "Partial" : "Pending";
+           payload.status = bal < 0 ? "Advance" : (bal === 0 ? "Paid" : (paid > 0 ? "Partial" : "Pending"));
         }
         // If payment method is missing but money was paid, default to Cash
         if (!payload.paymentMethod && paid > 0) {
@@ -17750,7 +17847,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
         <td style="padding:5px 8px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:12px;font-weight:800;color:#dc2626;">₹ ${dueAmt.toLocaleString("en-IN")}</td></tr>`;
     }
 
-    const studentDues = (store.dueManagement || []).filter(d => String(d.admissionNo) === String(f.admissionNo) && d.status === "Unpaid");
+    const studentDues = (store.dueManagement || []).filter(d => String(d.admissionNo) === String(f.admissionNo) && (d.status === "Pending" || d.status === "Partial" || d.status === "Unpaid") && (parseFloat(d.balance) || 0) > 0);
     const outstandingDuesAmount = studentDues.reduce((sum, d) => sum + (parseFloat(d.balance) || 0), 0);
     const displayBalance = balance + outstandingDuesAmount;
 
@@ -18124,18 +18221,44 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
       ? feeStructures.filter(f => f.className === cls)
       : feeStructures;
       
-    // OVERRIDE: Check if selected student has a custom monthly fee
+    // OVERRIDE: Check if selected student has a custom monthly fee, admission discount, or transport fee
     try {
       const stuNameInput = document.querySelector("#dynamicForm [name='studentName']");
-      if (stuNameInput && stuNameInput.value) {
-        const student = (getStore().students || []).find(s => s.fullName === stuNameInput.value);
-        if (student && student.monthlyFee && parseFloat(student.monthlyFee) >= 0) {
+      const admInput = document.querySelector("#dynamicForm [name='admissionNo']");
+      if ((stuNameInput && stuNameInput.value) || (admInput && admInput.value)) {
+        const student = (getStore().students || []).find(s => 
+          (admInput?.value && String(s.admissionNo) === String(admInput.value)) ||
+          (stuNameInput?.value && s.fullName === stuNameInput.value)
+        );
+        if (student) {
+          const discountAmt = parseFloat(student.discount || 0) || 0;
           options = options.map(f => {
-            if (f.feeType.toLowerCase().includes("tuition") || f.feeType.toLowerCase().includes("monthly fee")) {
-              return { ...f, amount: parseFloat(student.monthlyFee) };
+            const isTuition = (f.feeType || "").toLowerCase().includes("tuition") || (f.feeType || "").toLowerCase().includes("monthly fee");
+            let amt = parseFloat(f.amount) || 0;
+            if (isTuition) {
+              if (student.monthlyFee && parseFloat(student.monthlyFee) >= 0) {
+                amt = parseFloat(student.monthlyFee);
+              } else if (discountAmt > 0) {
+                amt = Math.max(0, amt - discountAmt);
+              }
+              return { ...f, amount: amt };
+            }
+            if ((f.feeType || "").toLowerCase().includes("transport") && student.transportFee && parseFloat(student.transportFee) > 0) {
+              return { ...f, amount: parseFloat(student.transportFee) };
             }
             return f;
           });
+          // Also if student has transportFee and options does NOT already have a transport fee structure for this class
+          if (student.transportFee && parseFloat(student.transportFee) > 0 && !options.some(f => (f.feeType || "").toLowerCase().includes("transport"))) {
+            options.push({
+              id: "auto-trans-" + (student.admissionNo || "std"),
+              className: cls,
+              feeType: "Transport Fee",
+              amount: parseFloat(student.transportFee),
+              term: "Monthly",
+              description: "Student Transport"
+            });
+          }
         }
       }
     } catch(e) {}
@@ -18326,7 +18449,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
     const feeIds = studentFees.map(f => f.id);
     
     // 2. Collect Due Management dues
-    const studentDues = (store.dueManagement || []).filter(h => String(h.admissionNo) === String(admissionNo) && h.status !== "Paid" && (!isDummyAdm || String(h.studentName) === String(studentName)));
+    const studentDues = (store.dueManagement || []).filter(h => String(h.admissionNo) === String(admissionNo) && h.status !== "Paid" && (parseFloat(h.balance) || 0) > 0 && (!isDummyAdm || String(h.studentName) === String(studentName)));
     const mgmtDueAmt = studentDues.reduce((sum, d) => sum + (parseFloat(d.balance) || 0), 0);
     const mgmtIds = studentDues.map(d => d.id);
     
@@ -18417,10 +18540,10 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
     const store = getStore();
     const isDummyAdm = String(admissionNo) === "00" || String(admissionNo) === "0" || String(admissionNo).toLowerCase() === "temp";
     
-    const studentFees = (store.fees || []).filter(f => String(f.admissionNo) === String(admissionNo) && (!isDummyAdm || String(f.studentName) === String(studentName)));
+    const studentFees = (store.fees || []).filter(f => String(f.admissionNo) === String(admissionNo) && String(f.status || '').toLowerCase() !== 'merged' && (parseFloat(f.balance) || 0) > 0 && (!isDummyAdm || String(f.studentName) === String(studentName)));
     const totalFeesDue = studentFees.reduce((sum, f) => sum + (parseFloat(f.balance) || 0), 0);
     
-    const studentDues = (store.dueManagement || []).filter(h => String(h.admissionNo) === String(admissionNo) && h.status !== "Paid" && (!isDummyAdm || String(h.studentName) === String(studentName)));
+    const studentDues = (store.dueManagement || []).filter(h => String(h.admissionNo) === String(admissionNo) && h.status !== "Paid" && (parseFloat(h.balance) || 0) > 0 && (!isDummyAdm || String(h.studentName) === String(studentName)));
     const totalMgmtDue = studentDues.reduce((sum, d) => sum + (parseFloat(d.balance) || 0), 0);
 
     const grandTotal = totalFeesDue + totalMgmtDue;
@@ -18667,7 +18790,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
         } else {
             const admNo = form.querySelector("[name='admissionNo']")?.value || (typeof studentProfileStudent !== 'undefined' && studentProfileStudent ? studentProfileStudent.admissionNo : null);
             if (admNo && window.store && window.store.dueManagement) {
-                const dues = window.store.dueManagement.filter(d => d.admissionNo === admNo && d.status === "Unpaid");
+                const dues = window.store.dueManagement.filter(d => d.admissionNo === admNo && (d.status === "Pending" || d.status === "Partial" || d.status === "Unpaid") && (parseFloat(d.balance) || 0) > 0);
                 dues.forEach(d => {
                     const mMatch = (d.particulars || "").match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i);
                     if (mMatch && !selectedMonths.includes(mMatch[0].toLowerCase().substring(0,3))) {
@@ -20580,7 +20703,7 @@ async function renderDueManagementForm(cfg, studentOptions, classOptions, initia
     const input = (fn === "status") ? document.createElement("select") : document.createElement("input");
     
     if (fn === "status") {
-      input.innerHTML = `<option value="Pending">Pending</option><option value="Partial">Partial</option><option value="Paid">Paid</option>`;
+      input.innerHTML = `<option value="Pending">Pending</option><option value="Partial">Partial</option><option value="Paid">Paid</option><option value="Advance">Advance</option>`;
       input.disabled = true;
       input.style.background = "#f1f5f9";
     } else {
@@ -20655,8 +20778,8 @@ async function renderDueManagementForm(cfg, studentOptions, classOptions, initia
     const due = parseFloat(formRefs.dueAmount.value) || 0;
     const paid = parseFloat(formRefs.paidAmount.value) || 0;
     const bal = due - paid;
-    formRefs.balance.value = Math.max(0, bal);
-    formRefs.status.value = bal <= 0 ? "Paid" : (paid > 0 ? "Partial" : "Pending");
+    formRefs.balance.value = bal;
+    formRefs.status.value = bal < 0 ? "Advance" : (bal === 0 ? "Paid" : (paid > 0 ? "Partial" : "Pending"));
   };
   formRefs.dueAmount.addEventListener("input", calc);
   formRefs.paidAmount.addEventListener("input", calc);

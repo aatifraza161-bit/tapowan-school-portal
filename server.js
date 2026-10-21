@@ -4104,6 +4104,43 @@ app.post("/api/modules/:moduleName", authRequired, async (req, res) => {
       }
     }
 
+    // ── DUE MANAGEMENT VALIDATION & UNIQUENESS GUARD ──
+    if (moduleName === "dueManagement") {
+      const dueAmt = parseFloat(payload.dueAmount);
+      const paidAmt = parseFloat(payload.paidAmount || 0);
+      if (isNaN(dueAmt) || dueAmt < 0 || paidAmt < 0) {
+        return res.status(400).json({ error: "Invalid due or paid amount: negative numbers are not allowed." });
+      }
+      if (!payload.status || String(payload.status).toLowerCase() === "unpaid") {
+        payload.status = (dueAmt - paidAmt <= 0 && paidAmt > 0) ? "Paid" : (paidAmt > 0 ? "Partial" : "Pending");
+      }
+      // Check duplicate due: admissionNo + particulars + month + session
+      const existingDue = await runRaw(
+        "SELECT id FROM dueManagement WHERE LOWER(TRIM(admissionNo)) = ? AND LOWER(TRIM(particulars)) = ? AND LOWER(TRIM(month)) = ? AND LOWER(TRIM(session)) = ? LIMIT 1",
+        [
+          String(payload.admissionNo || '').trim().toLowerCase(),
+          String(payload.particulars || '').trim().toLowerCase(),
+          String(payload.month || '').trim().toLowerCase(),
+          String(payload.session || '').trim().toLowerCase()
+        ]
+      );
+      if (existingDue.rows && existingDue.rows.length > 0) {
+        return res.status(409).json({ error: `A due record for student (${payload.admissionNo}), ${payload.particulars} (${payload.month} ${payload.session}) already exists (Due #${existingDue.rows[0].id}).` });
+      }
+    }
+
+    // ── FEES VALIDATION ──
+    if (moduleName === "fees") {
+      const totalFee = parseFloat(payload.totalFee);
+      const paidAmt = parseFloat(payload.paidAmount || 0);
+      if ((!isNaN(totalFee) && totalFee < 0) || paidAmt < 0) {
+        return res.status(400).json({ error: "Fee amounts cannot be negative." });
+      }
+      if ((isNaN(totalFee) || totalFee <= 0) && paidAmt <= 0) {
+        return res.status(400).json({ error: "Receipt amount must be greater than zero." });
+      }
+    }
+
     const row = await insert(moduleName, payload || req.body || {});
     
     // --- ATOMIC FEE & DUE RECONCILIATION LOGIC ---
@@ -4149,6 +4186,23 @@ app.post("/api/modules/:moduleName", authRequired, async (req, res) => {
               ]);
               remainingPaid = 0;
             }
+          }
+        }
+
+        // Atomic Consolidation of Old Fee Records (mark merged & zero balance)
+        if (payload.consolidatedFeeIds) {
+          try {
+            const parsedFeeIds = typeof payload.consolidatedFeeIds === 'string' ? JSON.parse(payload.consolidatedFeeIds) : payload.consolidatedFeeIds;
+            if (Array.isArray(parsedFeeIds) && parsedFeeIds.length > 0) {
+              for (const fId of parsedFeeIds) {
+                await runRaw("UPDATE fees SET balance = '0', status = 'Merged', remarks = ? WHERE id = ?", [
+                  `Merged into Fee Receipt #${row.id}`,
+                  fId
+                ]);
+              }
+            }
+          } catch(fMergeErr) {
+            console.error("[Fee Server Merge Error]:", fMergeErr);
           }
         }
       } catch (reconErr) {
@@ -4267,6 +4321,27 @@ app.put("/api/modules/:moduleName/:id", authRequired, async (req, res) => {
       if (req.body) {
         delete req.body.facePhoto;
         req.body.facePhoto = null;
+      }
+    }
+
+    // ── FINANCIAL VALIDATION ON UPDATE ──
+    if (moduleName === "dueManagement" && req.body) {
+      if (req.body.dueAmount !== undefined && parseFloat(req.body.dueAmount) < 0) {
+        return res.status(400).json({ error: "Due amount cannot be negative." });
+      }
+      if (req.body.paidAmount !== undefined && parseFloat(req.body.paidAmount) < 0) {
+        return res.status(400).json({ error: "Paid amount cannot be negative." });
+      }
+      if (req.body.status && String(req.body.status).toLowerCase() === "unpaid") {
+        req.body.status = "Pending";
+      }
+    }
+    if (moduleName === "fees" && req.body) {
+      if (req.body.totalFee !== undefined && parseFloat(req.body.totalFee) < 0) {
+        return res.status(400).json({ error: "Total fee cannot be negative." });
+      }
+      if (req.body.paidAmount !== undefined && parseFloat(req.body.paidAmount) < 0) {
+        return res.status(400).json({ error: "Paid amount cannot be negative." });
       }
     }
 
@@ -5251,7 +5326,7 @@ app.get("/api/whatsapp/due-fees", authRequired, async (req, res) => {
           totalFee: d.dueAmount || "0",
           paidAmount: d.paidAmount || "0",
           term: d.particulars || "Due Mgmt",
-          status: d.status || "Unpaid",
+          status: (d.status === "Unpaid" || !d.status) ? "Pending" : d.status,
           paymentDate: "",
           source: "dueManagement"
         });
@@ -6347,7 +6422,7 @@ async function runAutomatedFeeTask() {
                         dueAmount: amount,
                         paidAmount: "0",
                         balance: amount,
-                        status: "Unpaid"
+                        status: "Pending"
                     });
                     console.log(`[Fee Automation] Added [${actualFeeName}: ${amount}] for ${student.fullName} (${admNo}, ${mName})`);
                 }
