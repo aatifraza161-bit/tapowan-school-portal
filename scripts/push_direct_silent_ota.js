@@ -67,10 +67,10 @@ async function run() {
           bundleVersion: '3.4.1',
           bundle_version: '3.4.1',
           version: '3.4.1',
-          bundleVersionCode: '361',
-          bundle_version_code: '361',
-          versionCode: '361',
-          version_code: '361',
+          bundleVersionCode: '362',
+          bundle_version_code: '362',
+          versionCode: '362',
+          version_code: '362',
           force: 'true',
           forceDownload: 'true'
         }
