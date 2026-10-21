@@ -8823,6 +8823,8 @@ function renderAll(forceFormRefresh) {
   }
 
   if (isWA && typeof window.renderWhatsAppModule === "function") {
+    renderNav();
+    renderHeader();
     window.renderWhatsAppModule();
     return;
   }
@@ -19435,7 +19437,7 @@ function openWhatsApp(phone, message) {
     } catch (e) { waAlertLog = []; }
   }
 
-  async function renderWhatsAppModule() {
+  async function renderWhatsAppModule(forceRefresh = false) {
     const contentArea = document.querySelector(".content-area");
     if (!contentArea) return;
 
@@ -19450,8 +19452,27 @@ function openWhatsApp(phone, message) {
     }
     waPanel.style.display = "";
 
-    // Refresh everything to ensure "All Students" and logs are accurate
-    await Promise.all([loadStore(), loadDueFees(), loadAlertLog()]);
+    // Instant Loading Skeleton — Eliminate Blank White Screen
+    if (!waPanel.innerHTML || waPanel.innerHTML.trim() === "" || forceRefresh) {
+      waPanel.innerHTML = `
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:360px;gap:14px;background:#fff;border-radius:12px;padding:40px;box-shadow:0 1px 3px rgba(0,0,0,0.05);margin-top:10px;">
+          <div class="spinner" style="width:42px;height:42px;border:3px solid #e2e8f0;border-top-color:#10b981;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+          <div style="font-weight:700;color:#1e293b;font-size:16px;">Loading WhatsApp Alerts & Due Fees...</div>
+          <div style="color:#64748b;font-size:13px;">Preparing fee dues and communication queue</div>
+        </div>
+      `;
+    }
+
+    // High-performance selective fetch (avoid re-fetching entire multi-megabyte store if already in memory)
+    try {
+      const store = getStore();
+      const needStore = !store.students || store.students.length === 0;
+      const fetchTasks = [loadDueFees(), loadAlertLog()];
+      if (needStore) fetchTasks.push(loadStore().catch(() => {}));
+      await Promise.all(fetchTasks);
+    } catch (err) {
+      console.warn("WhatsApp module fetch error:", err);
+    }
 
     const students = getStore().students || [];
     const template = getTemplate();
@@ -19516,7 +19537,8 @@ function openWhatsApp(phone, message) {
           <h3 class="wa-title">WhatsApp Fee Due Alerts</h3>
           <p class="wa-sub">Send payment reminders directly to parents via WhatsApp</p>
         </div>
-        <div class="wa-summary-badges">
+        <div class="wa-summary-badges" style="display:flex;align-items:center;gap:8px;">
+          <button id="waForceRefreshBtn" class="wa-btn wa-btn-secondary" style="background:#f8fafc;border:1px solid #cbd5e1;padding:5px 12px;font-size:12px;border-radius:20px;display:inline-flex;align-items:center;gap:4px;cursor:pointer;color:#334155;font-weight:600;" title="Reload latest due fees"><span class="material-symbols-outlined" style="font-size:15px;color:#10b981;">sync</span>Refresh</button>
           <span class="wa-badge wa-badge-red"><span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle; margin-right:3px;">warning</span>${waDueFees.length} Due</span>
           <span class="wa-badge wa-badge-green"><span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle; margin-right:3px;">check_circle</span>${waAlertLog.length} Sent</span>
         </div>
@@ -19708,6 +19730,7 @@ function openWhatsApp(phone, message) {
       showToast("Template reset to default", "info");
     });
 
+    document.getElementById("waForceRefreshBtn")?.addEventListener("click", () => renderWhatsAppModule(true));
     document.getElementById("waSaveThemeBtn")?.addEventListener("click", () => {
       const themeId = document.getElementById("waFeeSlipThemeSelect").value;
       localStorage.setItem("waFeeSlipTemplate", themeId);

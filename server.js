@@ -5310,9 +5310,26 @@ app.get("/api/whatsapp/due-fees", authRequired, async (req, res) => {
     if (!isStaffOrAbove(user) && !isAdmin(user)) {
       return res.status(403).json({ error: "Insufficient permissions" });
     }
-    const fees = await list("fees");
-    const students = await list("students");
-    const dueMgmt = await list("dueManagement");
+
+    // High-performance selective queries (skips heavy base64 student photos/embeddings)
+    const [feesRes, studentsRes, dueRes] = await Promise.all([
+      db.execute({
+        sql: "SELECT id, admissionNo, studentName, className, rollNo, month, term, balance, totalFee, paidAmount, status, paymentDate FROM fees WHERE (LOWER(status) = 'pending' OR LOWER(status) = 'partial') AND CAST(balance AS REAL) > 0",
+        args: []
+      }),
+      db.execute({
+        sql: "SELECT id, admissionNo, rollNo, fullName, className, section, fatherName, motherName, phone, address, gender, dob FROM students",
+        args: []
+      }),
+      db.execute({
+        sql: "SELECT id, admissionNo, studentName, className, rollNo, particulars, balance, dueAmount, paidAmount, status, session, month FROM dueManagement WHERE LOWER(status) != 'paid' AND CAST(balance AS REAL) > 0",
+        args: []
+      })
+    ]);
+
+    const fees = feesRes.rows || [];
+    const students = studentsRes.rows || [];
+    const dueMgmt = dueRes.rows || [];
 
     const studentAdmMap = {};
     const studentNameMap = {};
