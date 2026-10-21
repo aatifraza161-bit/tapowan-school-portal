@@ -6960,7 +6960,7 @@ function renderStatsCards(forceFullRebuild = false) {
       const statIcons = {
         "Total Students": li('dxjqoygy'),
         "Total Teachers": li('kthelypq'),
-        "Total Classes": li('wloilqgd'),
+        "Total Classes": li('wxnxiano'),
         "Student Present Today": li('egiwmiit'),
         "Teacher Present Today": li('kthelypq'),
         "Hostel Active": li('osuxyevn'),
@@ -14076,7 +14076,7 @@ function renderStatCardsEnhanced(store) {
     { icon: li('egiwmiit'), value: presentToday, label: 'Present Today', trend: `of ${todayAtt.length} marked`, color: '#059669' },
     { icon: li('qhviklyi'), value: feePending, label: 'Pending Fees', trend: '⚠ Needs follow-up', color: '#d97706' },
     { icon: li('wzwygmng'), value: books, label: 'Books Issued', trend: 'Library circulation', color: '#0891b2' },
-    { icon: li('wloilqgd'), value: (store.classes || []).length, label: 'Classes', trend: 'Active classrooms', color: '#db2777' },
+    { icon: li('wxnxiano'), value: (store.classes || []).length, label: 'Classes', trend: 'Active classrooms', color: '#db2777' },
   ];
 
   grid.innerHTML = cards.map((c, i) => `
@@ -15997,7 +15997,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
       <div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;background:rgba(255,255,255,0.05);border-radius:50%;"></div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
         <div style="display:flex;align-items:center;gap:10px;">
-          <lord-icon src="https://cdn.lordicon.com/wyqovtlo.json" trigger="loop-on-hover" colors="primary:#ffffff,secondary:#38bdf8" style="width:30px;height:30px;flex-shrink:0;"></lord-icon>
+          <lord-icon src="https://cdn.lordicon.com/qhviklyi.json" trigger="loop-on-hover" colors="primary:#ffffff,secondary:#38bdf8" style="width:30px;height:30px;flex-shrink:0;"></lord-icon>
           <span style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;opacity:0.9;">School Balance</span>
         </div>
         <span class="material-symbols-outlined balance-toggle-icon" style="font-size:20px;opacity:0.8;cursor:pointer;transition:opacity 0.2s;" title="Toggle Balance Visibility">

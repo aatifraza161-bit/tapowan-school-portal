@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tps-cache-v20261021-csp-fix-v2';
+const CACHE_NAME = 'tps-cache-v20261021-lordicon-clean-v3';
 
 self.addEventListener('install', event => {
   self.skipWaiting();
@@ -11,12 +11,44 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Network-First with safe fallback (prevents 'Failed to convert value to Response' TypeError)
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   const url = event.request.url || '';
   if (!url.startsWith('http')) return;
 
+  // Intercept and sanitize Lordicon CDN requests to prevent SyntaxError on dead 404 icons
+  if (url.includes('cdn.lordicon.com') && url.endsWith('.json')) {
+    event.respondWith(
+      fetch(event.request)
+        .then(async (res) => {
+          if (!res.ok) {
+            return new Response("{\"v\":\"5.5.7\",\"fr\":60,\"ip\":0,\"op\":60,\"w\":50,\"h\":50,\"nm\":\"blank\",\"ddd\":0,\"assets\":[],\"layers\":[]}", {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' }
+            });
+          }
+          const clone = res.clone();
+          const text = await clone.text().catch(() => '');
+          if (text.trim().startsWith('<')) {
+            // Received HTML error page instead of JSON -> return blank Lottie
+            return new Response("{\"v\":\"5.5.7\",\"fr\":60,\"ip\":0,\"op\":60,\"w\":50,\"h\":50,\"nm\":\"blank\",\"ddd\":0,\"assets\":[],\"layers\":[]}", {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' }
+            });
+          }
+          return res;
+        })
+        .catch(() => {
+          return new Response("{\"v\":\"5.5.7\",\"fr\":60,\"ip\":0,\"op\":60,\"w\":50,\"h\":50,\"nm\":\"blank\",\"ddd\":0,\"assets\":[],\"layers\":[]}", {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        })
+    );
+    return;
+  }
+
+  // Bypass service worker for local static assets and APIs
   if (
     url.includes('/api/') ||
     url.includes('.js') ||
@@ -29,7 +61,6 @@ self.addEventListener('fetch', event => {
     url.includes('.webp') ||
     url.includes('.ico') ||
     url.includes('.json') ||
-    url.includes('lordicon') ||
     url.includes('jsdelivr') ||
     url.includes('googleapis') ||
     url.includes('gstatic')
