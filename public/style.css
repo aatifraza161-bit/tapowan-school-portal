@@ -1575,7 +1575,7 @@ button:active::after{animation:ripple 0.4s ease;}
   transition:color var(--transition);
 }
 .field:focus-within label{color:var(--brand);}
-.field input:not(.auth-clean-input),
+.field input:not([type="checkbox"]):not([type="radio"]):not(.auth-clean-input),
 .field select,
 .field textarea,
 form:not(.auth-clean-form) input[type="text"]:not(.auth-clean-input),
@@ -1592,16 +1592,16 @@ form:not(.auth-clean-form) textarea {
   transition:all var(--transition);outline:none;
   appearance:none;-webkit-appearance:none;
 }
-.field input:not(.auth-clean-input):focus,
+.field input:not([type="checkbox"]):not([type="radio"]):not(.auth-clean-input):focus,
 .field select:focus,
 .field textarea:focus,
-form:not(.auth-clean-form) input:not(.auth-clean-input):focus,
+form:not(.auth-clean-form) input:not([type="checkbox"]):not([type="radio"]):not(.auth-clean-input):focus,
 form:not(.auth-clean-form) select:focus,
 form:not(.auth-clean-form) textarea:focus {
   border-color:var(--brand);background:#fff;
   box-shadow:0 0 0 4px rgba(30,58,138,0.12);
 }
-.field input:not(.auth-clean-input):hover:not(:focus),
+.field input:not([type="checkbox"]):not([type="radio"]):not(.auth-clean-input):hover:not(:focus),
 select:hover:not(:focus){border-color:#94a3b8;}
 
 /* TomSelect Overrides */
@@ -5499,10 +5499,111 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 
 #bd-month-selector {
   display: grid !important;
-  grid-template-columns: repeat(auto-fill, minmax(68px, 1fr)) !important;
+  grid-template-columns: repeat(12, 1fr) !important;
   gap: 6px !important;
   width: 100% !important;
   box-sizing: border-box !important;
+  background: #f8fafc !important;
+  padding: 10px !important;
+  border: 1.5px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+}
+
+@media (max-width: 1100px) {
+  #bd-month-selector {
+    grid-template-columns: repeat(6, 1fr) !important;
+  }
+}
+
+@media (max-width: 580px) {
+  #bd-month-selector {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+}
+
+.month-pill {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 4px !important;
+  padding: 8px 4px !important;
+  background: #ffffff !important;
+  border: 1.5px solid #e2e8f0 !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+  margin: 0 !important;
+  text-align: center !important;
+  box-sizing: border-box !important;
+}
+
+.month-pill input[type="checkbox"] {
+  position: absolute !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.month-pill .month-pill-name {
+  font-size: 0.78rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.04em !important;
+  color: #475569 !important;
+  transition: color 0.15s ease !important;
+  line-height: 1 !important;
+}
+
+.month-pill .month-pill-check {
+  font-size: 14px !important;
+  color: #94a3b8 !important;
+  transition: all 0.15s ease !important;
+  line-height: 1 !important;
+}
+
+.month-pill:hover {
+  background: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+  transform: translateY(-1px) !important;
+}
+
+.month-pill.is-selected {
+  background: var(--brand, #1e3a8a) !important;
+  border-color: var(--brand, #1e3a8a) !important;
+  box-shadow: 0 3px 8px rgba(30, 58, 138, 0.28) !important;
+  transform: translateY(-1px) !important;
+}
+
+.month-pill.is-selected .month-pill-name {
+  color: #ffffff !important;
+}
+
+.month-pill.is-selected .month-pill-check {
+  color: #ffffff !important;
+}
+
+.month-quick-btn {
+  padding: 4px 10px !important;
+  font-size: 0.74rem !important;
+  font-weight: 700 !important;
+  border-radius: 6px !important;
+  border: 1px solid #cbd5e1 !important;
+  background: #ffffff !important;
+  color: #334155 !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  font-family: 'Outfit', sans-serif !important;
+}
+
+.month-quick-btn:hover {
+  background: #f1f5f9 !important;
+  border-color: #94a3b8 !important;
+  color: #0f172a !important;
 }
 
 #bd-monthly-fee-input {

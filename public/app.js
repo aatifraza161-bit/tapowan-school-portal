@@ -4862,10 +4862,20 @@ function startGenericEditById(moduleName, recordId) {
           if (record.month) {
             const months = String(record.month).split(',').map(m => m.trim().toLowerCase());
             refs.dynamicForm.querySelectorAll("#bd-month-selector input[type='checkbox']").forEach(cb => {
-              if (months.includes(cb.value.toLowerCase())) {
-                cb.checked = true;
+              const matches = months.includes(cb.value.toLowerCase());
+              cb.checked = matches;
+              const lbl = cb.closest(".month-pill");
+              if (lbl) {
+                lbl.classList.toggle("is-selected", matches);
+                const icon = lbl.querySelector(".month-pill-check");
+                if (icon) icon.textContent = matches ? "check" : "add";
               }
             });
+            const badge = refs.dynamicForm.querySelector("#bd-selected-months-badge");
+            if (badge) {
+              const cnt = refs.dynamicForm.querySelectorAll("#bd-month-selector input[type='checkbox']:checked").length;
+              badge.textContent = (cnt === 1 ? '1 month' : `${cnt} months`) + ' selected';
+            }
           }
 
           // Pre-tick fee component checkboxes matching existing record fees
@@ -18707,13 +18717,19 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
         monthContainer.querySelectorAll("input[type='checkbox']").forEach(cb => {
           if (monthsToSelect.has(cb.value.toLowerCase().substring(0,3))) {
             cb.checked = true;
-            const lbl = cb.closest("label");
+            const lbl = cb.closest(".month-pill") || cb.closest("label");
             if (lbl) {
-              lbl.style.background = "#eff6ff";
-              lbl.style.borderColor = "#3b82f6";
+              lbl.classList.add("is-selected");
+              const icon = lbl.querySelector(".month-pill-check");
+              if (icon) icon.textContent = "check";
             }
           }
         });
+        const badge = form.querySelector("#bd-selected-months-badge");
+        if (badge) {
+          const cnt = monthContainer.querySelectorAll("input[type='checkbox']:checked").length;
+          badge.textContent = (cnt === 1 ? '1 month' : `${cnt} months`) + ' selected';
+        }
       }
 
       const btn = document.getElementById("bd-add-due-btn");
@@ -19011,22 +19027,36 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
         const academicMonths = ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"];
         const monthsHtml = academicMonths.map(m => {
           const isChecked = selectedMonths.includes(m.toLowerCase());
-          const bg = isChecked ? "#eff6ff" : "#fff";
-          const border = isChecked ? "#3b82f6" : "#e2e8f0";
           return `
-          <label style="display:flex;align-items:center;gap:6px;padding:6px 8px;border:1px solid ${border};border-radius:6px;cursor:pointer;background:${bg};font-size:0.8rem;transition:0.15s;">
-            <input type="checkbox" name="fee-month" value="${m}" style="width:14px;height:14px;accent-color:#1e3a8a;cursor:pointer;" ${isChecked ? "checked" : ""}>
-            ${m}
+          <label class="month-pill ${isChecked ? 'is-selected' : ''}" data-month="${m}">
+            <input type="checkbox" name="fee-month" value="${m}" ${isChecked ? "checked" : ""}>
+            <span class="month-pill-check material-symbols-outlined">${isChecked ? 'check' : 'add'}</span>
+            <span class="month-pill-name">${m.toUpperCase()}</span>
           </label>`;
         }).join("");
 
+        const countText = (selectedMonths.length === 1 ? '1 month' : `${selectedMonths.length} months`) + ' selected';
 
         monthsWrap.innerHTML = `
-          <label style="font-weight:600;font-size:0.88rem;color:#374151;display:block;margin-bottom:8px;">Payment for Month(s)</label>
-          <div id="bd-month-selector" style="display:grid;grid-template-columns:repeat(6, 1fr);gap:8px;background:#f8fafc;padding:12px;border:1px solid #e2e8f0;border-radius:8px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
+            <label style="font-weight:700; font-size:0.88rem; color:#1e293b; margin:0; display:inline-flex; align-items:center; gap:6px;">
+              <span class="material-symbols-outlined" style="font-size:18px; color:var(--brand, #1e3a8a);">calendar_month</span>
+              Payment for Month(s)
+              <span id="bd-selected-months-badge" style="font-size:0.75rem; font-weight:800; background:#e0e7ff; color:#3730a3; padding:2px 8px; border-radius:12px; margin-left:4px;">${countText}</span>
+            </label>
+            <div style="display:flex; gap:6px; align-items:center;">
+              <button type="button" id="bd-btn-curr-month" class="month-quick-btn">Current</button>
+              <button type="button" id="bd-btn-all-months" class="month-quick-btn">All Months</button>
+              <button type="button" id="bd-btn-clear-months" class="month-quick-btn">Clear</button>
+            </div>
+          </div>
+          <div id="bd-month-selector">
             ${monthsHtml}
           </div>
-          <div style="font-size:0.75rem;color:#64748b;margin-top:5px;">ℹ️ Monthly fees (Tuition, etc.) will be multiplied by the number of months selected.</div>
+          <div style="font-size:0.75rem; color:#64748b; margin-top:8px; display:flex; align-items:center; gap:4px;">
+            <span class="material-symbols-outlined" style="font-size:14px; color:#3b82f6;">info</span>
+            Monthly fees (Tuition, etc.) automatically scale by the count of selected months.
+          </div>
         `;
 
         const target = form.querySelector("[name='term']")?.closest(".field") || form.querySelector("[name='totalFee']")?.closest(".field");
@@ -19034,14 +19064,54 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
           target.parentNode.insertBefore(monthsWrap, target.nextSibling);
         }
 
+        const updatePillStyles = () => {
+          let count = 0;
+          monthsWrap.querySelectorAll(".month-pill").forEach(lbl => {
+            const cb = lbl.querySelector("input[type='checkbox']");
+            const checked = cb && cb.checked;
+            if (checked) count++;
+            lbl.classList.toggle("is-selected", checked);
+            const icon = lbl.querySelector(".month-pill-check");
+            if (icon) icon.textContent = checked ? "check" : "add";
+          });
+          const badge = monthsWrap.querySelector("#bd-selected-months-badge");
+          if (badge) badge.textContent = (count === 1 ? '1 month' : `${count} months`) + ' selected';
+        };
+
         // Attach listeners to month checkboxes
         monthsWrap.querySelectorAll("input").forEach(inp => {
-          inp.addEventListener("change", (e) => {
-            const lbl = e.target.closest("label");
-            if (lbl) lbl.style.background = e.target.checked ? "#eff6ff" : "#fff";
-            if (lbl) lbl.style.borderColor = e.target.checked ? "#3b82f6" : "#e2e8f0";
+          inp.addEventListener("change", () => {
+            updatePillStyles();
             recalcFeeTotals();
           });
+        });
+
+        // Quick button: Current month
+        monthsWrap.querySelector("#bd-btn-curr-month")?.addEventListener("click", () => {
+          const curMonth = new Date().toLocaleString('en-US', {month: 'short'}).toLowerCase();
+          monthsWrap.querySelectorAll(".month-pill input").forEach(inp => {
+            inp.checked = inp.value.toLowerCase() === curMonth;
+          });
+          updatePillStyles();
+          recalcFeeTotals();
+        });
+
+        // Quick button: All months
+        monthsWrap.querySelector("#bd-btn-all-months")?.addEventListener("click", () => {
+          monthsWrap.querySelectorAll(".month-pill input").forEach(inp => {
+            inp.checked = true;
+          });
+          updatePillStyles();
+          recalcFeeTotals();
+        });
+
+        // Quick button: Clear months
+        monthsWrap.querySelector("#bd-btn-clear-months")?.addEventListener("click", () => {
+          monthsWrap.querySelectorAll(".month-pill input").forEach(inp => {
+            inp.checked = false;
+          });
+          updatePillStyles();
+          recalcFeeTotals();
         });
       }
 
