@@ -1510,13 +1510,13 @@ button:active::after{animation:ripple 0.4s ease;}
 
 /* ─── CLASS-WISE ATTENDANCE STAT CARD ─── */
 .stat-card-attendance {
-  background: linear-gradient(135deg, #faf5ff, #f3e8ff) !important;
-  border: 1px solid #e9d5ff !important;
+  background: #d1fae5 !important;
+  border: 1px solid #a7f3d0 !important;
   min-height: 240px;
 }
 .stat-card-attendance::after {
-  background: #c4b5fd !important;
-  opacity: 0.3 !important;
+  background: #10b981 !important;
+  opacity: 0.28 !important;
 }
 .stat-card-attendance .attendance-bar-col {
   transition: transform 0.15s ease, opacity 0.15s ease;
