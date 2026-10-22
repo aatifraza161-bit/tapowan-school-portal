@@ -868,9 +868,12 @@ async function remove(moduleName, id) {
 
 let memoryStoreCache = null;
 let memoryStoreCacheTime = 0;
-const STORE_CACHE_TTL_MS = 60 * 1000; // 60 seconds in-memory cache TTL
+const STORE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes in-memory cache TTL (auto-invalidated on any mutation)
 let lastStoreVersion = Date.now();
 const tableColsCache = {};
+Object.keys(MODULES).forEach(m => {
+  tableColsCache[m] = ['id', ...MODULES[m]];
+});
 
 function invalidateStoreCache() {
   memoryStoreCache = null;
@@ -1063,6 +1066,8 @@ async function rawList(moduleName) {
               let mainMax = 0;
               let mainCount = 0;
               let failedMainCount = 0;
+              const expectedMainCount = 4;
+              const expectedClassSubjectsCount = 5;
 
               mergedList.forEach(s => {
                 const isSubAb = s.isAbsent === true || String(s.total).trim().toUpperCase() === 'AB' || String(s.theory).trim().toUpperCase() === 'AB' || s.grade === 'AB';
@@ -1128,22 +1133,19 @@ async function getStore(forceRefresh = false) {
   }
 
   const store = {};
-  const moduleKeys = Object.keys(MODULES);
-  const BATCH_SIZE = 12; // High-concurrency batching for Mumbai edge pipeline
+  const moduleKeys = Object.keys(MODULES).filter(m => m !== "faceEmbeddings");
+  // Parallel edge pipeline
 
   try {
-    for (let i = 0; i < moduleKeys.length; i += BATCH_SIZE) {
-      const batch = moduleKeys.slice(i, i + BATCH_SIZE);
-      const results = await Promise.allSettled(batch.map(m => rawList(m)));
-      batch.forEach((m, idx) => {
-        if (results[idx].status === "fulfilled") {
-          store[m] = results[idx].value;
-        } else {
-          console.error(`[getStore] Failed to load module '${m}':`, results[idx].reason);
-          store[m] = [];
-        }
-      });
-    }
+    const results = await Promise.allSettled(moduleKeys.map(m => rawList(m)));
+    moduleKeys.forEach((m, idx) => {
+      if (results[idx].status === "fulfilled") {
+        store[m] = results[idx].value;
+      } else {
+        console.error(`[getStore] Failed to load module '${m}':`, results[idx].reason);
+        store[m] = [];
+      }
+    });
     memoryStoreCache = store;
     memoryStoreCacheTime = Date.now();
     return store;

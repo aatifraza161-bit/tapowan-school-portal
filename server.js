@@ -1005,12 +1005,10 @@ app.get("/api/store", authRequired, async (req, res) => {
     const rawStore = await getStore();
     let store = { ...rawStore };
 
-    try {
-      const freshSettings = await db.execute({ sql: "SELECT * FROM settings", skipCache: true });
-      if (freshSettings && Array.isArray(freshSettings.rows)) {
-        store.settings = freshSettings.rows.map(r => normalizeRow("settings", r));
-      }
-    } catch (_) {}
+    // Strip sensitive and heavy internal server blobs from settings before sending to frontend
+    if (Array.isArray(store.settings)) {
+      store.settings = store.settings.filter(s => s && s.key !== 'baileys_cloud_auth' && s.key !== 'OPENROUTER_API_KEY');
+    }
 
     // ROLE-BASED ACCESS CONTROL (RBAC): Quarantine and isolate student access
     if (role === "student") {

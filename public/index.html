@@ -67,19 +67,10 @@
   <script src="vendor/html2pdf.bundle.min.js" defer></script>
   <script src="vendor/xlsx.full.min.js" defer></script>
   <script src="vendor/chart.umd.min.js" defer></script>
-  <script src="vendor/three.min.js"></script>
+  <script src="vendor/three.min.js" defer></script>
 
   <!-- MediaPipe Vision for Body Pose Tracking -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs" type="module"></script>
-
-  <script>
-    // Unregister legacy service workers to force fresh download of latest table controls
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(regs => {
-        regs.forEach(r => r.unregister());
-      });
-    }
-  </script>
 
 </head>
 <body>
@@ -1307,7 +1298,7 @@
     }
   </script>
   <!-- Pure 512-D ArcFace InsightFace GPU Engine -->
-  <script src="app.js?v=202610221750" defer></script>
+  <script src="app.js?v=202610221815" defer></script>
   <script src="exam_module.js?v=202610210830" defer></script>
   <script src="reports_module.js?v=202610210830" defer></script>
   <script src="online_classes_module.js?v=202610210830" defer></script>
@@ -1318,7 +1309,7 @@
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js?v=202610211410')
+        navigator.serviceWorker.register('sw.js?v=202610221815')
           .then(registration => {
             console.log('ServiceWorker registration successful with scope: ', registration.scope);
           }, err => {
