@@ -58,11 +58,8 @@
   };
 
   function getOnlineClassesApiBase() {
-    if (typeof API_BASE_URL !== 'undefined' && API_BASE_URL) {
+    if (typeof API_BASE_URL !== 'undefined') {
       return API_BASE_URL;
-    }
-    if (typeof window !== 'undefined' && window.location && window.location.hostname && window.location.hostname.includes("pages.dev")) {
-      return "https://tapowan-school.vercel.app";
     }
     return "";
   }
@@ -3964,7 +3961,7 @@
     };
 
     window.zoomCopyInviteLink = async function() {
-      const link = 'https://tapowan-school.vercel.app/live-class/tps-zoom';
+      const link = `${window.location.origin}/live-class/tps-zoom`;
       if (navigator.clipboard && navigator.clipboard.writeText) {
         try {
           await navigator.clipboard.writeText(link);
@@ -3980,12 +3977,14 @@
     };
 
     window.zoomShowMeetingInfo = function() {
-      const info = 'TAPOWAN PUBLIC SCHOOL\'s Meeting\n' +
+      const schoolTitle = (typeof window.APP_SCHOOL_NAME !== 'undefined' && window.APP_SCHOOL_NAME) || 'School Live Classroom';
+      const link = `${window.location.origin}/live-class/tps-zoom`;
+      const info = `${schoolTitle}'s Meeting\n` +
         '------------------------------------\n' +
         'Meeting ID: 842 9102 3844\n' +
-        'Host: TAPOWAN PUBLIC SCHOOL (Admin)\n' +
+        `Host: ${schoolTitle} (Admin)\n` +
         'Passcode: 2026tps\n' +
-        'Invite Link: https://tapowan-school.vercel.app/live-class/tps-zoom\n' +
+        `Invite Link: ${link}\n` +
         'Encryption: Enhanced 256-Bit WebRTC AES';
       if (typeof window.appAlert === 'function') {
         window.appAlert(info, { title: 'Classroom Meeting Info' });

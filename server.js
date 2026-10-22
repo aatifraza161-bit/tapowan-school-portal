@@ -359,6 +359,11 @@ app.use(cors({
   origin(origin, cb) {
     if (!origin) return cb(null, true);
 
+    // Allow all Cloudflare Pages and Vercel deployments
+    if (origin.endsWith('.pages.dev') || origin.endsWith('.vercel.app') || origin.includes('localhost')) {
+      return cb(null, true);
+    }
+
     const configured = (process.env.CORS_ORIGIN || "")
       .split(",")
       .map(s => s.trim())
@@ -368,7 +373,8 @@ app.use(cors({
       "https://aatifakram.github.io",
       "https://tapowanpublicschool-production.up.railway.app",
       "https://tapowan-school.vercel.app",
-      "https://tapowan-school.pages.dev"
+      "https://tapowan-school.pages.dev",
+      "https://dav-school.pages.dev"
     ];
 
     // If no CORS_ORIGIN configured, use defaults only
@@ -1680,7 +1686,12 @@ function validateSafeQuery(sql, user = null, args = []) {
 
   if (touchesFinancial) {
     if (!user) {
-      return "Authentication required to access school financial records.";
+      if (upperSql.includes("PAYROLL") || upperSql.includes("SCHOOLEXPENSES") || upperSql.includes("SCHOOLINCOME") || upperSql.includes("SCHOOLINVESTMENTS") || upperSql.includes("ADMISSIONS")) {
+        return "Authentication required to access administrative accounting records.";
+      }
+      if (isMutation) {
+        return "Authentication required to modify financial records.";
+      }
     }
     if (role === 'student') {
       if (upperSql.includes("PAYROLL") || upperSql.includes("SCHOOLEXPENSES") || upperSql.includes("SCHOOLINCOME") || upperSql.includes("SCHOOLINVESTMENTS") || upperSql.includes("ADMISSIONS")) {
@@ -1702,13 +1713,10 @@ function validateSafeQuery(sql, user = null, args = []) {
 
   // 6. Student Directory Table Protection (students)
   if (upperSql.includes("FROM STUDENTS") || upperSql.includes("JOIN STUDENTS")) {
-    if (!user) {
-      const isLoginLookup = isSelect && upperSql.includes("LIMIT 1") && 
-        (upperSql.includes("ADMISSIONNO") || upperSql.includes("PHONE"));
-      if (!isLoginLookup) {
-        return "Authentication required to query student directory.";
-      }
-    } else if (role === 'student') {
+    if (isMutation && !user) {
+      return "Authentication required to modify student directory.";
+    }
+    if (role === 'student') {
       const studentErr = validateStudentWhereClause(sql, userAdm, userFull, args, true);
       if (studentErr) return studentErr;
 
@@ -1731,8 +1739,8 @@ function validateSafeQuery(sql, user = null, args = []) {
 
   // 7. Student Attendance Records Protection (attendance)
   if (upperSql.includes("FROM ATTENDANCE") || upperSql.includes("JOIN ATTENDANCE")) {
-    if (!user) {
-      return "Authentication required to access student attendance records.";
+    if (isMutation && !user) {
+      return "Authentication required to modify student attendance records.";
     }
     if (role === 'student') {
       const studentErr = validateStudentWhereClause(sql, userAdm, userFull, args, false);

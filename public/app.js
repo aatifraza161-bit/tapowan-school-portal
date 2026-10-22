@@ -1529,7 +1529,10 @@ function getApiBaseUrl() {
   const host = (window.location.hostname || "").toLowerCase();
   if (host === "localhost" || host === "127.0.0.1") return "";
   if (host.includes("vercel.app") || host.includes("netlify.app") || host.includes("onrender.com")) return "";
-  if (host.includes("pages.dev")) return "https://tapowan-school.vercel.app";
+  if (host.includes("pages.dev")) {
+    try { localStorage.removeItem("API_BASE_URL"); } catch (_) {}
+    return "";
+  }
 
   const qs = new URLSearchParams(window.location.search || "");
   const fromQuery = normalizeApiBaseUrl(qs.get("api"));
@@ -1551,15 +1554,13 @@ function getApiBaseUrl() {
   const fromWindow = normalizeApiBaseUrl(window.API_BASE_URL);
   const validWindow = isAllowedApiOrigin(fromWindow) ? fromWindow : "";
 
-  return validStorage || validWindow || "https://tapowan-school.vercel.app";
+  return validStorage || validWindow || "";
 }
 
 let API_BASE_URL = getApiBaseUrl();
-if (window.location.hostname.includes("vercel.app") || window.location.hostname.includes("netlify.app") || window.location.hostname.includes("onrender.com")) {
+if (window.location.hostname.includes("vercel.app") || window.location.hostname.includes("netlify.app") || window.location.hostname.includes("onrender.com") || window.location.hostname.includes("pages.dev")) {
   API_BASE_URL = "";
-}
-if (window.location.hostname.includes("pages.dev")) {
-  API_BASE_URL = "https://tapowan-school.vercel.app";
+  try { localStorage.removeItem("API_BASE_URL"); } catch (_) {}
 }
 
 async function api(path, options = {}) {
