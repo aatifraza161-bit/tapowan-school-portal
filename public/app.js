@@ -7114,8 +7114,8 @@ function renderStatsCards(forceFullRebuild = false) {
           </div>
         `;
       } else if (k === "Student Present Today") {
-        card.style.background = "#d1fae5";
-        card.style.border = "1px solid #a7f3d0";
+        card.style.background = "linear-gradient(135deg, #fff1f2, #ffffff)";
+        card.style.border = "1px solid #fecdd3";
         card.style.minHeight = "240px";
         card.classList.add("stat-card-attendance");
 
@@ -7136,10 +7136,10 @@ function renderStatsCards(forceFullRebuild = false) {
           return `
             <div class="attendance-bar-col" data-class="${c.className}" onclick="window.showClassWiseAttendanceModal('${c.className}')" title="${c.className}&#10;Present Today: ${c.presentCount} / ${c.totalStudents} (${pPct}%)&#10;Historical Rate: ${c.overallMarkedCount > 0 ? Math.round((c.overallPresentSum / c.overallMarkedCount) * 100) : 0}%&#10;Enrolled: ${c.totalStudents}" style="display:flex; flex-direction:column; align-items:center; cursor:pointer; flex:0 0 auto; min-width:28px;">
               <div style="height:70px; display:flex; align-items:flex-end; gap:2px; position:relative;">
-                <!-- Enrolled Students Bar (Emerald Tint) -->
-                <div style="width:6px; height:${eH}px; background:linear-gradient(180deg, #6ee7b7, #059669); border-radius:3px 3px 0 0;" title="Enrolled: ${c.totalStudents}"></div>
-                <!-- Present Students Bar (Vibrant Green) -->
-                <div style="width:6px; height:${pH}px; background:linear-gradient(180deg, #34d399, #047857); border-radius:3px 3px 0 0;" title="Present Today: ${c.presentCount} (${pPct}%)"></div>
+                <!-- Enrolled Students Bar (Rose/Slate) -->
+                <div style="width:6px; height:${eH}px; background:linear-gradient(180deg, #fda4af, #f43f5e); border-radius:3px 3px 0 0;" title="Enrolled: ${c.totalStudents}"></div>
+                <!-- Present Students Bar (Emerald) -->
+                <div style="width:6px; height:${pH}px; background:linear-gradient(180deg, #34d399, #059669); border-radius:3px 3px 0 0;" title="Present Today: ${c.presentCount} (${pPct}%)"></div>
               </div>
               <span style="font-size:0.6rem; font-weight:700; color:#64748b; margin-top:4px; white-space:nowrap;">${shortName}</span>
             </div>
@@ -7148,26 +7148,26 @@ function renderStatsCards(forceFullRebuild = false) {
 
         card.innerHTML = `
           <div class="stat-top">
-            <h4 style="color:#065f46;">${k}</h4>
-            <div class="stat-icon-bubble" style="background:#a7f3d0; color:#047857;">
-              <span class="material-symbols-outlined" style="font-size:22px; color:#047857;">how_to_reg</span>
+            <h4 style="color:#9f1239;">${k}</h4>
+            <div class="stat-icon-bubble" style="background:#ffe4e6; color:#e11d48;">
+              <span class="material-symbols-outlined" style="font-size:22px; color:#e11d48;">how_to_reg</span>
             </div>
           </div>
           <div style="display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:6px;">
-            <div class="stat-value" style="color:#0f172a; font-size:1.8rem; margin:0;">${v}</div>
-            <div style="font-size:0.88rem; font-weight:800; color:#047857;">${totalPresent} / ${totalEnrolled} Active</div>
+            <div class="stat-value" style="color:#be123c; font-size:1.8rem; margin:0;">${v}</div>
+            <div style="font-size:0.88rem; font-weight:800; color:#059669;">${totalPresent} / ${totalEnrolled} Active</div>
           </div>
-          <div style="font-size:0.72rem; color:#065f46; font-weight:600; margin-top:2px; display:flex; justify-content:space-between;">
+          <div style="font-size:0.72rem; color:#be123c; font-weight:600; margin-top:2px; display:flex; justify-content:space-between;">
             <span class="stat-att-summary-val">Today: ${attRate}% Present</span>
-            <span style="color:#047857; font-weight:700;">Historical Avg: ${overallRate}%</span>
+            <span style="color:#0369a1; font-weight:700;">Historical Avg: ${overallRate}%</span>
           </div>
 
           <!-- Class-wise Graph Section -->
-          <div style="margin-top:14px; background:#fff; border-radius:12px; padding:10px 8px; box-shadow:0 2px 8px rgba(16,185,129,0.08); border:1px solid #a7f3d0;">
+          <div style="margin-top:14px; background:#fff; border-radius:12px; padding:10px 8px; box-shadow:0 2px 8px rgba(225,29,72,0.06); border:1px solid #ffe4e6;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; padding:0 4px;">
-              <span style="font-size:0.65rem; font-weight:800; color:#065f46; text-transform:uppercase; letter-spacing:0.04em;">Class-wise Attendance</span>
+              <span style="font-size:0.65rem; font-weight:800; color:#9f1239; text-transform:uppercase; letter-spacing:0.04em;">Class-wise Attendance</span>
               <div style="display:flex; align-items:center; gap:8px; font-size:0.62rem; font-weight:600;">
-                <span style="display:inline-flex; align-items:center; gap:3px; color:#047857;"><span style="width:6px; height:6px; border-radius:50%; background:#059669;"></span>Enrolled</span>
+                <span style="display:inline-flex; align-items:center; gap:3px; color:#f43f5e;"><span style="width:6px; height:6px; border-radius:50%; background:#f43f5e;"></span>Enrolled</span>
                 <span style="display:inline-flex; align-items:center; gap:3px; color:#059669;"><span style="width:6px; height:6px; border-radius:50%; background:#10b981;"></span>Present</span>
               </div>
             </div>
@@ -7180,11 +7180,11 @@ function renderStatsCards(forceFullRebuild = false) {
 
           <!-- Bottom Action Buttons -->
           <div style="margin-top:12px; display:flex; gap:6px;">
-            <button type="button" onclick="window.showClassWiseAttendanceModal()" class="tbl-btn" style="flex:1; padding:6px; font-size:0.7rem; font-weight:700; background:#a7f3d0; color:#065f46; border:1px solid #6ee7b7; border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; transition:all 0.15s;" onmouseover="this.style.background='#6ee7b7'" onmouseout="this.style.background='#a7f3d0'">
+            <button type="button" onclick="window.showClassWiseAttendanceModal()" class="tbl-btn" style="flex:1; padding:6px; font-size:0.7rem; font-weight:700; background:#ffe4e6; color:#be123c; border:1px solid #fecdd3; border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; transition:all 0.15s;" onmouseover="this.style.background='#fecdd3'" onmouseout="this.style.background='#ffe4e6'">
               <span class="material-symbols-outlined" style="font-size:14px;">bar_chart</span>
               Class Breakdown
             </button>
-            <button type="button" onclick="window.navigateModule ? window.navigateModule('attendance') : document.querySelector('button[data-module=attendance]')?.click()" class="tbl-btn" style="padding:6px 10px; font-size:0.7rem; font-weight:700; background:#fff; color:#065f46; border:1px solid #a7f3d0; border-radius:8px; cursor:pointer; display:flex; align-items:center; gap:3px; transition:all 0.15s;" onmouseover="this.style.background='#ecfdf5'" onmouseout="this.style.background='#fff'">
+            <button type="button" onclick="window.navigateModule ? window.navigateModule('attendance') : document.querySelector('button[data-module=attendance]')?.click()" class="tbl-btn" style="padding:6px 10px; font-size:0.7rem; font-weight:700; background:#fff; color:#be123c; border:1px solid #fecdd3; border-radius:8px; cursor:pointer; display:flex; align-items:center; gap:3px; transition:all 0.15s;" onmouseover="this.style.background='#fff1f2'" onmouseout="this.style.background='#fff'">
               <span class="material-symbols-outlined" style="font-size:14px;">check_circle</span>
               Mark
             </button>
@@ -7734,8 +7734,8 @@ window.getRealAnalyticsSuiteHTML = function(d) {
             </div>
 
             <div style="margin-top:14px;">
-              <button type="button" onclick="window.showClassWiseAttendanceModal()" style="width:100%; padding:7px 12px; background:#d1fae5; color:#065f46; border:1px solid #a7f3d0; border-radius:10px; font-size:0.75rem; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; transition:all 0.15s;" onmouseover="this.style.background='#a7f3d0'" onmouseout="this.style.background='#d1fae5'">
-                <span class="material-symbols-outlined" style="font-size:16px; color:#047857;">how_to_reg</span>
+              <button type="button" onclick="window.showClassWiseAttendanceModal()" style="width:100%; padding:7px 12px; background:#fff1f2; color:#be123c; border:1px solid #fecdd3; border-radius:10px; font-size:0.75rem; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; transition:all 0.15s;" onmouseover="this.style.background='#ffe4e6'" onmouseout="this.style.background='#fff1f2'">
+                <span class="material-symbols-outlined" style="font-size:16px;">how_to_reg</span>
                 View Class-wise Attendance Graph →
               </button>
             </div>
