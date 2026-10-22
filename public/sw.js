@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tps-cache-v20261022-fast-dashboard-v1';
+const CACHE_NAME = 'tps-cache-v20261022-universal-exam-v1';
 
 self.addEventListener('install', event => {
   self.skipWaiting();

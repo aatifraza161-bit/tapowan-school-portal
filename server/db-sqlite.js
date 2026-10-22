@@ -957,12 +957,41 @@ async function rawList(moduleName) {
     });
 
     // ── UNIFIED EXAMS & APP_EXAM_MARKS BRIDGE ──
+    // Universal Tenant-Aware Exams & app_exam_marks Unification Bridge
     // Automatically merge any subjects recorded in app_exam_marks into exams so mobile and web always share 100% of subjects
     if (moduleName === 'exams') {
       try {
         const appMarksRes = await db.execute(`SELECT exam_name, class_name, subject, student_name, admission_no, roll_no, marks_obtained, max_marks, passing_marks, grade, remarks, pa1_marks, notebook_marks, enrichment_marks, subjective_marks FROM app_exam_marks ORDER BY id ASC`);
         const appRows = appMarksRes.rows || [];
         if (appRows.length > 0) {
+          // 1. Fetch tenant-specific exam settings & curriculum dynamically from current tenant database
+          let tenantExamConfig = null;
+          let tenantCustomRules = null;
+          let tenantCustomGrading = null;
+          try {
+            const settingsRes = await db.execute("SELECT key, value FROM settings WHERE key IN ('exam_system_config', 'exam_main_subjects_rules', 'customGradingScale')");
+            for (const sRow of (settingsRes.rows || [])) {
+              if (sRow.key === 'exam_system_config' && sRow.value) {
+                try { tenantExamConfig = JSON.parse(sRow.value); } catch(e){}
+              } else if (sRow.key === 'exam_main_subjects_rules' && sRow.value) {
+                try { tenantCustomRules = JSON.parse(sRow.value); } catch(e){}
+              } else if (sRow.key === 'customGradingScale' && sRow.value) {
+                try { tenantCustomGrading = JSON.parse(sRow.value); } catch(e){}
+              }
+            }
+          } catch(e) {}
+
+          // 2. Fetch registered class subjects from tenant's subjects table
+          const classCurriculumDb = new Map();
+          try {
+            const subjectsRes = await db.execute("SELECT subjectName, className FROM subjects");
+            for (const sRow of (subjectsRes.rows || [])) {
+              const cKey = String(sRow.className || '').trim().toLowerCase();
+              if (!classCurriculumDb.has(cKey)) classCurriculumDb.set(cKey, new Set());
+              if (sRow.subjectName) classCurriculumDb.get(cKey).add(String(sRow.subjectName).trim().toLowerCase());
+            }
+          } catch(e) {}
+
           const MAIN_KEYWORDS_SERVER = [
             'english', 'hindi', 'science', 'social science', 'math',
             'mathematics', 'maths', 'social studies', 'sst', 'evs', 'environmental',
@@ -976,22 +1005,41 @@ async function rawList(moduleName) {
             'physical education', 'phe', 'pe', 'sports', 'yoga', 'music', 'dance'
           ];
 
-          const isSubjectMainServer = (subName) => {
+          const isSubjectMainServer = (subName, className) => {
             const s = String(subName || '').trim().toLowerCase();
             if (!s) return false;
+
+            // Tenant-specific classRules or global rules
+            const cKey = String(className || '').trim().toLowerCase();
+            if (tenantCustomRules) {
+              if (cKey && tenantCustomRules.classRules && tenantCustomRules.classRules[cKey]) {
+                const cr = tenantCustomRules.classRules[cKey];
+                if (Array.isArray(cr.main) && cr.main.some(m => String(m).trim().toLowerCase() === s)) return true;
+                if (Array.isArray(cr.additional) && cr.additional.some(a => String(a).trim().toLowerCase() === s)) return false;
+              }
+              if (Array.isArray(tenantCustomRules.mainSubjects) && tenantCustomRules.mainSubjects.some(m => String(m).trim().toLowerCase() === s)) return true;
+              if (Array.isArray(tenantCustomRules.additionalSubjects) && tenantCustomRules.additionalSubjects.some(a => String(a).trim().toLowerCase() === s)) return false;
+            }
+
+            // Universal exam_system_config
+            if (tenantExamConfig && tenantExamConfig.coScholasticAreas) {
+              if (tenantExamConfig.coScholasticAreas.some(ca => String(ca.name || '').trim().toLowerCase() === s)) return false;
+            }
+
+            // Fallback heuristics
             if (ADDITIONAL_KEYWORDS_SERVER.some(k => s === k || s.includes(k))) return false;
             if (MAIN_KEYWORDS_SERVER.some(k => s === k || s.includes(k))) return true;
             return true;
           };
 
-          const getSubjectDisplayOrderServer = (subName) => {
+          const getSubjectDisplayOrderServer = (subName, className) => {
             const raw = String(subName || '').trim().toLowerCase();
             if (raw.includes('english') || raw === 'eng') return 10;
             if (raw.includes('hindi') || raw === 'hin') return 20;
             if (raw.includes('math')) return 30;
             if (raw.includes('social') || raw.includes('sst') || raw.includes('history') || raw.includes('geography') || raw.includes('civics') || raw.includes('pol') || raw.includes('econ')) return 50;
             if (raw.includes('science') || raw.includes('evs') || raw.includes('environmental') || raw.includes('physics') || raw.includes('chemistry') || raw.includes('biology')) return 40;
-            if (isSubjectMainServer(subName)) return 60;
+            if (isSubjectMainServer(subName, className)) return 60;
             if (raw.includes('comp') || raw.includes('it') || raw.includes('info')) return 70;
             if (raw.includes('gk') || raw.includes('knowledge') || raw.includes('moral')) return 80;
             if (raw.includes('sansk') || raw.includes('urdu')) return 90;
@@ -1000,12 +1048,38 @@ async function rawList(moduleName) {
             return 120;
           };
 
-          const classCurriculumMap = new Map();
-          for (const ar of appRows) {
-            const cKey = (ar.class_name || '').trim().toLowerCase();
-            if (!classCurriculumMap.has(cKey)) classCurriculumMap.set(cKey, new Set());
-            if (ar.subject) classCurriculumMap.get(cKey).add((ar.subject || '').trim());
-          }
+          const getUniversalServerGrade = (pct) => {
+            const p = parseFloat(pct);
+            if (isNaN(p)) return '---';
+
+            // Check custom grading scale from tenant config
+            let scaleBands = null;
+            if (tenantExamConfig && tenantExamConfig.gradingScale && Array.isArray(tenantExamConfig.gradingScale.bands) && tenantExamConfig.gradingScale.bands.length > 0) {
+              scaleBands = tenantExamConfig.gradingScale.bands;
+            } else if (Array.isArray(tenantCustomGrading) && tenantCustomGrading.length > 0) {
+              scaleBands = tenantCustomGrading;
+            }
+
+            if (scaleBands) {
+              const sorted = [...scaleBands].sort((a, b) => (parseFloat(b.min) || 0) - (parseFloat(a.min) || 0));
+              const match = sorted.find(b => p >= (parseFloat(b.min) || 0));
+              if (match && match.grade) return match.grade;
+            }
+
+            // CBSE Standard 9-Point Fallback
+            if (p >= 91) return 'A1';
+            if (p >= 81) return 'A2';
+            if (p >= 71) return 'B1';
+            if (p >= 61) return 'B2';
+            if (p >= 51) return 'C1';
+            if (p >= 41) return 'C2';
+            if (p >= 33) return 'D';
+            return 'E';
+          };
+
+          const tenantMinPassingPct = (tenantExamConfig && tenantExamConfig.passingCriteria && tenantExamConfig.passingCriteria.minOverallPercentage) 
+            ? parseFloat(tenantExamConfig.passingCriteria.minOverallPercentage) 
+            : (tenantCustomRules && tenantCustomRules.passingPercentage ? parseFloat(tenantCustomRules.passingPercentage) : 33);
 
           const appMarksMap = new Map();
           for (const ar of appRows) {
@@ -1017,7 +1091,7 @@ async function rawList(moduleName) {
             const subObj = {
               subject: (ar.subject || '').trim(),
               max: parseFloat(ar.max_marks) || 100,
-              min: parseFloat(ar.passing_marks) || 33,
+              min: parseFloat(ar.passing_marks) || tenantMinPassingPct,
               pa1: isAb ? 0 : (parseFloat(ar.pa1_marks) || 0),
               pa2: 0,
               notebook: isAb ? 0 : (parseFloat(ar.notebook_marks) || 0),
@@ -1040,6 +1114,7 @@ async function rawList(moduleName) {
             const eName = (r.examName || '').trim().toLowerCase();
             const adm = (r.admissionNo || '').trim().toLowerCase();
             const admKey = adm ? `${eName}:::adm_${adm}` : null;
+            const cKey = String(r.className || '').trim().toLowerCase();
 
             const appSubjects = admKey ? appMarksMap.get(admKey) : null;
             if (appSubjects && appSubjects.length > 0) {
@@ -1057,7 +1132,7 @@ async function rawList(moduleName) {
                 if (s && s.subject) mergedMap.set(s.subject.trim().toLowerCase(), s);
               });
               const mergedList = Array.from(mergedMap.values());
-              mergedList.sort((a, b) => getSubjectDisplayOrderServer(a.subject) - getSubjectDisplayOrderServer(b.subject));
+              mergedList.sort((a, b) => getSubjectDisplayOrderServer(a.subject, r.className) - getSubjectDisplayOrderServer(b.subject, r.className));
               r.subjectMarks = JSON.stringify(mergedList);
 
               let grandTotal = 0;
@@ -1066,15 +1141,18 @@ async function rawList(moduleName) {
               let mainMax = 0;
               let mainCount = 0;
               let failedMainCount = 0;
-              const expectedMainCount = 4;
-              const expectedClassSubjectsCount = 5;
+
+              // Dynamic class subjects count from tenant database curriculum
+              const dbClassSubs = classCurriculumDb.get(cKey) || classCurriculumDb.get('all');
+              const dynamicSubjectsCount = (dbClassSubs && dbClassSubs.size > 0) ? dbClassSubs.size : Math.max(mergedList.length, 5);
+              const expectedMainCount = Math.max(1, Math.min(4, dynamicSubjectsCount - 1));
 
               mergedList.forEach(s => {
                 const isSubAb = s.isAbsent === true || String(s.total).trim().toUpperCase() === 'AB' || String(s.theory).trim().toUpperCase() === 'AB' || s.grade === 'AB';
                 const tot = isSubAb ? 0 : (parseFloat(s.total) || 0);
                 const mx = parseFloat(s.max) || 100;
-                const mn = parseFloat(s.min) || 33;
-                const isMain = isSubjectMainServer(s.subject);
+                const mn = parseFloat(s.min) || Math.round(mx * (tenantMinPassingPct / 100));
+                const isMain = isSubjectMainServer(s.subject, r.className);
 
                 grandTotal += tot;
                 evaluatedMax += mx;
@@ -1089,13 +1167,13 @@ async function rawList(moduleName) {
 
               r.totalMarks = String(grandTotal);
 
-              // Check total number of curriculum subjects for proper class percentage denominator
-              const effectiveMax = Math.max(evaluatedMax, expectedClassSubjectsCount * 100);
+              // Dynamic percentage calculation based on actual curriculum
+              const effectiveMax = Math.max(evaluatedMax, dynamicSubjectsCount * 100);
               r.percentage = effectiveMax > 0 ? ((grandTotal / effectiveMax) * 100).toFixed(1) : (r.percentage || '0');
 
               const mainPct = mainMax > 0 ? (mainTotal / mainMax) * 100 : 0;
 
-              // Core main subjects rule: Additional subject alone (like Drawing) CANNOT decide Pass/Fail!
+              // Dynamic Pass / Fail / Compartment determination
               if (mainCount === 0) {
                 r.resultStatus = 'PENDING';
                 r.grade = '---';
@@ -1103,13 +1181,18 @@ async function rawList(moduleName) {
                 r.resultStatus = 'PENDING';
                 r.grade = '---';
               } else if (failedMainCount > 0) {
-                r.resultStatus = 'FAIL';
-                r.grade = 'E';
-              } else if (mainPct >= 33) {
+                const maxCompartment = (tenantExamConfig && tenantExamConfig.passingCriteria && tenantExamConfig.passingCriteria.maxCompartmentSubjects !== undefined)
+                  ? tenantExamConfig.passingCriteria.maxCompartmentSubjects
+                  : 1;
+                r.resultStatus = (failedMainCount <= maxCompartment) ? 'COMPARTMENT' : 'FAIL';
+                r.grade = getUniversalServerGrade(r.percentage);
+                if (r.grade === 'A1' || r.grade === 'A2' || r.grade === 'B1' || r.grade === 'B2') r.grade = 'D'; // Cap failed subjects grade
+              } else if (mainPct >= tenantMinPassingPct) {
                 r.resultStatus = 'PASS';
+                r.grade = getUniversalServerGrade(r.percentage);
               } else {
                 r.resultStatus = 'FAIL';
-                r.grade = 'E';
+                r.grade = getUniversalServerGrade(r.percentage);
               }
             }
           });

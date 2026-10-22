@@ -252,6 +252,21 @@
                 }
             }
         }
+
+        // Check classRules from exam settings
+        if (store && store.settings) {
+          const s = store.settings.find(x => x.key === "exam_main_subjects_rules");
+          if (s && s.value) {
+            try {
+              const rules = JSON.parse(s.value);
+              if (rules && rules.classRules && rules.classRules[canonicalTarget]) {
+                const cr = rules.classRules[canonicalTarget];
+                const combined = [...(cr.main || []), ...(cr.additional || [])].map(canonicalSubjectName).filter(Boolean);
+                if (combined.length > 0) return Array.from(new Set(combined));
+              }
+            } catch(e){}
+          }
+        }
     }
 
     // Standard CBSE Curriculum Defaults by Class Level:
@@ -273,8 +288,8 @@
   }
 
   // =========================================================================
-  // MAIN VS ADDITIONAL SUBJECTS RULES & PASS/FAIL CALCULATION ENGINE
-  // Only Main subjects decide Pass or Fail. Additional subjects NEVER fail a student!
+  // UNIVERSAL MULTI-SCHOOL EXAMINATION ENGINE & DATA-DRIVEN CONFIGURATION
+  // Supports CBSE 9-point, ICSE 7-point, State Board Divisions, Trimester, and Kindergarten
   // =========================================================================
 
   const DEFAULT_SUBJECT_RULES = {
@@ -295,19 +310,316 @@
     passingPercentage: 33
   };
 
+  const DEFAULT_EXAM_SYSTEM_CONFIG = {
+    version: "2.0.0",
+    board: "CBSE",
+    termModel: "2_term",
+    academicSession: "2026-27",
+    terms: [
+      { key: "term1", name: "Term 1 (Half Yearly)", weightagePct: 50 },
+      { key: "term2", name: "Term 2 (Annual Exam)", weightagePct: 50 }
+    ],
+    passingCriteria: {
+      minOverallPercentage: 33,
+      minSubjectPercentage: 33,
+      requireSeparateTheoryPractical: false,
+      maxCompartmentSubjects: 2,
+      graceMarksAllowed: 0,
+      enableSkillSubjectReplacement: true
+    },
+    gradingScale: {
+      type: "cbse_9point",
+      bands: [
+        { min: 91, max: 100, grade: "A1", gpa: 10.0, remark: "Outstanding" },
+        { min: 81, max: 90, grade: "A2", gpa: 9.0, remark: "Excellent" },
+        { min: 71, max: 80, grade: "B1", gpa: 8.0, remark: "Very Good" },
+        { min: 61, max: 70, grade: "B2", gpa: 7.0, remark: "Good" },
+        { min: 51, max: 60, grade: "C1", gpa: 6.0, remark: "Above Average" },
+        { min: 41, max: 50, grade: "C2", gpa: 5.0, remark: "Average" },
+        { min: 33, max: 40, grade: "D", gpa: 4.0, remark: "Pass" },
+        { min: 0, max: 32, grade: "E", gpa: 0.0, remark: "Needs Improvement" }
+      ]
+    },
+    coScholasticAreas: [
+      { name: "Work Education", scale: ["A", "B", "C"] },
+      { name: "Art Education", scale: ["A", "B", "C"] },
+      { name: "Health & Physical Education", scale: ["A", "B", "C"] },
+      { name: "Discipline & Conduct", scale: ["A", "B", "C"] }
+    ],
+    reportCard: {
+      templateType: "cbse_holistic_2term",
+      showHighestInClass: true,
+      showRank: true,
+      showAttendanceSummary: true,
+      showQrVerification: true
+    }
+  };
+
+  const EXAM_BOARD_PRESETS = {
+    cbse: {
+      name: "CBSE Standard (Classes 1–10)",
+      board: "CBSE",
+      termModel: "2_term",
+      terms: [
+        { key: "term1", name: "Term 1 (Half Yearly)", weightagePct: 50 },
+        { key: "term2", name: "Term 2 (Annual Exam)", weightagePct: 50 }
+      ],
+      passingCriteria: {
+        minOverallPercentage: 33,
+        minSubjectPercentage: 33,
+        requireSeparateTheoryPractical: false,
+        maxCompartmentSubjects: 2,
+        graceMarksAllowed: 0,
+        enableSkillSubjectReplacement: true
+      },
+      gradingScale: {
+        type: "cbse_9point",
+        bands: [
+          { min: 91, max: 100, grade: "A1", gpa: 10.0, remark: "Outstanding" },
+          { min: 81, max: 90, grade: "A2", gpa: 9.0, remark: "Excellent" },
+          { min: 71, max: 80, grade: "B1", gpa: 8.0, remark: "Very Good" },
+          { min: 61, max: 70, grade: "B2", gpa: 7.0, remark: "Good" },
+          { min: 51, max: 60, grade: "C1", gpa: 6.0, remark: "Above Average" },
+          { min: 41, max: 50, grade: "C2", gpa: 5.0, remark: "Average" },
+          { min: 33, max: 40, grade: "D", gpa: 4.0, remark: "Pass" },
+          { min: 0, max: 32, grade: "E", gpa: 0.0, remark: "Essential Repeat" }
+        ]
+      },
+      coScholasticAreas: [
+        { name: "Work Education", scale: ["A", "B", "C"] },
+        { name: "Art Education", scale: ["A", "B", "C"] },
+        { name: "Health & Physical Education", scale: ["A", "B", "C"] },
+        { name: "Discipline", scale: ["A", "B", "C"] }
+      ]
+    },
+    icse: {
+      name: "ICSE / CISCE Board",
+      board: "ICSE",
+      termModel: "2_term",
+      terms: [
+        { key: "term1", name: "Mid-Term Examination", weightagePct: 50 },
+        { key: "term2", name: "Final Examination", weightagePct: 50 }
+      ],
+      passingCriteria: {
+        minOverallPercentage: 35,
+        minSubjectPercentage: 35,
+        requireSeparateTheoryPractical: true,
+        maxCompartmentSubjects: 1,
+        graceMarksAllowed: 0,
+        enableSkillSubjectReplacement: false
+      },
+      gradingScale: {
+        type: "icse_7point",
+        bands: [
+          { min: 90, max: 100, grade: "1", gpa: 10.0, remark: "Very Good" },
+          { min: 80, max: 89, grade: "2", gpa: 9.0, remark: "Good" },
+          { min: 70, max: 79, grade: "3", gpa: 8.0, remark: "Satisfactory" },
+          { min: 60, max: 69, grade: "4", gpa: 7.0, remark: "Fair" },
+          { min: 50, max: 59, grade: "5", gpa: 6.0, remark: "Average" },
+          { min: 40, max: 49, grade: "6", gpa: 5.0, remark: "Below Average" },
+          { min: 35, max: 39, grade: "7", gpa: 4.0, remark: "Pass" },
+          { min: 20, max: 34, grade: "8", gpa: 0.0, remark: "Fail" },
+          { min: 0, max: 19, grade: "9", gpa: 0.0, remark: "Fail" }
+        ]
+      },
+      coScholasticAreas: [
+        { name: "SUPW & Community Service", scale: ["A", "B", "C", "D"] },
+        { name: "Art & Craft", scale: ["A", "B", "C", "D"] },
+        { name: "Physical Education", scale: ["A", "B", "C", "D"] }
+      ]
+    },
+    state_board: {
+      name: "State Board (Divisions: 1st, 2nd, 3rd)",
+      board: "State Board",
+      termModel: "annual",
+      terms: [
+        { key: "annual", name: "Annual / Final Board Exam", weightagePct: 100 }
+      ],
+      passingCriteria: {
+        minOverallPercentage: 33,
+        minSubjectPercentage: 33,
+        requireSeparateTheoryPractical: false,
+        maxCompartmentSubjects: 2,
+        graceMarksAllowed: 5,
+        enableSkillSubjectReplacement: false
+      },
+      gradingScale: {
+        type: "divisions",
+        bands: [
+          { min: 75, max: 100, grade: "Distinction", gpa: 10.0, remark: "Passed with Distinction" },
+          { min: 60, max: 74, grade: "1st Div", gpa: 8.0, remark: "First Division" },
+          { min: 45, max: 59, grade: "2nd Div", gpa: 6.0, remark: "Second Division" },
+          { min: 33, max: 44, grade: "3rd Div", gpa: 4.0, remark: "Third Division" },
+          { min: 0, max: 32, grade: "Fail", gpa: 0.0, remark: "Failed" }
+        ]
+      },
+      coScholasticAreas: [
+        { name: "Moral Education", scale: ["A", "B", "C"] },
+        { name: "Physical Training", scale: ["A", "B", "C"] }
+      ]
+    },
+    trimester: {
+      name: "Convent / Trimester (3 Terms: 30/30/40)",
+      board: "Convent / Trimester",
+      termModel: "trimester",
+      terms: [
+        { key: "term1", name: "1st Term", weightagePct: 30 },
+        { key: "term2", name: "2nd Term", weightagePct: 30 },
+        { key: "term3", name: "3rd Term (Final)", weightagePct: 40 }
+      ],
+      passingCriteria: {
+        minOverallPercentage: 40,
+        minSubjectPercentage: 40,
+        requireSeparateTheoryPractical: false,
+        maxCompartmentSubjects: 1,
+        graceMarksAllowed: 0,
+        enableSkillSubjectReplacement: false
+      },
+      gradingScale: {
+        type: "letter_grades",
+        bands: [
+          { min: 90, max: 100, grade: "A+", gpa: 10.0, remark: "Outstanding" },
+          { min: 80, max: 89, grade: "A", gpa: 9.0, remark: "Excellent" },
+          { min: 70, max: 79, grade: "B+", gpa: 8.0, remark: "Very Good" },
+          { min: 60, max: 69, grade: "B", gpa: 7.0, remark: "Good" },
+          { min: 50, max: 59, grade: "C", gpa: 6.0, remark: "Satisfactory" },
+          { min: 40, max: 49, grade: "D", gpa: 4.0, remark: "Pass" },
+          { min: 0, max: 39, grade: "F", gpa: 0.0, remark: "Fail" }
+        ]
+      },
+      coScholasticAreas: [
+        { name: "Moral Science / Value Education", scale: ["A", "B", "C"] },
+        { name: "Music / Singing", scale: ["A", "B", "C"] },
+        { name: "Games & Sports", scale: ["A", "B", "C"] }
+      ]
+    },
+    kindergarten: {
+      name: "Kindergarten / Pre-Primary (Montessori Qualitative Badges)",
+      board: "Kindergarten",
+      termModel: "continuous",
+      terms: [
+        { key: "term1", name: "Assessment Cycle 1", weightagePct: 33 },
+        { key: "term2", name: "Assessment Cycle 2", weightagePct: 33 },
+        { key: "term3", name: "Assessment Cycle 3", weightagePct: 34 }
+      ],
+      passingCriteria: {
+        minOverallPercentage: 0,
+        minSubjectPercentage: 0,
+        requireSeparateTheoryPractical: false,
+        maxCompartmentSubjects: 0,
+        graceMarksAllowed: 0,
+        enableSkillSubjectReplacement: false,
+        isQualitativeOnly: true
+      },
+      gradingScale: {
+        type: "qualitative_badges",
+        bands: [
+          { min: 85, max: 100, grade: "🌟 Exceeding", gpa: 10.0, remark: "Exceeds Developmental Milestones" },
+          { min: 65, max: 84, grade: "😊 Meeting", gpa: 8.0, remark: "Meets Age-Appropriate Expectations" },
+          { min: 40, max: 64, grade: "👍 Approaching", gpa: 6.0, remark: "Developing with Support" },
+          { min: 0, max: 39, grade: "🔄 Needs Support", gpa: 4.0, remark: "Needs Encouragement" }
+        ]
+      },
+      coScholasticAreas: [
+        { name: "Gross Motor Skills", scale: ["🌟", "😊", "👍"] },
+        { name: "Fine Motor Skills & Pencil Grip", scale: ["🌟", "😊", "👍"] },
+        { name: "Social & Emotional Readiness", scale: ["🌟", "😊", "👍"] },
+        { name: "Creative Art & Rhymes", scale: ["🌟", "😊", "👍"] }
+      ]
+    }
+  };
+
+  function getUniversalExamConfig() {
+    const store = typeof getStore !== 'undefined' ? getStore() : {};
+    let config = JSON.parse(JSON.stringify(DEFAULT_EXAM_SYSTEM_CONFIG));
+    if (store && store.settings) {
+      const s = store.settings.find(x => x.key === "exam_system_config");
+      if (s && s.value) {
+        try {
+          const parsed = JSON.parse(s.value);
+          config = Object.assign(config, parsed);
+          if (parsed.passingCriteria) config.passingCriteria = Object.assign(DEFAULT_EXAM_SYSTEM_CONFIG.passingCriteria, parsed.passingCriteria);
+          if (parsed.gradingScale) config.gradingScale = Object.assign(DEFAULT_EXAM_SYSTEM_CONFIG.gradingScale, parsed.gradingScale);
+        } catch(e){}
+      } else {
+        const cs = store.settings.find(x => x.key === "customGradingScale");
+        if (cs && cs.value) {
+          try {
+            const bands = JSON.parse(cs.value);
+            if (Array.isArray(bands) && bands.length > 0) {
+              config.gradingScale.bands = bands;
+            }
+          } catch(e){}
+        }
+        const mr = store.settings.find(x => x.key === "exam_main_subjects_rules");
+        if (mr && mr.value) {
+          try {
+            const rules = JSON.parse(mr.value);
+            if (rules.passingPercentage) {
+              config.passingCriteria.minOverallPercentage = parseFloat(rules.passingPercentage) || 33;
+              config.passingCriteria.minSubjectPercentage = parseFloat(rules.passingPercentage) || 33;
+            }
+          } catch(e){}
+        }
+      }
+    }
+    return config;
+  }
+  window.getUniversalExamConfig = getUniversalExamConfig;
+
+  function getUniversalGrade(percentage, className, examName) {
+    const p = parseFloat(percentage);
+    if (isNaN(p)) return '-';
+    const cfg = getUniversalExamConfig();
+    if (cfg && cfg.gradingScale && Array.isArray(cfg.gradingScale.bands) && cfg.gradingScale.bands.length > 0) {
+      const sorted = [...cfg.gradingScale.bands].sort((a, b) => (parseFloat(b.min) || 0) - (parseFloat(a.min) || 0));
+      const match = sorted.find(b => p >= (parseFloat(b.min) || 0));
+      if (match && match.grade) return match.grade;
+    }
+    // CBSE 9-Point Standard
+    if (p >= 91) return 'A1';
+    if (p >= 81) return 'A2';
+    if (p >= 71) return 'B1';
+    if (p >= 61) return 'B2';
+    if (p >= 51) return 'C1';
+    if (p >= 41) return 'C2';
+    if (p >= 33) return 'D';
+    return 'E';
+  }
+  window.getUniversalGrade = getUniversalGrade;
+
+  function getUniversalPassingCriteria() {
+    const cfg = getUniversalExamConfig();
+    return cfg.passingCriteria || {
+      minOverallPercentage: 33,
+      minSubjectPercentage: 33,
+      maxCompartmentSubjects: 2,
+      graceMarksAllowed: 0
+    };
+  }
+  window.getUniversalPassingCriteria = getUniversalPassingCriteria;
+
   function isSubjectMain(subjectName, className, subjectObj) {
     if (subjectObj) {
       if (typeof subjectObj.isMain === 'boolean') return subjectObj.isMain;
       if (subjectObj.isMain === 'true' || subjectObj.isMain === '1') return true;
       if (subjectObj.isMain === 'false' || subjectObj.isMain === '0') return false;
-      if (subjectObj.subjectType === 'additional' || subjectObj.subjectType === 'optional') return false;
+      if (subjectObj.subjectType === 'additional' || subjectObj.subjectType === 'optional' || subjectObj.subjectType === 'co_scholastic') return false;
       if (subjectObj.subjectType === 'main' || subjectObj.subjectType === 'core') return true;
     }
 
     const sName = String(subjectName || '').trim().toLowerCase();
     if (!sName) return true;
 
-    // Check custom rules saved in settings
+    // 1. Check Universal exam_system_config coScholasticAreas
+    const examCfg = typeof getUniversalExamConfig === 'function' ? getUniversalExamConfig() : null;
+    if (examCfg && Array.isArray(examCfg.coScholasticAreas)) {
+      if (examCfg.coScholasticAreas.some(ca => String(ca.name || '').trim().toLowerCase() === sName)) {
+        return false;
+      }
+    }
+
+    // 2. Check custom rules saved in settings
     const store = typeof getStore !== 'undefined' ? getStore() : {};
     let customRules = null;
     if (store && store.settings) {
@@ -333,7 +645,22 @@
       if (Array.isArray(customRules.additionalSubjects) && customRules.additionalSubjects.some(a => String(a).trim().toLowerCase() === sName)) return false;
     }
 
-    // Heuristic matching against additional keywords
+    // 3. Check tenant subjects table if registered
+    if (store && Array.isArray(store.subjects)) {
+      const normFunc = typeof normalizeCanonicalClass === 'function' ? normalizeCanonicalClass : (x => (x || '').trim());
+      const cNorm = normFunc(className || '').toLowerCase();
+      const matchSub = store.subjects.find(s => {
+        const sNorm = normFunc(s.className || '').toLowerCase();
+        return (sNorm === cNorm || sNorm === 'all') && String(s.subjectName || '').trim().toLowerCase() === sName;
+      });
+      if (matchSub) {
+        if (matchSub.isMain !== undefined && matchSub.isMain !== null) return matchSub.isMain === true || matchSub.isMain === 1 || matchSub.isMain === 'true';
+        if (matchSub.subjectType === 'additional' || matchSub.subjectType === 'optional' || matchSub.subjectType === 'co_scholastic') return false;
+        if (matchSub.subjectType === 'main' || matchSub.subjectType === 'core') return true;
+      }
+    }
+
+    // 4. Heuristic matching against additional keywords
     for (const kw of DEFAULT_SUBJECT_RULES.additionalKeywords) {
       if (sName === kw || sName.includes(kw)) {
         return false;
@@ -641,6 +968,12 @@
     const failedMainSubjects = [];
     let mainSubjectsCount = 0;
 
+    const universalPolicy = typeof getUniversalPassingCriteria === 'function' 
+      ? getUniversalPassingCriteria() 
+      : { minOverallPercentage: 33, minSubjectPercentage: 33, maxCompartmentSubjects: 2, graceMarksAllowed: 0 };
+    const minPassingCutoff = universalPolicy.minOverallPercentage || 33;
+    const minSubCutoff = universalPolicy.minSubjectPercentage || 33;
+
     evalSubs.forEach(sub => {
       if (!sub || !sub.subject) return;
       const subName = String(sub.subject).trim();
@@ -653,7 +986,7 @@
 
       const isMain = isSubjectMain(subName, className, sub);
       const maxMarks = parseFloat(sub.max) > 0 ? parseFloat(sub.max) : 100;
-      const minMarks = parseFloat(sub.min) > 0 ? parseFloat(sub.min) : Math.round(maxMarks * 0.33);
+      const minMarks = parseFloat(sub.min) > 0 ? parseFloat(sub.min) : Math.round(maxMarks * (minSubCutoff / 100));
 
       let total = 0;
       let hasValidMarks = false;
@@ -726,8 +1059,9 @@
       isPending = true;
       pendingReason = `Incomplete Main Subjects (${mainSubjectsCount}/${expectedMainCount} evaluated)`;
     } else if (failedMainSubjects.length > 0) {
-      resultStatus = "FAIL";
-    } else if (mainPercentage >= 33) {
+      const maxComp = universalPolicy.maxCompartmentSubjects !== undefined ? universalPolicy.maxCompartmentSubjects : 1;
+      resultStatus = (failedMainSubjects.length <= maxComp) ? "COMPARTMENT" : "FAIL";
+    } else if (mainPercentage >= minPassingCutoff) {
       resultStatus = "PASS";
     } else {
       resultStatus = "FAIL";
@@ -1257,6 +1591,398 @@
     attachModalEvents();
   };
 
+  // =========================================================================
+  // UNIVERSAL EXAM SYSTEM SETTINGS MODAL (FOR PRINCIPALS & EXAM CONTROLLERS)
+  // Supports CBSE, ICSE, State Boards, Trimester, and Kindergarten Presets
+  // =========================================================================
+
+  window.openExamSystemSettingsModal = function() {
+    const store = typeof getStore !== 'undefined' ? getStore() : {};
+    let currentConfig = getUniversalExamConfig();
+
+    const oldModal = document.getElementById("universalExamSettingsModal");
+    if (oldModal) oldModal.remove();
+
+    const overlay = document.createElement("div");
+    overlay.className = "exam-modal-overlay active";
+    overlay.id = "universalExamSettingsModal";
+    overlay.style.zIndex = "99999";
+
+    function renderModalHtml() {
+      const p = currentConfig.passingCriteria || {};
+      const bands = (currentConfig.gradingScale && currentConfig.gradingScale.bands) || [];
+      const coAreas = (currentConfig.coScholasticAreas || []).map(ca => ca.name || ca).join(', ');
+
+      let bandsRowsHtml = bands.map((b, idx) => `
+        <tr class="grade-band-row" data-idx="${idx}" style="border-bottom:1px solid #e2e8f0;">
+          <td style="padding:6px;"><input type="number" class="band-min" value="${b.min}" style="width:55px; padding:4px 6px; border:1px solid #cbd5e1; border-radius:6px; font-weight:700; text-align:center;"></td>
+          <td style="padding:6px; text-align:center; color:#64748b; font-weight:700;">-</td>
+          <td style="padding:6px;"><input type="number" class="band-max" value="${b.max}" style="width:55px; padding:4px 6px; border:1px solid #cbd5e1; border-radius:6px; font-weight:700; text-align:center;"></td>
+          <td style="padding:6px;"><input type="text" class="band-grade" value="${b.grade}" style="width:75px; padding:4px 8px; border:1px solid #cbd5e1; border-radius:6px; font-weight:800; text-align:center; color:#2563eb;"></td>
+          <td style="padding:6px;"><input type="number" step="0.1" class="band-gpa" value="${b.gpa !== undefined ? b.gpa : ''}" placeholder="10.0" style="width:55px; padding:4px 6px; border:1px solid #cbd5e1; border-radius:6px; text-align:center;"></td>
+          <td style="padding:6px;"><input type="text" class="band-remark" value="${b.remark || ''}" placeholder="e.g. Outstanding" style="width:100%; padding:4px 8px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px;"></td>
+          <td style="padding:6px; text-align:center;"><button type="button" class="del-band-btn" data-idx="${idx}" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; border-radius:6px; padding:4px 8px; cursor:pointer; font-weight:700;" title="Delete Band">✕</button></td>
+        </tr>
+      `).join('');
+
+      return `
+        <div class="exam-modal" style="max-width:880px; width:95%; max-height:92vh; display:flex; flex-direction:column; border-radius:16px; overflow:hidden; box-shadow:0 25px 50px -12px rgba(0,0,0,0.3); background:#ffffff;">
+          <div style="background:linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%); color:#ffffff; padding:18px 24px; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span class="material-symbols-outlined" style="font-size:24px;">tune</span>
+                <h3 style="margin:0; font-size:1.25rem; font-weight:800; color:#ffffff;">Universal Exam System Settings</h3>
+              </div>
+              <p style="margin:4px 0 0 0; font-size:0.85rem; color:#bfdbfe;">Configure School Board, Terms, Passing Cutoff, and Grading Scale for Any School</p>
+            </div>
+            <button type="button" id="closeExamConfigModalBtn" style="background:rgba(255,255,255,0.15); border:none; color:#ffffff; font-size:20px; cursor:pointer; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; transition:background 0.2s;">✕</button>
+          </div>
+
+          <div style="padding:20px 24px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:20px;">
+            <!-- PRESETS BAR -->
+            <div style="background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:12px; padding:16px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:10px;">
+                <label style="font-weight:800; font-size:0.95rem; color:#0f172a; display:flex; align-items:center; gap:6px;">
+                  <span class="material-symbols-outlined" style="font-size:18px; color:#2563eb;">magic_button</span>
+                  1-Click School Board Presets:
+                </label>
+                <select id="presetBoardSelect" style="flex:1; max-width:380px; padding:8px 12px; border-radius:8px; border:1.5px solid #2563eb; background:#ffffff; font-weight:700; color:#1e3a8a; cursor:pointer;">
+                  <option value="">-- Choose a Board Preset --</option>
+                  <option value="cbse" ${currentConfig.board === 'CBSE' ? 'selected' : ''}>CBSE Standard (9-Point, 33% Pass, 2 Terms 50/50)</option>
+                  <option value="icse" ${currentConfig.board === 'ICSE' ? 'selected' : ''}>ICSE / CISCE (7-Point, 35% Pass, English Compulsory)</option>
+                  <option value="state_board" ${currentConfig.board === 'State Board' ? 'selected' : ''}>State Board (1st/2nd/3rd Div, 33% Pass, Grace Marks)</option>
+                  <option value="trimester" ${currentConfig.board === 'Convent / Trimester' ? 'selected' : ''}>Convent / Trimester (3 Terms: 30/30/40, Letter Grades)</option>
+                  <option value="kindergarten" ${currentConfig.board === 'Kindergarten' ? 'selected' : ''}>Kindergarten / Pre-Primary (Qualitative Badges 🌟😊👍)</option>
+                </select>
+              </div>
+              <p style="margin:0; font-size:0.8rem; color:#64748b;">Selecting a preset automatically configures all term models, passing cutoffs, and grade scales for that educational board.</p>
+            </div>
+
+            <!-- GENERAL & TERM MODEL -->
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px;">
+              <div>
+                <label style="font-size:0.85rem; font-weight:700; color:#334155; display:block; margin-bottom:6px;">Board Name</label>
+                <input type="text" id="cfgBoardName" value="${currentConfig.board || 'CBSE'}" style="width:100%; padding:8px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:600; box-sizing:border-box;">
+              </div>
+              <div>
+                <label style="font-size:0.85rem; font-weight:700; color:#334155; display:block; margin-bottom:6px;">Assessment / Term Model</label>
+                <select id="cfgTermModel" style="width:100%; padding:8px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:600; box-sizing:border-box; background:#fff; cursor:pointer;">
+                  <option value="2_term" ${currentConfig.termModel === '2_term' ? 'selected' : ''}>CBSE 2-Term (50% Term 1 + 50% Term 2)</option>
+                  <option value="trimester" ${currentConfig.termModel === 'trimester' ? 'selected' : ''}>Trimester (3 Terms: 30% / 30% / 40%)</option>
+                  <option value="annual" ${currentConfig.termModel === 'annual' ? 'selected' : ''}>Single Annual Exam (100% Weightage)</option>
+                  <option value="continuous" ${currentConfig.termModel === 'continuous' ? 'selected' : ''}>Continuous Cycles (Kindergarten / Pre-Primary)</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size:0.85rem; font-weight:700; color:#334155; display:block; margin-bottom:6px;">Academic Session</label>
+                <input type="text" id="cfgAcademicSession" value="${currentConfig.academicSession || '2026-27'}" style="width:100%; padding:8px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:600; box-sizing:border-box;">
+              </div>
+            </div>
+
+            <!-- PASSING & PROMOTION POLICY -->
+            <div style="background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:12px; padding:16px;">
+              <h4 style="margin:0 0 12px 0; font-size:0.95rem; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:6px;">
+                <span class="material-symbols-outlined" style="font-size:18px; color:#16a34a;">verified</span>
+                Passing & Promotion Policy
+              </h4>
+              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:14px;">
+                <div>
+                  <label style="font-size:0.8rem; font-weight:700; color:#475569; display:block; margin-bottom:4px;">Min Overall Passing %</label>
+                  <input type="number" id="cfgMinOverall" value="${p.minOverallPercentage !== undefined ? p.minOverallPercentage : 33}" min="0" max="100" style="width:100%; padding:8px 10px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:700; box-sizing:border-box;">
+                </div>
+                <div>
+                  <label style="font-size:0.8rem; font-weight:700; color:#475569; display:block; margin-bottom:4px;">Min Subject Passing %</label>
+                  <input type="number" id="cfgMinSubject" value="${p.minSubjectPercentage !== undefined ? p.minSubjectPercentage : 33}" min="0" max="100" style="width:100%; padding:8px 10px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:700; box-sizing:border-box;">
+                </div>
+                <div>
+                  <label style="font-size:0.8rem; font-weight:700; color:#475569; display:block; margin-bottom:4px;">Max Compartment Subjects</label>
+                  <input type="number" id="cfgMaxCompartment" value="${p.maxCompartmentSubjects !== undefined ? p.maxCompartmentSubjects : 2}" min="0" max="5" style="width:100%; padding:8px 10px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:700; box-sizing:border-box;">
+                </div>
+                <div>
+                  <label style="font-size:0.8rem; font-weight:700; color:#475569; display:block; margin-bottom:4px;">Grace Marks Allowed</label>
+                  <input type="number" id="cfgGraceMarks" value="${p.graceMarksAllowed || 0}" min="0" max="15" style="width:100%; padding:8px 10px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:700; box-sizing:border-box;">
+                </div>
+              </div>
+              <div style="display:flex; flex-wrap:wrap; gap:16px; margin-top:14px; padding-top:10px; border-top:1px solid #e2e8f0;">
+                <label style="font-size:0.85rem; font-weight:600; color:#334155; display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
+                  <input type="checkbox" id="cfgSeparateTheoryPrac" ${p.requireSeparateTheoryPractical ? 'checked' : ''} style="cursor:pointer; width:16px; height:16px;">
+                  Require Passing Separately in Theory & Practical
+                </label>
+                <label style="font-size:0.85rem; font-weight:600; color:#334155; display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
+                  <input type="checkbox" id="cfgSkillReplacement" ${p.enableSkillSubjectReplacement !== false ? 'checked' : ''} style="cursor:pointer; width:16px; height:16px;">
+                  CBSE 6th Skill Subject Replacement (IT/CS replaces failed subject)
+                </label>
+              </div>
+            </div>
+
+            <!-- GRADING SCALE BANDS EDITOR -->
+            <div style="background:#ffffff; border:1.5px solid #e2e8f0; border-radius:12px; padding:16px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h4 style="margin:0; font-size:0.95rem; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:6px;">
+                  <span class="material-symbols-outlined" style="font-size:18px; color:#f59e0b;">stars</span>
+                  Grading Scale Bands (${currentConfig.gradingScale?.type || 'Standard'})
+                </h4>
+                <button type="button" id="btnAddGradeBandRowBtn" style="padding:5px 12px; font-size:0.8rem; font-weight:700; background:#eff6ff; color:#2563eb; border:1.5px solid #bfdbfe; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; gap:4px;">
+                  + Add Grade Band
+                </button>
+              </div>
+              <div style="overflow-x:auto;">
+                <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                  <thead>
+                    <tr style="background:#f8fafc; color:#475569; font-size:11px; text-transform:uppercase;">
+                      <th style="padding:6px; text-align:left;">Min %</th>
+                      <th style="padding:6px; width:20px;"></th>
+                      <th style="padding:6px; text-align:left;">Max %</th>
+                      <th style="padding:6px; text-align:left;">Grade</th>
+                      <th style="padding:6px; text-align:left;">GPA</th>
+                      <th style="padding:6px; text-align:left;">Remark / Descriptor</th>
+                      <th style="padding:6px; width:40px; text-align:center;">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="gradeBandsTableBody">
+                    ${bandsRowsHtml}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- CO-SCHOLASTIC & GRADED SUBJECTS -->
+            <div>
+              <label style="font-size:0.85rem; font-weight:700; color:#334155; display:block; margin-bottom:4px;">
+                Co-Scholastic & Graded Areas (Letter Graded Only, Excluded from Numeric Grand Total)
+              </label>
+              <input type="text" id="cfgCoScholastic" value="${coAreas}" placeholder="Work Education, Art Education, Health & Physical Education, Discipline" style="width:100%; padding:8px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-size:13px; box-sizing:border-box;">
+              <span style="font-size:11px; color:#64748b; margin-top:3px; display:block;">Comma-separated subject names that will receive letter grades (A, B, C) and will never cause a student to fail.</span>
+            </div>
+          </div>
+
+          <!-- FOOTER ACTIONS -->
+          <div style="background:#f8fafc; border-top:1.5px solid #e2e8f0; padding:16px 24px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <button type="button" id="btnResetToCbsePreset" style="padding:8px 14px; font-size:0.85rem; font-weight:700; background:#ffffff; color:#dc2626; border:1px solid #fca5a5; border-radius:8px; cursor:pointer;">
+              Reset to CBSE Defaults
+            </button>
+            <div style="display:flex; gap:10px;">
+              <button type="button" id="btnCancelExamConfig" style="padding:8px 16px; font-size:0.85rem; font-weight:700; background:#ffffff; color:#475569; border:1px solid #cbd5e1; border-radius:8px; cursor:pointer;">
+                Cancel
+              </button>
+              <button type="button" id="btnSaveUniversalExamConfig" style="padding:8px 20px; font-size:0.85rem; font-weight:800; background:#16a34a; color:#ffffff; border:none; border-radius:8px; cursor:pointer; box-shadow:0 2px 6px rgba(22,163,74,0.3); display:inline-flex; align-items:center; gap:6px;">
+                <span class="material-symbols-outlined" style="font-size:18px;">save</span>
+                Save & Apply Settings
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    overlay.innerHTML = renderModalHtml();
+    document.body.appendChild(overlay);
+
+    function attachConfigEvents() {
+      // Close button
+      const closeBtn = document.getElementById("closeExamConfigModalBtn");
+      const cancelBtn = document.getElementById("btnCancelExamConfig");
+      if (closeBtn) closeBtn.onclick = () => overlay.remove();
+      if (cancelBtn) cancelBtn.onclick = () => overlay.remove();
+
+      // Preset change handler
+      const presetSelect = document.getElementById("presetBoardSelect");
+      if (presetSelect) {
+        presetSelect.onchange = (e) => {
+          const key = e.target.value;
+          if (key && EXAM_BOARD_PRESETS[key]) {
+            const pObj = EXAM_BOARD_PRESETS[key];
+            currentConfig.board = pObj.board;
+            currentConfig.termModel = pObj.termModel;
+            currentConfig.terms = pObj.terms;
+            currentConfig.passingCriteria = JSON.parse(JSON.stringify(pObj.passingCriteria));
+            currentConfig.gradingScale = JSON.parse(JSON.stringify(pObj.gradingScale));
+            currentConfig.coScholasticAreas = JSON.parse(JSON.stringify(pObj.coScholasticAreas));
+            overlay.innerHTML = renderModalHtml();
+            attachConfigEvents();
+          }
+        };
+      }
+
+      // Add Grade Band Row
+      const addBandBtn = document.getElementById("btnAddGradeBandRowBtn");
+      if (addBandBtn) {
+        addBandBtn.onclick = () => {
+          if (!currentConfig.gradingScale) currentConfig.gradingScale = { bands: [] };
+          if (!Array.isArray(currentConfig.gradingScale.bands)) currentConfig.gradingScale.bands = [];
+          currentConfig.gradingScale.bands.push({ min: 0, max: 0, grade: "New", gpa: 0.0, remark: "" });
+          overlay.innerHTML = renderModalHtml();
+          attachConfigEvents();
+        };
+      }
+
+      // Delete Grade Band Row
+      overlay.querySelectorAll(".del-band-btn").forEach(btn => {
+        btn.onclick = (e) => {
+          const idx = parseInt(e.target.dataset.idx);
+          if (!isNaN(idx) && currentConfig.gradingScale && currentConfig.gradingScale.bands) {
+            currentConfig.gradingScale.bands.splice(idx, 1);
+            overlay.innerHTML = renderModalHtml();
+            attachConfigEvents();
+          }
+        };
+      });
+
+      // Reset to CBSE Defaults
+      const resetBtn = document.getElementById("btnResetToCbsePreset");
+      if (resetBtn) {
+        resetBtn.onclick = async () => {
+          if (!await window.appConfirm("Reset configuration to standard CBSE rules (9-point scale, 33% cutoff, 2 terms)?", { title: "Reset CBSE Rules?", confirmText: "Reset", type: "warning" })) return;
+          currentConfig = JSON.parse(JSON.stringify(EXAM_BOARD_PRESETS.cbse));
+          overlay.innerHTML = renderModalHtml();
+          attachConfigEvents();
+        };
+      }
+
+      // Save Universal Config
+      const saveBtn = document.getElementById("btnSaveUniversalExamConfig");
+      if (saveBtn) {
+        saveBtn.onclick = async () => {
+          saveBtn.disabled = true;
+          saveBtn.textContent = "Saving...";
+
+          try {
+            // Read form inputs
+            currentConfig.board = document.getElementById("cfgBoardName").value.trim() || "CBSE";
+            currentConfig.termModel = document.getElementById("cfgTermModel").value || "2_term";
+            currentConfig.academicSession = document.getElementById("cfgAcademicSession").value.trim() || "2026-27";
+
+            currentConfig.passingCriteria = {
+              minOverallPercentage: parseFloat(document.getElementById("cfgMinOverall").value) || 33,
+              minSubjectPercentage: parseFloat(document.getElementById("cfgMinSubject").value) || 33,
+              maxCompartmentSubjects: parseInt(document.getElementById("cfgMaxCompartment").value) || 2,
+              graceMarksAllowed: parseInt(document.getElementById("cfgGraceMarks").value) || 0,
+              requireSeparateTheoryPractical: document.getElementById("cfgSeparateTheoryPrac").checked,
+              enableSkillSubjectReplacement: document.getElementById("cfgSkillReplacement").checked
+            };
+
+            // Read table bands
+            const newBands = [];
+            overlay.querySelectorAll(".grade-band-row").forEach(row => {
+              const mn = parseFloat(row.querySelector(".band-min").value) || 0;
+              const mx = parseFloat(row.querySelector(".band-max").value) || 0;
+              const gr = row.querySelector(".band-grade").value.trim() || "";
+              const gp = parseFloat(row.querySelector(".band-gpa").value);
+              const rm = row.querySelector(".band-remark").value.trim();
+              if (gr) {
+                newBands.push({
+                  min: mn,
+                  max: mx,
+                  grade: gr,
+                  gpa: isNaN(gp) ? 0 : gp,
+                  remark: rm
+                });
+              }
+            });
+            newBands.sort((a, b) => b.min - a.min);
+            if (!currentConfig.gradingScale) currentConfig.gradingScale = {};
+            currentConfig.gradingScale.bands = newBands;
+
+            // Co-scholastic areas
+            const rawCo = document.getElementById("cfgCoScholastic").value || "";
+            currentConfig.coScholasticAreas = rawCo.split(',').map(s => s.trim()).filter(Boolean).map(name => ({ name, scale: ["A", "B", "C"] }));
+
+            // Save payload to settings table
+            const payload = {
+              key: "exam_system_config",
+              value: JSON.stringify(currentConfig),
+              category: "Academic",
+              updatedBy: (store.user && store.user.fullName) || "Web Portal"
+            };
+
+            const existingSetting = (store.settings || []).find(s => s.key === "exam_system_config");
+            if (existingSetting && existingSetting.id) {
+              if (typeof api === 'function') {
+                await api(`/api/modules/settings/${existingSetting.id}`, { method: "PUT", body: JSON.stringify(payload) });
+              } else {
+                await fetch(`/api/modules/settings/${existingSetting.id}`, {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (localStorage.getItem("token") || "") },
+                  body: JSON.stringify(payload)
+                });
+              }
+              existingSetting.value = payload.value;
+            } else {
+              let res = null;
+              if (typeof api === 'function') {
+                res = await api("/api/modules/settings", { method: "POST", body: JSON.stringify(payload) });
+              } else {
+                const r = await fetch("/api/modules/settings", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (localStorage.getItem("token") || "") },
+                  body: JSON.stringify(payload)
+                });
+                res = await r.json();
+              }
+              if (!store.settings) store.settings = [];
+              store.settings.push({ id: res?.id || Date.now(), ...payload });
+            }
+
+            // Sync legacy customGradingScale setting
+            try {
+              const legacyGradingPayload = {
+                key: "customGradingScale",
+                value: JSON.stringify(newBands),
+                category: "Academic",
+                updatedBy: (store.user && store.user.fullName) || "Web Portal"
+              };
+              const exGs = (store.settings || []).find(s => s.key === "customGradingScale");
+              if (exGs && exGs.id) {
+                if (typeof api === 'function') await api(`/api/modules/settings/${exGs.id}`, { method: "PUT", body: JSON.stringify(legacyGradingPayload) });
+                exGs.value = legacyGradingPayload.value;
+              } else {
+                if (typeof api === 'function') await api("/api/modules/settings", { method: "POST", body: JSON.stringify(legacyGradingPayload) });
+              }
+            } catch(e){}
+
+            // Sync legacy exam_main_subjects_rules passingPercentage
+            try {
+              const exMr = (store.settings || []).find(s => s.key === "exam_main_subjects_rules");
+              let mrObj = { passingPercentage: currentConfig.passingCriteria.minOverallPercentage };
+              if (exMr && exMr.value) {
+                try { mrObj = Object.assign(JSON.parse(exMr.value), mrObj); } catch(e){}
+              }
+              const mrPayload = {
+                key: "exam_main_subjects_rules",
+                value: JSON.stringify(mrObj),
+                category: "Academic",
+                updatedBy: (store.user && store.user.fullName) || "Web Portal"
+              };
+              if (exMr && exMr.id) {
+                if (typeof api === 'function') await api(`/api/modules/settings/${exMr.id}`, { method: "PUT", body: JSON.stringify(mrPayload) });
+                exMr.value = mrPayload.value;
+              }
+            } catch(e){}
+
+            if (typeof showToast !== 'undefined') {
+              showToast(`Universal Exam Settings saved! Applied ${currentConfig.board} framework to all classes.`, "success");
+            } else {
+              alert("Settings saved successfully!");
+            }
+
+            overlay.remove();
+
+            if (typeof window.calcExamTotals === 'function') {
+              window.calcExamTotals();
+            }
+          } catch(err) {
+            console.error("Save universal exam config error:", err);
+            alert("Error saving settings: " + (err.message || err));
+            saveBtn.disabled = false;
+            saveBtn.textContent = "Save & Apply Settings";
+          }
+        };
+      }
+    }
+
+    attachConfigEvents();
+  };
+
   window.renderExamModule = function(options = {}) {
     const examPanel = document.getElementById("examPanel");
     if (!examPanel) return;
@@ -1282,8 +2008,14 @@
 
     examPanel.innerHTML = `
       <div class="exam-card">
-        <div class="exam-header">
-          <h3>Exam Management</h3>
+        <div class="exam-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <h3 style="margin:0;">Exam Management</h3>
+            <button type="button" class="exam-btn" onclick="window.openExamSystemSettingsModal()" style="padding: 6px 12px; font-size: 0.8rem; display:inline-flex; align-items:center; gap:5px; cursor:pointer; background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; font-weight:700; border-radius:8px;" title="Universal Exam System Settings (CBSE, ICSE, State Boards, Kindergarten)">
+              <span class="material-symbols-outlined" style="font-size:16px;">tune</span>
+              Exam Settings
+            </button>
+          </div>
           <div class="exam-tabs">
             <button id="examTabEntryBtn" class="exam-tab-btn ${activeExamTab === 'entry' ? 'active' : ''}">Marks Entry</button>
             <button id="examTabScheduleBtn" class="exam-tab-btn ${activeExamTab === 'schedule' ? 'active' : ''}">Exam Schedule</button>
@@ -2463,34 +3195,9 @@
 
       // Grade calculation based on main percentage (or overall if no main subjects)
       const targetPct = mainStats.maxTotal > 0 ? mainStats.percentage : overallStats.percentage;
-      let grade = 'E';
-      if (isCBSE) {
-        if (targetPct >= 91) grade = 'A1';
-        else if (targetPct >= 81) grade = 'A2';
-        else if (targetPct >= 71) grade = 'B1';
-        else if (targetPct >= 61) grade = 'B2';
-        else if (targetPct >= 51) grade = 'C1';
-        else if (targetPct >= 41) grade = 'C2';
-        else if (targetPct >= 33) grade = 'D';
-        else grade = 'E';
-      } else {
-        const defaultScale = [
-          { min: 91, max: 100, grade: 'A+' }, { min: 81, max: 90, grade: 'A' },
-          { min: 71, max: 80, grade: 'B+' }, { min: 61, max: 70, grade: 'B' },
-          { min: 51, max: 60, grade: 'C' }, { min: 33, max: 50, grade: 'D' }, { min: 0, max: 32, grade: 'E' }
-        ];
-        let scale = defaultScale;
-        const store = typeof getStore !== 'undefined' ? getStore() : {};
-        if (store.settings) {
-            const customScale = store.settings.find(s => s.key === "customGradingScale");
-            if (customScale && customScale.value) {
-                try { scale = JSON.parse(customScale.value); } catch(e){}
-            }
-        }
-        scale.sort((a, b) => b.min - a.min);
-        const matched = scale.find(g => targetPct >= g.min);
-        if (matched) grade = matched.grade;
-      }
+      const grade = typeof getUniversalGrade === 'function' 
+        ? getUniversalGrade(targetPct, className, examName) 
+        : (targetPct >= 33 ? 'D' : 'E');
 
       const grandTotalEl = document.getElementById("marksGrandTotal");
       const percentageEl = document.getElementById("marksPercentage");
@@ -3917,26 +4624,9 @@
     const examLabel = isAnnual ? 'Annual Exam<br>(80)' : 'Half Yearly<br>(80)';
 
     const getGrade = (percentage) => {
-      const p = parseFloat(percentage);
-      if (isNaN(p)) return '-';
-      if (isCBSE) {
-        if (p >= 91) return 'A1';
-        if (p >= 81) return 'A2';
-        if (p >= 71) return 'B1';
-        if (p >= 61) return 'B2';
-        if (p >= 51) return 'C1';
-        if (p >= 41) return 'C2';
-        if (p >= 33) return 'D';
-        return 'E';
-      } else {
-        if (p >= 91) return 'A+';
-        if (p >= 81) return 'A';
-        if (p >= 71) return 'B+';
-        if (p >= 61) return 'B';
-        if (p >= 51) return 'C';
-        if (p >= 33) return 'D';
-        return 'E';
-      }
+      return typeof getUniversalGrade === 'function' 
+        ? getUniversalGrade(percentage, exam.className, exam.examName)
+        : (parseFloat(percentage) >= 33 ? 'D' : 'E');
     };
     let subs = [];
     try { subs = typeof exam.subjectMarks === 'string' ? JSON.parse(exam.subjectMarks) : (exam.subjectMarks || []); } catch(e) {}
@@ -4469,26 +5159,9 @@ function generateDynamicMarksheet(exam, themeId, config) {
       let subjectRows = '';
       
     const getGrade = (percentage) => {
-      const p = parseFloat(percentage);
-      if (isNaN(p)) return '-';
-      if (isCBSE) {
-        if (p >= 91) return 'A1';
-        if (p >= 81) return 'A2';
-        if (p >= 71) return 'B1';
-        if (p >= 61) return 'B2';
-        if (p >= 51) return 'C1';
-        if (p >= 41) return 'C2';
-        if (p >= 33) return 'D';
-        return 'E';
-      } else {
-        if (p >= 91) return 'A+';
-        if (p >= 81) return 'A';
-        if (p >= 71) return 'B+';
-        if (p >= 61) return 'B';
-        if (p >= 51) return 'C';
-        if (p >= 33) return 'D';
-        return 'E';
-      }
+      return typeof getUniversalGrade === 'function' 
+        ? getUniversalGrade(percentage, exam.className, exam.examName)
+        : (parseFloat(percentage) >= 33 ? 'D' : 'E');
     };
     let subs = [];
     try { subs = typeof exam.subjectMarks === 'string' ? JSON.parse(exam.subjectMarks) : (exam.subjectMarks || []); } catch(e) {}
@@ -5781,26 +6454,9 @@ function getMarksheetHtml(exam, theme, config) {
       let subjectRows = '';
       
     const getGrade = (percentage) => {
-      const p = parseFloat(percentage);
-      if (isNaN(p)) return '-';
-      if (isCBSE) {
-        if (p >= 91) return 'A1';
-        if (p >= 81) return 'A2';
-        if (p >= 71) return 'B1';
-        if (p >= 61) return 'B2';
-        if (p >= 51) return 'C1';
-        if (p >= 41) return 'C2';
-        if (p >= 33) return 'D';
-        return 'E';
-      } else {
-        if (p >= 91) return 'A+';
-        if (p >= 81) return 'A';
-        if (p >= 71) return 'B+';
-        if (p >= 61) return 'B';
-        if (p >= 51) return 'C';
-        if (p >= 33) return 'D';
-        return 'E';
-      }
+      return typeof getUniversalGrade === 'function' 
+        ? getUniversalGrade(percentage, exam.className, exam.examName)
+        : (parseFloat(percentage) >= 33 ? 'D' : 'E');
     };
     let subs = [];
     try { subs = typeof exam.subjectMarks === 'string' ? JSON.parse(exam.subjectMarks) : (exam.subjectMarks || []); } catch(e) {}
@@ -6060,10 +6716,16 @@ function getMarksheetHtml(exam, theme, config) {
           <h4 style="margin:0 0 5px 0; color: inherit; font-size:1.2rem;">Marksheet Generator</h4>
           <p style="margin:0; color: inherit; font-size:0.9rem;">Generate beautiful report cards and results.</p>
         </div>
-        <button type="button" class="exam-btn" onclick="window.openSubjectRulesModal()" style="padding: 9px 16px; font-size: 0.85rem; display:inline-flex; align-items:center; gap:6px; cursor:pointer; background:#eff6ff; color:#2563eb; border:1.5px solid #bfdbfe; font-weight:700;" title="Configure which subjects decide Pass or Fail">
-          <span class="material-symbols-outlined" style="font-size:18px;">rule</span>
-          Main Subject Rules (Pass/Fail)
-        </button>
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <button type="button" class="exam-btn" onclick="window.openExamSystemSettingsModal()" style="padding: 9px 16px; font-size: 0.85rem; display:inline-flex; align-items:center; gap:6px; cursor:pointer; background:#f0fdf4; color:#16a34a; border:1.5px solid #bbf7d0; font-weight:700;" title="Configure School Board, Terms, Passing Cutoff, and Grading Scale for Any School">
+            <span class="material-symbols-outlined" style="font-size:18px;">tune</span>
+            Exam System Settings (Universal)
+          </button>
+          <button type="button" class="exam-btn" onclick="window.openSubjectRulesModal()" style="padding: 9px 16px; font-size: 0.85rem; display:inline-flex; align-items:center; gap:6px; cursor:pointer; background:#eff6ff; color:#2563eb; border:1.5px solid #bfdbfe; font-weight:700;" title="Configure which subjects decide Pass or Fail">
+            <span class="material-symbols-outlined" style="font-size:18px;">rule</span>
+            Main Subject Rules (Pass/Fail)
+          </button>
+        </div>
       </div>
       <div class="exam-form-grid" style="margin-bottom: 30px;">
         <div class="exam-field">
