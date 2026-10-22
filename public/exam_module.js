@@ -4587,6 +4587,12 @@
       ? String(rawPhone).trim() 
       : "---";
 
+    // Format Attendance
+    const rawAttendance = exam.attendance || matchedStudent.attendance || "";
+    const attendanceVal = rawAttendance && String(rawAttendance).trim() !== "" && String(rawAttendance) !== "null" && String(rawAttendance) !== "undefined"
+      ? String(rawAttendance).trim()
+      : "___ / ___ Days";
+
     const classRank = exam.classRank || "";
     const schoolRank = exam.schoolRank || "";
     const totalClassStudents = exam.totalClassStudents || "";
@@ -4670,28 +4676,50 @@
         tableSubs.push({ subject: '', max: '', min: '', theory: '', practical: '', total: '', pa1: '', pa2: '', notebook: '', enrichment: '' });
     }
     
-    const rowPad = '2.5px 4px';
+    const rowPad = '2.5px 3px';
     
     let tableHeadHtml = '';
+    const tableColgroupHtml = isCBSE ? `
+      <colgroup>
+        <col style="width: 6%;">
+        <col style="width: 26%;">
+        <col style="width: 12%;">
+        <col style="width: 12%;">
+        <col style="width: 14%;">
+        <col style="width: 15%;">
+        <col style="width: 15%;">
+      </colgroup>
+    ` : `
+      <colgroup>
+        <col style="width: 6%;">
+        <col style="width: 34%;">
+        <col style="width: 12%;">
+        <col style="width: 12%;">
+        <col style="width: 12%;">
+        <col style="width: 12%;">
+        <col style="width: 12%;">
+      </colgroup>
+    `;
+
     if (isCBSE) {
       tableHeadHtml = `
-        <th style="width:5%; border:1px solid #cbd5e1; padding:3.5px 2px; text-align:center; font-size:8pt; font-weight:800; line-height:1.15; letter-spacing:0.2px; background:#f8fafc; color:#0f2b5c;">क्र.सं.<br>Sl.No</th>
-        <th style="width:26%; border:1px solid #cbd5e1; padding:3.5px 4px; text-align:center; font-size:9.5pt; font-weight:800; line-height:1.15; letter-spacing:0.4px; background:#f8fafc; color:#0f2b5c;">विषय / SUBJECT</th>
-        <th style="width:11%; border:1px solid #cbd5e1; padding:3.5px 3px; text-align:center; font-size:8pt; font-weight:800; line-height:1.15; letter-spacing:0.2px; background:#f8fafc; color:#0f2b5c;">${paLabel}</th>
-        <th style="width:14%; border:1px solid #cbd5e1; padding:3.5px 3px; text-align:center; font-size:8pt; font-weight:800; line-height:1.15; letter-spacing:0.2px; background:#f8fafc; color:#0f2b5c;">Notebook<br>(5)</th>
-        <th style="width:18%; border:1px solid #cbd5e1; padding:3.5px 3px; text-align:center; font-size:8pt; font-weight:800; line-height:1.1; letter-spacing:0.2px; background:#f8fafc; color:#0f2b5c;">Subject Enrichment<br>(5)</th>
-        <th style="width:14%; border:1px solid #cbd5e1; padding:3.5px 3px; text-align:center; font-size:8pt; font-weight:800; line-height:1.15; letter-spacing:0.2px; background:#f8fafc; color:#0f2b5c;">${examLabel}</th>
-        <th style="width:12%; border:1px solid #cbd5e1; padding:3.5px 3px; text-align:center; font-size:9pt; font-weight:900; line-height:1.15; letter-spacing:0.4px; background:#f1f5f9; color:#0f2b5c;">TOTAL / GRADE<br>(100)</th>
+        <th style="width:6%; border:1px solid #cbd5e1; padding:3px 2px; text-align:center; font-size:7.5pt; font-weight:800; line-height:1.15; background:#f8fafc; color:#0f2b5c; box-sizing:border-box;">क्र.सं.<br>Sl.No</th>
+        <th style="width:26%; border:1px solid #cbd5e1; padding:3px 4px; text-align:center; font-size:8.5pt; font-weight:800; line-height:1.15; letter-spacing:0.3px; background:#f8fafc; color:#0f2b5c; box-sizing:border-box;">विषय / SUBJECT</th>
+        <th style="width:12%; border:1px solid #cbd5e1; padding:3px 2px; text-align:center; font-size:7.5pt; font-weight:800; line-height:1.15; background:#f8fafc; color:#0f2b5c; box-sizing:border-box;">${paLabel}</th>
+        <th style="width:12%; border:1px solid #cbd5e1; padding:3px 2px; text-align:center; font-size:7.5pt; font-weight:800; line-height:1.15; background:#f8fafc; color:#0f2b5c; box-sizing:border-box;">Notebook<br>(5)</th>
+        <th style="width:14%; border:1px solid #cbd5e1; padding:3px 2px; text-align:center; font-size:7.5pt; font-weight:800; line-height:1.15; background:#f8fafc; color:#0f2b5c; box-sizing:border-box; white-space:nowrap;">Sub. Enrich.<br>(5)</th>
+        <th style="width:15%; border:1px solid #cbd5e1; padding:3px 2px; text-align:center; font-size:7.5pt; font-weight:800; line-height:1.15; background:#f8fafc; color:#0f2b5c; box-sizing:border-box; white-space:nowrap;">${examLabel}</th>
+        <th style="width:15%; border:1px solid #cbd5e1; padding:3px 2px; text-align:center; font-size:8pt; font-weight:900; line-height:1.15; background:#f1f5f9; color:#0f2b5c; box-sizing:border-box; white-space:nowrap;">TOTAL / GR.<br>(100)</th>
       `;
     } else {
       tableHeadHtml = `
-        <th style="width:6%; border:1px solid #cbd5e1; padding:3.5px 3px; text-align:center; font-size:8pt; font-weight:800; line-height:1.15; letter-spacing:0.3px; background:#f8fafc; color:#0f2b5c;">क्र.सं.<br>Sl.No</th>
-        <th style="width:34%; border:1px solid #cbd5e1; padding:3.5px 4px; text-align:center; font-size:9.5pt; font-weight:800; line-height:1.15; letter-spacing:0.4px; background:#f8fafc; color:#0f2b5c;">विषय / SUBJECT</th>
-        <th style="width:12%; border:1px solid #cbd5e1; padding:3.5px 3px; text-align:center; font-size:8.5pt; font-weight:800; line-height:1.15; letter-spacing:0.3px; background:#f8fafc; color:#0f2b5c;">MAX</th>
-        <th style="width:12%; border:1px solid #cbd5e1; padding:3.5px 3px; text-align:center; font-size:8.5pt; font-weight:800; line-height:1.15; letter-spacing:0.3px; background:#f8fafc; color:#0f2b5c;">MIN</th>
-        <th style="width:12%; border:1px solid #cbd5e1; padding:3.5px 3px; text-align:center; font-size:8.5pt; font-weight:800; line-height:1.15; letter-spacing:0.3px; background:#f8fafc; color:#0f2b5c;">TH.</th>
-        <th style="width:12%; border:1px solid #cbd5e1; padding:3.5px 3px; text-align:center; font-size:8.5pt; font-weight:800; line-height:1.15; letter-spacing:0.3px; background:#f8fafc; color:#0f2b5c;">PR.</th>
-        <th style="width:12%; border:1px solid #cbd5e1; padding:3.5px 3px; text-align:center; font-size:9pt; font-weight:900; line-height:1.15; letter-spacing:0.3px; background:#f1f5f9; color:#0f2b5c;">TOTAL / GRADE</th>
+        <th style="width:6%; border:1px solid #cbd5e1; padding:3px 2px; text-align:center; font-size:7.5pt; font-weight:800; line-height:1.15; background:#f8fafc; color:#0f2b5c; box-sizing:border-box;">क्र.सं.<br>Sl.No</th>
+        <th style="width:34%; border:1px solid #cbd5e1; padding:3px 4px; text-align:center; font-size:8.5pt; font-weight:800; line-height:1.15; letter-spacing:0.3px; background:#f8fafc; color:#0f2b5c; box-sizing:border-box;">विषय / SUBJECT</th>
+        <th style="width:12%; border:1px solid #cbd5e1; padding:3px 2px; text-align:center; font-size:7.5pt; font-weight:800; line-height:1.15; background:#f8fafc; color:#0f2b5c; box-sizing:border-box;">MAX</th>
+        <th style="width:12%; border:1px solid #cbd5e1; padding:3px 2px; text-align:center; font-size:7.5pt; font-weight:800; line-height:1.15; background:#f8fafc; color:#0f2b5c; box-sizing:border-box;">MIN</th>
+        <th style="width:12%; border:1px solid #cbd5e1; padding:3px 2px; text-align:center; font-size:7.5pt; font-weight:800; line-height:1.15; background:#f8fafc; color:#0f2b5c; box-sizing:border-box;">TH.</th>
+        <th style="width:12%; border:1px solid #cbd5e1; padding:3px 2px; text-align:center; font-size:7.5pt; font-weight:800; line-height:1.15; background:#f8fafc; color:#0f2b5c; box-sizing:border-box;">PR.</th>
+        <th style="width:12%; border:1px solid #cbd5e1; padding:3px 2px; text-align:center; font-size:8pt; font-weight:900; line-height:1.15; background:#f1f5f9; color:#0f2b5c; box-sizing:border-box; white-space:nowrap;">TOTAL / GR.</th>
       `;
     }
 
@@ -4705,7 +4733,7 @@
             : `<span style="font-size:5.5pt; font-weight:800; color:#b45309; background:#fef3c7; border:1px solid #fde68a; border-radius:2.5px; padding:0.5px 3px; margin-left:4px; vertical-align:middle; display:inline-block; letter-spacing:0.2px;">ADDITIONAL</span>`)
         : '';
       const isPendingRow = sub.isPending === true;
-      const pendingText = `<span style="font-size:8.5pt; font-weight:700; color:#94a3b8; font-style:italic;">Pending</span>`;
+      const pendingText = `<span style="font-size:8pt; font-weight:700; color:#94a3b8; font-style:italic;">Pending</span>`;
 
       if (isCBSE) {
         const isAddl = !isMain;
@@ -4722,18 +4750,18 @@
           nbVal = '-';
           enrVal = '-';
           thVal = '-';
-          totVal = isSubAbsent ? `<strong style="color:#dc2626;">AB</strong>` : `<span style="display:inline-block; font-size:10.5pt; font-weight:900; color:#1e40af; background:#eff6ff; border:1px solid #bfdbfe; border-radius:4px; padding:1.5px 8px; letter-spacing:0.5px;">${drawGrade}</span>`;
+          totVal = isSubAbsent ? `<strong style="color:#dc2626;">AB</strong>` : `<span style="display:inline-block; font-size:10pt; font-weight:900; color:#1e40af; background:#eff6ff; border:1px solid #bfdbfe; border-radius:4px; padding:1.5px 6px; letter-spacing:0.5px;">${drawGrade}</span>`;
         }
 
         return `
         <tr style="background: ${rIdx % 2 === 1 ? '#f8fafc' : '#ffffff'}; height: 21px;">
-          <td style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 800; font-size:9pt; color:#64748b;">${isEmpty ? '' : rIdx + 1}</td>
-          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; font-weight: 800; color: #0f2b5c; text-align: left; padding-left: 8px; font-size:10.5pt;">${sub.subject || ''}${addlBadge}</td>
-          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:10pt; color:${(isAddl || isPendingRow) ? '#94a3b8' : '#334155'};">${isEmpty ? '' : paVal}</td>
-          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:10pt; color:${(isAddl || isPendingRow) ? '#94a3b8' : '#334155'};">${isEmpty ? '' : nbVal}</td>
-          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:10pt; color:${(isAddl || isPendingRow) ? '#94a3b8' : '#334155'};">${isEmpty ? '' : enrVal}</td>
-          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:10pt; color:${isPendingRow ? '#94a3b8' : '#334155'};">${isEmpty ? '' : thVal}</td>
-          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 900; color:${isPendingRow ? '#94a3b8' : (isSubAbsent ? '#dc2626' : '#0f2b5c')}; font-size:${isPendingRow ? '8.5pt' : '11.5pt'}; background: ${isEmpty ? 'transparent' : 'rgba(30, 58, 138, 0.05)'};">${isEmpty ? '' : totVal}</td>
+          <td style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 800; font-size:8.5pt; color:#64748b; box-sizing:border-box; overflow:hidden;">${isEmpty ? '' : rIdx + 1}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; font-weight: 800; color: #0f2b5c; text-align: left; padding-left: 6px; font-size:9.5pt; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; box-sizing:border-box;">${sub.subject || ''}${addlBadge}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:9.5pt; color:${(isAddl || isPendingRow) ? '#94a3b8' : '#334155'}; box-sizing:border-box; overflow:hidden;">${isEmpty ? '' : paVal}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:9.5pt; color:${(isAddl || isPendingRow) ? '#94a3b8' : '#334155'}; box-sizing:border-box; overflow:hidden;">${isEmpty ? '' : nbVal}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:9.5pt; color:${(isAddl || isPendingRow) ? '#94a3b8' : '#334155'}; box-sizing:border-box; overflow:hidden;">${isEmpty ? '' : enrVal}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:9.5pt; color:${isPendingRow ? '#94a3b8' : '#334155'}; box-sizing:border-box; overflow:hidden;">${isEmpty ? '' : thVal}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 900; color:${isPendingRow ? '#94a3b8' : (isSubAbsent ? '#dc2626' : '#0f2b5c')}; font-size:${isPendingRow ? '8pt' : '10.5pt'}; background: ${isEmpty ? 'transparent' : 'rgba(30, 58, 138, 0.05)'}; box-sizing:border-box; overflow:hidden; white-space:nowrap;">${isEmpty ? '' : totVal}</td>
         </tr>`;
       } else {
         const isSubAbsent = sub.isAbsent === true || String(sub.total).toUpperCase() === 'AB' || String(sub.theory).toUpperCase() === 'AB';
@@ -4749,18 +4777,18 @@
           minVal = '-';
           thVal = '-';
           prVal = '-';
-          totVal = isSubAbsent ? `<strong style="color:#dc2626;">AB</strong>` : `<span style="display:inline-block; font-size:10.5pt; font-weight:900; color:#1e40af; background:#eff6ff; border:1px solid #bfdbfe; border-radius:4px; padding:1.5px 8px; letter-spacing:0.5px;">${drawGrade}</span>`;
+          totVal = isSubAbsent ? `<strong style="color:#dc2626;">AB</strong>` : `<span style="display:inline-block; font-size:10pt; font-weight:900; color:#1e40af; background:#eff6ff; border:1px solid #bfdbfe; border-radius:4px; padding:1.5px 6px; letter-spacing:0.5px;">${drawGrade}</span>`;
         }
 
         return `
         <tr style="background: ${rIdx % 2 === 1 ? '#f8fafc' : '#ffffff'}; height: 21px;">
-          <td style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 800; font-size:9pt; color:#64748b;">${isEmpty ? '' : rIdx + 1}</td>
-          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; font-weight: 800; color: #0f2b5c; text-align: left; padding-left: 8px; font-size:10.5pt;">${sub.subject || ''}${addlBadge}</td>
-          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:10pt; color:${isDrawing ? '#94a3b8' : '#334155'};">${isEmpty ? '' : maxVal}</td>
-          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:10pt; color:${isDrawing ? '#94a3b8' : '#334155'};">${isEmpty ? '' : minVal}</td>
-          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:10pt; color:${isPendingRow ? '#94a3b8' : '#334155'};">${isEmpty ? '' : thVal}</td>
-          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:10pt; color:${isPendingRow ? '#94a3b8' : '#334155'};">${isEmpty ? '' : prVal}</td>
-          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 900; color:${isPendingRow ? '#94a3b8' : (isSubAbsent ? '#dc2626' : '#0f2b5c')}; font-size:${isPendingRow ? '8.5pt' : '11.5pt'}; background: ${isEmpty ? 'transparent' : 'rgba(30, 58, 138, 0.05)'};">${isEmpty ? '' : totVal}</td>
+          <td style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 800; font-size:8.5pt; color:#64748b; box-sizing:border-box; overflow:hidden;">${isEmpty ? '' : rIdx + 1}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; font-weight: 800; color: #0f2b5c; text-align: left; padding-left: 6px; font-size:9.5pt; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; box-sizing:border-box;">${sub.subject || ''}${addlBadge}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:9.5pt; color:${isDrawing ? '#94a3b8' : '#334155'}; box-sizing:border-box; overflow:hidden;">${isEmpty ? '' : maxVal}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:9.5pt; color:${isDrawing ? '#94a3b8' : '#334155'}; box-sizing:border-box; overflow:hidden;">${isEmpty ? '' : minVal}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:9.5pt; color:${isPendingRow ? '#94a3b8' : '#334155'}; box-sizing:border-box; overflow:hidden;">${isEmpty ? '' : thVal}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:9.5pt; color:${isPendingRow ? '#94a3b8' : '#334155'}; box-sizing:border-box; overflow:hidden;">${isEmpty ? '' : prVal}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 900; color:${isPendingRow ? '#94a3b8' : (isSubAbsent ? '#dc2626' : '#0f2b5c')}; font-size:${isPendingRow ? '8pt' : '10.5pt'}; background: ${isEmpty ? 'transparent' : 'rgba(30, 58, 138, 0.05)'}; box-sizing:border-box; overflow:hidden; white-space:nowrap;">${isEmpty ? '' : totVal}</td>
         </tr>`;
       }
     }).join('');
@@ -4872,7 +4900,7 @@
 
     return `
       <!-- FULL A4 SIZED WRAPPER WITH PRESTIGE CERTIFICATE BORDER -->
-      <div style="width:100%; height:277mm; min-height:277mm; max-height:277mm; box-sizing:border-box; border:3px solid #0f2b5c; outline:1.5px solid #d97706; outline-offset:-4px; padding:4.5mm 8mm 3.5mm 8mm; -webkit-print-color-adjust:exact; print-color-adjust:exact; display:flex; flex-direction:column; justify-content:space-between; background:#ffffff; font-family:'Plus Jakarta Sans', Arial, sans-serif; color:#0f172a; font-size:9pt; position:relative; overflow:hidden; box-shadow: inset 0 0 0 7px #ffffff;">
+      <div style="width:100%; height:277mm; min-height:277mm; max-height:277mm; box-sizing:border-box; border:3px solid #0f2b5c; outline:1.5px solid #d97706; outline-offset:-4px; padding:4.5mm 6.5mm 3.5mm 6.5mm; -webkit-print-color-adjust:exact; print-color-adjust:exact; display:flex; flex-direction:column; justify-content:space-between; background:#ffffff; font-family:'Plus Jakarta Sans', Arial, sans-serif; color:#0f172a; font-size:9pt; position:relative; overflow:hidden; box-shadow: inset 0 0 0 7px #ffffff;">
         
         <!-- Corner Ornaments (Gold & Navy) -->
         <div style="position:absolute; top:6px; left:6px; width:18px; height:18px; border-top:2.5px solid #d97706; border-left:2.5px solid #d97706; pointer-events:none; z-index:2;"></div>
@@ -4934,40 +4962,48 @@
           </div>
 
           <!-- Student Profile Dossier & Photo -->
-          <div style="display:flex; gap:8px; margin-bottom:5px; background:#ffffff; border:1.5px solid #cbd5e1; border-radius:5px; padding:4px 8px; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
-            <table style="flex:1; border-collapse:collapse; font-size:8.5pt;">
+          <div style="display:flex; gap:8px; margin-bottom:5px; background:#ffffff; border:1.5px solid #cbd5e1; border-radius:5px; padding:4px 7px; box-shadow:0 1px 3px rgba(0,0,0,0.02); box-sizing:border-box; width:100%; align-items:stretch;">
+            <table style="flex:1; min-width:0; width:calc(100% - 24mm); table-layout:fixed; border-collapse:collapse; font-size:8.5pt; box-sizing:border-box;">
+              <colgroup>
+                <col style="width: 17%;">
+                <col style="width: 13%;">
+                <col style="width: 17%;">
+                <col style="width: 13%;">
+                <col style="width: 20%;">
+                <col style="width: 20%;">
+              </colgroup>
               <tbody>
-                <tr style="border-bottom:1px solid #e2e8f0;">
-                  <td style="padding:2.5px 4px; font-weight:800; color:#64748b; width:16%; font-size:7.8pt; text-transform:uppercase;">Student Name:</td>
-                  <td colspan="3" contenteditable="true" style="padding:2.5px 4px; font-weight:900; color:#0f2b5c; font-size:12pt; letter-spacing:0.2px;">${candidateName}</td>
-                  <td style="padding:2.5px 4px; font-weight:800; color:#64748b; width:14%; font-size:7.8pt; text-transform:uppercase;">Class & Sec:</td>
-                  <td contenteditable="true" style="padding:2.5px 4px; width:18%;">
-                    <span style="background:#eff6ff; color:#1d4ed8; font-weight:900; padding:1.5px 7px; border-radius:3px; border:1px solid #bfdbfe; font-size:10pt;">${exam.className}</span>
+                <tr style="border-bottom:1px solid #e2e8f0; height:24px;">
+                  <td style="padding:2px 3px; font-weight:800; color:#64748b; font-size:7.5pt; text-transform:uppercase; white-space:nowrap; overflow:hidden;">Student Name:</td>
+                  <td colspan="3" contenteditable="true" style="padding:2px 3px; font-weight:900; color:#0f2b5c; font-size:11.5pt; letter-spacing:0.2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${candidateName}</td>
+                  <td style="padding:2px 3px; font-weight:800; color:#64748b; font-size:7.5pt; text-transform:uppercase; white-space:nowrap; overflow:hidden;">Class & Sec:</td>
+                  <td contenteditable="true" style="padding:2px 3px; white-space:nowrap; overflow:hidden;">
+                    <span style="background:#eff6ff; color:#1d4ed8; font-weight:900; padding:1.5px 7px; border-radius:3px; border:1px solid #bfdbfe; font-size:9.5pt; display:inline-block;">${exam.className}</span>
                   </td>
                 </tr>
-                <tr style="border-bottom:1px solid #e2e8f0;">
-                  <td style="padding:2.5px 4px; font-weight:800; color:#64748b; font-size:7.8pt; text-transform:uppercase;">Roll No:</td>
-                  <td contenteditable="true" style="padding:2.5px 4px; width:16%;">
-                    <span style="background:#fef2f2; color:#dc2626; font-weight:900; padding:1.5px 7px; border-radius:3px; border:1px solid #fecaca; font-size:11pt;">${exam.rollNo}</span>
+                <tr style="border-bottom:1px solid #e2e8f0; height:24px;">
+                  <td style="padding:2px 3px; font-weight:800; color:#64748b; font-size:7.5pt; text-transform:uppercase; white-space:nowrap; overflow:hidden;">Roll No:</td>
+                  <td contenteditable="true" style="padding:2px 3px; white-space:nowrap; overflow:hidden;">
+                    <span style="background:#fef2f2; color:#dc2626; font-weight:900; padding:1.5px 6px; border-radius:3px; border:1px solid #fecaca; font-size:10.5pt; display:inline-block;">${exam.rollNo}</span>
                   </td>
-                  <td style="padding:2.5px 4px; font-weight:800; color:#64748b; width:16%; font-size:7.8pt; text-transform:uppercase;">Adm / Reg No:</td>
-                  <td contenteditable="true" style="padding:2.5px 4px; width:18%;">
-                    <span style="background:#f8fafc; color:#0f172a; font-weight:900; padding:1.5px 7px; border-radius:3px; border:1px solid #cbd5e1; font-size:10pt;">${admNo}</span>
+                  <td style="padding:2px 3px; font-weight:800; color:#64748b; font-size:7.5pt; text-transform:uppercase; white-space:nowrap; overflow:hidden;">Adm / Reg No:</td>
+                  <td contenteditable="true" style="padding:2px 3px; white-space:nowrap; overflow:hidden;">
+                    <span style="background:#f8fafc; color:#0f172a; font-weight:900; padding:1.5px 6px; border-radius:3px; border:1px solid #cbd5e1; font-size:9.5pt; display:inline-block;">${admNo}</span>
                   </td>
-                  <td style="padding:2.5px 4px; font-weight:800; color:#64748b; font-size:7.8pt; text-transform:uppercase;">Date of Birth:</td>
-                  <td contenteditable="true" style="padding:2.5px 4px; font-weight:800; color:#0f172a; font-size:9.5pt;">${dobFormatted}</td>
+                  <td style="padding:2px 3px; font-weight:800; color:#64748b; font-size:7.5pt; text-transform:uppercase; white-space:nowrap; overflow:hidden;">Date of Birth:</td>
+                  <td contenteditable="true" style="padding:2px 3px; font-weight:800; color:#0f172a; font-size:9pt; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${dobFormatted}</td>
                 </tr>
-                <tr style="border-bottom:1px solid #e2e8f0;">
-                  <td style="padding:2.5px 4px; font-weight:800; color:#64748b; font-size:7.8pt; text-transform:uppercase;">Father's Name:</td>
-                  <td colspan="3" contenteditable="true" style="padding:2.5px 4px; font-weight:800; color:#0f172a; text-transform:uppercase; font-size:9.5pt;">${fatherName}</td>
-                  <td style="padding:2.5px 4px; font-weight:800; color:#64748b; font-size:7.8pt; text-transform:uppercase;">Mother's Name:</td>
-                  <td contenteditable="true" style="padding:2.5px 4px; font-weight:800; color:#0f172a; text-transform:uppercase; font-size:9.5pt;">${motherName}</td>
+                <tr style="border-bottom:1px solid #e2e8f0; height:24px;">
+                  <td style="padding:2px 3px; font-weight:800; color:#64748b; font-size:7.5pt; text-transform:uppercase; white-space:nowrap; overflow:hidden;">Father's Name:</td>
+                  <td colspan="3" contenteditable="true" style="padding:2px 3px; font-weight:800; color:#0f172a; text-transform:uppercase; font-size:9pt; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${fatherName}</td>
+                  <td style="padding:2px 3px; font-weight:800; color:#64748b; font-size:7.5pt; text-transform:uppercase; white-space:nowrap; overflow:hidden;">Mother's Name:</td>
+                  <td contenteditable="true" style="padding:2px 3px; font-weight:800; color:#0f172a; text-transform:uppercase; font-size:9pt; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${motherName}</td>
                 </tr>
-                <tr>
-                  <td style="padding:2.5px 4px; font-weight:800; color:#64748b; font-size:7.8pt; text-transform:uppercase;">Contact No:</td>
-                  <td colspan="3" contenteditable="true" style="padding:2.5px 4px; font-weight:800; color:#0f172a; font-family:monospace; font-size:9.5pt;">${phoneNo}</td>
-                  <td style="padding:2.5px 4px; font-weight:800; color:#64748b; font-size:7.8pt; text-transform:uppercase;">Attendance:</td>
-                  <td contenteditable="true" style="padding:2.5px 4px; font-weight:800; color:#0f172a; font-size:9pt;">___ / ___ Days</td>
+                <tr style="height:24px;">
+                  <td style="padding:2px 3px; font-weight:800; color:#64748b; font-size:7.5pt; text-transform:uppercase; white-space:nowrap; overflow:hidden;">Contact No:</td>
+                  <td colspan="3" contenteditable="true" style="padding:2px 3px; font-weight:800; color:#0f172a; font-family:monospace; font-size:9pt; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${phoneNo}</td>
+                  <td style="padding:2px 3px; font-weight:800; color:#64748b; font-size:7.5pt; text-transform:uppercase; white-space:nowrap; overflow:hidden;">Attendance:</td>
+                  <td contenteditable="true" style="padding:2px 3px; font-weight:800; color:#0f172a; font-size:8.5pt; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${attendanceVal}</td>
                 </tr>
               </tbody>
             </table>
@@ -4979,8 +5015,9 @@
           </div>
 
           <!-- Scholastic Performance Table -->
-          <div style="margin-bottom:5px;">
-            <table style="width:100%; border-collapse:collapse; font-size:8pt; border:1px solid #cbd5e1; border-radius:4px; overflow:hidden;">
+          <div style="margin-bottom:5px; width:100%; box-sizing:border-box;">
+            <table style="width:100%; table-layout:fixed; border-collapse:collapse; font-size:8pt; border:1px solid #cbd5e1; border-radius:4px; overflow:hidden; box-sizing:border-box;">
+              ${tableColgroupHtml}
               <thead>
                 <tr style="background:#f8fafc; color:#0f2b5c; border-bottom:2px solid #0f2b5c;">
                   ${tableHeadHtml}
@@ -4993,37 +5030,37 @@
           </div>
 
           <!-- Total Metrics Ribbon -->
-          <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:6px; margin-bottom:5px;">
+          <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:6px; margin-bottom:5px; width:100%; box-sizing:border-box;">
             <!-- Grand Total -->
-            <div style="border:1.5px solid #93c5fd; background:linear-gradient(180deg, #f0f7ff 0%, #e0f2fe 100%); border-radius:5px; padding:3.5px 3px 4px 3px; text-align:center; box-shadow:0 1px 3px rgba(37,99,235,0.06); display:flex; flex-direction:column; justify-content:center; align-items:center; overflow:hidden;">
-              <div style="font-size:7.8pt; font-weight:900; color:#1e40af; text-transform:uppercase; letter-spacing:0.5px; line-height:1.1; white-space:nowrap;">GRAND TOTAL</div>
-              <div contenteditable="true" style="font-size:16.5pt; font-weight:900; color:#0f2b5c; line-height:1.05; margin:1.5px 0; white-space:nowrap;">${isPending ? `${evalStatus.overallStats.grandTotal} / ${evalStatus.overallStats.maxTotal}` : (evalStatus.overallStats.grandTotal > 0 ? evalStatus.overallStats.grandTotal : (exam.totalMarks || 0))}</div>
-              <div style="font-size:6.8pt; font-weight:800; color:#475569; text-transform:uppercase; line-height:1.15; letter-spacing:0.3px; white-space:nowrap;">TOTAL OBTAINED</div>
+            <div style="border:1.5px solid #93c5fd; background:linear-gradient(180deg, #f0f7ff 0%, #e0f2fe 100%); border-radius:5px; padding:3.5px 3px 4px 3px; text-align:center; box-shadow:0 1px 3px rgba(37,99,235,0.06); display:flex; flex-direction:column; justify-content:center; align-items:center; overflow:hidden; box-sizing:border-box;">
+              <div style="font-size:7.5pt; font-weight:900; color:#1e40af; text-transform:uppercase; letter-spacing:0.4px; line-height:1.1; white-space:nowrap;">GRAND TOTAL</div>
+              <div contenteditable="true" style="font-size:15pt; font-weight:900; color:#0f2b5c; line-height:1.05; margin:1.5px 0; white-space:nowrap;">${isPending ? `${evalStatus.overallStats.grandTotal} / ${evalStatus.overallStats.maxTotal}` : (evalStatus.overallStats.grandTotal > 0 ? evalStatus.overallStats.grandTotal : (exam.totalMarks || 0))}</div>
+              <div style="font-size:6.5pt; font-weight:800; color:#475569; text-transform:uppercase; line-height:1.15; letter-spacing:0.3px; white-space:nowrap;">TOTAL OBTAINED</div>
             </div>
 
             <!-- Percentage -->
-            <div style="border:1.5px solid #c4b5fd; background:linear-gradient(180deg, #f5f3ff 0%, #ede9fe 100%); border-radius:5px; padding:3.5px 3px 4px 3px; text-align:center; box-shadow:0 1px 3px rgba(109,40,217,0.06); display:flex; flex-direction:column; justify-content:center; align-items:center; overflow:hidden;">
-              <div style="font-size:7.8pt; font-weight:900; color:#6d28d9; text-transform:uppercase; letter-spacing:0.5px; line-height:1.1; white-space:nowrap;">PERCENTAGE</div>
-              <div contenteditable="true" style="font-size:17pt; font-weight:900; color:#5b21b6; line-height:1.05; margin:1.5px 0; white-space:nowrap;">${isPending ? `${evalStatus.overallStats.percentage}%` : `${evalStatus.overallStats.percentage > 0 ? evalStatus.overallStats.percentage : (exam.percentage || 0)}%`}</div>
-              <div style="font-size:6.8pt; font-weight:800; color:#475569; text-transform:uppercase; line-height:1.15; letter-spacing:0.3px; white-space:nowrap;">${isPending ? 'AGGREGATE (PENDING)' : 'AGGREGATE SCORE'}</div>
+            <div style="border:1.5px solid #c4b5fd; background:linear-gradient(180deg, #f5f3ff 0%, #ede9fe 100%); border-radius:5px; padding:3.5px 3px 4px 3px; text-align:center; box-shadow:0 1px 3px rgba(109,40,217,0.06); display:flex; flex-direction:column; justify-content:center; align-items:center; overflow:hidden; box-sizing:border-box;">
+              <div style="font-size:7.5pt; font-weight:900; color:#6d28d9; text-transform:uppercase; letter-spacing:0.4px; line-height:1.1; white-space:nowrap;">PERCENTAGE</div>
+              <div contenteditable="true" style="font-size:15.5pt; font-weight:900; color:#5b21b6; line-height:1.05; margin:1.5px 0; white-space:nowrap;">${isPending ? `${evalStatus.overallStats.percentage}%` : `${evalStatus.overallStats.percentage > 0 ? evalStatus.overallStats.percentage : (exam.percentage || 0)}%`}</div>
+              <div style="font-size:6.5pt; font-weight:800; color:#475569; text-transform:uppercase; line-height:1.15; letter-spacing:0.3px; white-space:nowrap;">${isPending ? 'AGGREGATE (PENDING)' : 'AGGREGATE SCORE'}</div>
             </div>
 
             <!-- Grade -->
-            <div style="border:1.5px solid #fde68a; background:linear-gradient(180deg, #fffdf5 0%, #fef3c7 100%); border-radius:5px; padding:3.5px 3px 4px 3px; text-align:center; box-shadow:0 1px 3px rgba(217,119,6,0.06); display:flex; flex-direction:column; justify-content:center; align-items:center; overflow:hidden;">
-              <div style="font-size:7.8pt; font-weight:900; color:#b45309; text-transform:uppercase; letter-spacing:0.5px; line-height:1.1; white-space:nowrap;">OVERALL GRADE</div>
-              <div contenteditable="true" style="font-size:17pt; font-weight:900; color:#92400e; line-height:1.05; margin:1.5px 0; white-space:nowrap;">${safeGrade}</div>
-              <div style="font-size:6.8pt; font-weight:800; color:#475569; text-transform:uppercase; line-height:1.15; letter-spacing:0.3px; white-space:nowrap;">SCHOLASTIC EVALUATION</div>
+            <div style="border:1.5px solid #fde68a; background:linear-gradient(180deg, #fffdf5 0%, #fef3c7 100%); border-radius:5px; padding:3.5px 3px 4px 3px; text-align:center; box-shadow:0 1px 3px rgba(217,119,6,0.06); display:flex; flex-direction:column; justify-content:center; align-items:center; overflow:hidden; box-sizing:border-box;">
+              <div style="font-size:7.5pt; font-weight:900; color:#b45309; text-transform:uppercase; letter-spacing:0.4px; line-height:1.1; white-space:nowrap;">OVERALL GRADE</div>
+              <div contenteditable="true" style="font-size:15.5pt; font-weight:900; color:#92400e; line-height:1.05; margin:1.5px 0; white-space:nowrap;">${safeGrade}</div>
+              <div style="font-size:6.5pt; font-weight:800; color:#475569; text-transform:uppercase; line-height:1.15; letter-spacing:0.3px; white-space:nowrap;">SCHOLASTIC EVALUATION</div>
             </div>
 
             <!-- Result -->
-            <div style="border:1.5px solid ${isPending ? '#fcd34d' : (safeResultStatus === 'PASS' ? '#86efac' : '#fca5a5')}; background:${isPending ? 'linear-gradient(180deg, #fffdf5 0%, #fef3c7 100%)' : (safeResultStatus === 'PASS' ? 'linear-gradient(180deg, #f0fdf4 0%, #dcfce7 100%)' : 'linear-gradient(180deg, #fef2f2 0%, #fee2e2 100%)')}; border-radius:5px; padding:3.5px 3px 4px 3px; text-align:center; box-shadow:0 1px 3px ${isPending ? 'rgba(217,119,6,0.08)' : (safeResultStatus === 'PASS' ? 'rgba(22,163,74,0.08)' : 'rgba(220,38,38,0.08)')}; display:flex; flex-direction:column; justify-content:center; align-items:center; overflow:hidden;">
-              <div style="font-size:7.8pt; font-weight:900; color:${isPending ? '#b45309' : (safeResultStatus === 'PASS' ? '#15803d' : '#b91c1c')}; text-transform:uppercase; letter-spacing:0.5px; line-height:1.1; white-space:nowrap;">RESULT STATUS</div>
-              <div contenteditable="true" style="font-size:${isPending ? '12.5pt' : (safeResultStatus === 'PASS' ? '15.5pt' : '15pt')}; font-weight:900; color:${isPending ? '#d97706' : (safeResultStatus === 'PASS' ? '#16a34a' : '#dc2626')}; line-height:1.1; margin:1.5px 0; letter-spacing:0.5px; white-space:nowrap; display:flex; align-items:center; justify-content:center; gap:4px; width:100%; box-sizing:border-box;">
+            <div style="border:1.5px solid ${isPending ? '#fcd34d' : (safeResultStatus === 'PASS' ? '#86efac' : '#fca5a5')}; background:${isPending ? 'linear-gradient(180deg, #fffdf5 0%, #fef3c7 100%)' : (safeResultStatus === 'PASS' ? 'linear-gradient(180deg, #f0fdf4 0%, #dcfce7 100%)' : 'linear-gradient(180deg, #fef2f2 0%, #fee2e2 100%)')}; border-radius:5px; padding:3.5px 3px 4px 3px; text-align:center; box-shadow:0 1px 3px ${isPending ? 'rgba(217,119,6,0.08)' : (safeResultStatus === 'PASS' ? 'rgba(22,163,74,0.08)' : 'rgba(220,38,38,0.08)')}; display:flex; flex-direction:column; justify-content:center; align-items:center; overflow:hidden; box-sizing:border-box;">
+              <div style="font-size:7.5pt; font-weight:900; color:${isPending ? '#b45309' : (safeResultStatus === 'PASS' ? '#15803d' : '#b91c1c')}; text-transform:uppercase; letter-spacing:0.4px; line-height:1.1; white-space:nowrap;">RESULT STATUS</div>
+              <div contenteditable="true" style="font-size:${isPending ? '12pt' : (safeResultStatus === 'PASS' ? '14pt' : '13.5pt')}; font-weight:900; color:${isPending ? '#d97706' : (safeResultStatus === 'PASS' ? '#16a34a' : '#dc2626')}; line-height:1.1; margin:1.5px 0; letter-spacing:0.4px; white-space:nowrap; display:flex; align-items:center; justify-content:center; gap:4px; width:100%; box-sizing:border-box;">
                 <span style="font-size:0.85em; opacity:0.9;">★</span>
                 <span>${safeResultStatus}</span>
                 <span style="font-size:0.85em; opacity:0.9;">★</span>
               </div>
-              <div style="font-size:6.8pt; font-weight:800; color:${isPending ? '#b45309' : (safeResultStatus === 'PASS' ? '#15803d' : '#b91c1c')}; line-height:1.15; text-transform:uppercase; letter-spacing:0.3px; white-space:nowrap;">${isPending ? 'INCOMPLETE / अपूर्ण' : (safeResultStatus === 'PASS' ? 'PASSED / उत्तीर्ण' : 'NEEDS IMPROVEMENT')}</div>
+              <div style="font-size:6.5pt; font-weight:800; color:${isPending ? '#b45309' : (safeResultStatus === 'PASS' ? '#15803d' : '#b91c1c')}; line-height:1.15; text-transform:uppercase; letter-spacing:0.3px; white-space:nowrap;">${isPending ? 'INCOMPLETE / अपूर्ण' : (safeResultStatus === 'PASS' ? 'PASSED / उत्तीर्ण' : 'NEEDS IMPROVEMENT')}</div>
             </div>
           </div>
 

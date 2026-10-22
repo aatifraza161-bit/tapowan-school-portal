@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tps-cache-v20261022-universal-exam-v1';
+const CACHE_NAME = 'tps-cache-v20261022-marksheet-fit-v2';
 
 self.addEventListener('install', event => {
   self.skipWaiting();
