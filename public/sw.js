@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tps-cache-v20261021-lordicon-clean-v3';
+const CACHE_NAME = 'tps-cache-v20261022-mint-card-v1';
 
 self.addEventListener('install', event => {
   self.skipWaiting();
