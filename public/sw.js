@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tps-cache-v20261023-edge-worker-v1';
+const CACHE_NAME = 'tps-cache-v20261023-marksheet-table-fix';
 
 self.addEventListener('install', event => {
   self.skipWaiting();

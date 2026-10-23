@@ -1678,14 +1678,14 @@ select:hover:not(:focus){border-color:#94a3b8;}
 .table-wrap::-webkit-scrollbar-thumb, .exam-table-wrap::-webkit-scrollbar-thumb, .wa-table-wrap::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; }
 .table-wrap::-webkit-scrollbar-thumb:hover, .exam-table-wrap::-webkit-scrollbar-thumb:hover, .wa-table-wrap::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-table, .table-wrap table, .exam-table-wrap table, .exam-data-table {
+.table-wrap table, .exam-table-wrap table, .exam-data-table, .dashboard-table {
   width: 100%;
   min-width: 880px;
   border-collapse: collapse;
   font-size: 0.85rem;
 }
 
-thead th {
+.table-wrap thead th, .exam-table-wrap thead th, .exam-data-table thead th, .dashboard-table thead th {
   background: #f8fafc;
   color: #111827;
   font-size: 0.7rem;
@@ -1698,15 +1698,15 @@ thead th {
   text-align: left;
 }
 
-thead th:first-child { padding-left: 24px; }
-thead th:last-child { padding-right: 24px; }
+.table-wrap thead th:first-child, .exam-table-wrap thead th:first-child, .exam-data-table thead th:first-child, .dashboard-table thead th:first-child { padding-left: 24px; }
+.table-wrap thead th:last-child, .exam-table-wrap thead th:last-child, .exam-data-table thead th:last-child, .dashboard-table thead th:last-child { padding-right: 24px; }
 
-tbody tr {
+.table-wrap tbody tr, .exam-table-wrap tbody tr, .exam-data-table tbody tr, .dashboard-table tbody tr {
   background: #ffffff;
   transition: background-color 0.2s ease;
 }
 
-tbody td {
+.table-wrap tbody td, .exam-table-wrap tbody td, .exam-data-table tbody td, .dashboard-table tbody td {
   padding: 16px 24px;
   color: #111827;
   vertical-align: middle;
@@ -1715,13 +1715,13 @@ tbody td {
   border-bottom: 1px solid #e5e7eb;
 }
 
-tbody tr:hover {
+.table-wrap tbody tr:hover, .exam-table-wrap tbody tr:hover, .exam-data-table tbody tr:hover, .dashboard-table tbody tr:hover {
   background-color: #f9fafb;
 }
 
-tbody tr:last-child td { border-bottom: none; }
-tbody td:first-child { padding-left: 24px; }
-tbody td:last-child { padding-right: 24px; }
+.table-wrap tbody tr:last-child td, .exam-table-wrap tbody tr:last-child td, .exam-data-table tbody tr:last-child td, .dashboard-table tbody tr:last-child td { border-bottom: none; }
+.table-wrap tbody td:first-child, .exam-table-wrap tbody td:first-child, .exam-data-table tbody td:first-child, .dashboard-table tbody td:first-child { padding-left: 24px; }
+.table-wrap tbody td:last-child, .exam-table-wrap tbody td:last-child, .exam-data-table tbody td:last-child, .dashboard-table tbody td:last-child { padding-right: 24px; }
 
 .empty {
   text-align: center;
@@ -2454,11 +2454,11 @@ tbody td:last-child { padding-right: 24px; }
     min-width: 880px !important;
     width: 100% !important;
   }
-  thead th {
+  .table-wrap thead th, .exam-table-wrap thead th, .exam-data-table thead th, .dashboard-table thead th {
     padding: 10px 12px !important;
     font-size: 0.7rem !important;
   }
-  tbody td {
+  .table-wrap tbody td, .exam-table-wrap tbody td, .exam-data-table tbody td, .dashboard-table tbody td {
     padding: 10px 12px !important;
     font-size: 0.82rem !important;
   }
@@ -2694,9 +2694,99 @@ tbody td:last-child { padding-right: 24px; }
   #resultPreviewContainer{background:transparent !important; padding:0 !important; border-radius:0 !important; width: 100% !important; max-width: 100% !important;}
   table { page-break-inside: avoid; width: 100% !important; max-width: 100% !important; }
   .marksheet-card-wrapper.marksheet-card-hidden { display: none !important; }
+
+/* ═══════════════════════════════════════════════════════════
+   Marksheet & Printable Documents Layout Shield
+   Guarantees 100% boundary containment on all devices
+   ═══════════════════════════════════════════════════════════ */
+.marksheet-card-wrapper,
+.marksheet-card-wrapper * {
+  box-sizing: border-box !important;
+}
+.marksheet-card-wrapper table {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  width: 100% !important;
+  table-layout: fixed !important;
+  border-collapse: collapse !important;
+}
+.marksheet-card-wrapper thead th {
+  padding: 2.5px 2px !important;
+  font-size: 7.5pt !important;
+  font-weight: 800 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  white-space: normal !important;
+  text-align: center !important;
+  background: #f8fafc !important;
+  color: #0f2b5c !important;
+}
+.marksheet-card-wrapper tbody td {
+  padding: 2px 2px !important;
+  font-size: 8.5pt !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  vertical-align: middle !important;
+}
+.marksheet-card-wrapper thead th:first-child,
+.marksheet-card-wrapper thead th:last-child,
+.marksheet-card-wrapper tbody td:first-child,
+.marksheet-card-wrapper tbody td:last-child {
+  padding-left: 2px !important;
+  padding-right: 2px !important;
+}
+.marksheet-card-wrapper .dossier-table td {
+  padding: 2px 3px !important;
+  border: none !important;
+}
 }
 
 .marksheet-card-wrapper.marksheet-card-hidden { display: none !important; }
+
+/* ═══════════════════════════════════════════════════════════
+   Marksheet & Printable Documents Layout Shield
+   Guarantees 100% boundary containment on all devices
+   ═══════════════════════════════════════════════════════════ */
+.marksheet-card-wrapper,
+.marksheet-card-wrapper * {
+  box-sizing: border-box !important;
+}
+.marksheet-card-wrapper table {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  width: 100% !important;
+  table-layout: fixed !important;
+  border-collapse: collapse !important;
+}
+.marksheet-card-wrapper thead th {
+  padding: 2.5px 2px !important;
+  font-size: 7.5pt !important;
+  font-weight: 800 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  white-space: normal !important;
+  text-align: center !important;
+  background: #f8fafc !important;
+  color: #0f2b5c !important;
+}
+.marksheet-card-wrapper tbody td {
+  padding: 2px 2px !important;
+  font-size: 8.5pt !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  vertical-align: middle !important;
+}
+.marksheet-card-wrapper thead th:first-child,
+.marksheet-card-wrapper thead th:last-child,
+.marksheet-card-wrapper tbody td:first-child,
+.marksheet-card-wrapper tbody td:last-child {
+  padding-left: 2px !important;
+  padding-right: 2px !important;
+}
+.marksheet-card-wrapper .dossier-table td {
+  padding: 2px 3px !important;
+  border: none !important;
+}
 
 /* ═══════════════════════════════════════════════════════════
    WhatsApp Alert Module

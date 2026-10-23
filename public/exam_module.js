@@ -4676,23 +4676,23 @@
         tableSubs.push({ subject: '', max: '', min: '', theory: '', practical: '', total: '', pa1: '', pa2: '', notebook: '', enrichment: '' });
     }
     
-    const rowPad = '2.5px 3px';
+    const rowPad = '2px 2px';
     
     let tableHeadHtml = '';
     const tableColgroupHtml = isCBSE ? `
       <colgroup>
-        <col style="width: 6%;">
-        <col style="width: 26%;">
+        <col style="width: 5.5%;">
+        <col style="width: 26.5%;">
+        <col style="width: 11%;">
         <col style="width: 12%;">
-        <col style="width: 12%;">
-        <col style="width: 14%;">
-        <col style="width: 15%;">
-        <col style="width: 15%;">
+        <col style="width: 13%;">
+        <col style="width: 16%;">
+        <col style="width: 16%;">
       </colgroup>
     ` : `
       <colgroup>
-        <col style="width: 6%;">
-        <col style="width: 34%;">
+        <col style="width: 5.5%;">
+        <col style="width: 34.5%;">
         <col style="width: 12%;">
         <col style="width: 12%;">
         <col style="width: 12%;">
@@ -4703,23 +4703,23 @@
 
     if (isCBSE) {
       tableHeadHtml = `
-        <th style="width:6%; border:1px solid #cbd5e1; padding:3px 2px; text-align:center; font-size:7.5pt; font-weight:800; line-height:1.15; background:#f8fafc; color:#0f2b5c; box-sizing:border-box;">क्र.सं.<br>Sl.No</th>
-        <th style="width:26%; border:1px solid #cbd5e1; padding:3px 4px; text-align:center; font-size:8.5pt; font-weight:800; line-height:1.15; letter-spacing:0.3px; background:#f8fafc; color:#0f2b5c; box-sizing:border-box;">विषय / SUBJECT</th>
-        <th style="width:12%; border:1px solid #cbd5e1; padding:3px 2px; text-align:center; font-size:7.5pt; font-weight:800; line-height:1.15; background:#f8fafc; color:#0f2b5c; box-sizing:border-box;">${paLabel}</th>
-        <th style="width:12%; border:1px solid #cbd5e1; padding:3px 2px; text-align:center; font-size:7.5pt; font-weight:800; line-height:1.15; background:#f8fafc; color:#0f2b5c; box-sizing:border-box;">Notebook<br>(5)</th>
-        <th style="width:14%; border:1px solid #cbd5e1; padding:3px 2px; text-align:center; font-size:7.5pt; font-weight:800; line-height:1.15; background:#f8fafc; color:#0f2b5c; box-sizing:border-box; white-space:nowrap;">Sub. Enrich.<br>(5)</th>
-        <th style="width:15%; border:1px solid #cbd5e1; padding:3px 2px; text-align:center; font-size:7.5pt; font-weight:800; line-height:1.15; background:#f8fafc; color:#0f2b5c; box-sizing:border-box; white-space:nowrap;">${examLabel}</th>
-        <th style="width:15%; border:1px solid #cbd5e1; padding:3px 2px; text-align:center; font-size:8pt; font-weight:900; line-height:1.15; background:#f1f5f9; color:#0f2b5c; box-sizing:border-box; white-space:nowrap;">TOTAL / GR.<br>(100)</th>
+        <th style="width:5.5%; border:1px solid #cbd5e1; padding:2px 1px; text-align:center; font-size:7pt; font-weight:800; line-height:1.15; background:#f8fafc; color:#0f2b5c; box-sizing:border-box;">क्र.सं.<br>Sl.No</th>
+        <th style="width:26.5%; border:1px solid #cbd5e1; padding:2px 4px; text-align:center; font-size:8pt; font-weight:800; line-height:1.15; letter-spacing:0.2px; background:#f8fafc; color:#0f2b5c; box-sizing:border-box;">विषय / SUBJECT</th>
+        <th style="width:11%; border:1px solid #cbd5e1; padding:2px 1px; text-align:center; font-size:7pt; font-weight:800; line-height:1.15; background:#f8fafc; color:#0f2b5c; box-sizing:border-box;">${paLabel}</th>
+        <th style="width:12%; border:1px solid #cbd5e1; padding:2px 1px; text-align:center; font-size:7pt; font-weight:800; line-height:1.15; background:#f8fafc; color:#0f2b5c; box-sizing:border-box;">Notebook<br>(5)</th>
+        <th style="width:13%; border:1px solid #cbd5e1; padding:2px 1px; text-align:center; font-size:7pt; font-weight:800; line-height:1.15; background:#f8fafc; color:#0f2b5c; box-sizing:border-box;">Sub. Enrich.<br>(5)</th>
+        <th style="width:16%; border:1px solid #cbd5e1; padding:2px 1px; text-align:center; font-size:7pt; font-weight:800; line-height:1.15; background:#f8fafc; color:#0f2b5c; box-sizing:border-box;">${examLabel}</th>
+        <th style="width:16%; border:1px solid #cbd5e1; padding:2px 1px; text-align:center; font-size:7.5pt; font-weight:900; line-height:1.15; background:#f1f5f9; color:#0f2b5c; box-sizing:border-box;">TOTAL / GR.<br>(100)</th>
       `;
     } else {
       tableHeadHtml = `
-        <th style="width:6%; border:1px solid #cbd5e1; padding:3px 2px; text-align:center; font-size:7.5pt; font-weight:800; line-height:1.15; background:#f8fafc; color:#0f2b5c; box-sizing:border-box;">क्र.सं.<br>Sl.No</th>
-        <th style="width:34%; border:1px solid #cbd5e1; padding:3px 4px; text-align:center; font-size:8.5pt; font-weight:800; line-height:1.15; letter-spacing:0.3px; background:#f8fafc; color:#0f2b5c; box-sizing:border-box;">विषय / SUBJECT</th>
-        <th style="width:12%; border:1px solid #cbd5e1; padding:3px 2px; text-align:center; font-size:7.5pt; font-weight:800; line-height:1.15; background:#f8fafc; color:#0f2b5c; box-sizing:border-box;">MAX</th>
-        <th style="width:12%; border:1px solid #cbd5e1; padding:3px 2px; text-align:center; font-size:7.5pt; font-weight:800; line-height:1.15; background:#f8fafc; color:#0f2b5c; box-sizing:border-box;">MIN</th>
-        <th style="width:12%; border:1px solid #cbd5e1; padding:3px 2px; text-align:center; font-size:7.5pt; font-weight:800; line-height:1.15; background:#f8fafc; color:#0f2b5c; box-sizing:border-box;">TH.</th>
-        <th style="width:12%; border:1px solid #cbd5e1; padding:3px 2px; text-align:center; font-size:7.5pt; font-weight:800; line-height:1.15; background:#f8fafc; color:#0f2b5c; box-sizing:border-box;">PR.</th>
-        <th style="width:12%; border:1px solid #cbd5e1; padding:3px 2px; text-align:center; font-size:8pt; font-weight:900; line-height:1.15; background:#f1f5f9; color:#0f2b5c; box-sizing:border-box; white-space:nowrap;">TOTAL / GR.</th>
+        <th style="width:5.5%; border:1px solid #cbd5e1; padding:2px 1px; text-align:center; font-size:7pt; font-weight:800; line-height:1.15; background:#f8fafc; color:#0f2b5c; box-sizing:border-box;">क्र.सं.<br>Sl.No</th>
+        <th style="width:34.5%; border:1px solid #cbd5e1; padding:2px 4px; text-align:center; font-size:8pt; font-weight:800; line-height:1.15; letter-spacing:0.2px; background:#f8fafc; color:#0f2b5c; box-sizing:border-box;">विषय / SUBJECT</th>
+        <th style="width:12%; border:1px solid #cbd5e1; padding:2px 1px; text-align:center; font-size:7pt; font-weight:800; line-height:1.15; background:#f8fafc; color:#0f2b5c; box-sizing:border-box;">MAX</th>
+        <th style="width:12%; border:1px solid #cbd5e1; padding:2px 1px; text-align:center; font-size:7pt; font-weight:800; line-height:1.15; background:#f8fafc; color:#0f2b5c; box-sizing:border-box;">MIN</th>
+        <th style="width:12%; border:1px solid #cbd5e1; padding:2px 1px; text-align:center; font-size:7pt; font-weight:800; line-height:1.15; background:#f8fafc; color:#0f2b5c; box-sizing:border-box;">TH.</th>
+        <th style="width:12%; border:1px solid #cbd5e1; padding:2px 1px; text-align:center; font-size:7pt; font-weight:800; line-height:1.15; background:#f8fafc; color:#0f2b5c; box-sizing:border-box;">PR.</th>
+        <th style="width:12%; border:1px solid #cbd5e1; padding:2px 1px; text-align:center; font-size:7.5pt; font-weight:900; line-height:1.15; background:#f1f5f9; color:#0f2b5c; box-sizing:border-box;">TOTAL / GR.</th>
       `;
     }
 
@@ -4733,7 +4733,7 @@
             : `<span style="font-size:5.5pt; font-weight:800; color:#b45309; background:#fef3c7; border:1px solid #fde68a; border-radius:2.5px; padding:0.5px 3px; margin-left:4px; vertical-align:middle; display:inline-block; letter-spacing:0.2px;">ADDITIONAL</span>`)
         : '';
       const isPendingRow = sub.isPending === true;
-      const pendingText = `<span style="font-size:8pt; font-weight:700; color:#94a3b8; font-style:italic;">Pending</span>`;
+      const pendingText = `<span style="font-size:7.5pt; font-weight:700; color:#94a3b8; font-style:italic;">Pending</span>`;
 
       if (isCBSE) {
         const isAddl = !isMain;
@@ -4750,18 +4750,18 @@
           nbVal = '-';
           enrVal = '-';
           thVal = '-';
-          totVal = isSubAbsent ? `<strong style="color:#dc2626;">AB</strong>` : `<span style="display:inline-block; font-size:10pt; font-weight:900; color:#1e40af; background:#eff6ff; border:1px solid #bfdbfe; border-radius:4px; padding:1.5px 6px; letter-spacing:0.5px;">${drawGrade}</span>`;
+          totVal = isSubAbsent ? `<strong style="color:#dc2626;">AB</strong>` : `<span style="display:inline-block; font-size:9.5pt; font-weight:900; color:#1e40af; background:#eff6ff; border:1px solid #bfdbfe; border-radius:3.5px; padding:1px 5px; letter-spacing:0.5px;">${drawGrade}</span>`;
         }
 
         return `
         <tr style="background: ${rIdx % 2 === 1 ? '#f8fafc' : '#ffffff'}; height: 21px;">
-          <td style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 800; font-size:8.5pt; color:#64748b; box-sizing:border-box; overflow:hidden;">${isEmpty ? '' : rIdx + 1}</td>
-          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; font-weight: 800; color: #0f2b5c; text-align: left; padding-left: 6px; font-size:9.5pt; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; box-sizing:border-box;">${sub.subject || ''}${addlBadge}</td>
-          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:9.5pt; color:${(isAddl || isPendingRow) ? '#94a3b8' : '#334155'}; box-sizing:border-box; overflow:hidden;">${isEmpty ? '' : paVal}</td>
-          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:9.5pt; color:${(isAddl || isPendingRow) ? '#94a3b8' : '#334155'}; box-sizing:border-box; overflow:hidden;">${isEmpty ? '' : nbVal}</td>
-          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:9.5pt; color:${(isAddl || isPendingRow) ? '#94a3b8' : '#334155'}; box-sizing:border-box; overflow:hidden;">${isEmpty ? '' : enrVal}</td>
-          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:9.5pt; color:${isPendingRow ? '#94a3b8' : '#334155'}; box-sizing:border-box; overflow:hidden;">${isEmpty ? '' : thVal}</td>
-          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 900; color:${isPendingRow ? '#94a3b8' : (isSubAbsent ? '#dc2626' : '#0f2b5c')}; font-size:${isPendingRow ? '8pt' : '10.5pt'}; background: ${isEmpty ? 'transparent' : 'rgba(30, 58, 138, 0.05)'}; box-sizing:border-box; overflow:hidden; white-space:nowrap;">${isEmpty ? '' : totVal}</td>
+          <td style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 800; font-size:8pt; color:#64748b; box-sizing:border-box; overflow:hidden;">${isEmpty ? '' : rIdx + 1}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; font-weight: 800; color: #0f2b5c; text-align: left; padding-left: 5px; font-size:8.5pt; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; box-sizing:border-box;">${sub.subject || ''}${addlBadge}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:8.5pt; color:${(isAddl || isPendingRow) ? '#94a3b8' : '#334155'}; box-sizing:border-box; overflow:hidden;">${isEmpty ? '' : paVal}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:8.5pt; color:${(isAddl || isPendingRow) ? '#94a3b8' : '#334155'}; box-sizing:border-box; overflow:hidden;">${isEmpty ? '' : nbVal}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:8.5pt; color:${(isAddl || isPendingRow) ? '#94a3b8' : '#334155'}; box-sizing:border-box; overflow:hidden;">${isEmpty ? '' : enrVal}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 700; font-size:8.5pt; color:${isPendingRow ? '#94a3b8' : '#334155'}; box-sizing:border-box; overflow:hidden;">${isEmpty ? '' : thVal}</td>
+          <td contenteditable="true" style="border: 1px solid #e2e8f0; padding: ${rowPad}; text-align: center; font-weight: 900; color:${isPendingRow ? '#94a3b8' : (isSubAbsent ? '#dc2626' : '#0f2b5c')}; font-size:${isPendingRow ? '7.5pt' : '9.5pt'}; background: ${isEmpty ? 'transparent' : 'rgba(30, 58, 138, 0.05)'}; box-sizing:border-box; overflow:hidden; white-space:nowrap;">${isEmpty ? '' : totVal}</td>
         </tr>`;
       } else {
         const isSubAbsent = sub.isAbsent === true || String(sub.total).toUpperCase() === 'AB' || String(sub.theory).toUpperCase() === 'AB';
@@ -4899,8 +4899,54 @@
     const displayExamTitle = exam.examName ? exam.examName.toUpperCase() : "HALF YEARLY EXAMINATION 2026-27";
 
     return `
+      <!-- Scoped Layout & Cell Padding Protection Shield -->
+      <style>
+        .marksheet-official-card, .marksheet-official-card * {
+          box-sizing: border-box !important;
+        }
+        .marksheet-official-card table {
+          width: 100% !important;
+          max-width: 100% !important;
+          min-width: 0 !important;
+          table-layout: fixed !important;
+          border-collapse: collapse !important;
+          margin: 0 !important;
+        }
+        .marksheet-official-card thead th {
+          padding: 2px 1px !important;
+          font-size: 7pt !important;
+          font-weight: 800 !important;
+          letter-spacing: normal !important;
+          text-transform: none !important;
+          white-space: normal !important;
+          text-align: center !important;
+          line-height: 1.15 !important;
+          background: #f8fafc !important;
+          color: #0f2b5c !important;
+        }
+        .marksheet-official-card tbody td {
+          padding: 2px 2px !important;
+          font-size: 8.5pt !important;
+          letter-spacing: normal !important;
+          text-transform: none !important;
+          line-height: 1.15 !important;
+          vertical-align: middle !important;
+        }
+        .marksheet-official-card thead th:first-child,
+        .marksheet-official-card thead th:last-child,
+        .marksheet-official-card tbody td:first-child,
+        .marksheet-official-card tbody td:last-child {
+          padding-left: 2px !important;
+          padding-right: 2px !important;
+        }
+        .marksheet-official-card .dossier-table td {
+          padding: 2px 3px !important;
+          border: none !important;
+        }
+      </style>
+
       <!-- FULL A4 SIZED WRAPPER WITH PRESTIGE CERTIFICATE BORDER -->
-      <div style="width:100%; height:277mm; min-height:277mm; max-height:277mm; box-sizing:border-box; border:3px solid #0f2b5c; outline:1.5px solid #d97706; outline-offset:-4px; padding:4.5mm 6.5mm 3.5mm 6.5mm; -webkit-print-color-adjust:exact; print-color-adjust:exact; display:flex; flex-direction:column; justify-content:space-between; background:#ffffff; font-family:'Plus Jakarta Sans', Arial, sans-serif; color:#0f172a; font-size:9pt; position:relative; overflow:hidden; box-shadow: inset 0 0 0 7px #ffffff;">
+      <div class="marksheet-official-card" style="width:100%; height:277mm; min-height:277mm; max-height:277mm; box-sizing:border-box; border:3px solid #0f2b5c; outline:1.5px solid #d97706; outline-offset:-4px; padding:4.5mm 6.5mm 3.5mm 6.5mm; -webkit-print-color-adjust:exact; print-color-adjust:exact; display:flex; flex-direction:column; justify-content:space-between; background:#ffffff; font-family:'Plus Jakarta Sans', Arial, sans-serif; color:#0f172a; font-size:9pt; position:relative; overflow:hidden; box-shadow: inset 0 0 0 7px #ffffff;">
         
         <!-- Corner Ornaments (Gold & Navy) -->
         <div style="position:absolute; top:6px; left:6px; width:18px; height:18px; border-top:2.5px solid #d97706; border-left:2.5px solid #d97706; pointer-events:none; z-index:2;"></div>
@@ -4912,7 +4958,7 @@
         <img src="${logoSrc}" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:300px; max-height:300px; object-fit:contain; opacity:0.04; pointer-events:none; z-index:0;" alt="" onerror="this.style.display='none'" />
 
         <!-- Main Content -->
-        <div style="display:flex; flex-direction:column; justify-content:flex-start; position:relative; z-index:1;">
+        <div style="display:flex; flex-direction:column; justify-content:flex-start; position:relative; z-index:1; width:100%; max-width:100%; min-width:0;">
           
           <!-- Header -->
           <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:2px solid #0f2b5c; padding-bottom:5px; margin-bottom:5px;">
@@ -4963,7 +5009,7 @@
 
           <!-- Student Profile Dossier & Photo -->
           <div style="display:flex; gap:8px; margin-bottom:5px; background:#ffffff; border:1.5px solid #cbd5e1; border-radius:5px; padding:4px 7px; box-shadow:0 1px 3px rgba(0,0,0,0.02); box-sizing:border-box; width:100%; align-items:stretch;">
-            <table style="flex:1; min-width:0; width:calc(100% - 24mm); table-layout:fixed; border-collapse:collapse; font-size:8.5pt; box-sizing:border-box;">
+            <table class="dossier-table" style="flex:1; min-width:0; width:calc(100% - 24mm); table-layout:fixed; border-collapse:collapse; font-size:8.5pt; box-sizing:border-box;">
               <colgroup>
                 <col style="width: 17%;">
                 <col style="width: 13%;">
@@ -5015,8 +5061,8 @@
           </div>
 
           <!-- Scholastic Performance Table -->
-          <div style="margin-bottom:5px; width:100%; box-sizing:border-box;">
-            <table style="width:100%; table-layout:fixed; border-collapse:collapse; font-size:8pt; border:1px solid #cbd5e1; border-radius:4px; overflow:hidden; box-sizing:border-box;">
+          <div style="margin-bottom:5px; width:100%; max-width:100%; min-width:0; box-sizing:border-box; overflow:hidden;">
+            <table class="scholastic-perf-table" style="width:100% !important; max-width:100% !important; min-width:0 !important; table-layout:fixed !important; border-collapse:collapse !important; font-size:8pt; border:1px solid #cbd5e1; border-radius:4px; overflow:hidden; box-sizing:border-box; margin:0 !important;">
               ${tableColgroupHtml}
               <thead>
                 <tr style="background:#f8fafc; color:#0f2b5c; border-bottom:2px solid #0f2b5c;">
@@ -7636,7 +7682,7 @@ function getMarksheetHtml(exam, theme, config) {
           if (theme === 'tps_official_2026' || theme === 'jac_board_tps') {
               // Wrap in full A4 container with exact stretch
               html += `<div class="marksheet-card-wrapper" data-student-name="${sNameLower}" data-roll-no="${sRollLower}" data-admission-no="${admNo}" data-student-key="${stdKey}" style="width: 210mm; height: 297mm; min-height: 297mm; max-height: 297mm; page-break-after: always; padding: 10mm; box-sizing: border-box; position: relative; overflow: hidden; background: #fff; margin: 0 auto; margin-bottom: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
-                         <div style="display: flex; align-items: stretch; justify-content: center; width: 100%; height: 100%;">
+                         <div style="display: flex; align-items: stretch; justify-content: center; width: 100%; height: 100%; min-width: 0; max-width: 100%;">
                            ${cardHtml}
                          </div>
                        </div>`;
@@ -7648,7 +7694,7 @@ function getMarksheetHtml(exam, theme, config) {
 
               // Wrap it in a clean A4 container (white background)
               html += `<div class="marksheet-card-wrapper" data-student-name="${sNameLower}" data-roll-no="${sRollLower}" data-admission-no="${admNo}" data-student-key="${stdKey}" style="width: 210mm; min-height: 297mm; page-break-after: always; padding: 10mm; box-sizing: border-box; position: relative; overflow: hidden; background: #fff; margin: 0 auto; margin-bottom: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
-                         <div style="display: flex; align-items: center; justify-content: center;">
+                         <div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; min-width: 0; max-width: 100%;">
                            ${cardHtml}
                          </div>
                        </div>`;
