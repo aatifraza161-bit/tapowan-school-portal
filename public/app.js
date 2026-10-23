@@ -1586,6 +1586,27 @@ async function api(path, options = {}) {
       signal: controller.signal,
       ...restOptions
     });
+
+    // Automatic failover on pages.dev if edge returned 405 (static fallback) or 502
+    if ((response.status === 405 || response.status === 502) && window.location.hostname.includes("pages.dev")) {
+      try {
+        console.warn(`[api] Relative ${path} returned ${response.status} on pages.dev. Failing over to direct backend...`);
+        const fallbackUrl = `https://tapowan-school.vercel.app${path}`;
+        const fallbackRes = await fetch(fallbackUrl, {
+          credentials: "include",
+          headers: { 
+            "Content-Type": "application/json", 
+            "Bypass-Tunnel-Reminder": "true",
+            ...(userHeaders || {}) 
+          },
+          signal: controller.signal,
+          ...restOptions
+        });
+        if (fallbackRes.ok || fallbackRes.status < 500) {
+          response = fallbackRes;
+        }
+      } catch (_) {}
+    }
   } catch (e) {
     const isAbort = String(e?.name || "").toLowerCase().includes("abort");
     throw new Error(isAbort 

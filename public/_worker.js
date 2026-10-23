@@ -3,35 +3,62 @@ export default {
     const url = new URL(request.url);
 
     // 1. Handle CORS preflight OPTIONS requests directly at the edge
-    if (request.method === "OPTIONS" && url.pathname.startsWith('/api/')) {
+    if (request.method === "OPTIONS" && (url.pathname.startsWith('/api/') || url.pathname === '/api')) {
       return new Response(null, {
         status: 204,
         headers: {
           "Access-Control-Allow-Origin": "*",
           "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
-          "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
+          "Access-Control-Allow-Headers": "*",
           "Access-Control-Max-Age": "86400"
         }
       });
     }
 
-    // 2. Reverse proxy /api/* requests to Vercel production API
-    if (url.pathname.startsWith('/api/')) {
+    // 2. Reverse proxy /api/* requests to dedicated school backend (Vercel)
+    if (url.pathname.startsWith('/api/') || url.pathname === '/api') {
       const targetUrl = new URL(url.pathname + url.search, 'https://tapowan-school.vercel.app');
 
       const headers = new Headers(request.headers);
       headers.set('X-Forwarded-Host', url.host);
       headers.set('X-Forwarded-Proto', url.protocol.replace(':', ''));
 
+      const hasBody = !['GET', 'HEAD'].includes(request.method);
+      let bodyData = undefined;
+      if (hasBody) {
+        try {
+          bodyData = await request.arrayBuffer();
+        } catch (_) {
+          bodyData = request.body;
+        }
+      }
+
       const modifiedRequest = new Request(targetUrl.toString(), {
         method: request.method,
         headers: headers,
-        body: request.body,
+        body: bodyData,
         redirect: 'manual'
       });
 
       try {
-        const response = await fetch(modifiedRequest);
+        let response = await fetch(modifiedRequest);
+
+        // Failover if primary returns 502/503/504
+        if (response.status >= 502 && response.status <= 504) {
+          try {
+            const backupUrl = new URL(url.pathname + url.search, 'https://tapowan-app.vercel.app');
+            const backupReq = new Request(backupUrl.toString(), {
+              method: request.method,
+              headers: headers,
+              body: bodyData,
+              redirect: 'manual'
+            });
+            const backupRes = await fetch(backupReq);
+            if (backupRes.status < 500) {
+              response = backupRes;
+            }
+          } catch (_) {}
+        }
 
         const newHeaders = new Headers(response.headers);
         newHeaders.set('Access-Control-Allow-Origin', '*');
@@ -44,10 +71,32 @@ export default {
           headers: newHeaders
         });
       } catch (err) {
-        return new Response(JSON.stringify({ ok: false, error: 'Edge Proxy error: ' + err.message }), {
-          status: 502,
-          headers: { 'Content-Type': 'application/json' }
-        });
+        // Failover on network error
+        try {
+          const backupUrl = new URL(url.pathname + url.search, 'https://tapowan-app.vercel.app');
+          const backupReq = new Request(backupUrl.toString(), {
+            method: request.method,
+            headers: headers,
+            body: bodyData,
+            redirect: 'manual'
+          });
+          const backupRes = await fetch(backupReq);
+          const newHeaders = new Headers(backupRes.headers);
+          newHeaders.set('Access-Control-Allow-Origin', '*');
+          newHeaders.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+          newHeaders.set('Access-Control-Allow-Headers', '*');
+
+          return new Response(backupRes.body, {
+            status: backupRes.status,
+            statusText: backupRes.statusText,
+            headers: newHeaders
+          });
+        } catch (backupErr) {
+          return new Response(JSON.stringify({ ok: false, error: 'Edge Proxy error: ' + err.message }), {
+            status: 502,
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+          });
+        }
       }
     }
 
