@@ -22294,6 +22294,7 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
             <button id="filterBtnDataOff" class="liveota-filter-btn" onclick="setLiveOtaFilter('data_off')" style="padding:6px 12px;border-radius:8px;border:1px solid #cbd5e1;font-size:0.75rem;cursor:pointer;font-weight:700;background:#fff;color:#ef4444;display:inline-flex;align-items:center;gap:4px;" title="Devices with Internet turned OFF / Offline"><span class="material-symbols-outlined" style="font-size:14px;">wifi_off</span>Data OFF (<span id="countDataOff">0</span>)</button>
             <button id="filterBtnTeachers" class="liveota-filter-btn" onclick="setLiveOtaFilter('teacher')" style="padding:6px 12px;border-radius:8px;border:1px solid #cbd5e1;font-size:0.75rem;cursor:pointer;font-weight:700;background:#fff;color:#64748b;display:inline-flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">school</span>Faculty (<span id="countTeachers">0</span>)</button>
             <button id="filterBtnStudents" class="liveota-filter-btn" onclick="setLiveOtaFilter('student')" style="padding:6px 12px;border-radius:8px;border:1px solid #cbd5e1;font-size:0.75rem;cursor:pointer;font-weight:700;background:#fff;color:#64748b;display:inline-flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">person</span>Students (<span id="countStudents">0</span>)</button>
+            <button id="filterBtnPlugins" class="liveota-filter-btn" onclick="setLiveOtaFilter('plugin')" style="padding:6px 12px;border-radius:8px;border:1px solid #cbd5e1;font-size:0.75rem;cursor:pointer;font-weight:700;background:#fff;color:#7e22ce;display:inline-flex;align-items:center;gap:4px;" title="Classroom Tablets & Intercom Plugins"><span class="material-symbols-outlined" style="font-size:14px;">videocam</span>Classroom Hardware (<span id="countPlugins">0</span>)</button>
             <button id="btnRefreshDeviceStatus" onclick="loadDeviceList()" style="padding:6px 12px;border-radius:8px;border:1px solid #cbd5e1;font-size:0.75rem;cursor:pointer;font-weight:700;background:#f8fafc;color:#0f172a;display:inline-flex;align-items:center;gap:4px;" title="Refresh live status now"><span class="material-symbols-outlined" style="font-size:14px;">sync</span>Refresh</button>
           </div>
         </div>
@@ -22333,8 +22334,9 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     const btnDataOff = document.getElementById('filterBtnDataOff');
     const btnTeachers = document.getElementById('filterBtnTeachers');
     const btnStudents = document.getElementById('filterBtnStudents');
+    const btnPlugins = document.getElementById('filterBtnPlugins');
 
-    [btnAll, btnOnline, btnDataOff, btnTeachers, btnStudents].forEach(b => {
+    [btnAll, btnOnline, btnDataOff, btnTeachers, btnStudents, btnPlugins].forEach(b => {
       if (b) {
         b.style.background = '#fff';
         b.style.color = '#64748b';
@@ -22342,9 +22344,9 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
       }
     });
 
-    const activeBtn = filter === 'all' ? btnAll : (filter === 'online' || filter === 'data_on') ? btnOnline : filter === 'data_off' ? btnDataOff : filter === 'teacher' ? btnTeachers : btnStudents;
+    const activeBtn = filter === 'all' ? btnAll : (filter === 'online' || filter === 'data_on') ? btnOnline : filter === 'data_off' ? btnDataOff : filter === 'teacher' ? btnTeachers : filter === 'plugin' ? btnPlugins : btnStudents;
     if (activeBtn) {
-      activeBtn.style.background = (filter === 'online' || filter === 'data_on') ? '#16a34a' : filter === 'data_off' ? '#ef4444' : '#2563eb';
+      activeBtn.style.background = (filter === 'online' || filter === 'data_on') ? '#16a34a' : filter === 'data_off' ? '#ef4444' : filter === 'plugin' ? '#7e22ce' : '#2563eb';
       activeBtn.style.color = '#fff';
       activeBtn.style.border = 'none';
     }
@@ -22445,12 +22447,14 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
       const countDataOffEl = document.getElementById("countDataOff");
       const countTeachersEl = document.getElementById("countTeachers");
       const countStudentsEl = document.getElementById("countStudents");
+      const countPluginsEl = document.getElementById("countPlugins");
 
       if (countAllEl) countAllEl.textContent = devices.length;
       if (countOnlineEl) countOnlineEl.textContent = devices.filter(d => d._isDataOn).length;
       if (countDataOffEl) countDataOffEl.textContent = devices.filter(d => !d._isDataOn).length;
-      if (countTeachersEl) countTeachersEl.textContent = devices.filter(d => d.user_role === 'teacher' || String(d.user_id || '').startsWith('EMP-')).length;
-      if (countStudentsEl) countStudentsEl.textContent = devices.filter(d => d.user_role === 'student' || (!String(d.user_id || '').startsWith('EMP-') && d.user_role !== 'teacher')).length;
+      if (countTeachersEl) countTeachersEl.textContent = devices.filter(d => (d.user_role === 'teacher' || String(d.user_id || '').startsWith('EMP-')) && d.user_role !== 'Classroom Monitor' && !String(d.device_id || '').startsWith('tps_plugin_')).length;
+      if (countStudentsEl) countStudentsEl.textContent = devices.filter(d => d.user_role === 'student' || (!String(d.user_id || '').startsWith('EMP-') && d.user_role !== 'teacher' && d.user_role !== 'Classroom Monitor' && !String(d.device_id || '').startsWith('tps_plugin_'))).length;
+      if (countPluginsEl) countPluginsEl.textContent = devices.filter(d => d.user_role === 'Classroom Monitor' || String(d.device_id || '').startsWith('tps_plugin_') || String(d.user_name || '').includes('[Plugin]')).length;
 
       renderLiveOtaDevices();
     } catch (err) {
@@ -22470,9 +22474,11 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     } else if (_currentLiveOtaFilter === 'data_off') {
       filtered = filtered.filter(d => !d._isDataOn);
     } else if (_currentLiveOtaFilter === 'teacher') {
-      filtered = filtered.filter(d => d.user_role === 'teacher' || String(d.user_id || '').startsWith('EMP-'));
+      filtered = filtered.filter(d => (d.user_role === 'teacher' || String(d.user_id || '').startsWith('EMP-')) && d.user_role !== 'Classroom Monitor' && !String(d.device_id || '').startsWith('tps_plugin_'));
     } else if (_currentLiveOtaFilter === 'student') {
-      filtered = filtered.filter(d => d.user_role === 'student' || (!String(d.user_id || '').startsWith('EMP-') && d.user_role !== 'teacher'));
+      filtered = filtered.filter(d => (d.user_role === 'student' || (!String(d.user_id || '').startsWith('EMP-') && d.user_role !== 'teacher')) && d.user_role !== 'Classroom Monitor' && !String(d.device_id || '').startsWith('tps_plugin_'));
+    } else if (_currentLiveOtaFilter === 'plugin') {
+      filtered = filtered.filter(d => d.user_role === 'Classroom Monitor' || String(d.device_id || '').startsWith('tps_plugin_') || String(d.user_name || '').includes('[Plugin]'));
     }
 
     // Apply Search
@@ -22505,10 +22511,13 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
       const dataLabel = d._dataStatusLabel || (isDataOn ? '<span class="material-symbols-outlined" style="font-size:12px; vertical-align:middle; margin-right:2px;">signal_cellular_alt</span>Data ON' : '<span class="material-symbols-outlined" style="font-size:12px; vertical-align:middle; margin-right:2px;">wifi_off</span>Data OFF');
 
       const brandIcon = getBrandIcon(d.brand);
-      const isTeacher = d.user_role === 'teacher' || String(d.user_id || '').startsWith('EMP-');
-      const roleBadge = isTeacher
-        ? `<span style="background:#eff6ff;color:#2563eb;font-size:0.65rem;font-weight:700;padding:2px 6px;border-radius:4px;display:inline-flex;align-items:center;gap:3px;"><span class="material-symbols-outlined" style="font-size:12px;">school</span>Faculty</span>`
-        : `<span style="background:#f0fdf4;color:#16a34a;font-size:0.65rem;font-weight:700;padding:2px 6px;border-radius:4px;display:inline-flex;align-items:center;gap:3px;"><span class="material-symbols-outlined" style="font-size:12px;">person</span>Student</span>`;
+      const isPlugin = d.user_role === 'Classroom Monitor' || String(d.device_id || '').startsWith('tps_plugin_') || String(d.user_name || '').includes('[Plugin]');
+      const isTeacher = !isPlugin && (d.user_role === 'teacher' || String(d.user_id || '').startsWith('EMP-'));
+      const roleBadge = isPlugin
+        ? `<span style="background:#f3e8ff;color:#7e22ce;border:1px solid #d8b4fe;font-size:0.65rem;font-weight:700;padding:2px 6px;border-radius:4px;display:inline-flex;align-items:center;gap:3px;"><span class="material-symbols-outlined" style="font-size:12px;">videocam</span>Classroom Hardware</span>`
+        : (isTeacher
+          ? `<span style="background:#eff6ff;color:#2563eb;font-size:0.65rem;font-weight:700;padding:2px 6px;border-radius:4px;display:inline-flex;align-items:center;gap:3px;"><span class="material-symbols-outlined" style="font-size:12px;">school</span>Faculty</span>`
+          : `<span style="background:#f0fdf4;color:#16a34a;font-size:0.65rem;font-weight:700;padding:2px 6px;border-radius:4px;display:inline-flex;align-items:center;gap:3px;"><span class="material-symbols-outlined" style="font-size:12px;">person</span>Student</span>`);
 
       return `
         <div class="liveota-device-card" style="background:#f8fafc;border:1px solid ${isDataOn ? '#86efac' : '#e2e8f0'};box-shadow:${isDataOn ? '0 4px 12px rgba(34,197,94,0.12)' : 'none'};border-radius:14px;padding:14px;transition:all 0.2s;cursor:default;">
