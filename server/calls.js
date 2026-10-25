@@ -2952,6 +2952,11 @@ async function wakeRemotePreviewDevice({ targetDeviceId, previewId, viewerName, 
 
     const uniqueTokens = [...new Set(tokenList)].filter(Boolean);
     if (uniqueTokens.length === 0) {
+      const isPlugin = String(targetDeviceId || '').startsWith('plugin_') || String(targetDeviceId || '').startsWith('tps_plugin_') || dev?.user_role === 'Classroom Monitor';
+      if (isPlugin) {
+        console.log("[RemotePreview Wake] Target is a classroom hardware companion device (" + targetDeviceId + "). Polling channel active via cloud database.");
+        return { ok: true, method: 'cloud_poll', previewId };
+      }
       return { ok: false, error: 'No push tokens found for device or user' };
     }
 
