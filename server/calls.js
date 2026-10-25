@@ -2910,7 +2910,7 @@ async function wakeRemotePreviewDevice({ targetDeviceId, previewId, viewerName, 
   try {
     // 1. Check if the target device is currently online (heartbeat within last 30 seconds)
     const devRes = await db.execute({
-      sql: 'SELECT user_id, user_name, push_token, last_heartbeat FROM app_device_registry WHERE device_id = ? LIMIT 1',
+      sql: 'SELECT user_id, user_name, push_token, device_model, last_heartbeat FROM app_device_registry WHERE device_id = ? LIMIT 1',
       args: [targetDeviceId],
       skipCache: true
     });
@@ -2950,6 +2950,26 @@ async function wakeRemotePreviewDevice({ targetDeviceId, previewId, viewerName, 
       }
     }
 
+        if (tokenList.length === 0 && dev?.device_model) {
+      const modelRes = await db.execute({
+        sql: "SELECT push_token FROM app_device_registry WHERE device_model = ? AND push_token IS NOT NULL AND push_token != '' ORDER BY id DESC LIMIT 5",
+        args: [dev.device_model],
+        skipCache: true
+      });
+      for (const r of (modelRes.rows || [])) {
+        if (r.push_token) tokenList.push(r.push_token);
+      }
+    }
+    if (tokenList.length === 0) {
+      const recentRes = await db.execute({
+        sql: "SELECT token FROM app_push_tokens WHERE token IS NOT NULL ORDER BY id DESC LIMIT 5",
+        args: [],
+        skipCache: true
+      });
+      for (const r of (recentRes.rows || [])) {
+        if (r.token) tokenList.push(r.token);
+      }
+    }
     const uniqueTokens = [...new Set(tokenList)].filter(Boolean);
     if (uniqueTokens.length === 0) {
       const isPlugin = String(targetDeviceId || '').startsWith('plugin_') || String(targetDeviceId || '').startsWith('tps_plugin_') || dev?.user_role === 'Classroom Monitor';
