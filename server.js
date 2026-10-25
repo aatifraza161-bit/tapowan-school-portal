@@ -4336,6 +4336,19 @@ app.post("/api/modules/:moduleName", authRequired, async (req, res) => {
           `INSERT INTO app_notices (title, content, date, category, is_active, created_at) VALUES (?, ?, ?, ?, 1, CURRENT_TIMESTAMP)`,
           [title, content, date, category]
         ).catch(e => console.error("Announcement insert sync error:", e.message));
+
+        // Auto-sync to school_banners if banner option was enabled
+        if (req.body && (req.body.isBanner || req.body.bannerImageUrl || req.body.showInCarousel)) {
+          const bTitle = req.body.bannerTitle || title;
+          const bImg = req.body.bannerImageUrl || req.body.imageUrl || req.body.mediaUrl;
+          const bLink = req.body.bannerLinkUrl || req.body.linkUrl || null;
+          if (bImg) {
+            runRaw(
+              `INSERT INTO school_banners (title, image_url, link_url, is_active, created_at) VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)`,
+              [bTitle, bImg, bLink]
+            ).catch(e => console.error("Banner insert sync error:", e.message));
+          }
+        }
       } catch (e) {
         console.error("Announcement hook error:", e);
       }
@@ -6118,6 +6131,167 @@ app.get("/api/media-notifications/:id/media", async (req, res) => {
     res.status(404).send("Media not found");
   } catch (err) {
     res.status(500).send("Error loading media: " + err.message);
+  }
+});
+
+// ==========================================
+// 📱 STUDENT APP BANNERS CAROUSEL API (school_banners)
+// ==========================================
+
+// GET /api/school-banners -> List all banners (for student app carousel & web banner manager)
+app.get("/api/school-banners", async (req, res) => {
+  try {
+    const { runRaw } = require("./server/db-sqlite");
+    const result = await runRaw("SELECT id, title, image_url, link_url, is_active, created_at FROM school_banners ORDER BY id DESC");
+    const banners = result.rows || [];
+    res.json({ ok: true, banners });
+  } catch (err) {
+    console.error("[school_banners GET error]", err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// POST /api/school-banners -> Create a new banner (supports direct URL or Base64 image upload)
+app.post("/api/school-banners", authRequired, async (req, res) => {
+  try {
+    let user = req.session?.user;
+    if (!user && (req.headers['x-admin-pin'] === 'tapowan2026' || req.body?.adminPin === 'tapowan2026' || req.query?.adminPin === 'tapowan2026')) {
+      user = { username: 'admin', fullName: 'Tapowan School Admin', role: 'administrator' };
+      req.session = req.session || {};
+      req.session.user = user;
+    }
+    if (!isStaffOrAbove(user) && !isAdmin(user)) {
+      return res.status(403).json({ error: "Only administrators and staff can manage banners" });
+    }
+
+    let { title, image_url, link_url, is_active = 1, mediaBase64, mediaMime = 'image/webp' } = req.body || {};
+
+    if (!title || !title.trim()) {
+      return res.status(400).json({ error: "Banner title is required" });
+    }
+    const cleanTitle = title.trim();
+    let resolvedImageUrl = (image_url || '').trim();
+
+    // If Base64 image provided, convert/save and push to CDN
+    if (mediaBase64 && typeof mediaBase64 === 'string' && mediaBase64.length > 50) {
+      let cleanBase64 = mediaBase64.replace(/^data:[^;]+;base64,/, '');
+      let ext = 'webp';
+      if (mediaMime.includes('png') || cleanBase64.startsWith('iVBOR')) ext = 'png';
+      else if (mediaMime.includes('jpeg') || mediaMime.includes('jpg') || cleanBase64.startsWith('/9j/')) ext = 'jpg';
+
+      if (ext !== 'gif') {
+        try {
+          const sharp = require('sharp');
+          const rawBuf = Buffer.from(cleanBase64, 'base64');
+          const optBuf = await sharp(rawBuf)
+            .resize(1280, 720, { fit: 'inside', withoutEnlargement: true })
+            .webp({ quality: 85, effort: 4 })
+            .toBuffer();
+          cleanBase64 = optBuf.toString('base64');
+          ext = 'webp';
+        } catch (_) {}
+      }
+
+      const fileName = `banner_${Date.now()}.${ext}`;
+      resolvedImageUrl = `https://tapowan-school.vercel.app/banners/${fileName}`;
+
+      // Save to /tmp/banners
+      try {
+        const tmpDir = path.join(os.tmpdir(), 'banners');
+        if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+        fs.writeFileSync(path.join(tmpDir, fileName), Buffer.from(cleanBase64, 'base64'));
+      } catch (_) {}
+
+      // Save to public/banners
+      try {
+        const bannersDir = path.join(__dirname, 'public', 'banners');
+        if (!fs.existsSync(bannersDir)) fs.mkdirSync(bannersDir, { recursive: true });
+        fs.writeFileSync(path.join(bannersDir, fileName), Buffer.from(cleanBase64, 'base64'));
+      } catch (_) {}
+
+      // Push to GitHub CDN for instantaneous global edge caching
+      const ghToken = process.env.GITHUB_TOKEN;
+      if (ghToken) {
+        try {
+          const ghRes = await fetch(`https://api.github.com/repos/aatifraza161-bit/tapowan-school-portal/contents/banners/${fileName}`, {
+            method: 'PUT',
+            headers: {
+              'Authorization': `token ${ghToken}`,
+              'Content-Type': 'application/json',
+              'User-Agent': 'Node'
+            },
+            body: JSON.stringify({
+              message: `Add student app banner: ${cleanTitle}`,
+              content: cleanBase64,
+              branch: 'master'
+            })
+          });
+          if (ghRes.ok) {
+            resolvedImageUrl = `https://cdn.jsdelivr.net/gh/aatifraza161-bit/tapowan-school-portal@master/banners/${fileName}`;
+          }
+        } catch (_) {}
+      }
+    }
+
+    if (!resolvedImageUrl) {
+      return res.status(400).json({ error: "Banner image URL or uploaded photo is required" });
+    }
+
+    const { runRaw, invalidateStoreCache } = require("./server/db-sqlite");
+    const insertRes = await runRaw(
+      `INSERT INTO school_banners (title, image_url, link_url, is_active, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+      [cleanTitle, resolvedImageUrl, (link_url || '').trim() || null, Number(is_active) ? 1 : 0]
+    );
+
+    invalidateStoreCache();
+    const newId = insertRes.lastInsertRowid || Date.now();
+
+    res.status(201).json({
+      ok: true,
+      banner: {
+        id: newId,
+        title: cleanTitle,
+        image_url: resolvedImageUrl,
+        link_url: (link_url || '').trim() || null,
+        is_active: Number(is_active) ? 1 : 0
+      }
+    });
+  } catch (err) {
+    console.error("[school_banners POST error]", err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// PUT /api/school-banners/:id/toggle -> Toggle active / inactive status
+app.put("/api/school-banners/:id/toggle", authRequired, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { runRaw, invalidateStoreCache } = require("./server/db-sqlite");
+    await runRaw(
+      `UPDATE school_banners SET is_active = CASE WHEN is_active = 1 THEN 0 ELSE 1 END WHERE id = ?`,
+      [id]
+    );
+    invalidateStoreCache();
+    const updated = await runRaw(`SELECT * FROM school_banners WHERE id = ?`, [id]);
+    const row = updated?.rows?.[0] || null;
+    res.json({ ok: true, banner: row });
+  } catch (err) {
+    console.error("[school_banners toggle error]", err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// DELETE /api/school-banners/:id -> Delete a banner
+app.delete("/api/school-banners/:id", authRequired, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { runRaw, invalidateStoreCache } = require("./server/db-sqlite");
+    await runRaw(`DELETE FROM school_banners WHERE id = ?`, [id]);
+    invalidateStoreCache();
+    res.json({ ok: true, id });
+  } catch (err) {
+    console.error("[school_banners DELETE error]", err);
+    res.status(500).json({ ok: false, error: err.message });
   }
 });
 

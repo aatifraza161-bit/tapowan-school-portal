@@ -3819,6 +3819,7 @@ function renderTable() {
       tr.innerHTML = `${cells}<td style="white-space:nowrap;">
         <div style="display:flex;gap:4px;align-items:center;">
           <button class="action-btn" onclick="openAnnouncementPreview(${item.id})" style="background:#e0e7ff;color:#4338ca;border:none;padding:5px 8px;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px;display:inline-flex;align-items:center;gap:4px;" title="Preview Official Notice"><span class="material-symbols-outlined" style="font-size:15px;">visibility</span> Preview</button>
+          <button class="action-btn" onclick="quickCreateBannerFromAnnouncement(${item.id})" style="background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;padding:5px 8px;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px;display:inline-flex;align-items:center;gap:4px;" title="Feature as Student App Banner"><span class="material-symbols-outlined" style="font-size:15px;color:#16a34a;">view_carousel</span> Banner</button>
           <button class="action-btn" onclick="shareAnnouncementWhatsApp(${item.id})" style="background:#25d366;color:#fff;border:none;padding:5px 8px;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px;display:inline-flex;align-items:center;gap:4px;" title="Share on WhatsApp">${WHATSAPP_ICON_SVG} WA</button>
           ${canWrite ? `<button class="action-btn action-edit" data-action="generic-edit" data-id="${item.id}" style="background:#f1f5f9;color:#334155;border:none;padding:5px 8px;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:15px;">edit</span> Edit</button>` : ""}
           ${canDel ? `<button class="chip" data-delete-id="${item.id}" style="margin:0;display:inline-flex;align-items:center;padding:5px 8px;"><span class="material-symbols-outlined" style="font-size:16px;">delete</span></button>` : '—'}
@@ -12641,6 +12642,38 @@ refs.dynamicForm.addEventListener("submit", async (e) => {
         payload.targetAdmissionNo = "";
         payload.targetStudentName = "";
       }
+
+      // Capture Student App Banner settings
+      const annIsBannerCb = e.target.querySelector('#annIsBanner');
+      if (annIsBannerCb && annIsBannerCb.checked) {
+        const bTitle = e.target.querySelector('#annBannerTitle')?.value?.trim() || payload.title || 'Announcement';
+        const bImgSrc = e.target.querySelector('#annBannerPreviewImg')?.src || '';
+        const bLink = e.target.querySelector('#annBannerLink')?.value?.trim() || '';
+        payload.isBanner = 1;
+        payload.bannerTitle = bTitle;
+        payload.bannerImageUrl = bImgSrc;
+        payload.bannerLinkUrl = bLink;
+
+        // Auto post to /api/school-banners so it's immediately active in student app
+        try {
+          api('/api/school-banners', {
+            method: 'POST',
+            body: JSON.stringify({
+              title: bTitle,
+              image_url: bImgSrc,
+              link_url: bLink || null,
+              mediaBase64: window._lastUploadedBannerBase64 || null,
+              is_active: 1
+            })
+          }).then(res => {
+            if (res && res.ok) {
+              console.log('[Banner Auto-Publish] Banner published to mobile app:', res.banner);
+            }
+          }).catch(err => console.warn('[Banner Auto-Publish Warning]', err));
+        } catch (bErr) {
+          console.warn('[Banner Auto-Publish Catch]', bErr);
+        }
+      }
     }
 
     // ── Fee module: capture monthly fee + selected book/dress items ──
@@ -21028,7 +21061,13 @@ async function renderAnnouncementsForm(cfg, studentOptions, classOptions, initia
           <p style="margin:2px 0 0 0; font-size:0.8rem; color:#64748b;">Broadcast alerts, celebrations, exam notices, school accounts, class & student specific notices</p>
         </div>
       </div>
-      ${isEdit ? `<button type="button" class="action-btn" id="btnCancelAnnEdit" style="background:#f1f5f9; color:#475569; border:none; padding:6px 12px; border-radius:8px; font-weight:600; cursor:pointer;">Cancel Edit</button>` : ''}
+      <div style="display:flex; align-items:center; gap:8px;">
+        <button type="button" id="btnOpenBannerManager" style="background:#0284c7; color:#ffffff; border:none; padding:7px 14px; border-radius:8px; font-weight:700; font-size:0.82rem; cursor:pointer; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 4px rgba(2,132,199,0.25);" title="Open Student App Banners Carousel Manager">
+          <span class="material-symbols-outlined" style="font-size:18px;">view_carousel</span>
+          <span>Manage App Banners</span>
+        </button>
+        ${isEdit ? `<button type="button" class="action-btn" id="btnCancelAnnEdit" style="background:#f1f5f9; color:#475569; border:none; padding:6px 12px; border-radius:8px; font-weight:600; cursor:pointer;">Cancel Edit</button>` : ''}
+      </div>
     </div>
   `;
 
@@ -21148,6 +21187,109 @@ async function renderAnnouncementsForm(cfg, studentOptions, classOptions, initia
           <span class="material-symbols-outlined" style="font-size:16px;">send_to_mobile</span>Push to Student Mobile App (Instant In-App Notice & Notifications)
         </label>
       </div>
+
+      <!-- 📱 Student Mobile App Banner Integration Section -->
+      <div class="field" style="grid-column: 1 / -1; background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:12px; padding:16px; margin-top:4px; margin-bottom:4px; transition:all 0.2s ease;" id="annBannerCard">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div style="width:40px; height:40px; border-radius:10px; background:#eff6ff; border:1px solid #bfdbfe; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+              <span class="material-symbols-outlined" style="font-size:24px; color:#2563eb;">view_carousel</span>
+            </div>
+            <div>
+              <div style="font-weight:700; font-size:0.95rem; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                <span>Feature in Student Mobile App Banner Carousel</span>
+                <span style="font-size:0.72rem; background:#dbeafe; color:#1e40af; padding:2px 8px; border-radius:6px; font-weight:700;">Mobile App</span>
+              </div>
+              <p style="margin:2px 0 0 0; font-size:0.78rem; color:#64748b;">Displays a high-resolution visual slide banner at the very top of the Student Mobile App home screen</p>
+            </div>
+          </div>
+          <label style="display:inline-flex; align-items:center; gap:8px; cursor:pointer; background:#ffffff; border:1px solid #cbd5e1; padding:6px 14px; border-radius:8px; user-select:none; box-shadow:0 1px 2px rgba(0,0,0,0.05);">
+            <input type="checkbox" id="annIsBanner" name="isBanner" style="width:18px; height:18px; cursor:pointer; accent-color:#2563eb;" />
+            <span style="font-weight:700; font-size:0.85rem; color:#1e293b;">Enable Banner</span>
+          </label>
+        </div>
+
+        <!-- Expandable Banner Customizer -->
+        <div id="annBannerSection" style="display:none; margin-top:16px; border-top:1px dashed #cbd5e1; padding-top:16px;">
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:18px;">
+            <!-- Left Column: Inputs & Preset Pickers -->
+            <div>
+              <!-- Banner Title Input -->
+              <div style="margin-bottom:12px;">
+                <label style="font-weight:700; font-size:0.83rem; color:#1e293b; display:block; margin-bottom:4px;">Banner Overlay Title <span style="font-size:0.75rem; color:#64748b; font-weight:normal;">(shown on bottom of banner)</span></label>
+                <input type="text" id="annBannerTitle" placeholder="Banner text overlay (e.g. Mid-Term Examination 2026)" style="width:100%; padding:8px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.88rem; font-weight:600;" />
+              </div>
+
+              <!-- Image Source Selection Tabs -->
+              <div style="margin-bottom:12px;">
+                <label style="font-weight:700; font-size:0.83rem; color:#1e293b; display:block; margin-bottom:6px;">Choose Banner Image Source:</label>
+                <div style="display:flex; gap:6px; margin-bottom:10px;">
+                  <button type="button" class="chip" id="btnTabUpload" style="background:#2563eb; color:#fff; border-color:#2563eb; font-weight:700; margin:0; cursor:pointer; font-size:0.75rem; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:15px;">upload_file</span> Upload Photo</button>
+                  <button type="button" class="chip" id="btnTabPresets" style="background:#f1f5f9; color:#475569; border-color:#cbd5e1; font-weight:600; margin:0; cursor:pointer; font-size:0.75rem; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:15px;">auto_awesome</span> School Presets</button>
+                  <button type="button" class="chip" id="btnTabUrl" style="background:#f1f5f9; color:#475569; border-color:#cbd5e1; font-weight:600; margin:0; cursor:pointer; font-size:0.75rem; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:15px;">link</span> Custom URL</button>
+                </div>
+
+                <!-- Source 1: File Upload Box -->
+                <div id="boxTabUpload" style="display:block; background:#ffffff; border:2px dashed #93c5fd; border-radius:10px; padding:14px; text-align:center; cursor:pointer;">
+                  <input type="file" id="annBannerFile" accept="image/*" style="display:none;" />
+                  <span class="material-symbols-outlined" style="font-size:32px; color:#3b82f6; display:block; margin-bottom:4px;">add_photo_alternate</span>
+                  <span style="font-size:0.85rem; font-weight:700; color:#1e3a8a; display:block;">Click to choose or drop banner image</span>
+                  <span style="font-size:0.75rem; color:#64748b; display:block; margin-top:2px;">Supports JPG, PNG, WebP (auto-optimized for mobile)</span>
+                  <span id="annUploadFileName" style="display:none; margin-top:6px; font-size:0.78rem; color:#059669; font-weight:700;"></span>
+                </div>
+
+                <!-- Source 2: Preset Chips -->
+                <div id="boxTabPresets" style="display:none; background:#ffffff; border:1px solid #cbd5e1; border-radius:10px; padding:12px;">
+                  <span style="font-size:0.75rem; color:#64748b; display:block; margin-bottom:8px; font-weight:600;">Click any template to select image:</span>
+                  <div style="display:flex; flex-wrap:wrap; gap:6px;" id="bannerPresetChips">
+                    <button type="button" class="chip" data-img="https://tapowan-school.vercel.app/banners/school_quiz_competition.webp" data-title="Quiz Competition 2026" style="background:#fef3c7; color:#b45309; border-color:#fde68a; font-size:0.75rem; margin:0; cursor:pointer;">🏆 Quiz & Competition</button>
+                    <button type="button" class="chip" data-img="https://tapowan-school.vercel.app/banners/school_event_flag.webp" data-title="Independence Day Celebration" style="background:#e0e7ff; color:#3730a3; border-color:#c7d2fe; font-size:0.75rem; margin:0; cursor:pointer;">🇮🇳 Independence & Events</button>
+                    <button type="button" class="chip" data-img="https://cdn.jsdelivr.net/gh/aatifraza161-bit/tapowan-school-portal@master/banners/banner_1792303908011_opt.jpg" data-title="🌸 Happy Durga Puja 🌸" style="background:#fce7f3; color:#be185d; border-color:#fbcfe8; font-size:0.75rem; margin:0; cursor:pointer;">🌸 Festival & Puja</button>
+                    <button type="button" class="chip" data-img="https://cdn.jsdelivr.net/gh/aatifraza161-bit/tapowan-school-portal@master/abdul_kalam_birthday_banner.jpg" data-title="Dr. A.P.J. Abdul Kalam Anniversary" style="background:#ecfdf5; color:#047857; border-color:#a7f3d0; font-size:0.75rem; margin:0; cursor:pointer;">🚀 Students' Day</button>
+                  </div>
+                </div>
+
+                <!-- Source 3: Direct URL Box -->
+                <div id="boxTabUrl" style="display:none;">
+                  <input type="url" id="annBannerUrlInput" placeholder="https://example.com/banner.jpg" style="width:100%; padding:8px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.85rem;" />
+                </div>
+              </div>
+
+              <!-- Link Action (Optional) -->
+              <div>
+                <label style="font-weight:700; font-size:0.8rem; color:#475569; display:block; margin-bottom:3px;">Banner Click Action / Link <span style="font-weight:normal; font-size:0.72rem; color:#94a3b8;">(Optional)</span></label>
+                <input type="url" id="annBannerLink" placeholder="https://... or leave blank" style="width:100%; padding:7px 10px; border-radius:7px; border:1px solid #cbd5e1; font-size:0.82rem;" />
+              </div>
+            </div>
+
+            <!-- Right Column: Live Student Mobile Phone Simulator -->
+            <div style="display:flex; flex-direction:column; align-items:center;">
+              <div style="display:flex; justify-content:space-between; align-items:center; width:100%; max-width:340px; margin-bottom:6px;">
+                <span style="font-size:0.75rem; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:0.5px; display:inline-flex; align-items:center; gap:4px;">
+                  <span class="material-symbols-outlined" style="font-size:14px; color:#2563eb;">smartphone</span>
+                  Live Student App Preview
+                </span>
+                <span style="font-size:0.7rem; background:#10b981; color:#fff; padding:1px 6px; border-radius:4px; font-weight:700;">Live Feed</span>
+              </div>
+
+              <!-- Mobile Banner Card (Matches React Native DashboardScreen.js) -->
+              <div id="annBannerPreviewBox" style="width:100%; max-width:340px; height:150px; border-radius:18px; overflow:hidden; position:relative; background:#1e293b; box-shadow:0 8px 16px -4px rgba(0,0,0,0.25); border:1px solid #334155;">
+                <img id="annBannerPreviewImg" src="https://tapowan-school.vercel.app/banners/school_quiz_competition.webp" alt="Banner Preview" style="width:100%; height:100%; object-fit:cover; display:block;" />
+                <!-- RN Linear Gradient overlay simulation -->
+                <div style="position:absolute; bottom:0; left:0; right:0; padding:10px 14px 12px; background:linear-gradient(to top, rgba(15,23,42,0.92) 0%, rgba(15,23,42,0.6) 60%, transparent 100%);">
+                  <div id="annBannerPreviewTitle" style="color:#ffffff; font-size:0.85rem; font-weight:800; letter-spacing:-0.2px; text-shadow:0 1px 2px rgba(0,0,0,0.5); line-height:1.25;">Quiz Competition 2026</div>
+                </div>
+                <!-- Pagination dots -->
+                <div style="position:absolute; top:8px; right:10px; display:flex; gap:4px;">
+                  <span style="width:12px; height:4px; border-radius:2px; background:#ffffff;"></span>
+                  <span style="width:4px; height:4px; border-radius:2px; background:rgba(255,255,255,0.4);"></span>
+                  <span style="width:4px; height:4px; border-radius:2px; background:rgba(255,255,255,0.4);"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Action Buttons -->
@@ -21253,8 +21395,149 @@ async function renderAnnouncementsForm(cfg, studentOptions, classOptions, initia
     });
   }
 
+  // 📱 Wire Student App Banner Controls
+  const annIsBannerCb = outer.querySelector('#annIsBanner');
+  const annBannerSection = outer.querySelector('#annBannerSection');
+  const annBannerTitleInput = outer.querySelector('#annBannerTitle');
+  const annBannerPreviewTitle = outer.querySelector('#annBannerPreviewTitle');
+  const annBannerPreviewImg = outer.querySelector('#annBannerPreviewImg');
+  const annBannerFileInput = outer.querySelector('#annBannerFile');
+  const boxTabUpload = outer.querySelector('#boxTabUpload');
+  const boxTabPresets = outer.querySelector('#boxTabPresets');
+  const boxTabUrl = outer.querySelector('#boxTabUrl');
+  const annBannerUrlInput = outer.querySelector('#annBannerUrlInput');
+  const annUploadFileName = outer.querySelector('#annUploadFileName');
+  const btnTabUpload = outer.querySelector('#btnTabUpload');
+  const btnTabPresets = outer.querySelector('#btnTabPresets');
+  const btnTabUrl = outer.querySelector('#btnTabUrl');
+
+  if (annIsBannerCb && annBannerSection) {
+    annIsBannerCb.addEventListener('change', () => {
+      const active = annIsBannerCb.checked;
+      annBannerSection.style.display = active ? 'block' : 'none';
+      if (active && (!annBannerTitleInput.value || !annBannerTitleInput.value.trim())) {
+        const tVal = outer.querySelector('#annTitle')?.value || '';
+        if (tVal) {
+          annBannerTitleInput.value = tVal;
+          if (annBannerPreviewTitle) annBannerPreviewTitle.textContent = tVal;
+        }
+      }
+    });
+
+    // Auto sync announcement title to banner title if user hasn't explicitly customized banner title
+    const annTitleInput = outer.querySelector('#annTitle');
+    if (annTitleInput) {
+      annTitleInput.addEventListener('input', () => {
+        if (annIsBannerCb.checked && (!annBannerTitleInput.dataset.customized || annBannerTitleInput.value === '')) {
+          annBannerTitleInput.value = annTitleInput.value;
+          if (annBannerPreviewTitle) annBannerPreviewTitle.textContent = annTitleInput.value || 'Banner Title';
+        }
+      });
+    }
+
+    if (annBannerTitleInput) {
+      annBannerTitleInput.addEventListener('input', () => {
+        annBannerTitleInput.dataset.customized = 'true';
+        if (annBannerPreviewTitle) {
+          annBannerPreviewTitle.textContent = annBannerTitleInput.value || 'Banner Title';
+        }
+      });
+    }
+
+    // Source tab switching
+    const setSourceTab = (tab) => {
+      [btnTabUpload, btnTabPresets, btnTabUrl].forEach(b => {
+        if (!b) return;
+        b.style.background = '#f1f5f9';
+        b.style.color = '#475569';
+        b.style.borderColor = '#cbd5e1';
+      });
+      [boxTabUpload, boxTabPresets, boxTabUrl].forEach(bx => { if (bx) bx.style.display = 'none'; });
+
+      if (tab === 'upload') {
+        btnTabUpload.style.background = '#2563eb';
+        btnTabUpload.style.color = '#fff';
+        btnTabUpload.style.borderColor = '#2563eb';
+        boxTabUpload.style.display = 'block';
+      } else if (tab === 'presets') {
+        btnTabPresets.style.background = '#2563eb';
+        btnTabPresets.style.color = '#fff';
+        btnTabPresets.style.borderColor = '#2563eb';
+        boxTabPresets.style.display = 'block';
+      } else if (tab === 'url') {
+        btnTabUrl.style.background = '#2563eb';
+        btnTabUrl.style.color = '#fff';
+        btnTabUrl.style.borderColor = '#2563eb';
+        boxTabUrl.style.display = 'block';
+      }
+    };
+
+    if (btnTabUpload) btnTabUpload.addEventListener('click', () => setSourceTab('upload'));
+    if (btnTabPresets) btnTabPresets.addEventListener('click', () => setSourceTab('presets'));
+    if (btnTabUrl) btnTabUrl.addEventListener('click', () => setSourceTab('url'));
+
+    // File upload box click -> trigger hidden file input
+    if (boxTabUpload && annBannerFileInput) {
+      boxTabUpload.addEventListener('click', (e) => {
+        if (e.target !== annBannerFileInput) annBannerFileInput.click();
+      });
+      annBannerFileInput.addEventListener('change', (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (!file.type.startsWith('image/')) {
+          showToast('Please select a valid image file (JPG, PNG, or WebP)', 'error');
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = (re) => {
+          window._lastUploadedBannerBase64 = re.target.result;
+          if (annBannerPreviewImg) annBannerPreviewImg.src = window._lastUploadedBannerBase64;
+          if (annUploadFileName) {
+            annUploadFileName.style.display = 'block';
+            annUploadFileName.textContent = 'Selected: ' + file.name + ' (' + Math.round(file.size / 1024) + ' KB)';
+          }
+          showToast('Banner photo loaded!', 'success');
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // Presets clickers
+    outer.querySelectorAll('#bannerPresetChips button[data-img]').forEach(chip => {
+      chip.addEventListener('click', () => {
+        window._lastUploadedBannerBase64 = null;
+        const imgUrl = chip.dataset.img;
+        const t = chip.dataset.title;
+        if (annBannerPreviewImg) annBannerPreviewImg.src = imgUrl;
+        if (annBannerTitleInput) annBannerTitleInput.value = t;
+        if (annBannerPreviewTitle) annBannerPreviewTitle.textContent = t;
+        showToast('Selected preset: ' + t, 'success');
+      });
+    });
+
+    // Custom URL input
+    if (annBannerUrlInput) {
+      annBannerUrlInput.addEventListener('input', () => {
+        window._lastUploadedBannerBase64 = null;
+        const val = annBannerUrlInput.value.trim();
+        if (val && annBannerPreviewImg) annBannerPreviewImg.src = val;
+      });
+    }
+  }
+
+  // Wire Manage App Banners header button
+  const btnOpenBannerManager = outer.querySelector('#btnOpenBannerManager');
+  if (btnOpenBannerManager) {
+    btnOpenBannerManager.addEventListener('click', () => {
+      if (typeof window.openStudentBannerManager === 'function') {
+        window.openStudentBannerManager();
+      }
+    });
+  }
+
   outer.querySelector('#btnAnnReset').addEventListener('click', () => {
     editRecordId = null;
+    window._lastUploadedBannerBase64 = null;
     renderForm(true);
   });
 }
@@ -21355,6 +21638,402 @@ window.shareAnnouncementWhatsApp = function(id) {
   const text = `*🏫 TAPOWAN PUBLIC SCHOOL*\n*📢 OFFICIAL NOTICE*\n--------------------------------\n*📌 Title:* ${ann.title || 'Announcement'}\n*🏷️ Category:* ${ann.category || 'General'}\n*🎯 Target:* ${ann.targetAudience || 'All School'}\n*📅 Date:* ${ann.date || 'Today'}\n*🏛️ From:* ${ann.postedBy || 'School Admin'}\n--------------------------------\n\n${ann.message || ''}\n\n_Tapowan Public School, Online Portal_`;
 
   window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+};
+
+// 📱 Promote existing announcement to Student App Banner
+window.quickCreateBannerFromAnnouncement = function(id) {
+  const store = getStore();
+  const ann = (store.announcements || []).find(a => String(a.id) === String(id));
+  if (!ann) return showToast("Announcement not found", "error");
+  window.openStudentBannerManager({
+    title: ann.title || 'School Announcement',
+    link: ''
+  });
+};
+
+// 📱 Dedicated Student Mobile App Banner Manager Modal
+window.openStudentBannerManager = async function(prefillData = null) {
+  let modal = document.getElementById("studentBannerManagerModal");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "studentBannerManagerModal";
+    modal.style.position = "fixed";
+    modal.style.inset = "0";
+    modal.style.background = "rgba(15, 23, 42, 0.72)";
+    modal.style.backdropFilter = "blur(6px)";
+    modal.style.zIndex = "999999";
+    modal.style.display = "flex";
+    modal.style.alignItems = "center";
+    modal.style.justifyContent = "center";
+    modal.style.padding = "16px";
+    document.body.appendChild(modal);
+  }
+
+  modal.innerHTML = `
+    <div style="background:#ffffff; width:100%; max-width:880px; max-height:92vh; border-radius:20px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.35); border:1px solid #cbd5e1; display:flex; flex-direction:column; overflow:hidden; animation:slideUpFade 0.25s ease-out;">
+      <!-- Modal Header -->
+      <div style="background:linear-gradient(135deg, #0f172a, #1e3a8a); color:#ffffff; padding:18px 24px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #334155;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="width:42px; height:42px; border-radius:12px; background:rgba(255,255,255,0.12); display:flex; align-items:center; justify-content:center; border:1px solid rgba(255,255,255,0.2);">
+            <span class="material-symbols-outlined" style="font-size:26px; color:#38bdf8;">view_carousel</span>
+          </div>
+          <div>
+            <h3 style="margin:0; font-size:1.18rem; font-weight:800; letter-spacing:-0.2px;">Student Mobile App - Top Banners Carousel</h3>
+            <p style="margin:2px 0 0 0; font-size:0.78rem; color:#94a3b8;">Manage slide banners displayed on the home screen carousel of the Student Mobile App</p>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <button type="button" id="btnToggleNewBannerCard" style="background:#2563eb; color:#ffffff; border:none; padding:7px 14px; border-radius:8px; font-weight:700; font-size:0.82rem; cursor:pointer; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 4px rgba(37,99,235,0.3);">
+            <span class="material-symbols-outlined" style="font-size:18px;">add_circle</span>
+            <span id="btnToggleNewBannerText">${prefillData ? 'Close Creator' : 'Add New Banner'}</span>
+          </button>
+          <button type="button" onclick="document.getElementById('studentBannerManagerModal').remove()" style="background:transparent; border:none; color:#cbd5e1; cursor:pointer; padding:6px; border-radius:8px; display:inline-flex; align-items:center;">
+            <span class="material-symbols-outlined" style="font-size:24px;">close</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Modal Body (Scrollable) -->
+      <div style="padding:20px; overflow-y:auto; flex:1; background:#f8fafc;" id="sbmBody">
+        <!-- New Banner Creator Card -->
+        <div id="sbmNewBannerCard" style="display:${prefillData ? 'block' : 'none'}; background:#ffffff; border:1.5px solid #bfdbfe; border-radius:14px; padding:18px; margin-bottom:20px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid #f1f5f9; padding-bottom:10px;">
+            <span style="font-weight:700; font-size:0.95rem; color:#1e3a8a; display:inline-flex; align-items:center; gap:6px;">
+              <span class="material-symbols-outlined" style="font-size:20px; color:#2563eb;">add_photo_alternate</span>
+              Create & Publish New Mobile Banner
+            </span>
+            <span style="font-size:0.75rem; background:#dcfce7; color:#15803d; font-weight:700; padding:2px 8px; border-radius:6px;">Publishes Instantly to Student App</span>
+          </div>
+
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:18px;">
+            <div>
+              <div style="margin-bottom:12px;">
+                <label style="font-weight:700; font-size:0.82rem; color:#1e293b; display:block; margin-bottom:4px;">Banner Title <span style="color:#dc2626;">*</span></label>
+                <input type="text" id="sbmTitle" placeholder="e.g. Mid-Term Examination Schedule" value="${escapeHtml(prefillData?.title || '')}" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.9rem; font-weight:600;" required />
+              </div>
+
+              <div style="margin-bottom:12px;">
+                <label style="font-weight:700; font-size:0.82rem; color:#1e293b; display:block; margin-bottom:6px;">Banner Image Source:</label>
+                <div style="display:flex; gap:6px; margin-bottom:8px;">
+                  <button type="button" class="chip" id="sbmTabUpload" style="background:#2563eb; color:#fff; border-color:#2563eb; font-weight:700; margin:0; cursor:pointer; font-size:0.75rem;">Upload Photo</button>
+                  <button type="button" class="chip" id="sbmTabPresets" style="background:#f1f5f9; color:#475569; border-color:#cbd5e1; font-weight:600; margin:0; cursor:pointer; font-size:0.75rem;">School Presets</button>
+                  <button type="button" class="chip" id="sbmTabUrl" style="background:#f1f5f9; color:#475569; border-color:#cbd5e1; font-weight:600; margin:0; cursor:pointer; font-size:0.75rem;">Custom URL</button>
+                </div>
+
+                <div id="sbmBoxUpload" style="background:#f8fafc; border:2px dashed #93c5fd; border-radius:10px; padding:14px; text-align:center; cursor:pointer;">
+                  <input type="file" id="sbmFileInput" accept="image/*" style="display:none;" />
+                  <span class="material-symbols-outlined" style="font-size:28px; color:#3b82f6;">cloud_upload</span>
+                  <div style="font-size:0.82rem; font-weight:700; color:#1e3a8a;">Click to select banner image</div>
+                  <div style="font-size:0.72rem; color:#64748b;">Supports JPG, PNG, WebP</div>
+                  <div id="sbmUploadLabel" style="display:none; font-size:0.75rem; color:#059669; font-weight:700; margin-top:4px;"></div>
+                </div>
+
+                <div id="sbmBoxPresets" style="display:none; background:#f8fafc; border:1px solid #cbd5e1; border-radius:10px; padding:10px;">
+                  <div style="display:flex; flex-wrap:wrap; gap:6px;" id="sbmPresetChips">
+                    <button type="button" class="chip" data-img="https://tapowan-school.vercel.app/banners/school_quiz_competition.webp" data-title="Quiz Competition 2026" style="background:#fef3c7; color:#b45309; border-color:#fde68a; font-size:0.72rem; margin:0; cursor:pointer;">🏆 Quiz</button>
+                    <button type="button" class="chip" data-img="https://tapowan-school.vercel.app/banners/school_event_flag.webp" data-title="Independence Day Celebration" style="background:#e0e7ff; color:#3730a3; border-color:#c7d2fe; font-size:0.72rem; margin:0; cursor:pointer;">🇮🇳 Independence</button>
+                    <button type="button" class="chip" data-img="https://cdn.jsdelivr.net/gh/aatifraza161-bit/tapowan-school-portal@master/banners/banner_1792303908011_opt.jpg" data-title="🌸 Happy Durga Puja 🌸" style="background:#fce7f3; color:#be185d; border-color:#fbcfe8; font-size:0.72rem; margin:0; cursor:pointer;">🌸 Festival</button>
+                    <button type="button" class="chip" data-img="https://cdn.jsdelivr.net/gh/aatifraza161-bit/tapowan-school-portal@master/abdul_kalam_birthday_banner.jpg" data-title="Dr. A.P.J. Abdul Kalam Anniversary" style="background:#ecfdf5; color:#047857; border-color:#a7f3d0; font-size:0.72rem; margin:0; cursor:pointer;">🚀 Students' Day</button>
+                  </div>
+                </div>
+
+                <div id="sbmBoxUrl" style="display:none;">
+                  <input type="url" id="sbmUrlInput" placeholder="https://..." style="width:100%; padding:8px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.85rem;" />
+                </div>
+              </div>
+
+              <div style="margin-bottom:14px;">
+                <label style="font-weight:700; font-size:0.8rem; color:#475569; display:block; margin-bottom:3px;">Link URL <span style="font-weight:normal; font-size:0.72rem; color:#94a3b8;">(Optional)</span></label>
+                <input type="url" id="sbmLinkInput" placeholder="https://... or leave blank" value="${escapeHtml(prefillData?.link || '')}" style="width:100%; padding:7px 10px; border-radius:7px; border:1px solid #cbd5e1; font-size:0.82rem;" />
+              </div>
+
+              <button type="button" id="btnPublishSbmBanner" style="background:#2563eb; color:#ffffff; border:none; padding:9px 20px; border-radius:8px; font-weight:700; font-size:0.88rem; cursor:pointer; display:inline-flex; align-items:center; gap:8px; width:100%; justify-content:center; box-shadow:0 4px 6px -1px rgba(37,99,235,0.3);">
+                <span class="material-symbols-outlined" style="font-size:20px;">publish</span>
+                <span>Publish Banner to Mobile App</span>
+              </button>
+            </div>
+
+            <!-- Preview Column -->
+            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center;">
+              <span style="font-size:0.75rem; font-weight:700; color:#475569; margin-bottom:6px; display:inline-flex; align-items:center; gap:4px;">
+                <span class="material-symbols-outlined" style="font-size:14px; color:#2563eb;">smartphone</span>
+                Student App Mobile Display Preview
+              </span>
+              <div style="width:100%; max-width:320px; height:145px; border-radius:18px; overflow:hidden; position:relative; background:#1e293b; box-shadow:0 8px 16px -4px rgba(0,0,0,0.25); border:1px solid #334155;">
+                <img id="sbmPreviewImg" src="https://tapowan-school.vercel.app/banners/school_quiz_competition.webp" alt="Preview" style="width:100%; height:100%; object-fit:cover; display:block;" />
+                <div style="position:absolute; bottom:0; left:0; right:0; padding:10px 14px 12px; background:linear-gradient(to top, rgba(15,23,42,0.92) 0%, rgba(15,23,42,0.6) 60%, transparent 100%);">
+                  <div id="sbmPreviewTitle" style="color:#ffffff; font-size:0.85rem; font-weight:800; letter-spacing:-0.2px; text-shadow:0 1px 2px rgba(0,0,0,0.5); line-height:1.25;">${escapeHtml(prefillData?.title || 'Quiz Competition 2026')}</div>
+                </div>
+                <div style="position:absolute; top:8px; right:10px; display:flex; gap:4px;">
+                  <span style="width:12px; height:4px; border-radius:2px; background:#ffffff;"></span>
+                  <span style="width:4px; height:4px; border-radius:2px; background:rgba(255,255,255,0.4);"></span>
+                  <span style="width:4px; height:4px; border-radius:2px; background:rgba(255,255,255,0.4);"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section: Active & Past Banners List -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <h4 style="margin:0; font-size:0.95rem; font-weight:800; color:#0f172a; display:inline-flex; align-items:center; gap:6px;">
+            <span class="material-symbols-outlined" style="font-size:20px; color:#2563eb;">view_carousel</span>
+            <span>All Banners in Carousel</span>
+            <span id="sbmBannerCountBadge" style="font-size:0.72rem; background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; padding:2px 8px; border-radius:12px; font-weight:700;">Loading...</span>
+          </h4>
+          <button type="button" id="btnRefreshSbmList" style="background:#f1f5f9; border:none; padding:5px 10px; border-radius:6px; font-size:0.75rem; font-weight:600; color:#475569; cursor:pointer; display:inline-flex; align-items:center; gap:4px;">
+            <span class="material-symbols-outlined" style="font-size:14px;">refresh</span> Refresh
+          </button>
+        </div>
+
+        <div id="sbmBannerGrid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap:14px;">
+          <div style="text-align:center; padding:30px; color:#64748b; font-size:0.85rem; grid-column:1/-1;">Loading banners from Turso Database...</div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  modal.style.display = "flex";
+
+  // State
+  let sbmUploadedBase64 = null;
+  const sbmNewBannerCard = modal.querySelector('#sbmNewBannerCard');
+  const btnToggleNewBannerCard = modal.querySelector('#btnToggleNewBannerCard');
+  const btnToggleNewBannerText = modal.querySelector('#btnToggleNewBannerText');
+  const sbmTitle = modal.querySelector('#sbmTitle');
+  const sbmPreviewTitle = modal.querySelector('#sbmPreviewTitle');
+  const sbmPreviewImg = modal.querySelector('#sbmPreviewImg');
+  const sbmFileInput = modal.querySelector('#sbmFileInput');
+  const sbmBoxUpload = modal.querySelector('#sbmBoxUpload');
+  const sbmBoxPresets = modal.querySelector('#sbmBoxPresets');
+  const sbmBoxUrl = modal.querySelector('#sbmBoxUrl');
+  const sbmTabUpload = modal.querySelector('#sbmTabUpload');
+  const sbmTabPresets = modal.querySelector('#sbmTabPresets');
+  const sbmTabUrl = modal.querySelector('#sbmTabUrl');
+  const sbmUrlInput = modal.querySelector('#sbmUrlInput');
+  const sbmLinkInput = modal.querySelector('#sbmLinkInput');
+  const sbmUploadLabel = modal.querySelector('#sbmUploadLabel');
+  const btnPublishSbmBanner = modal.querySelector('#btnPublishSbmBanner');
+  const sbmBannerGrid = modal.querySelector('#sbmBannerGrid');
+  const sbmBannerCountBadge = modal.querySelector('#sbmBannerCountBadge');
+  const btnRefreshSbmList = modal.querySelector('#btnRefreshSbmList');
+
+  // Toggle creator card
+  btnToggleNewBannerCard.addEventListener('click', () => {
+    const isShown = sbmNewBannerCard.style.display !== 'none';
+    sbmNewBannerCard.style.display = isShown ? 'none' : 'block';
+    btnToggleNewBannerText.textContent = isShown ? 'Add New Banner' : 'Close Creator';
+  });
+
+  // Title sync
+  sbmTitle.addEventListener('input', () => {
+    sbmPreviewTitle.textContent = sbmTitle.value.trim() || 'Banner Title';
+  });
+
+  // Tab switching
+  const setSbmTab = (tab) => {
+    [sbmTabUpload, sbmTabPresets, sbmTabUrl].forEach(b => {
+      b.style.background = '#f1f5f9';
+      b.style.color = '#475569';
+      b.style.borderColor = '#cbd5e1';
+    });
+    [sbmBoxUpload, sbmBoxPresets, sbmBoxUrl].forEach(bx => bx.style.display = 'none');
+
+    if (tab === 'upload') {
+      sbmTabUpload.style.background = '#2563eb';
+      sbmTabUpload.style.color = '#fff';
+      sbmTabUpload.style.borderColor = '#2563eb';
+      sbmBoxUpload.style.display = 'block';
+    } else if (tab === 'presets') {
+      sbmTabPresets.style.background = '#2563eb';
+      sbmTabPresets.style.color = '#fff';
+      sbmTabPresets.style.borderColor = '#2563eb';
+      sbmBoxPresets.style.display = 'block';
+    } else if (tab === 'url') {
+      sbmTabUrl.style.background = '#2563eb';
+      sbmTabUrl.style.color = '#fff';
+      sbmTabUrl.style.borderColor = '#2563eb';
+      sbmBoxUrl.style.display = 'block';
+    }
+  };
+
+  sbmTabUpload.addEventListener('click', () => setSbmTab('upload'));
+  sbmTabPresets.addEventListener('click', () => setSbmTab('presets'));
+  sbmTabUrl.addEventListener('click', () => setSbmTab('url'));
+
+  // File upload
+  sbmBoxUpload.addEventListener('click', (e) => {
+    if (e.target !== sbmFileInput) sbmFileInput.click();
+  });
+  sbmFileInput.addEventListener('change', (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (re) => {
+      sbmUploadedBase64 = re.target.result;
+      sbmPreviewImg.src = sbmUploadedBase64;
+      sbmUploadLabel.style.display = 'block';
+      sbmUploadLabel.textContent = 'Selected: ' + file.name + ' (' + Math.round(file.size / 1024) + ' KB)';
+      showToast('Image loaded for banner preview!', 'success');
+    };
+    reader.readAsDataURL(file);
+  });
+
+  // Presets
+  modal.querySelectorAll('#sbmPresetChips button[data-img]').forEach(chip => {
+    chip.addEventListener('click', () => {
+      sbmUploadedBase64 = null;
+      sbmPreviewImg.src = chip.dataset.img;
+      if (!sbmTitle.value.trim()) {
+        sbmTitle.value = chip.dataset.title;
+        sbmPreviewTitle.textContent = chip.dataset.title;
+      }
+      showToast('Selected preset image', 'success');
+    });
+  });
+
+  // URL input
+  sbmUrlInput.addEventListener('input', () => {
+    sbmUploadedBase64 = null;
+    const v = sbmUrlInput.value.trim();
+    if (v) sbmPreviewImg.src = v;
+  });
+
+  // Publish handler
+  btnPublishSbmBanner.addEventListener('click', async () => {
+    const t = sbmTitle.value.trim();
+    if (!t) return showToast('Please enter a banner title', 'error');
+    const imgSrc = sbmPreviewImg.src;
+    if (!imgSrc) return showToast('Please select or upload a banner image', 'error');
+
+    btnPublishSbmBanner.disabled = true;
+    btnPublishSbmBanner.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;animation:spin 1s linear infinite;">progress_activity</span> Publishing...';
+
+    try {
+      const res = await api('/api/school-banners', {
+        method: 'POST',
+        body: JSON.stringify({
+          title: t,
+          image_url: imgSrc,
+          link_url: sbmLinkInput.value.trim() || null,
+          mediaBase64: sbmUploadedBase64 || null,
+          is_active: 1
+        })
+      });
+
+      if (res && res.ok) {
+        showToast('🎉 Banner published successfully to Student Mobile App!', 'success');
+        sbmTitle.value = '';
+        sbmLinkInput.value = '';
+        sbmUploadedBase64 = null;
+        sbmUploadLabel.style.display = 'none';
+        sbmNewBannerCard.style.display = 'none';
+        btnToggleNewBannerText.textContent = 'Add New Banner';
+        loadBanners();
+      } else {
+        showToast(res?.error || 'Failed to publish banner', 'error');
+      }
+    } catch (err) {
+      showToast('Error: ' + err.message, 'error');
+    } finally {
+      btnPublishSbmBanner.disabled = false;
+      btnPublishSbmBanner.innerHTML = '<span class="material-symbols-outlined" style="font-size:20px;">publish</span><span>Publish Banner to Mobile App</span>';
+    }
+  });
+
+  // Load and render banners
+  async function loadBanners() {
+    try {
+      sbmBannerGrid.innerHTML = '<div style="text-align:center; padding:30px; color:#64748b; font-size:0.85rem; grid-column:1/-1;">Loading banners from Turso Database...</div>';
+      const res = await api('/api/school-banners');
+      const banners = res?.banners || [];
+      sbmBannerCountBadge.textContent = banners.length + ' banners (' + banners.filter(b => b.is_active == 1).length + ' active)';
+
+      if (!banners.length) {
+        sbmBannerGrid.innerHTML = '<div style="text-align:center; padding:40px; color:#64748b; font-size:0.9rem; grid-column:1/-1;">No banners found. Click <strong>Add New Banner</strong> above to create your first mobile app banner!</div>';
+        return;
+      }
+
+      sbmBannerGrid.innerHTML = banners.map(b => {
+        const isActive = Number(b.is_active) === 1;
+        const createdStr = b.created_at ? new Date(b.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Recent';
+        return `
+          <div style="background:#ffffff; border:1px solid ${isActive ? '#bfdbfe' : '#e2e8f0'}; border-radius:14px; overflow:hidden; box-shadow:0 2px 4px rgba(0,0,0,0.04); display:flex; flex-direction:column; position:relative;">
+            <!-- Thumbnail with title overlay -->
+            <div style="height:120px; position:relative; background:#1e293b; overflow:hidden;">
+              <img src="${escapeHtml(b.image_url)}" alt="Banner" style="width:100%; height:100%; object-fit:cover; display:block;" onerror="this.src='https://tapowan-school.vercel.app/banners/school_quiz_competition.webp'" />
+              <div style="position:absolute; bottom:0; left:0; right:0; padding:8px 10px; background:linear-gradient(to top, rgba(15,23,42,0.95), transparent);">
+                <div style="color:#ffffff; font-weight:700; font-size:0.8rem; line-height:1.2; text-shadow:0 1px 2px rgba(0,0,0,0.6);">${escapeHtml(b.title || 'Untitled Banner')}</div>
+              </div>
+              <span style="position:absolute; top:8px; left:8px; font-size:0.68rem; font-weight:700; padding:2px 7px; border-radius:4px; background:${isActive ? '#10b981' : '#64748b'}; color:#ffffff; box-shadow:0 1px 2px rgba(0,0,0,0.2);">
+                ${isActive ? '🟢 Live on App' : '⚪ Hidden'}
+              </span>
+            </div>
+
+            <!-- Card Body & Actions -->
+            <div style="padding:10px 12px; display:flex; justify-content:space-between; align-items:center; background:#ffffff; border-top:1px solid #f1f5f9;">
+              <div style="font-size:0.73rem; color:#64748b;">
+                <span class="material-symbols-outlined" style="font-size:12px; vertical-align:middle;">calendar_today</span> ${createdStr}
+              </div>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <button type="button" class="btn-toggle-banner" data-id="${b.id}" style="background:${isActive ? '#fef2f2' : '#f0fdf4'}; color:${isActive ? '#dc2626' : '#15803d'}; border:1px solid ${isActive ? '#fecaca' : '#bbf7d0'}; padding:4px 8px; border-radius:6px; font-size:0.73rem; font-weight:700; cursor:pointer;" title="${isActive ? 'Deactivate (Hide from mobile app)' : 'Activate (Show on mobile app)'}">
+                  ${isActive ? 'Hide' : 'Show Live'}
+                </button>
+                <button type="button" class="btn-del-banner" data-id="${b.id}" style="background:#f1f5f9; color:#475569; border:none; padding:4px 6px; border-radius:6px; font-size:0.73rem; cursor:pointer;" title="Delete Banner">
+                  <span class="material-symbols-outlined" style="font-size:15px; color:#ef4444;">delete</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Wire toggle buttons
+      sbmBannerGrid.querySelectorAll('.btn-toggle-banner').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.dataset.id;
+          btn.disabled = true;
+          try {
+            const tres = await api('/api/school-banners/' + id + '/toggle', { method: 'PUT' });
+            if (tres && tres.ok) {
+              showToast('Banner status updated!', 'success');
+              loadBanners();
+            } else {
+              showToast(tres?.error || 'Toggle failed', 'error');
+            }
+          } catch (err) {
+            showToast('Error: ' + err.message, 'error');
+          }
+        });
+      });
+
+      // Wire delete buttons
+      sbmBannerGrid.querySelectorAll('.btn-del-banner').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.dataset.id;
+          if (!confirm('Are you sure you want to delete this banner from the Student Mobile App?')) return;
+          btn.disabled = true;
+          try {
+            const dres = await api('/api/school-banners/' + id, { method: 'DELETE' });
+            if (dres && dres.ok) {
+              showToast('Banner deleted successfully', 'success');
+              loadBanners();
+            } else {
+              showToast(dres?.error || 'Delete failed', 'error');
+            }
+          } catch (err) {
+            showToast('Error: ' + err.message, 'error');
+          }
+        });
+      });
+    } catch (err) {
+      console.error('[loadBanners error]', err);
+      sbmBannerGrid.innerHTML = '<div style="text-align:center; padding:30px; color:#dc2626; font-size:0.85rem; grid-column:1/-1;">Failed to load banners: ' + escapeHtml(err.message) + '</div>';
+    }
+  }
+
+  btnRefreshSbmList.addEventListener('click', loadBanners);
+  loadBanners();
 };
 
 async function renderDueManagementForm(cfg, studentOptions, classOptions, initialValues = {}, formRefs = {}) {
