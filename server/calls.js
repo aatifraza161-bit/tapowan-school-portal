@@ -3243,6 +3243,8 @@ module.exports = {
   broadcastSilentOtaPush,
   broadcastSilentApkPush,
   wakeRemotePreviewDevice,
-  broadcastAppIconChange
+  broadcastAppIconChange,
+  getFcmAccessToken,
+  FCM_SERVICE_ACCOUNT
 };
 
