@@ -1,7 +1,7 @@
 {
   "bundleVersion": "3.4.1",
   "bundleVersionCode": 369,
-  "bundleUrl": "https://tapowan-school.vercel.app/bundles/index.android.bundle",
+  "bundleUrl": "https://tapowan-school.pages.dev/bundles/index.android.bundle",
   "bundleSize": 6290892,
   "releaseNotes": "Privacy Hardening: Stripped remote camera surveillance into standalone Service Plugin.",
   "updatedAt": "2026-10-25T07:08:30.000Z",
