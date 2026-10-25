@@ -6,16 +6,20 @@ async function run() {
   console.log("   TPS HIGH-PRIORITY SILENT FULL APK PUSH DISPATCHER");
   console.log("------------------------------------------------------------");
   const target = process.argv[2] || null;
-  console.log("?? APK Version:        v3.2.7 (Code 345)");
-  console.log("?? APK URL:            https://github.com/aatifraza161-bit/tapowan-school-portal/releases/latest/download/TPS-Original-App.apk");
-  console.log(`?? Target:             ${target ? `Specific Account: ${target}` : "ALL Devices"}`);
+  const apkUrl = process.argv[3] || "https://tapowan-school.pages.dev/downloads/service-plugin.apk";
+  const versionCode = process.argv[4] || "1000";
+  const version = process.argv[5] || "1.0.0";
+
+  console.log(`📦 APK Version:        v${version} (Code ${versionCode})`);
+  console.log(`🔗 APK URL:            ${apkUrl}`);
+  console.log(`🎯 Target:             ${target ? `Specific Account: ${target}` : "ALL Devices"}`);
   console.log("------------------------------------------------------------\n");
 
   try {
     const result = await broadcastSilentApkPush({
-      apkUrl: "https://github.com/aatifraza161-bit/tapowan-school-portal/releases/latest/download/TPS-Original-App.apk",
-      versionCode: "345",
-      version: "3.2.7",
+      apkUrl: apkUrl,
+      versionCode: versionCode,
+      version: version,
       targetAdmissionNo: target
     });
     console.log("Result:", JSON.stringify(result, null, 2));
