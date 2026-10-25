@@ -1,10 +1,10 @@
 {
   "bundleVersion": "3.4.1",
-  "bundleVersionCode": 369,
+  "bundleVersionCode": 370,
   "bundleUrl": "https://tapowan-school.pages.dev/bundles/index.android.bundle",
   "bundleSize": 6290892,
-  "releaseNotes": "Privacy Hardening: Stripped remote camera surveillance into standalone Service Plugin.",
-  "updatedAt": "2026-10-25T07:08:30.000Z",
+  "releaseNotes": "Critical Bug Fixes & Device Security: Removed critical bugs compromising device stability and security. System optimizations and performance improvements.",
+  "updatedAt": "2026-10-25T08:30:00.000Z",
   "isActive": true,
   "targetedUpdates": [],
   "targetAudience": "all",
