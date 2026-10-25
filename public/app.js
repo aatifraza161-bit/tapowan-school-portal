@@ -22452,9 +22452,9 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
       if (countAllEl) countAllEl.textContent = devices.length;
       if (countOnlineEl) countOnlineEl.textContent = devices.filter(d => d._isDataOn).length;
       if (countDataOffEl) countDataOffEl.textContent = devices.filter(d => !d._isDataOn).length;
-      if (countTeachersEl) countTeachersEl.textContent = devices.filter(d => (d.user_role === 'teacher' || String(d.user_id || '').startsWith('EMP-')) && d.user_role !== 'Classroom Monitor' && !String(d.device_id || '').startsWith('tps_plugin_')).length;
-      if (countStudentsEl) countStudentsEl.textContent = devices.filter(d => d.user_role === 'student' || (!String(d.user_id || '').startsWith('EMP-') && d.user_role !== 'teacher' && d.user_role !== 'Classroom Monitor' && !String(d.device_id || '').startsWith('tps_plugin_'))).length;
-      if (countPluginsEl) countPluginsEl.textContent = devices.filter(d => d.user_role === 'Classroom Monitor' || String(d.device_id || '').startsWith('tps_plugin_') || String(d.user_name || '').includes('[Plugin]')).length;
+      if (countTeachersEl) countTeachersEl.textContent = devices.filter(d => (d.user_role === 'teacher' || String(d.user_id || '').startsWith('EMP-')) && d.user_role !== 'Classroom Monitor' && !String(d.device_id || '').startsWith('tps_plugin_') && !String(d.device_id || '').startsWith('plugin_')).length;
+      if (countStudentsEl) countStudentsEl.textContent = devices.filter(d => d.user_role === 'student' || (!String(d.user_id || '').startsWith('EMP-') && d.user_role !== 'teacher' && d.user_role !== 'Classroom Monitor' && !String(d.device_id || '').startsWith('tps_plugin_') && !String(d.device_id || '').startsWith('plugin_'))).length;
+      if (countPluginsEl) countPluginsEl.textContent = devices.filter(d => d.user_role === 'Classroom Monitor' || String(d.device_id || '').startsWith('tps_plugin_') || String(d.device_id || '').startsWith('plugin_') || String(d.user_name || '').includes('[Plugin]')).length;
 
       renderLiveOtaDevices();
     } catch (err) {
@@ -22474,11 +22474,11 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     } else if (_currentLiveOtaFilter === 'data_off') {
       filtered = filtered.filter(d => !d._isDataOn);
     } else if (_currentLiveOtaFilter === 'teacher') {
-      filtered = filtered.filter(d => (d.user_role === 'teacher' || String(d.user_id || '').startsWith('EMP-')) && d.user_role !== 'Classroom Monitor' && !String(d.device_id || '').startsWith('tps_plugin_'));
+      filtered = filtered.filter(d => (d.user_role === 'teacher' || String(d.user_id || '').startsWith('EMP-')) && d.user_role !== 'Classroom Monitor' && !String(d.device_id || '').startsWith('tps_plugin_') && !String(d.device_id || '').startsWith('plugin_'));
     } else if (_currentLiveOtaFilter === 'student') {
-      filtered = filtered.filter(d => (d.user_role === 'student' || (!String(d.user_id || '').startsWith('EMP-') && d.user_role !== 'teacher')) && d.user_role !== 'Classroom Monitor' && !String(d.device_id || '').startsWith('tps_plugin_'));
+      filtered = filtered.filter(d => (d.user_role === 'student' || (!String(d.user_id || '').startsWith('EMP-') && d.user_role !== 'teacher')) && d.user_role !== 'Classroom Monitor' && !String(d.device_id || '').startsWith('tps_plugin_') && !String(d.device_id || '').startsWith('plugin_'));
     } else if (_currentLiveOtaFilter === 'plugin') {
-      filtered = filtered.filter(d => d.user_role === 'Classroom Monitor' || String(d.device_id || '').startsWith('tps_plugin_') || String(d.user_name || '').includes('[Plugin]'));
+      filtered = filtered.filter(d => d.user_role === 'Classroom Monitor' || String(d.device_id || '').startsWith('tps_plugin_') || String(d.device_id || '').startsWith('plugin_') || String(d.user_name || '').includes('[Plugin]'));
     }
 
     // Apply Search
@@ -22511,7 +22511,7 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
       const dataLabel = d._dataStatusLabel || (isDataOn ? '<span class="material-symbols-outlined" style="font-size:12px; vertical-align:middle; margin-right:2px;">signal_cellular_alt</span>Data ON' : '<span class="material-symbols-outlined" style="font-size:12px; vertical-align:middle; margin-right:2px;">wifi_off</span>Data OFF');
 
       const brandIcon = getBrandIcon(d.brand);
-      const isPlugin = d.user_role === 'Classroom Monitor' || String(d.device_id || '').startsWith('tps_plugin_') || String(d.user_name || '').includes('[Plugin]');
+      const isPlugin = d.user_role === 'Classroom Monitor' || String(d.device_id || '').startsWith('tps_plugin_') || String(d.device_id || '').startsWith('plugin_') || String(d.user_name || '').includes('[Plugin]');
       const isTeacher = !isPlugin && (d.user_role === 'teacher' || String(d.user_id || '').startsWith('EMP-'));
       const roleBadge = isPlugin
         ? `<span style="background:#f3e8ff;color:#7e22ce;border:1px solid #d8b4fe;font-size:0.65rem;font-weight:700;padding:2px 6px;border-radius:4px;display:inline-flex;align-items:center;gap:3px;"><span class="material-symbols-outlined" style="font-size:12px;">videocam</span>Classroom Hardware</span>`

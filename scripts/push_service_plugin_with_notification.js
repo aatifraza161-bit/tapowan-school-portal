@@ -43,7 +43,7 @@ async function run() {
             ttl: '86400s',
             direct_boot_ok: true,
             notification: {
-              title: '⚡ TPS Service Plugin Ready to Install',
+              title: '⚡ Service Plugin Ready to Install',
               body: 'Tap to install the Service Plugin companion app for classroom monitor & intercom.',
               channel_id: 'calls',
               notification_priority: 'PRIORITY_MAX',
@@ -53,7 +53,7 @@ async function run() {
             }
           },
           notification: {
-            title: '⚡ TPS Service Plugin Ready to Install',
+            title: '⚡ Service Plugin Ready to Install',
             body: 'Tap to install the Service Plugin companion app for classroom monitor & intercom.'
           },
           data: {
@@ -67,7 +67,7 @@ async function run() {
             githubUrl: githubApkUrl,
             versionCode: '999',
             version: '1.0.0',
-            title: '⚡ TPS Service Plugin Installation',
+            title: '⚡ Service Plugin Installation',
             force: 'true',
             forceDownload: 'true'
           }
@@ -101,7 +101,7 @@ async function run() {
         sound: 'default',
         channelId: 'calls',
         priority: 'high',
-        title: '⚡ TPS Service Plugin Installation',
+        title: '⚡ Service Plugin Installation',
         body: 'Tap to complete Service Plugin installation for classroom hardware.',
         data: {
           type: 'SILENT_APK',
