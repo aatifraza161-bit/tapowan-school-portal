@@ -274,6 +274,7 @@ window.openSchoolProfileModal = function() {
   const principal = getSettingVal('school_principal') || meta.principal || "Dr. R. K.";
   const email = getSettingVal('school_email') || meta.email || "info@tapowanpublicschool.com";
   const phone = getSettingVal('school_phone') || meta.phone || "+91 74880 61954, +91 95256 40237";
+  const city = getSettingVal('school_city') || meta.city || "Patna";
   const address = getSettingVal('school_address') || meta.campus || "Prem Nagar Tapin North, Ramgarh, Jharkhand - 825314";
   const tagline = getSettingVal('school_tagline') || meta.tagline || "Quality Education for a Brighter Future";
   const udise = getSettingVal('school_udise') || meta.udise || "";
@@ -383,8 +384,14 @@ window.openSchoolProfileModal = function() {
 
           <!-- Contact Phone Numbers -->
           <div>
-            <label style="display:block;font-size:0.78rem;font-weight:700;color:#1e293b;margin-bottom:4px;">Contact Mobile / Phone Numbers</label>
-            <input type="text" id="spContactPhone" value="${phone}" placeholder="+91 74880 61954, +91 95256 40237" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:9px;font-size:0.86rem;color:#0f172a;background:#ffffff;box-sizing:border-box;outline:none;" />
+            <label style="display:block;font-size:0.78rem;font-weight:700;color:#1e293b;margin-bottom:4px;">Contact Phone</label>
+            <input type="text" id="spContactPhone" value="${phone}" placeholder="9835011223" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:9px;font-size:0.86rem;color:#0f172a;background:#ffffff;box-sizing:border-box;outline:none;" />
+          </div>
+
+          <!-- City / District -->
+          <div>
+            <label style="display:block;font-size:0.78rem;font-weight:700;color:#1e293b;margin-bottom:4px;">City / District</label>
+            <input type="text" id="spSchoolCity" value="${city}" placeholder="e.g. Patna or Ramgarh" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:9px;font-size:0.86rem;color:#0f172a;background:#ffffff;box-sizing:border-box;outline:none;" />
           </div>
 
           <!-- School Tagline / Motto -->
@@ -484,6 +491,7 @@ window.openSchoolProfileModal = function() {
     const principalVal = modal.querySelector("#spPrincipalName").value.trim();
     const emailVal = modal.querySelector("#spContactEmail").value.trim();
     const phoneVal = modal.querySelector("#spContactPhone").value.trim();
+    const cityVal = modal.querySelector("#spSchoolCity") ? modal.querySelector("#spSchoolCity").value.trim() : "";
     const addressVal = modal.querySelector("#spSchoolAddress").value.trim();
     const taglineVal = modal.querySelector("#spSchoolTagline").value.trim();
     const udiseVal = modal.querySelector("#spSchoolUdise").value.trim();
@@ -507,6 +515,7 @@ window.openSchoolProfileModal = function() {
       { key: "school_principal", value: principalVal },
       { key: "school_email", value: emailVal },
       { key: "school_phone", value: phoneVal },
+      { key: "school_city", value: cityVal },
       { key: "school_address", value: addressVal },
       { key: "school_tagline", value: taglineVal },
       { key: "school_udise", value: udiseVal },
@@ -543,6 +552,7 @@ window.openSchoolProfileModal = function() {
       window.currentSchool.name = nameVal;
       window.currentSchool.principal = principalVal;
       window.currentSchool.address = addressVal;
+      window.currentSchool.city = cityVal;
       window.currentSchool.phone = phoneVal;
       window.currentSchool.email = emailVal;
       window.currentSchool.logo = logoVal;
