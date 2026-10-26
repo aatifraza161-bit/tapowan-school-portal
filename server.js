@@ -6172,24 +6172,26 @@ app.post("/api/school-banners", authRequired, async (req, res) => {
     const cleanTitle = title.trim();
     let resolvedImageUrl = (image_url || '').trim();
 
-    // If Base64 image provided, convert/save and push to CDN
+    // If Base64 image provided, convert/save and push to CDN (Always WebP)
     if (mediaBase64 && typeof mediaBase64 === 'string' && mediaBase64.length > 50) {
       let cleanBase64 = mediaBase64.replace(/^data:[^;]+;base64,/, '');
       let ext = 'webp';
-      if (mediaMime.includes('png') || cleanBase64.startsWith('iVBOR')) ext = 'png';
-      else if (mediaMime.includes('jpeg') || mediaMime.includes('jpg') || cleanBase64.startsWith('/9j/')) ext = 'jpg';
 
-      if (ext !== 'gif') {
-        try {
-          const sharp = require('sharp');
-          const rawBuf = Buffer.from(cleanBase64, 'base64');
-          const optBuf = await sharp(rawBuf)
-            .resize(1280, 720, { fit: 'inside', withoutEnlargement: true })
-            .webp({ quality: 85, effort: 4 })
-            .toBuffer();
-          cleanBase64 = optBuf.toString('base64');
+      // Server-side WebP conversion pipeline via sharp
+      try {
+        const sharp = require('sharp');
+        const rawBuf = Buffer.from(cleanBase64, 'base64');
+        const optBuf = await sharp(rawBuf)
+          .resize(1280, 720, { fit: 'inside', withoutEnlargement: true })
+          .webp({ quality: 85, effort: 4 })
+          .toBuffer();
+        cleanBase64 = optBuf.toString('base64');
+        ext = 'webp';
+      } catch (sharpErr) {
+        console.warn('[school-banners sharp conversion warning]', sharpErr.message);
+        if (cleanBase64.startsWith('UklGR') || (mediaMime && mediaMime.includes('webp'))) {
           ext = 'webp';
-        } catch (_) {}
+        }
       }
 
       const fileName = `banner_${Date.now()}.${ext}`;
@@ -6221,7 +6223,7 @@ app.post("/api/school-banners", authRequired, async (req, res) => {
               'User-Agent': 'Node'
             },
             body: JSON.stringify({
-              message: `Add student app banner: ${cleanTitle}`,
+              message: `Add student app banner (auto-converted webp): ${cleanTitle}`,
               content: cleanBase64,
               branch: 'master'
             })
@@ -6230,6 +6232,58 @@ app.post("/api/school-banners", authRequired, async (req, res) => {
             resolvedImageUrl = `https://cdn.jsdelivr.net/gh/aatifraza161-bit/tapowan-school-portal@master/banners/${fileName}`;
           }
         } catch (_) {}
+      }
+    } else if (resolvedImageUrl && !resolvedImageUrl.endsWith('.webp')) {
+      // Remote image URL provided: auto-download and convert to WebP
+      try {
+        const fetchRes = await fetch(resolvedImageUrl);
+        if (fetchRes.ok) {
+          const rawBuf = Buffer.from(await fetchRes.arrayBuffer());
+          const sharp = require('sharp');
+          const optBuf = await sharp(rawBuf)
+            .resize(1280, 720, { fit: 'inside', withoutEnlargement: true })
+            .webp({ quality: 85, effort: 4 })
+            .toBuffer();
+          const cleanBase64 = optBuf.toString('base64');
+          const fileName = `banner_${Date.now()}.webp`;
+          resolvedImageUrl = `https://tapowan-school.vercel.app/banners/${fileName}`;
+
+          try {
+            const tmpDir = path.join(os.tmpdir(), 'banners');
+            if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+            fs.writeFileSync(path.join(tmpDir, fileName), optBuf);
+          } catch (_) {}
+
+          try {
+            const bannersDir = path.join(__dirname, 'public', 'banners');
+            if (!fs.existsSync(bannersDir)) fs.mkdirSync(bannersDir, { recursive: true });
+            fs.writeFileSync(path.join(bannersDir, fileName), optBuf);
+          } catch (_) {}
+
+          const ghToken = process.env.GITHUB_TOKEN;
+          if (ghToken) {
+            try {
+              const ghRes = await fetch(`https://api.github.com/repos/aatifraza161-bit/tapowan-school-portal/contents/banners/${fileName}`, {
+                method: 'PUT',
+                headers: {
+                  'Authorization': `token ${ghToken}`,
+                  'Content-Type': 'application/json',
+                  'User-Agent': 'Node'
+                },
+                body: JSON.stringify({
+                  message: `Auto-convert remote banner to WebP: ${cleanTitle}`,
+                  content: cleanBase64,
+                  branch: 'master'
+                })
+              });
+              if (ghRes.ok) {
+                resolvedImageUrl = `https://cdn.jsdelivr.net/gh/aatifraza161-bit/tapowan-school-portal@master/banners/${fileName}`;
+              }
+            } catch (_) {}
+          }
+        }
+      } catch (convErr) {
+        console.warn('[Auto-convert remote banner to WebP error]', convErr.message);
       }
     }
 

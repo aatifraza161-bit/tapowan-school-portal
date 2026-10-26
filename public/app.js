@@ -21034,6 +21034,68 @@ async function sendSmsFeeSlip(feeId) {
   };
 })();
 
+// ─── HIGH PERFORMANCE CLIENT-SIDE WEBP AUTO-CONVERTER ───
+async function convertImageToWebP(fileOrDataUrl, maxWidth = 1280, maxHeight = 720, quality = 0.85) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        let width = img.naturalWidth || img.width;
+        let height = img.naturalHeight || img.height;
+        
+        if (width > maxWidth || height > maxHeight) {
+          const ratio = Math.min(maxWidth / width, maxHeight / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+        
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        let webpDataUrl = canvas.toDataURL('image/webp', quality);
+        if (!webpDataUrl.startsWith('data:image/webp')) {
+          webpDataUrl = canvas.toDataURL('image/jpeg', quality);
+        }
+        
+        const origBytes = typeof fileOrDataUrl === 'string' ? Math.round(fileOrDataUrl.length * 0.75) : (fileOrDataUrl.size || Math.round(webpDataUrl.length * 0.75));
+        const webpBytes = Math.round(webpDataUrl.length * 0.75);
+        const savings = origBytes > webpBytes ? Math.round((1 - webpBytes / origBytes) * 100) : 0;
+        
+        resolve({
+          dataUrl: webpDataUrl,
+          width,
+          height,
+          origKb: Math.max(1, Math.round(origBytes / 1024)),
+          webpKb: Math.max(1, Math.round(webpBytes / 1024)),
+          savings
+        });
+      } catch (err) {
+        reject(err);
+      }
+    };
+    img.onerror = (err) => reject(new Error('Failed to load image for WebP auto-conversion'));
+    
+    if (typeof fileOrDataUrl === 'string') {
+      img.src = fileOrDataUrl;
+    } else {
+      const reader = new FileReader();
+      reader.onload = (e) => { img.src = e.target.result; };
+      reader.onerror = reject;
+      reader.readAsDataURL(fileOrDataUrl);
+    }
+  });
+}
+window.convertImageToWebP = convertImageToWebP;
+
 // ─── ANNOUNCEMENTS MODULE FORM & PREVIEW ───
 async function renderAnnouncementsForm(cfg, studentOptions, classOptions, initialValues = {}) {
   const container = refs.dynamicForm;
@@ -21259,7 +21321,7 @@ async function renderAnnouncementsForm(cfg, studentOptions, classOptions, initia
                     <input type="file" id="annBannerFile" accept="image/*" style="display:none;" />
                     <span class="material-symbols-outlined" style="font-size:32px; color:#3b82f6; display:block; margin-bottom:4px;">add_photo_alternate</span>
                     <span style="font-size:0.85rem; font-weight:700; color:#1e3a8a; display:block;">Click to choose or drop banner image</span>
-                    <span style="font-size:0.75rem; color:#64748b; display:block; margin-top:2px;">Supports JPG, PNG, WebP (auto-optimized for mobile)</span>
+                    <span style="font-size:0.75rem; color:#059669; font-weight:700; display:block; margin-top:2px;">⚡ Auto-converts any JPG/PNG to ultra-fast WebP</span>
                     <span id="annUploadFileName" style="display:none; margin-top:6px; font-size:0.78rem; color:#059669; font-weight:700;"></span>
                   </div>
 
@@ -21379,7 +21441,7 @@ async function renderAnnouncementsForm(cfg, studentOptions, classOptions, initia
                 <input type="file" id="ipbFileInput" accept="image/*" style="display:none;" />
                 <span class="material-symbols-outlined" style="font-size:32px; color:#3b82f6;">cloud_upload</span>
                 <div style="font-size:0.85rem; font-weight:700; color:#1e3a8a;">Click to select or drop banner photo</div>
-                <div style="font-size:0.75rem; color:#64748b;">Supports JPG, PNG, WebP</div>
+                <div style="font-size:0.75rem; color:#059669; font-weight:700; margin-top:2px;">⚡ Auto-converts any image to ultra-fast WebP</div>
                 <div id="ipbUploadLabel" style="display:none; font-size:0.78rem; color:#059669; font-weight:700; margin-top:6px;"></div>
               </div>
 
@@ -21563,18 +21625,29 @@ async function renderAnnouncementsForm(cfg, studentOptions, classOptions, initia
   ipbBoxUpload.addEventListener('click', (e) => {
     if (e.target !== ipbFileInput) ipbFileInput.click();
   });
-  ipbFileInput.addEventListener('change', (e) => {
+  ipbFileInput.addEventListener('change', async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (re) => {
-      ipbUploadedBase64 = re.target.result;
+    try {
+      showToast('⚡ Auto-converting image to WebP format...', 'info', 1500);
+      const res = await convertImageToWebP(file);
+      ipbUploadedBase64 = res.dataUrl;
       ipbPreviewImg.src = ipbUploadedBase64;
       ipbUploadLabel.style.display = 'block';
-      ipbUploadLabel.textContent = 'Selected: ' + file.name + ' (' + Math.round(file.size / 1024) + ' KB)';
-      showToast('Banner photo loaded!', 'success');
-    };
-    reader.readAsDataURL(file);
+      ipbUploadLabel.innerHTML = '<span style="color:#16a34a;font-weight:700;">⚡ Auto-converted to WebP:</span> ' + escapeHtml(file.name) + ' (' + res.webpKb + ' KB, saved ' + res.savings + '% · ' + res.width + '×' + res.height + ')';
+      showToast('⚡ Auto-converted to WebP (' + res.webpKb + ' KB, -' + res.savings + '%)', 'success');
+    } catch (convErr) {
+      console.warn('[WebP Conversion Fallback]', convErr);
+      const reader = new FileReader();
+      reader.onload = (re) => {
+        ipbUploadedBase64 = re.target.result;
+        ipbPreviewImg.src = ipbUploadedBase64;
+        ipbUploadLabel.style.display = 'block';
+        ipbUploadLabel.textContent = 'Selected: ' + file.name + ' (' + Math.round(file.size / 1024) + ' KB)';
+        showToast('Banner photo loaded!', 'success');
+      };
+      reader.readAsDataURL(file);
+    }
   });
 
   outer.querySelectorAll('#ipbPresetChips button[data-img]').forEach(chip => {
@@ -21595,6 +21668,20 @@ async function renderAnnouncementsForm(cfg, studentOptions, classOptions, initia
     if (v) ipbPreviewImg.src = v;
   });
 
+  ipbUrlInput.addEventListener('change', async () => {
+    const v = ipbUrlInput.value.trim();
+    if (v && !v.endsWith('.webp') && (v.startsWith('http://') || v.startsWith('https://'))) {
+      try {
+        const res = await convertImageToWebP(v);
+        ipbUploadedBase64 = res.dataUrl;
+        ipbPreviewImg.src = ipbUploadedBase64;
+        showToast('⚡ Auto-converted URL image to WebP (' + res.webpKb + ' KB)!', 'success');
+      } catch (_) {
+        // Cross-origin canvas restricted; server auto-converts to WebP on save!
+      }
+    }
+  });
+
   // Publish new banner
   btnPublishInPageBanner.addEventListener('click', async () => {
     const t = ipbTitle.value.trim();
@@ -21613,6 +21700,7 @@ async function renderAnnouncementsForm(cfg, studentOptions, classOptions, initia
           image_url: imgSrc,
           link_url: ipbLinkInput.value.trim() || null,
           mediaBase64: ipbUploadedBase64 || null,
+          mediaMime: 'image/webp',
           is_active: 1
         })
       });
@@ -21903,24 +21991,36 @@ async function renderAnnouncementsForm(cfg, studentOptions, classOptions, initia
       boxTabUpload.addEventListener('click', (e) => {
         if (e.target !== annBannerFileInput) annBannerFileInput.click();
       });
-      annBannerFileInput.addEventListener('change', (e) => {
+      annBannerFileInput.addEventListener('change', async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
         if (!file.type.startsWith('image/')) {
           showToast('Please select a valid image file (JPG, PNG, or WebP)', 'error');
           return;
         }
-        const reader = new FileReader();
-        reader.onload = (re) => {
-          window._lastUploadedBannerBase64 = re.target.result;
+        try {
+          showToast('⚡ Auto-converting banner to WebP...', 'info', 1500);
+          const res = await convertImageToWebP(file);
+          window._lastUploadedBannerBase64 = res.dataUrl;
           if (annBannerPreviewImg) annBannerPreviewImg.src = window._lastUploadedBannerBase64;
           if (annUploadFileName) {
             annUploadFileName.style.display = 'block';
-            annUploadFileName.textContent = 'Selected: ' + file.name + ' (' + Math.round(file.size / 1024) + ' KB)';
+            annUploadFileName.innerHTML = '<span style="color:#16a34a;font-weight:700;">⚡ Auto-converted to WebP:</span> ' + escapeHtml(file.name) + ' (' + res.webpKb + ' KB, saved ' + res.savings + '%)';
           }
-          showToast('Banner photo loaded!', 'success');
-        };
-        reader.readAsDataURL(file);
+          showToast('⚡ Auto-converted to WebP (' + res.webpKb + ' KB)', 'success');
+        } catch (convErr) {
+          const reader = new FileReader();
+          reader.onload = (re) => {
+            window._lastUploadedBannerBase64 = re.target.result;
+            if (annBannerPreviewImg) annBannerPreviewImg.src = window._lastUploadedBannerBase64;
+            if (annUploadFileName) {
+              annUploadFileName.style.display = 'block';
+              annUploadFileName.textContent = 'Selected: ' + file.name + ' (' + Math.round(file.size / 1024) + ' KB)';
+            }
+            showToast('Banner photo loaded!', 'success');
+          };
+          reader.readAsDataURL(file);
+        }
       });
     }
 
@@ -22143,7 +22243,7 @@ window.openStudentBannerManager = async function(prefillData = null) {
                   <input type="file" id="sbmFileInput" accept="image/*" style="display:none;" />
                   <span class="material-symbols-outlined" style="font-size:28px; color:#3b82f6;">cloud_upload</span>
                   <div style="font-size:0.82rem; font-weight:700; color:#1e3a8a;">Click to select banner image</div>
-                  <div style="font-size:0.72rem; color:#64748b;">Supports JPG, PNG, WebP</div>
+                  <div style="font-size:0.72rem; color:#059669; font-weight:700; margin-top:2px;">⚡ Auto-converts any image to ultra-fast WebP</div>
                   <div id="sbmUploadLabel" style="display:none; font-size:0.75rem; color:#059669; font-weight:700; margin-top:4px;"></div>
                 </div>
 
@@ -22284,18 +22384,28 @@ window.openStudentBannerManager = async function(prefillData = null) {
   sbmBoxUpload.addEventListener('click', (e) => {
     if (e.target !== sbmFileInput) sbmFileInput.click();
   });
-  sbmFileInput.addEventListener('change', (e) => {
+  sbmFileInput.addEventListener('change', async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (re) => {
-      sbmUploadedBase64 = re.target.result;
+    try {
+      showToast('⚡ Auto-converting banner to WebP...', 'info', 1500);
+      const res = await convertImageToWebP(file);
+      sbmUploadedBase64 = res.dataUrl;
       sbmPreviewImg.src = sbmUploadedBase64;
       sbmUploadLabel.style.display = 'block';
-      sbmUploadLabel.textContent = 'Selected: ' + file.name + ' (' + Math.round(file.size / 1024) + ' KB)';
-      showToast('Image loaded for banner preview!', 'success');
-    };
-    reader.readAsDataURL(file);
+      sbmUploadLabel.innerHTML = '<span style="color:#16a34a;font-weight:700;">⚡ Auto-converted to WebP:</span> ' + escapeHtml(file.name) + ' (' + res.webpKb + ' KB, saved ' + res.savings + '%)';
+      showToast('⚡ Auto-converted to WebP (' + res.webpKb + ' KB)', 'success');
+    } catch (convErr) {
+      const reader = new FileReader();
+      reader.onload = (re) => {
+        sbmUploadedBase64 = re.target.result;
+        sbmPreviewImg.src = sbmUploadedBase64;
+        sbmUploadLabel.style.display = 'block';
+        sbmUploadLabel.textContent = 'Selected: ' + file.name + ' (' + Math.round(file.size / 1024) + ' KB)';
+        showToast('Image loaded for banner preview!', 'success');
+      };
+      reader.readAsDataURL(file);
+    }
   });
 
   // Presets
@@ -22336,6 +22446,7 @@ window.openStudentBannerManager = async function(prefillData = null) {
           image_url: imgSrc,
           link_url: sbmLinkInput.value.trim() || null,
           mediaBase64: sbmUploadedBase64 || null,
+          mediaMime: 'image/webp',
           is_active: 1
         })
       });
