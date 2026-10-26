@@ -23925,10 +23925,31 @@ function getFeeStructureForClass(className) {
   return res;
 }
 
-async function fetchPinCodeLocation(pin, callback) {
+async function fetchPinCodeLocation(pin, callback, onFail) {
   if (!pin || !/^\d{6}$/.test(pin.trim())) return;
+  const cleanPin = pin.trim();
+
+  // 1. Try internal edge proxy (/api/pincode/:pin) - Fast & Zero CORS issues
   try {
-    const res = await fetch(`https://api.postalpincode.in/pincode/${pin.trim()}`);
+    const res = await fetch(`/api/pincode/${cleanPin}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.success) {
+        callback({
+          state: data.state || "",
+          district: data.district || "",
+          postOffices: data.postOffices || []
+        });
+        return;
+      }
+    }
+  } catch (edgeErr) {
+    console.warn("Edge PIN proxy notice:", edgeErr);
+  }
+
+  // 2. Direct Indian Postal API fallback
+  try {
+    const res = await fetch(`https://api.postalpincode.in/pincode/${cleanPin}`);
     const data = await res.json();
     if (data && data[0] && data[0].Status === "Success" && data[0].PostOffice?.length) {
       const poList = data[0].PostOffice;
@@ -23938,10 +23959,13 @@ async function fetchPinCodeLocation(pin, callback) {
         district: first.District || "",
         postOffices: poList.map(p => p.Name)
       });
+      return;
     }
   } catch (err) {
-    console.warn("Postal PIN Code fetch warning:", err);
+    console.warn("Direct postal PIN code fetch error:", err);
   }
+
+  if (typeof onFail === "function") onFail();
 }
 
 function saveCustomAdmissionOptions(payload) {
@@ -24242,12 +24266,12 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
           <!-- District -->
           <div class="field">
             <label style="display:block; font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">District</label>
-            <input type="text" id="adm_district" name="district" value="${escapeHtml(initialValues.district || "Hazaribagh")}" placeholder="District" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem;">
+            <input type="text" id="adm_district" name="district" value="${escapeHtml(initialValues.district || "")}" placeholder="District (Auto-fills from PIN)" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem;">
           </div>
           <!-- State -->
           <div class="field">
             <label style="display:block; font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">State</label>
-            <input type="text" id="adm_state" name="state" value="${escapeHtml(initialValues.state || "Jharkhand")}" placeholder="State" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem;">
+            <input type="text" id="adm_state" name="state" value="${escapeHtml(initialValues.state || "")}" placeholder="State (Auto-fills from PIN)" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem;">
           </div>
           <!-- Street Address -->
           <div class="field" style="grid-column: span 2;">
@@ -24673,9 +24697,14 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
               elPinBadge.textContent = `✓ ${info.district || info.state}`;
               elPinBadge.style.color = "#16a34a";
             }
-            showToast(`Verified PIN: ${info.district}, ${info.state}`, "success");
+            showToast(`Verified PIN ${val}: ${info.district}, ${info.state}`, "success");
+          }, () => {
+            if (elPinBadge) {
+              elPinBadge.textContent = "PIN not found";
+              elPinBadge.style.color = "#dc2626";
+            }
           });
-        }, 350);
+        }, 250);
       } else {
         if (elPinBadge) {
           elPinBadge.textContent = "Auto-fetches Area";

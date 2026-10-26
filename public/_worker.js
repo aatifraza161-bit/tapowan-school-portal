@@ -15,6 +15,38 @@ export default {
       });
     }
 
+    // 1b. Fast Edge Postal Geocoding for PIN Codes (Zero CORS restrictions)
+    if (url.pathname.startsWith('/api/pincode/')) {
+      const pin = url.pathname.replace('/api/pincode/', '').trim().split('/')[0];
+      if (/^\d{6}$/.test(pin)) {
+        try {
+          const pinRes = await fetch(`https://api.postalpincode.in/pincode/${pin}`, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
+          });
+          const pinData = await pinRes.json();
+          if (pinData && pinData[0] && pinData[0].Status === 'Success' && pinData[0].PostOffice?.length) {
+            const poList = pinData[0].PostOffice;
+            const first = poList[0];
+            return new Response(JSON.stringify({
+              success: true,
+              state: first.State || '',
+              district: first.District || '',
+              postOffices: poList.map(p => p.Name)
+            }), {
+              status: 200,
+              headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Cache-Control': 'public, max-age=86400'
+              }
+            });
+          }
+        } catch (e) {
+          // fall through to reverse proxy if edge fetch encounters issue
+        }
+      }
+    }
+
     // 2. Reverse proxy /api/* requests to dedicated school backend (Vercel)
     if (url.pathname.startsWith('/api/') || url.pathname === '/api') {
       const targetUrl = new URL(url.pathname + url.search, 'https://tapowan-school.vercel.app');

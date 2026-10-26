@@ -541,6 +541,33 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+// ── FAST POSTAL GEOCODING API FOR PIN CODES ──
+app.get("/api/pincode/:pin", async (req, res) => {
+  const pin = String(req.params.pin || "").trim();
+  if (!/^\d{6}$/.test(pin)) {
+    return res.status(400).json({ success: false, error: "Invalid 6-digit PIN code" });
+  }
+  try {
+    const pinRes = await fetch(`https://api.postalpincode.in/pincode/${pin}`, {
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" }
+    });
+    const pinData = await pinRes.json();
+    if (pinData && pinData[0] && pinData[0].Status === "Success" && pinData[0].PostOffice?.length) {
+      const poList = pinData[0].PostOffice;
+      const first = poList[0];
+      return res.json({
+        success: true,
+        state: first.State || "",
+        district: first.District || "",
+        postOffices: poList.map(p => p.Name)
+      });
+    }
+    return res.status(404).json({ success: false, error: "PIN code not found" });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // ── IMAGE GENERATION API (Pollinations.ai proxy) ──
 app.get("/api/generate-image", async (req, res) => {
   try {
