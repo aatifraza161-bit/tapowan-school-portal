@@ -246,8 +246,24 @@
     const motherTongue = (d.motherTongue || "Hindi").trim();
     const nationality = (d.nationality || "Indian").trim();
     const bloodGroup = (d.bloodGroup || d.blood_group || "B+").trim();
-    const rawAadhar = (d.aadhar || d.aadharNo || d.studentAadharNo || "N/A").trim();
-    const aadharFormatted = rawAadhar.length === 12 ? rawAadhar.replace(/(\d{4})(\d{4})(\d{4})/, "$1 $2 $3") : rawAadhar;
+    const formatAadharNumber = (raw) => {
+      if (!raw || (typeof raw !== "string" && typeof raw !== "number")) return "N/A";
+      const str = String(raw).trim().replace(/[^0-9]/g, "");
+      if (!str || str === "0" || str.length < 4) return "N/A";
+      if (str.length === 12) {
+        return str.replace(/(\d{4})(\d{4})(\d{4})/, "$1 $2 $3");
+      }
+      return str;
+    };
+
+    const rawAadhar = (d.studentAadharNo || d.aadharNo || d.studentAadhar || d.aadhar || "").trim();
+    const aadharFormatted = formatAadharNumber(rawAadhar);
+
+    const rawFatherAadhar = (d.fatherAadharNo || d.fatherAadhar || d.father_aadhar || d.fatherAadharNumber || "").trim();
+    const fatherAadharFormatted = formatAadharNumber(rawFatherAadhar);
+
+    const rawMotherAadhar = (d.motherAadharNo || d.motherAadhar || d.mother_aadhar || d.motherAadharNumber || "").trim();
+    const motherAadharFormatted = formatAadharNumber(rawMotherAadhar);
 
     // Parents & Guardians
     const fatherName = (d.fatherName || d.father_name || "Father Name").trim();
@@ -302,6 +318,8 @@
       fullName, admissionNo, rollNo, className, section, session,
       dob, dobWords, age, gender, category, religion, motherTongue, nationality, bloodGroup,
       aadhar: aadharFormatted, rawAadhar,
+      fatherAadhar: fatherAadharFormatted, motherAadhar: motherAadharFormatted,
+      rawFatherAadhar, rawMotherAadhar,
       fatherName, motherName, guardianName, relation,
       fatherOccupation, motherOccupation, fatherQualification, motherQualification, incomeRange,
       phone1, phone2, whatsapp, email, emergencyContact,
@@ -455,6 +473,12 @@
               <td style="padding:${pCell};border:1px solid #cbd5e1;font-weight:600;">${s.guardianName} (${s.relation})</td>
             </tr>
             <tr style="background:#f8fafc;">
+              <td style="padding:${pCell};border:1px solid #cbd5e1;font-weight:700;color:#334155;">Aadhaar Number</td>
+              <td style="padding:${pCell};border:1px solid #cbd5e1;font-weight:800;color:#0f172a;letter-spacing:0.5px;">${s.fatherAadhar}</td>
+              <td style="padding:${pCell};border:1px solid #cbd5e1;font-weight:800;color:#0f172a;letter-spacing:0.5px;">${s.motherAadhar}</td>
+              <td style="padding:${pCell};border:1px solid #cbd5e1;font-weight:600;color:#64748b;">-</td>
+            </tr>
+            <tr>
               <td style="padding:${pCell};border:1px solid #cbd5e1;font-weight:700;color:#334155;">Qualification &amp; Occ.</td>
               <td style="padding:${pCell};border:1px solid #cbd5e1;font-weight:600;">${s.fatherQualification} • ${s.fatherOccupation}</td>
               <td style="padding:${pCell};border:1px solid #cbd5e1;font-weight:600;">${s.motherQualification} • ${s.motherOccupation}</td>
@@ -677,6 +701,11 @@
               <td style="padding:${pCell};border:1px solid #cbd5e1;font-weight:800;text-transform:uppercase;">${s.motherName}</td>
             </tr>
             <tr style="background:#fff7ed;">
+              <td style="padding:${pCell};border:1px solid #cbd5e1;font-weight:700;color:#581c87;">Aadhaar Card No.</td>
+              <td style="padding:${pCell};border:1px solid #cbd5e1;font-weight:800;letter-spacing:0.5px;">${s.fatherAadhar}</td>
+              <td style="padding:${pCell};border:1px solid #cbd5e1;font-weight:800;letter-spacing:0.5px;">${s.motherAadhar}</td>
+            </tr>
+            <tr>
               <td style="padding:${pCell};border:1px solid #cbd5e1;font-weight:700;color:#581c87;">Occupation &amp; Qual.</td>
               <td style="padding:${pCell};border:1px solid #cbd5e1;">${s.fatherOccupation} (${s.fatherQualification})</td>
               <td style="padding:${pCell};border:1px solid #cbd5e1;">${s.motherOccupation} (${s.motherQualification})</td>
@@ -794,8 +823,8 @@
 
             <div style="font-weight:800;font-size:9px;color:#4f46e5;margin:6px 0 3px;text-transform:uppercase;">Parental Record</div>
             <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;font-size:${fBase};">
-              <tr><td style="padding:${pCell};border:1px solid #e2e8f0;color:#64748b;width:30%;">Father's Name</td><td style="padding:${pCell};border:1px solid #e2e8f0;font-weight:700;">${s.fatherName} (${s.fatherOccupation})</td></tr>
-              <tr style="background:#f8fafc;"><td style="padding:${pCell};border:1px solid #e2e8f0;color:#64748b;">Mother's Name</td><td style="padding:${pCell};border:1px solid #e2e8f0;font-weight:700;">${s.motherName} (${s.motherOccupation})</td></tr>
+              <tr><td style="padding:${pCell};border:1px solid #e2e8f0;color:#64748b;width:30%;">Father's Details</td><td style="padding:${pCell};border:1px solid #e2e8f0;font-weight:700;">${s.fatherName} (${s.fatherOccupation}) • Aadhaar: ${s.fatherAadhar}</td></tr>
+              <tr style="background:#f8fafc;"><td style="padding:${pCell};border:1px solid #e2e8f0;color:#64748b;">Mother's Details</td><td style="padding:${pCell};border:1px solid #e2e8f0;font-weight:700;">${s.motherName} (${s.motherOccupation}) • Aadhaar: ${s.motherAadhar}</td></tr>
               <tr><td style="padding:${pCell};border:1px solid #e2e8f0;color:#64748b;">Contact Phones</td><td style="padding:${pCell};border:1px solid #e2e8f0;font-weight:700;color:#4f46e5;">${s.phone1} / ${s.whatsapp}</td></tr>
               <tr style="background:#f8fafc;"><td style="padding:${pCell};border:1px solid #e2e8f0;color:#64748b;">Address</td><td style="padding:${pCell};border:1px solid #e2e8f0;">${s.fullAddress}</td></tr>
             </table>
@@ -897,11 +926,15 @@
         <table style="width:100%;border-collapse:collapse;border:1.5px solid #000000;font-size:${fBase};">
           <tr>
             <td style="padding:${pCell};border:1px solid #000;font-weight:700;width:24%;">Father's Full Name</td>
-            <td style="padding:${pCell};border:1px solid #000;font-weight:700;" colspan="3">${s.fatherName} (Occ: ${s.fatherOccupation})</td>
+            <td style="padding:${pCell};border:1px solid #000;font-weight:700;">${s.fatherName} (Occ: ${s.fatherOccupation})</td>
+            <td style="padding:${pCell};border:1px solid #000;font-weight:700;width:18%;">Father's Aadhaar</td>
+            <td style="padding:${pCell};border:1px solid #000;font-weight:800;">${s.fatherAadhar}</td>
           </tr>
           <tr>
             <td style="padding:${pCell};border:1px solid #000;font-weight:700;">Mother's Full Name</td>
-            <td style="padding:${pCell};border:1px solid #000;font-weight:700;" colspan="3">${s.motherName} (Occ: ${s.motherOccupation})</td>
+            <td style="padding:${pCell};border:1px solid #000;font-weight:700;">${s.motherName} (Occ: ${s.motherOccupation})</td>
+            <td style="padding:${pCell};border:1px solid #000;font-weight:700;">Mother's Aadhaar</td>
+            <td style="padding:${pCell};border:1px solid #000;font-weight:800;">${s.motherAadhar}</td>
           </tr>
           <tr>
             <td style="padding:${pCell};border:1px solid #000;font-weight:700;">Category (Tick)</td>
@@ -989,10 +1022,10 @@
             <td style="padding:${pCell};border:1px solid #cbd5e1;font-weight:800;color:#2563eb;">Class: ${s.className} (${s.section}) • Roll: ${s.rollNo}</td>
           </tr>
           <tr style="background:#f8fafc;">
-            <td style="padding:${pCell};border:1px solid #cbd5e1;font-weight:700;color:#334155;">Father's Name</td>
-            <td style="padding:${pCell};border:1px solid #cbd5e1;font-weight:700;">${s.fatherName}</td>
-            <td style="padding:${pCell};border:1px solid #cbd5e1;font-weight:700;color:#334155;">Mother's Name</td>
-            <td style="padding:${pCell};border:1px solid #cbd5e1;font-weight:700;">${s.motherName}</td>
+            <td style="padding:${pCell};border:1px solid #cbd5e1;font-weight:700;color:#334155;">Father's Name &amp; UID</td>
+            <td style="padding:${pCell};border:1px solid #cbd5e1;font-weight:700;">${s.fatherName} (UID: ${s.fatherAadhar})</td>
+            <td style="padding:${pCell};border:1px solid #cbd5e1;font-weight:700;color:#334155;">Mother's Name &amp; UID</td>
+            <td style="padding:${pCell};border:1px solid #cbd5e1;font-weight:700;">${s.motherName} (UID: ${s.motherAadhar})</td>
           </tr>
           <tr>
             <td style="padding:${pCell};border:1px solid #cbd5e1;font-weight:700;color:#334155;">DOB / Blood Grp</td>
