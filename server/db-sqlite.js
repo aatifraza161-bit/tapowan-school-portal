@@ -342,7 +342,8 @@ const MODULES = {
     "admissionFee", "monthlyFee", "transportFee", "discount",
     "status", "remarks", "phone", "tc", "reportCard", "fatherAadhar", "motherAadhar",
     "studentAadharNo", "fatherAadharNo", "motherAadharNo",
-    "photoUrl", "appPassword", "allow_profile_edit", "allowed_edit_fields"
+    "photoUrl", "appPassword", "allow_profile_edit", "allowed_edit_fields",
+    "bloodGroup", "medicalIssue", "isFreeOfCharge"
   ],
   admissions: [
     "admissionNo", "rollNo", "fullName", "className", "section", "gender", "dob", "age",
@@ -354,7 +355,8 @@ const MODULES = {
     "admissionFee", "monthlyFee", "transportFee", "discount",
     "status", "remarks", "isDraft", "draftUserId", "phone", "tc", "reportCard", "fatherAadhar", "motherAadhar",
     "studentAadharNo", "fatherAadharNo", "motherAadharNo",
-    "photoUrl", "appPassword", "allow_profile_edit", "allowed_edit_fields"
+    "photoUrl", "appPassword", "allow_profile_edit", "allowed_edit_fields",
+    "bloodGroup", "medicalIssue", "isFreeOfCharge"
   ],
   teachers: ["employeeNo", "fullName", "department", "qualification", "phone", "email", "joinDate", "photo"],
   classes: ["className", "section", "classTeacher", "roomNo", "capacity"],

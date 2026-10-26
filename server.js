@@ -4158,7 +4158,15 @@ app.post("/api/modules/:moduleName", authRequired, async (req, res) => {
     }
     // ── SPECIALIZED ADMISSION LOGIC ──
     if (moduleName === "admissions") {
-      
+      // Sync alias properties
+      if (payload.className && !payload.classApplyingFor) payload.classApplyingFor = payload.className;
+      if (payload.classApplyingFor && !payload.className) payload.className = payload.classApplyingFor;
+      if (payload.phone1 && !payload.phone) payload.phone = payload.phone1;
+      if (payload.phone && !payload.phone1) payload.phone1 = payload.phone;
+      if (payload.studentAadharNo && !payload.aadhar) payload.aadhar = payload.studentAadharNo;
+      if (payload.fatherAadharNo && !payload.fatherAadhar) payload.fatherAadhar = payload.fatherAadharNo;
+      if (payload.motherAadharNo && !payload.motherAadhar) payload.motherAadhar = payload.motherAadharNo;
+
       // 1. Duplicate Detection (Name + DOB + Phone1) - Skip for drafts
       if (payload.isDraft !== "true") {
         const students = await list("students");
@@ -4167,7 +4175,7 @@ app.post("/api/modules/:moduleName", authRequired, async (req, res) => {
           s.id !== payload.id && // exclude self if updating (though this is POST)
           String(s.fullName || "").toLowerCase().trim() === String(payload.fullName || "").toLowerCase().trim() &&
           String(s.dob || "") === String(payload.dob || "") &&
-          String(s.phone1 || "") === String(payload.phone1 || "")
+          String(s.phone1 || s.phone || "") === String(payload.phone1 || payload.phone || "")
         );
 
         if (isDuplicate) {
@@ -4295,6 +4303,29 @@ app.post("/api/modules/:moduleName", authRequired, async (req, res) => {
     // If successful admission (not draft), send notification
     if (moduleName === "admissions" && row.isDraft !== "true" && row.status === "Pending") {
       sendAdmissionNotification(row);
+    }
+
+    // Auto-enroll Active / Approved Admissions directly into Students directory
+    if (moduleName === "admissions" && row.isDraft !== "true" && (String(row.status).toLowerCase() === "active" || String(row.status).toLowerCase() === "approved")) {
+      try {
+        const allStudents = await list("students");
+        const existingStudent = allStudents.find(s => s.admissionNo && String(s.admissionNo).trim() === String(row.admissionNo).trim());
+        const studentPayload = { ...row, status: "Active" };
+        studentPayload.className = row.className || row.classApplyingFor || "";
+        studentPayload.phone = row.phone1 || row.phone || "";
+        delete studentPayload.id;
+        delete studentPayload.isDraft;
+        delete studentPayload.draftUserId;
+        if (existingStudent) {
+          await update("students", existingStudent.id, studentPayload);
+          console.log(`[Admissions] Updated existing student profile for ${row.fullName} (${row.admissionNo})`);
+        } else {
+          await insert("students", studentPayload);
+          console.log(`[Admissions] Auto-enrolled active admission to students directory: ${row.fullName} (${row.admissionNo})`);
+        }
+      } catch (stSyncErr) {
+        console.warn("[Admissions Student Auto-Enroll Warning]:", stSyncErr.message);
+      }
     }
     
     // --- STOCK DEDUCTION LOGIC ---
@@ -6665,6 +6696,9 @@ async function runAutomatedFeeTask() {
         const student = students.find(s => s.admissionNo === due.admissionNo);
         if (!student) continue;
 
+        // Skip Free of Charge students from automated due sync
+        if (student.isFreeOfCharge === "true" || student.isFreeOfCharge === "1" || student.isFreeOfCharge === 1) continue;
+
         const className = due.className || student.className;
         const parts = due.particulars.split(" of ");
         if (parts.length < 2) continue;
@@ -6675,12 +6709,18 @@ async function runAutomatedFeeTask() {
             (s.feeType === feeName || (s.feeType === "Other" && s.description === feeName))
         );
         
-        if (struct && String(struct.amount) !== String(due.dueAmount)) {
+        let targetAmount = struct ? struct.amount : null;
+        // Respect student's custom monthly fee for tuition
+        if (feeName.toLowerCase().includes("tuition") && student.monthlyFee !== undefined && student.monthlyFee !== null && student.monthlyFee !== "" && !isNaN(Number(student.monthlyFee))) {
+            targetAmount = String(student.monthlyFee);
+        }
+
+        if (targetAmount && String(targetAmount) !== String(due.dueAmount)) {
             const alreadyPaid = parseFloat(due.paidAmount) || 0;
-            const newBalance = Math.max(0, parseFloat(struct.amount) - alreadyPaid);
-            console.log(`[Fee Automation] Global Sync: Updating ${feeName} for ${due.studentName} (${due.particulars}) from ${due.dueAmount} to ${struct.amount} (paid: ${alreadyPaid}, new balance: ${newBalance})`);
+            const newBalance = Math.max(0, parseFloat(targetAmount) - alreadyPaid);
+            console.log(`[Fee Automation] Global Sync: Updating ${feeName} for ${due.studentName} (${due.particulars}) from ${due.dueAmount} to ${targetAmount} (paid: ${alreadyPaid}, new balance: ${newBalance})`);
             await update("dueManagement", due.id, {
-                dueAmount: struct.amount,
+                dueAmount: targetAmount,
                 balance: String(newBalance)
             });
             globalSyncCount++;
@@ -6699,6 +6739,11 @@ async function runAutomatedFeeTask() {
 
     for (const student of students) {
         if (student.status === "Inactive") continue;
+
+        // Skip Free of Charge / Concession students (RTE / Tuition Exempt)
+        if (student.isFreeOfCharge === "true" || student.isFreeOfCharge === "1" || student.isFreeOfCharge === 1) {
+            continue;
+        }
 
         const className = student.className;
         const admNo = student.admissionNo;
@@ -6759,7 +6804,11 @@ async function runAutomatedFeeTask() {
                 );
                 
                 if (!existsInDues && !isTrackedInFees) {
-                    const amount = struct.amount || "0";
+                    let amount = struct.amount || "0";
+                    // If student has customized monthly fee rate, lock it for tuition
+                    if (actualFeeName.toLowerCase().includes("tuition") && student.monthlyFee !== undefined && student.monthlyFee !== null && student.monthlyFee !== "" && !isNaN(Number(student.monthlyFee))) {
+                        amount = String(student.monthlyFee);
+                    }
                     await insert("dueManagement", {
                         admissionNo: admNo,
                         studentName: student.fullName,

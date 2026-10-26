@@ -700,17 +700,19 @@ const moduleConfig = {
     title: "Admissions",
     subtitle: "Process new student applications and inquiries",
     fields: [
-      "admissionNo", "rollNo", "fullName", "className", "section", "gender", "dob", "age",
-      "aadhar", "category", "religion", "phone1", "phone2", "whatsapp", "email",
-      "village", "post", "district", "state", "pin", "address",
-      "fatherName", "motherName", "guardianName", "relation", "occupation", "incomeRange", "emergencyContact",
-      "classApplyingFor", "session", "admissionDate", "prevSchool", "lastClassPassed", "tcReceived",
-      "photo", "birthCert", "aadharDoc", "tcDoc", "parentIdDoc",
+      "admissionNo", "rollNo", "fullName", "className", "classApplyingFor", "section", "gender", "dob", "age",
+      "bloodGroup", "medicalIssue", "category", "religion",
+      "phone1", "phone", "phone2", "whatsapp", "email", "emergencyContact",
+      "village", "pin", "post", "district", "state", "address",
+      "fatherName", "fatherAadharNo", "motherName", "motherAadharNo",
+      "guardianName", "relation", "occupation", "incomeRange",
+      "session", "admissionDate", "prevSchool", "lastClassPassed", "tcReceived",
       "admissionFee", "monthlyFee", "isFreeOfCharge", "transportFee", "discount",
-      "status", "tc", "reportCard", "fatherAadhar", "motherAadhar",
-      "studentAadharNo", "fatherAadharNo", "motherAadharNo", "remarks"
+      "status",
+      "photo", "birthCert", "aadharDoc", "tcDoc", "parentIdDoc",
+      "studentAadharNo", "aadhar", "fatherAadhar", "motherAadhar", "tc", "reportCard"
     ],
-    columns: ["fullName", "classApplyingFor", "phone1", "admissionDate", "status"]
+    columns: ["fullName", "className", "phone1", "admissionDate", "status"]
   },
   dashboard: { title: "Dashboard", subtitle: "School overview and quick statistics", fields: [], columns: ["Metric", "Value"] },
   announcements: {
@@ -1674,7 +1676,16 @@ function toLabel(key) {
     postedBy: "From / Posted By",
     targetType: "Audience Scope",
     targetClass: "Target Class",
-    targetAdmissionNo: "Target Student"
+    targetAdmissionNo: "Target Student",
+    bloodGroup: "Blood Group",
+    medicalIssue: "Medical Issue",
+    prevSchool: "Previous School",
+    lastClassPassed: "Last Class Passed",
+    tcReceived: "TC Received",
+    isFreeOfCharge: "Free Of Charge",
+    studentAadharNo: "Student Aadhaar",
+    fatherAadharNo: "Father Aadhaar",
+    motherAadharNo: "Mother Aadhaar"
   };
   if (custom[key]) return custom[key];
   return key.replace(/([A-Z_])/g, " $1").replace(/^./, c => c.toUpperCase());
@@ -3025,6 +3036,16 @@ function renderForm(forceRefresh) {
     dueContainer.style.gridColumn = "1 / -1";
     dueContainer.style.marginBottom = "10px";
     refs.dynamicForm.appendChild(dueContainer);
+  }
+
+  if (currentModule === "admissions") {
+    const store = getStore();
+    let initialValues = {};
+    if (editRecordId != null) {
+      initialValues = (store.admissions || []).find(r => r.id === editRecordId) || {};
+    }
+    renderAdmissionsForm(cfg, initialValues);
+    return;
   }
 
   if (currentModule === "dueManagement") {
@@ -12939,6 +12960,28 @@ refs.dynamicForm.addEventListener("submit", async (e) => {
         payload[field] = el && el.checked ? "true" : "";
       } else {
         payload[field] = (form.get(field) || "").toString().trim();
+      }
+    }
+
+    // ── Admissions module: TC Received other handling & alias sync ──
+    if (currentModule === "admissions") {
+      const tcSelect = e.target.querySelector("[name='tcReceived']");
+      if (tcSelect && tcSelect.value === "Other") {
+        const tcOther = e.target.querySelector("#adm_tcReceivedOther");
+        if (tcOther && tcOther.value.trim()) {
+          payload.tcReceived = `Other: ${tcOther.value.trim()}`;
+        }
+      }
+      if (payload.className && !payload.classApplyingFor) payload.classApplyingFor = payload.className;
+      if (payload.classApplyingFor && !payload.className) payload.className = payload.classApplyingFor;
+      if (payload.phone1 && !payload.phone) payload.phone = payload.phone1;
+      if (payload.phone && !payload.phone1) payload.phone1 = payload.phone;
+      if (payload.studentAadharNo && !payload.aadhar) payload.aadhar = payload.studentAadharNo;
+      if (payload.fatherAadharNo && !payload.fatherAadhar) payload.fatherAadhar = payload.fatherAadharNo;
+      if (payload.motherAadharNo && !payload.motherAadhar) payload.motherAadhar = payload.motherAadharNo;
+
+      if (typeof saveCustomAdmissionOptions === "function") {
+        saveCustomAdmissionOptions(payload);
       }
     }
 
@@ -23700,6 +23743,1023 @@ async function renderDueManagementForm(cfg, studentOptions, classOptions, initia
   // Populate initial values if editing
   if (editRecordId) {
     calc();
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ADMISSIONS — PROFESSIONAL SMART ADMISSION FORM ENGINE
+   ═══════════════════════════════════════════════════════════ */
+
+function getVillageList() {
+  let saved = [];
+  try { saved = JSON.parse(localStorage.getItem("tps_custom_villages") || "[]"); } catch(e){}
+  const store = getStore();
+  const fromStudents = (store.students || []).map(s => s.village).filter(Boolean);
+  const fromAdmissions = (store.admissions || []).map(a => a.village).filter(Boolean);
+  const defaults = ["Prem Nagar", "Tapowan", "Barhi", "Padma", "Barkatha", "Chouparan", "Hazaribagh", "Ranchi", "Patna"];
+  return Array.from(new Set([...saved, ...fromStudents, ...fromAdmissions, ...defaults].map(v => String(v).trim()))).filter(Boolean).sort();
+}
+
+function saveCustomVillage(v) {
+  if (!v || !v.trim()) return;
+  const clean = v.trim();
+  try {
+    let saved = JSON.parse(localStorage.getItem("tps_custom_villages") || "[]");
+    if (!saved.includes(clean)) {
+      saved.push(clean);
+      localStorage.setItem("tps_custom_villages", JSON.stringify(saved));
+    }
+  } catch(e){}
+}
+
+function getRelationList() {
+  let saved = [];
+  try { saved = JSON.parse(localStorage.getItem("tps_custom_relations") || "[]"); } catch(e){}
+  const defaults = ["Father", "Mother", "Guardian", "Uncle", "Aunt", "Grandfather", "Grandmother", "Brother", "Sister", "Other"];
+  return Array.from(new Set([...saved, ...defaults].map(r => String(r).trim()))).filter(Boolean).sort();
+}
+
+function saveCustomRelation(r) {
+  if (!r || !r.trim()) return;
+  const clean = r.trim();
+  try {
+    let saved = JSON.parse(localStorage.getItem("tps_custom_relations") || "[]");
+    if (!saved.includes(clean)) {
+      saved.push(clean);
+      localStorage.setItem("tps_custom_relations", JSON.stringify(saved));
+    }
+  } catch(e){}
+}
+
+function getOccupationList() {
+  let saved = [];
+  try { saved = JSON.parse(localStorage.getItem("tps_custom_occupations") || "[]"); } catch(e){}
+  const defaults = [
+    "Farmer / Agriculture",
+    "Business / Self-Employed",
+    "Private Job / Service",
+    "Government Service",
+    "Daily Wage Earner / Labor",
+    "Teacher / Academic",
+    "Doctor / Healthcare",
+    "Defense / Armed Forces",
+    "Homemaker",
+    "Advocate / Legal",
+    "Engineer / IT Professional",
+    "Driver / Transport",
+    "Shopkeeper / Retail",
+    "Other"
+  ];
+  return Array.from(new Set([...saved, ...defaults].map(o => String(o).trim()))).filter(Boolean).sort();
+}
+
+function saveCustomOccupation(o) {
+  if (!o || !o.trim()) return;
+  const clean = o.trim();
+  try {
+    let saved = JSON.parse(localStorage.getItem("tps_custom_occupations") || "[]");
+    if (!saved.includes(clean)) {
+      saved.push(clean);
+      localStorage.setItem("tps_custom_occupations", JSON.stringify(saved));
+    }
+  } catch(e){}
+}
+
+function getPrevSchoolList() {
+  let saved = [];
+  try { saved = JSON.parse(localStorage.getItem("tps_custom_prev_schools") || "[]"); } catch(e){}
+  const store = getStore();
+  const fromStudents = (store.students || []).map(s => s.prevSchool).filter(Boolean);
+  const fromAdmissions = (store.admissions || []).map(a => a.prevSchool).filter(Boolean);
+  const defaults = ["Tapowan Public School", "St. Xavier School", "DAV Public School", "Kendriya Vidyalaya", "Government Primary School", "Saraswati Shishu Mandir"];
+  return Array.from(new Set([...saved, ...fromStudents, ...fromAdmissions, ...defaults].map(p => String(p).trim()))).filter(Boolean).sort();
+}
+
+function saveCustomPrevSchool(p) {
+  if (!p || !p.trim()) return;
+  const clean = p.trim();
+  try {
+    let saved = JSON.parse(localStorage.getItem("tps_custom_prev_schools") || "[]");
+    if (!saved.includes(clean)) {
+      saved.push(clean);
+      localStorage.setItem("tps_custom_prev_schools", JSON.stringify(saved));
+    }
+  } catch(e){}
+}
+
+function generateNextAdmissionNo() {
+  const store = getStore();
+  let maxNum = 0;
+  const allAdms = [
+    ...(store.students || []).map(s => s.admissionNo),
+    ...(store.admissions || []).map(a => a.admissionNo)
+  ].filter(Boolean);
+  
+  for (const adm of allAdms) {
+    const s = String(adm).trim();
+    const m = s.match(/(?:TPS)?(\d+)/i);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (!isNaN(n) && n > maxNum && n < 100000) {
+        maxNum = n;
+      }
+    }
+  }
+  const nextVal = maxNum > 0 ? maxNum + 1 : 1001;
+  const prefix = (window.currentSchool?.schoolCode || "TPS").replace(/[^a-zA-Z]/g, "") || "TPS";
+  return `${prefix}${nextVal}`;
+}
+
+function calculateAgeString(dobString) {
+  if (!dobString) return "";
+  const dob = new Date(dobString);
+  if (isNaN(dob.getTime())) return "";
+  const today = new Date();
+  let years = today.getFullYear() - dob.getFullYear();
+  let months = today.getMonth() - dob.getMonth();
+  if (today.getDate() < dob.getDate()) months--;
+  if (months < 0) { years--; months += 12; }
+  if (years < 0) return "0 Yrs";
+  if (years === 0) return `${months} Months`;
+  return months > 0 ? `${years} Yrs ${months} Mos` : `${years} Yrs`;
+}
+
+function getNextRollNoForClass(className, section) {
+  if (!className) return "";
+  const store = getStore();
+  const cNorm = String(className).trim().toLowerCase();
+  const sNorm = section ? String(section).trim().toLowerCase() : "";
+  const rolls = (store.students || [])
+    .filter(s => {
+      const sc = String(s.className || "").trim().toLowerCase();
+      if (sc !== cNorm) return false;
+      if (sNorm && s.section && String(s.section).trim().toLowerCase() !== sNorm) return false;
+      return true;
+    })
+    .map(s => parseInt(String(s.rollNo).replace(/\D/g, ""), 10))
+    .filter(n => !isNaN(n) && n > 0);
+  return rolls.length ? Math.max(...rolls) + 1 : 1;
+}
+
+function getFeeStructureForClass(className) {
+  const res = { admissionFee: "0", monthlyFee: "0", transportFee: "0" };
+  if (!className) return res;
+  const store = getStore();
+  const cNorm = String(className).trim().toLowerCase();
+  const structs = (store.feeStructures || []).filter(s => String(s.className || "").trim().toLowerCase() === cNorm);
+  
+  for (const s of structs) {
+    const type = String(s.feeType || "").toLowerCase();
+    const term = String(s.term || "").toLowerCase();
+    const desc = String(s.description || "").toLowerCase();
+    const amt = String(s.amount || "0");
+
+    if (type.includes("admission") || desc.includes("admission")) {
+      res.admissionFee = amt;
+    } else if (type.includes("tuition") || desc.includes("tuition") || term === "monthly") {
+      res.monthlyFee = amt;
+    } else if (type.includes("transport") || type.includes("van") || desc.includes("transport")) {
+      res.transportFee = amt;
+    }
+  }
+  return res;
+}
+
+async function fetchPinCodeLocation(pin, callback) {
+  if (!pin || !/^\d{6}$/.test(pin.trim())) return;
+  try {
+    const res = await fetch(`https://api.postalpincode.in/pincode/${pin.trim()}`);
+    const data = await res.json();
+    if (data && data[0] && data[0].Status === "Success" && data[0].PostOffice?.length) {
+      const poList = data[0].PostOffice;
+      const first = poList[0];
+      callback({
+        state: first.State || "",
+        district: first.District || "",
+        postOffices: poList.map(p => p.Name)
+      });
+    }
+  } catch (err) {
+    console.warn("Postal PIN Code fetch warning:", err);
+  }
+}
+
+function saveCustomAdmissionOptions(payload) {
+  if (payload.village) saveCustomVillage(payload.village);
+  if (payload.relation) saveCustomRelation(payload.relation);
+  if (payload.occupation) saveCustomOccupation(payload.occupation);
+  if (payload.prevSchool) saveCustomPrevSchool(payload.prevSchool);
+}
+
+async function renderAdmissionsForm(cfg, initialValues = {}) {
+  const container = refs.dynamicForm;
+  container.innerHTML = "";
+
+  const isEditing = editRecordId != null && initialValues.id != null;
+  const store = getStore();
+  const currentSession = (typeof getCurrentSession === "function" ? getCurrentSession() : "") || "2026-27";
+  const defaultAdmNo = isEditing ? (initialValues.admissionNo || "") : generateNextAdmissionNo();
+
+  const classList = Array.from(new Set([
+    ...CLASS_STANDARD_OPTIONS,
+    ...(store.classes || []).map(x => x.className).filter(Boolean)
+  ]));
+
+  const classOptionsHtml = classList.map(c => `
+    <option value="${escapeHtml(c)}" ${(initialValues.className === c || initialValues.classApplyingFor === c) ? "selected" : ""}>
+      ${escapeHtml(c)}
+    </option>
+  `).join("");
+
+  const villageList = getVillageList();
+  const relationList = getRelationList();
+  const occupationList = getOccupationList();
+  const prevSchoolList = getPrevSchoolList();
+
+  const isFree = String(initialValues.isFreeOfCharge || "").toLowerCase() === "true" || initialValues.isFreeOfCharge === 1;
+
+  // Outer Wrapper
+  const outer = document.createElement("div");
+  outer.className = "admissions-pro-container";
+  outer.style.cssText = "grid-column: 1 / -1; width: 100%; display: flex; flex-direction: column; gap: 16px;";
+
+  outer.innerHTML = `
+    <!-- DATALISTS FOR DYNAMIC COMBOBOXES -->
+    <datalist id="adm_village_datalist">
+      ${villageList.map(v => `<option value="${escapeHtml(v)}"></option>`).join("")}
+    </datalist>
+    <datalist id="adm_post_datalist">
+      ${initialValues.post ? `<option value="${escapeHtml(initialValues.post)}"></option>` : ""}
+    </datalist>
+    <datalist id="adm_relation_datalist">
+      ${relationList.map(r => `<option value="${escapeHtml(r)}"></option>`).join("")}
+    </datalist>
+    <datalist id="adm_occupation_datalist">
+      ${occupationList.map(o => `<option value="${escapeHtml(o)}"></option>`).join("")}
+    </datalist>
+    <datalist id="adm_prevSchool_datalist">
+      ${prevSchoolList.map(p => `<option value="${escapeHtml(p)}"></option>`).join("")}
+    </datalist>
+
+    <!-- SECTION 1: ACADEMIC & ADMISSION DETAILS -->
+    <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:18px 20px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; padding-bottom:8px; border-bottom:1.5px solid #f1f5f9;">
+        <div style="font-weight:800; font-size:0.95rem; color:#1e293b; display:flex; align-items:center; gap:8px;">
+          <span class="material-symbols-outlined" style="color:#4f46e5; font-size:20px;">school</span>
+          <span>Academic &amp; Admission Identity</span>
+        </div>
+        <span style="font-size:0.75rem; color:#64748b; font-weight:600;">Core Institutional Enrollment</span>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:14px;">
+        <!-- Admission No -->
+        <div class="field">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+            <label style="font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin:0;">Admission No *</label>
+            <span style="font-size:0.68rem; background:#dcfce7; color:#15803d; font-weight:800; padding:1px 6px; border-radius:4px;">Auto ⚡</span>
+          </div>
+          <div style="display:flex; gap:6px;">
+            <input type="text" id="adm_admissionNo" name="admissionNo" value="${escapeHtml(defaultAdmNo)}" required autocomplete="off" placeholder="e.g. TPS1001" style="font-weight:700; color:#1e293b; background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; flex:1;">
+            <button type="button" id="adm_btnRefreshAdmNo" title="Regenerate next admission sequence" style="background:#f1f5f9; border:1.5px solid #cbd5e1; border-radius:8px; padding:0 10px; cursor:pointer; color:#475569; display:flex; align-items:center;"><span class="material-symbols-outlined" style="font-size:16px;">autorenew</span></button>
+          </div>
+        </div>
+        <!-- Class Applying For -->
+        <div class="field">
+          <label style="display:block; font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">Class *</label>
+          <select id="adm_className" name="className" required style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; font-weight:700; background:#ffffff; color:#0f172a;">
+            <option value="">Select Class</option>
+            ${classOptionsHtml}
+          </select>
+          <input type="hidden" id="adm_classApplyingFor" name="classApplyingFor" value="${escapeHtml(initialValues.classApplyingFor || initialValues.className || "")}">
+        </div>
+        <!-- Section -->
+        <div class="field">
+          <label style="display:block; font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">Section</label>
+          <select id="adm_section" name="section" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; background:#ffffff;">
+            <option value="A" ${(initialValues.section || "A") === "A" ? "selected" : ""}>Section A</option>
+            <option value="B" ${initialValues.section === "B" ? "selected" : ""}>Section B</option>
+            <option value="C" ${initialValues.section === "C" ? "selected" : ""}>Section C</option>
+            <option value="D" ${initialValues.section === "D" ? "selected" : ""}>Section D</option>
+          </select>
+        </div>
+        <!-- Roll No -->
+        <div class="field">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+            <label style="font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin:0;">Roll No (Auto Assigned)</label>
+            <span id="adm_rollBadge" style="font-size:0.68rem; background:#eff6ff; color:#2563eb; font-weight:700; padding:1px 6px; border-radius:4px;">Next Available</span>
+          </div>
+          <input type="number" id="adm_rollNo" name="rollNo" value="${escapeHtml(initialValues.rollNo || "")}" placeholder="e.g. 1" min="1" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; font-weight:700; background:#f8fafc;">
+        </div>
+        <!-- Session -->
+        <div class="field">
+          <label style="display:block; font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">Academic Session *</label>
+          <input type="text" id="adm_session" name="session" value="${escapeHtml(initialValues.session || currentSession)}" required style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; font-weight:700; background:#f8fafc;">
+        </div>
+        <!-- Admission Date -->
+        <div class="field">
+          <label style="display:block; font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">Admission Date *</label>
+          <input type="date" id="adm_admissionDate" name="admissionDate" value="${escapeHtml(initialValues.admissionDate || todayStr())}" required style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; background:#ffffff;">
+        </div>
+        <!-- Status -->
+        <div class="field">
+          <label style="display:block; font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">Status *</label>
+          <select id="adm_status" name="status" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; font-weight:800; background:#ffffff; color:#15803d;">
+            <option value="Active" ${(initialValues.status || "Active") === "Active" ? "selected" : ""}>Active (Immediately Enrolled)</option>
+            <option value="Pending" ${initialValues.status === "Pending" ? "selected" : ""}>Pending (Under Review)</option>
+            <option value="Inactive" ${initialValues.status === "Inactive" ? "selected" : ""}>Inactive</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 2: STUDENT PERSONAL DETAILS -->
+    <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:18px 20px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; padding-bottom:8px; border-bottom:1.5px solid #f1f5f9;">
+        <div style="font-weight:800; font-size:0.95rem; color:#1e293b; display:flex; align-items:center; gap:8px;">
+          <span class="material-symbols-outlined" style="color:#0284c7; font-size:20px;">person</span>
+          <span>Student Personal Information</span>
+        </div>
+        <span style="font-size:0.75rem; color:#64748b; font-weight:600;">Demographics &amp; Bio</span>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:14px;">
+        <!-- Full Name -->
+        <div class="field" style="grid-column: span 2;">
+          <label style="display:block; font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">Full Name *</label>
+          <input type="text" id="adm_fullName" name="fullName" value="${escapeHtml(initialValues.fullName || "")}" required placeholder="Official student name per certificate" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; font-weight:600;">
+        </div>
+        <!-- DOB -->
+        <div class="field">
+          <label style="display:block; font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">Date of Birth *</label>
+          <input type="date" id="adm_dob" name="dob" value="${escapeHtml(initialValues.dob || "")}" required style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem;">
+        </div>
+        <!-- Age -->
+        <div class="field">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+            <label style="font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin:0;">Age (Auto Fetch)</label>
+            <span style="font-size:0.68rem; background:#f1f5f9; color:#475569; font-weight:700; padding:1px 5px; border-radius:4px;">Calculated</span>
+          </div>
+          <input type="text" id="adm_age" name="age" value="${escapeHtml(initialValues.age || "")}" placeholder="Calculated from DOB" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; font-weight:700; background:#f8fafc; color:#1e293b;">
+        </div>
+        <!-- Gender -->
+        <div class="field">
+          <label style="display:block; font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">Gender *</label>
+          <select id="adm_gender" name="gender" required style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; background:#ffffff;">
+            <option value="">Select Gender</option>
+            <option value="Male" ${initialValues.gender === "Male" ? "selected" : ""}>Male</option>
+            <option value="Female" ${initialValues.gender === "Female" ? "selected" : ""}>Female</option>
+            <option value="Other" ${initialValues.gender === "Other" ? "selected" : ""}>Other</option>
+          </select>
+        </div>
+        <!-- Blood Group -->
+        <div class="field">
+          <label style="display:block; font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">Blood Group (Optional)</label>
+          <select id="adm_bloodGroup" name="bloodGroup" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; background:#ffffff;">
+            <option value="">Select Blood Group</option>
+            <option value="A+" ${initialValues.bloodGroup === "A+" ? "selected" : ""}>A+</option>
+            <option value="A-" ${initialValues.bloodGroup === "A-" ? "selected" : ""}>A-</option>
+            <option value="B+" ${initialValues.bloodGroup === "B+" ? "selected" : ""}>B+</option>
+            <option value="B-" ${initialValues.bloodGroup === "B-" ? "selected" : ""}>B-</option>
+            <option value="O+" ${initialValues.bloodGroup === "O+" ? "selected" : ""}>O+</option>
+            <option value="O-" ${initialValues.bloodGroup === "O-" ? "selected" : ""}>O-</option>
+            <option value="AB+" ${initialValues.bloodGroup === "AB+" ? "selected" : ""}>AB+</option>
+            <option value="AB-" ${initialValues.bloodGroup === "AB-" ? "selected" : ""}>AB-</option>
+            <option value="Unknown" ${initialValues.bloodGroup === "Unknown" ? "selected" : ""}>Unknown</option>
+          </select>
+        </div>
+        <!-- Category -->
+        <div class="field">
+          <label style="display:block; font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">Category</label>
+          <select id="adm_category" name="category" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; background:#ffffff;">
+            <option value="General" ${(initialValues.category || "General") === "General" ? "selected" : ""}>General</option>
+            <option value="OBC" ${initialValues.category === "OBC" ? "selected" : ""}>OBC</option>
+            <option value="SC" ${initialValues.category === "SC" ? "selected" : ""}>SC</option>
+            <option value="ST" ${initialValues.category === "ST" ? "selected" : ""}>ST</option>
+            <option value="Other" ${initialValues.category === "Other" ? "selected" : ""}>Other</option>
+          </select>
+        </div>
+        <!-- Religion -->
+        <div class="field">
+          <label style="display:block; font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">Religion</label>
+          <select id="adm_religion" name="religion" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; background:#ffffff;">
+            <option value="Hindu" ${(initialValues.religion || "Hindu") === "Hindu" ? "selected" : ""}>Hindu</option>
+            <option value="Muslim" ${initialValues.religion === "Muslim" ? "selected" : ""}>Muslim</option>
+            <option value="Sikh" ${initialValues.religion === "Sikh" ? "selected" : ""}>Sikh</option>
+            <option value="Christian" ${initialValues.religion === "Christian" ? "selected" : ""}>Christian</option>
+            <option value="Buddhist" ${initialValues.religion === "Buddhist" ? "selected" : ""}>Buddhist</option>
+            <option value="Jain" ${initialValues.religion === "Jain" ? "selected" : ""}>Jain</option>
+            <option value="Other" ${initialValues.religion === "Other" ? "selected" : ""}>Other</option>
+          </select>
+        </div>
+        <!-- Student Aadhaar -->
+        <div class="field">
+          <label style="display:block; font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">Student Aadhaar (Optional)</label>
+          <input type="text" id="adm_studentAadharNo" name="studentAadharNo" maxlength="12" value="${escapeHtml(initialValues.studentAadharNo || initialValues.aadhar || "")}" placeholder="12-digit Aadhaar Number" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem;">
+          <input type="hidden" id="adm_aadhar" name="aadhar" value="${escapeHtml(initialValues.aadhar || initialValues.studentAadharNo || "")}">
+        </div>
+        <!-- Medical Issue -->
+        <div class="field" style="grid-column: span 2;">
+          <label style="display:block; font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">Medical Issue / Allergies (Optional)</label>
+          <input type="text" id="adm_medicalIssue" name="medicalIssue" value="${escapeHtml(initialValues.medicalIssue || "")}" placeholder="Any allergies, asthma, vision or chronic condition (Optional)" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem;">
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 3: CONTACT & LOCATION DETAILS -->
+    <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:18px 20px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; padding-bottom:8px; border-bottom:1.5px solid #f1f5f9;">
+        <div style="font-weight:800; font-size:0.95rem; color:#1e293b; display:flex; align-items:center; gap:8px;">
+          <span class="material-symbols-outlined" style="color:#059669; font-size:20px;">call</span>
+          <span>Contact &amp; Location Details</span>
+        </div>
+        <span style="font-size:0.75rem; color:#64748b; font-weight:600;">Reachability &amp; Residence</span>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:14px;">
+        <!-- Primary Mobile -->
+        <div class="field">
+          <label style="display:block; font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">Primary Mobile *</label>
+          <input type="tel" id="adm_phone1" name="phone1" maxlength="10" value="${escapeHtml(initialValues.phone1 || initialValues.phone || "")}" required placeholder="10-digit mobile number" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; font-weight:700;">
+          <input type="hidden" id="adm_phone" name="phone" value="${escapeHtml(initialValues.phone || initialValues.phone1 || "")}">
+        </div>
+        <!-- WhatsApp -->
+        <div class="field">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+            <label style="font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin:0;">WhatsApp Number</label>
+            <label style="font-size:0.72rem; color:#2563eb; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:3px;">
+              <input type="checkbox" id="admSameAsMobileWhatsApp" style="cursor:pointer; accent-color:#2563eb;"> Same as Mobile
+            </label>
+          </div>
+          <input type="tel" id="adm_whatsapp" name="whatsapp" maxlength="10" value="${escapeHtml(initialValues.whatsapp || "")}" placeholder="WhatsApp number" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem;">
+        </div>
+        <!-- Phone2 -->
+        <div class="field">
+          <label style="display:block; font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">Secondary Mobile (Optional)</label>
+          <input type="tel" id="adm_phone2" name="phone2" maxlength="10" value="${escapeHtml(initialValues.phone2 || "")}" placeholder="Alternative contact" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem;">
+        </div>
+        <!-- Emergency Contact -->
+        <div class="field">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+            <label style="font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin:0;">Emergency Contact *</label>
+            <label style="font-size:0.72rem; color:#2563eb; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:3px;">
+              <input type="checkbox" id="admSameAsPrimaryEmergency" style="cursor:pointer; accent-color:#2563eb;"> Same as Primary
+            </label>
+          </div>
+          <input type="tel" id="adm_emergencyContact" name="emergencyContact" maxlength="10" value="${escapeHtml(initialValues.emergencyContact || initialValues.phone1 || "")}" required placeholder="Emergency phone" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem;">
+        </div>
+        <!-- Email ID -->
+        <div class="field">
+          <label style="display:block; font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">Email ID (Optional)</label>
+          <input type="email" id="adm_email" name="email" value="${escapeHtml(initialValues.email || "")}" placeholder="parent@example.com" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem;">
+        </div>
+      </div>
+
+      <!-- Address Subgrid: PIN Code before Post -->
+      <div style="margin-top:16px; padding-top:14px; border-top:1px dashed #e2e8f0;">
+        <div style="font-size:0.8rem; font-weight:800; color:#334155; margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+          <span class="material-symbols-outlined" style="font-size:18px; color:#64748b;">pin_drop</span>
+          <span>Residential Address</span>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:14px;">
+          <!-- Village -->
+          <div class="field">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+              <label style="font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin:0;">Village / Area</label>
+              <button type="button" id="adm_btnAddVillage" style="background:#eff6ff; border:1px solid #bfdbfe; color:#2563eb; font-size:0.68rem; font-weight:700; padding:1px 6px; border-radius:4px; cursor:pointer;">+ Add</button>
+            </div>
+            <input type="text" id="adm_village" name="village" list="adm_village_datalist" value="${escapeHtml(initialValues.village || "")}" placeholder="Select or type village" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem;">
+          </div>
+          <!-- PIN Code (Before Post!) -->
+          <div class="field">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+              <label style="font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin:0;">PIN Code (6 digits)</label>
+              <span id="adm_pinBadge" style="font-size:0.68rem; color:#64748b; font-weight:700;">Auto-fetches Area</span>
+            </div>
+            <input type="text" id="adm_pin" name="pin" maxlength="6" value="${escapeHtml(initialValues.pin || "")}" placeholder="e.g. 825311" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; font-weight:700;">
+          </div>
+          <!-- Post Office -->
+          <div class="field">
+            <label style="display:block; font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">Post Office</label>
+            <input type="text" id="adm_post" name="post" list="adm_post_datalist" value="${escapeHtml(initialValues.post || "")}" placeholder="Select or type Post Office" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem;">
+          </div>
+          <!-- District -->
+          <div class="field">
+            <label style="display:block; font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">District</label>
+            <input type="text" id="adm_district" name="district" value="${escapeHtml(initialValues.district || "Hazaribagh")}" placeholder="District" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem;">
+          </div>
+          <!-- State -->
+          <div class="field">
+            <label style="display:block; font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">State</label>
+            <input type="text" id="adm_state" name="state" value="${escapeHtml(initialValues.state || "Jharkhand")}" placeholder="State" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem;">
+          </div>
+          <!-- Street Address -->
+          <div class="field" style="grid-column: span 2;">
+            <label style="display:block; font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">Street Location / Landmark</label>
+            <input type="text" id="adm_address" name="address" value="${escapeHtml(initialValues.address || "")}" placeholder="House No, Ward, Mohalla or nearby landmark" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem;">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 4: FAMILY & GUARDIAN INFORMATION -->
+    <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:18px 20px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; padding-bottom:8px; border-bottom:1.5px solid #f1f5f9;">
+        <div style="font-weight:800; font-size:0.95rem; color:#1e293b; display:flex; align-items:center; gap:8px;">
+          <span class="material-symbols-outlined" style="color:#d97706; font-size:20px;">family_restroom</span>
+          <span>Parent &amp; Guardian Information</span>
+        </div>
+        <span style="font-size:0.75rem; color:#64748b; font-weight:600;">Kinship &amp; Background</span>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:14px;">
+        <!-- Father Name -->
+        <div class="field">
+          <label style="display:block; font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">Father's Name *</label>
+          <input type="text" id="adm_fatherName" name="fatherName" value="${escapeHtml(initialValues.fatherName || "")}" required placeholder="Father's full name" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; font-weight:600;">
+        </div>
+        <!-- Father Aadhaar -->
+        <div class="field">
+          <label style="display:block; font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">Father Aadhaar (Optional)</label>
+          <input type="text" id="adm_fatherAadharNo" name="fatherAadharNo" maxlength="12" value="${escapeHtml(initialValues.fatherAadharNo || "")}" placeholder="12-digit Aadhaar" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem;">
+        </div>
+        <!-- Mother Name -->
+        <div class="field">
+          <label style="display:block; font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">Mother's Name *</label>
+          <input type="text" id="adm_motherName" name="motherName" value="${escapeHtml(initialValues.motherName || "")}" required placeholder="Mother's full name" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; font-weight:600;">
+        </div>
+        <!-- Mother Aadhaar -->
+        <div class="field">
+          <label style="display:block; font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">Mother Aadhaar (Optional)</label>
+          <input type="text" id="adm_motherAadharNo" name="motherAadharNo" maxlength="12" value="${escapeHtml(initialValues.motherAadharNo || "")}" placeholder="12-digit Aadhaar" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem;">
+        </div>
+        <!-- Guardian Name -->
+        <div class="field">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+            <label style="font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin:0;">Guardian Name</label>
+            <div style="display:flex; gap:8px;">
+              <label style="font-size:0.7rem; color:#4f46e5; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:2px;">
+                <input type="checkbox" id="admGuardSameFather" style="accent-color:#4f46e5; cursor:pointer;"> Same Father
+              </label>
+              <label style="font-size:0.7rem; color:#4f46e5; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:2px;">
+                <input type="checkbox" id="admGuardSameMother" style="accent-color:#4f46e5; cursor:pointer;"> Same Mother
+              </label>
+            </div>
+          </div>
+          <input type="text" id="adm_guardianName" name="guardianName" value="${escapeHtml(initialValues.guardianName || "")}" placeholder="Guardian full name" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem;">
+        </div>
+        <!-- Relation -->
+        <div class="field">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+            <label style="font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin:0;">Relation *</label>
+            <button type="button" id="adm_btnAddRelation" style="background:#eff6ff; border:1px solid #bfdbfe; color:#2563eb; font-size:0.68rem; font-weight:700; padding:1px 6px; border-radius:4px; cursor:pointer;">+ Add</button>
+          </div>
+          <input type="text" id="adm_relation" name="relation" list="adm_relation_datalist" value="${escapeHtml(initialValues.relation || "Father")}" placeholder="Relation (e.g. Father, Mother, Uncle)" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem;">
+        </div>
+        <!-- Occupation -->
+        <div class="field">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+            <label style="font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin:0;">Parent Occupation</label>
+            <button type="button" id="adm_btnAddOccupation" style="background:#eff6ff; border:1px solid #bfdbfe; color:#2563eb; font-size:0.68rem; font-weight:700; padding:1px 6px; border-radius:4px; cursor:pointer;">+ Add</button>
+          </div>
+          <input type="text" id="adm_occupation" name="occupation" list="adm_occupation_datalist" value="${escapeHtml(initialValues.occupation || "Farmer / Agriculture")}" placeholder="Occupation" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem;">
+        </div>
+        <!-- Income Range -->
+        <div class="field">
+          <label style="display:block; font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">Annual Income Range</label>
+          <select id="adm_incomeRange" name="incomeRange" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; background:#ffffff;">
+            <option value="Below 1 Lakh" ${(initialValues.incomeRange || "Below 1 Lakh") === "Below 1 Lakh" ? "selected" : ""}>Below 1 Lakh</option>
+            <option value="1 - 3 Lakhs" ${initialValues.incomeRange === "1 - 3 Lakhs" ? "selected" : ""}>1 - 3 Lakhs</option>
+            <option value="3 - 5 Lakhs" ${initialValues.incomeRange === "3 - 5 Lakhs" ? "selected" : ""}>3 - 5 Lakhs</option>
+            <option value="Above 5 Lakhs" ${initialValues.incomeRange === "Above 5 Lakhs" ? "selected" : ""}>Above 5 Lakhs</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 5: PREVIOUS ACADEMIC HISTORY -->
+    <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:18px 20px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; padding-bottom:8px; border-bottom:1.5px solid #f1f5f9;">
+        <div style="font-weight:800; font-size:0.95rem; color:#1e293b; display:flex; align-items:center; gap:8px;">
+          <span class="material-symbols-outlined" style="color:#7c3aed; font-size:20px;">history_edu</span>
+          <span>Previous Academic History</span>
+        </div>
+        <span style="font-size:0.75rem; color:#64748b; font-weight:600;">Transfer &amp; Prior Record</span>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:14px;">
+        <!-- Prev School -->
+        <div class="field">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+            <label style="font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin:0;">Previous School</label>
+            <button type="button" id="adm_btnAddPrevSchool" style="background:#eff6ff; border:1px solid #bfdbfe; color:#2563eb; font-size:0.68rem; font-weight:700; padding:1px 6px; border-radius:4px; cursor:pointer;">+ Add</button>
+          </div>
+          <input type="text" id="adm_prevSchool" name="prevSchool" list="adm_prevSchool_datalist" value="${escapeHtml(initialValues.prevSchool || "")}" placeholder="Name of previous school" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem;">
+        </div>
+        <!-- Last Class Passed -->
+        <div class="field">
+          <label style="display:block; font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">Last Class Passed</label>
+          <select id="adm_lastClassPassed" name="lastClassPassed" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; background:#ffffff;">
+            <option value="None / Fresh Admission" ${(initialValues.lastClassPassed || "None / Fresh Admission") === "None / Fresh Admission" ? "selected" : ""}>None / Fresh Admission</option>
+            <option value="Playgroup" ${initialValues.lastClassPassed === "Playgroup" ? "selected" : ""}>Playgroup</option>
+            <option value="Nursery" ${initialValues.lastClassPassed === "Nursery" ? "selected" : ""}>Nursery</option>
+            <option value="L.K.G" ${initialValues.lastClassPassed === "L.K.G" ? "selected" : ""}>L.K.G</option>
+            <option value="U.K.G" ${initialValues.lastClassPassed === "U.K.G" ? "selected" : ""}>U.K.G</option>
+            <option value="Class 1" ${initialValues.lastClassPassed === "Class 1" ? "selected" : ""}>Class 1</option>
+            <option value="Class 2" ${initialValues.lastClassPassed === "Class 2" ? "selected" : ""}>Class 2</option>
+            <option value="Class 3" ${initialValues.lastClassPassed === "Class 3" ? "selected" : ""}>Class 3</option>
+            <option value="Class 4" ${initialValues.lastClassPassed === "Class 4" ? "selected" : ""}>Class 4</option>
+            <option value="Class 5" ${initialValues.lastClassPassed === "Class 5" ? "selected" : ""}>Class 5</option>
+            <option value="Class 6" ${initialValues.lastClassPassed === "Class 6" ? "selected" : ""}>Class 6</option>
+            <option value="Class 7" ${initialValues.lastClassPassed === "Class 7" ? "selected" : ""}>Class 7</option>
+            <option value="Class 8" ${initialValues.lastClassPassed === "Class 8" ? "selected" : ""}>Class 8</option>
+            <option value="Class 9" ${initialValues.lastClassPassed === "Class 9" ? "selected" : ""}>Class 9</option>
+            <option value="Class 10" ${initialValues.lastClassPassed === "Class 10" ? "selected" : ""}>Class 10</option>
+          </select>
+        </div>
+        <!-- TC Received -->
+        <div class="field">
+          <label style="display:block; font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">TC Received</label>
+          <select id="adm_tcReceived" name="tcReceived" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; background:#ffffff;">
+            <option value="No" ${(initialValues.tcReceived || "No").startsWith("No") ? "selected" : ""}>No</option>
+            <option value="Yes" ${(initialValues.tcReceived || "").startsWith("Yes") ? "selected" : ""}>Yes</option>
+            <option value="Under Process / Awaited" ${(initialValues.tcReceived || "").includes("Awaited") ? "selected" : ""}>Under Process / Awaited</option>
+            <option value="Not Applicable" ${(initialValues.tcReceived || "").includes("Not Applicable") ? "selected" : ""}>Not Applicable</option>
+            <option value="Other" ${(initialValues.tcReceived || "").startsWith("Other") ? "selected" : ""}>Other</option>
+          </select>
+          <div id="adm_tcReceivedOtherContainer" style="display:${(initialValues.tcReceived || "").startsWith("Other") ? "block" : "none"}; margin-top:6px;">
+            <input type="text" id="adm_tcReceivedOther" placeholder="Enter TC Details (e.g. TC No / Date)" value="${escapeHtml((initialValues.tcReceived || "").replace(/^Other:\s*/, ""))}" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:8px 12px; font-size:0.85rem;">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 6: FEE STRUCTURE & CONCESSION SETUP -->
+    <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:18px 20px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; padding-bottom:8px; border-bottom:1.5px solid #f1f5f9;">
+        <div style="font-weight:800; font-size:0.95rem; color:#1e293b; display:flex; align-items:center; gap:8px;">
+          <span class="material-symbols-outlined" style="color:#16a34a; font-size:20px;">payments</span>
+          <span>Fee Structure &amp; Concession Setup</span>
+        </div>
+        <span style="font-size:0.75rem; color:#64748b; font-weight:600;">Custom Student Billing Policy</span>
+      </div>
+
+      <!-- Free Of Charge Banner Toggle -->
+      <div style="margin-bottom:14px; background:#f0fdf4; border:1.5px solid #86efac; border-radius:10px; padding:12px 16px;">
+        <label style="display:flex; align-items:center; gap:10px; font-weight:800; font-size:0.9rem; color:#15803d; cursor:pointer;">
+          <input type="checkbox" id="adm_isFreeOfCharge" name="isFreeOfCharge" value="true" ${isFree ? "checked" : ""} style="width:20px; height:20px; accent-color:#16a34a; cursor:pointer;">
+          <span>Is Free Of Charge (100% Concession / RTE / Tuition-Exempt)</span>
+        </label>
+        <div style="font-size:0.75rem; color:#166534; margin-left:30px; margin-top:3px;">
+          When checked, monthly tuition and late fees will <strong>never</strong> be automatically generated for this student.
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:14px;">
+        <!-- Admission Fee -->
+        <div class="field">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+            <label style="font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin:0;">Admission Fee (₹)</label>
+            <span style="font-size:0.68rem; color:#64748b;">Editable</span>
+          </div>
+          <input type="number" id="adm_admissionFee" name="admissionFee" min="0" value="${escapeHtml(initialValues.admissionFee != null ? initialValues.admissionFee : "0")}" placeholder="0" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; font-weight:700;">
+        </div>
+        <!-- Monthly Tuition Fee -->
+        <div class="field">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+            <label style="font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin:0;">Monthly Tuition Fee (₹) *</label>
+            <span style="font-size:0.68rem; color:#2563eb; font-weight:700;">Locked Rate</span>
+          </div>
+          <input type="number" id="adm_monthlyFee" name="monthlyFee" min="0" value="${escapeHtml(initialValues.monthlyFee != null ? initialValues.monthlyFee : "0")}" ${isFree ? "readonly style='width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; font-weight:700; background:#f1f5f9; cursor:not-allowed;'" : "style='width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; font-weight:700; background:#ffffff;'"} placeholder="0">
+        </div>
+        <!-- Transport Fee -->
+        <div class="field">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+            <label style="font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin:0;">Transport Fee (₹)</label>
+            <span style="font-size:0.68rem; color:#64748b;">Editable</span>
+          </div>
+          <input type="number" id="adm_transportFee" name="transportFee" min="0" value="${escapeHtml(initialValues.transportFee != null ? initialValues.transportFee : "0")}" placeholder="0" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem;">
+        </div>
+        <!-- One-Time Discount -->
+        <div class="field">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+            <label style="font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin:0;">Discount (₹) - One-Time</label>
+            <span style="font-size:0.68rem; color:#64748b;">Optional</span>
+          </div>
+          <input type="number" id="adm_discount" name="discount" min="0" value="${escapeHtml(initialValues.discount || "0")}" placeholder="0" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem;">
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 7: DOCUMENT ATTACHMENTS (OPTIONAL) -->
+    <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:18px 20px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; padding-bottom:8px; border-bottom:1.5px solid #f1f5f9;">
+        <div style="font-weight:800; font-size:0.95rem; color:#1e293b; display:flex; align-items:center; gap:8px;">
+          <span class="material-symbols-outlined" style="color:#0ea5e9; font-size:20px;">attach_file</span>
+          <span>Official Attachments (Optional)</span>
+        </div>
+        <span style="font-size:0.75rem; color:#64748b; font-weight:600;">Image Documents</span>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:14px;">
+        <!-- Photo -->
+        <div class="field">
+          <label style="display:block; font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">Student Photo</label>
+          <input type="file" id="adm_photo" name="photo" accept="image/*" style="width:100%; font-size:0.8rem;">
+          <div id="adm_prev_photo" style="margin-top:6px; display:${initialValues.photo ? "block" : "none"};"><img src="${initialValues.photo || ""}" style="width:50px; height:60px; object-fit:cover; border-radius:6px; border:1px solid #cbd5e1;"></div>
+        </div>
+        <!-- Birth Certificate -->
+        <div class="field">
+          <label style="display:block; font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">Birth Certificate</label>
+          <input type="file" id="adm_birthCert" name="birthCert" accept="image/*" style="width:100%; font-size:0.8rem;">
+          <div id="adm_prev_birthCert" style="margin-top:6px; display:${initialValues.birthCert ? "block" : "none"};"><img src="${initialValues.birthCert || ""}" style="width:60px; height:45px; object-fit:cover; border-radius:4px; border:1px solid #cbd5e1;"></div>
+        </div>
+        <!-- Aadhaar Doc -->
+        <div class="field">
+          <label style="display:block; font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">Student Aadhaar Doc</label>
+          <input type="file" id="adm_aadharDoc" name="aadharDoc" accept="image/*" style="width:100%; font-size:0.8rem;">
+          <div id="adm_prev_aadharDoc" style="margin-top:6px; display:${initialValues.aadharDoc ? "block" : "none"};"><img src="${initialValues.aadharDoc || ""}" style="width:60px; height:45px; object-fit:cover; border-radius:4px; border:1px solid #cbd5e1;"></div>
+        </div>
+        <!-- TC Doc -->
+        <div class="field">
+          <label style="display:block; font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">TC Document</label>
+          <input type="file" id="adm_tcDoc" name="tcDoc" accept="image/*" style="width:100%; font-size:0.8rem;">
+          <div id="adm_prev_tcDoc" style="margin-top:6px; display:${initialValues.tcDoc ? "block" : "none"};"><img src="${initialValues.tcDoc || ""}" style="width:60px; height:45px; object-fit:cover; border-radius:4px; border:1px solid #cbd5e1;"></div>
+        </div>
+        <!-- Parent ID Doc -->
+        <div class="field">
+          <label style="display:block; font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">Parent ID Proof</label>
+          <input type="file" id="adm_parentIdDoc" name="parentIdDoc" accept="image/*" style="width:100%; font-size:0.8rem;">
+          <div id="adm_prev_parentIdDoc" style="margin-top:6px; display:${initialValues.parentIdDoc ? "block" : "none"};"><img src="${initialValues.parentIdDoc || ""}" style="width:60px; height:45px; object-fit:cover; border-radius:4px; border:1px solid #cbd5e1;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 8: ACTION BUTTONS -->
+    <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:8px; padding:16px 0;">
+      <button type="button" onclick="if(window.closeFormPanel) window.closeFormPanel()" class="btn-action" style="background:#f1f5f9; color:#475569; border:1.5px solid #cbd5e1; border-radius:8px; padding:10px 22px; font-weight:700; font-size:0.9rem; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+        <span class="material-symbols-outlined" style="font-size:18px;">close</span> Cancel
+      </button>
+      <button type="submit" class="btn-action" style="background:linear-gradient(135deg, #2563eb, #4f46e5); color:#ffffff; border:none; border-radius:8px; padding:10px 28px; font-weight:800; font-size:0.95rem; cursor:pointer; display:inline-flex; align-items:center; gap:8px; box-shadow:0 4px 12px rgba(37,99,235,0.25);">
+        <span class="material-symbols-outlined" style="font-size:20px;">save</span> Save Student Admission
+      </button>
+    </div>
+  `;
+
+  container.appendChild(outer);
+
+  // --- DYNAMIC LOGIC & LISTENERS ---
+
+  const elAdmNo = outer.querySelector("#adm_admissionNo");
+  const elBtnRefreshAdmNo = outer.querySelector("#adm_btnRefreshAdmNo");
+  const elClass = outer.querySelector("#adm_className");
+  const elClassApplyingFor = outer.querySelector("#adm_classApplyingFor");
+  const elSection = outer.querySelector("#adm_section");
+  const elRollNo = outer.querySelector("#adm_rollNo");
+  const elDob = outer.querySelector("#adm_dob");
+  const elAge = outer.querySelector("#adm_age");
+  const elPhone1 = outer.querySelector("#adm_phone1");
+  const elPhone = outer.querySelector("#adm_phone");
+  const elWhatsapp = outer.querySelector("#adm_whatsapp");
+  const elSameAsMobile = outer.querySelector("#admSameAsMobileWhatsApp");
+  const elEmergency = outer.querySelector("#adm_emergencyContact");
+  const elSameAsPrimary = outer.querySelector("#admSameAsPrimaryEmergency");
+  const elFatherName = outer.querySelector("#adm_fatherName");
+  const elMotherName = outer.querySelector("#adm_motherName");
+  const elGuardianName = outer.querySelector("#adm_guardianName");
+  const elGuardSameFather = outer.querySelector("#admGuardSameFather");
+  const elGuardSameMother = outer.querySelector("#admGuardSameMother");
+  const elRelation = outer.querySelector("#adm_relation");
+  const elPin = outer.querySelector("#adm_pin");
+  const elPinBadge = outer.querySelector("#adm_pinBadge");
+  const elPost = outer.querySelector("#adm_post");
+  const elPostDatalist = outer.querySelector("#adm_post_datalist");
+  const elDistrict = outer.querySelector("#adm_district");
+  const elState = outer.querySelector("#adm_state");
+  const elTcReceived = outer.querySelector("#adm_tcReceived");
+  const elTcOtherContainer = outer.querySelector("#adm_tcReceivedOtherContainer");
+  const elIsFree = outer.querySelector("#adm_isFreeOfCharge");
+  const elAdmFee = outer.querySelector("#adm_admissionFee");
+  const elMonthlyFee = outer.querySelector("#adm_monthlyFee");
+  const elTransportFee = outer.querySelector("#adm_transportFee");
+
+  // 1. Refresh Admission No
+  if (elBtnRefreshAdmNo) {
+    elBtnRefreshAdmNo.addEventListener("click", () => {
+      const next = generateNextAdmissionNo();
+      if (elAdmNo) elAdmNo.value = next;
+      showToast(`Generated Admission No: ${next}`, "info");
+    });
+  }
+
+  // 2. Class change: auto-assign roll no & auto-fill fee structure
+  const handleClassChange = () => {
+    const selectedClass = elClass.value;
+    if (elClassApplyingFor) elClassApplyingFor.value = selectedClass;
+    
+    // Auto assign roll number
+    if (selectedClass) {
+      const sec = elSection ? elSection.value : "";
+      const nextRoll = getNextRollNoForClass(selectedClass, sec);
+      if (elRollNo && (!isEditing || !elRollNo.value)) {
+        elRollNo.value = nextRoll;
+      }
+      
+      // Auto fetch fees
+      const fees = getFeeStructureForClass(selectedClass);
+      if (elAdmFee && (!isEditing || elAdmFee.value === "0" || !elAdmFee.value)) {
+        elAdmFee.value = fees.admissionFee || "0";
+      }
+      if (elMonthlyFee && !elIsFree.checked && (!isEditing || elMonthlyFee.value === "0" || !elMonthlyFee.value)) {
+        elMonthlyFee.value = fees.monthlyFee || "0";
+      }
+      if (elTransportFee && (!isEditing || elTransportFee.value === "0" || !elTransportFee.value)) {
+        elTransportFee.value = fees.transportFee || "0";
+      }
+    }
+  };
+  if (elClass) elClass.addEventListener("change", handleClassChange);
+  if (elSection) {
+    elSection.addEventListener("change", () => {
+      if (elClass.value && (!isEditing || !elRollNo.value)) {
+        elRollNo.value = getNextRollNoForClass(elClass.value, elSection.value);
+      }
+    });
+  }
+
+  // 3. DOB change: auto-calculate Age
+  if (elDob) {
+    const updateAge = () => {
+      if (elAge && elDob.value) {
+        elAge.value = calculateAgeString(elDob.value);
+      }
+    };
+    elDob.addEventListener("change", updateAge);
+    elDob.addEventListener("input", updateAge);
+  }
+
+  // 4. Primary Mobile & WhatsApp sync
+  if (elPhone1) {
+    elPhone1.addEventListener("input", () => {
+      if (elPhone) elPhone.value = elPhone1.value;
+      if (elSameAsMobile && elSameAsMobile.checked && elWhatsapp) {
+        elWhatsapp.value = elPhone1.value;
+      }
+      if (elSameAsPrimary && elSameAsPrimary.checked && elEmergency) {
+        elEmergency.value = elPhone1.value;
+      }
+    });
+  }
+  if (elSameAsMobile && elWhatsapp && elPhone1) {
+    elSameAsMobile.addEventListener("change", () => {
+      if (elSameAsMobile.checked) {
+        elWhatsapp.value = elPhone1.value;
+      }
+    });
+    elWhatsapp.addEventListener("input", () => {
+      if (elWhatsapp.value !== elPhone1.value) {
+        elSameAsMobile.checked = false;
+      }
+    });
+  }
+
+  // 5. Emergency Contact sync
+  if (elSameAsPrimary && elEmergency && elPhone1) {
+    elSameAsPrimary.addEventListener("change", () => {
+      if (elSameAsPrimary.checked) {
+        elEmergency.value = elPhone1.value;
+      }
+    });
+    elEmergency.addEventListener("input", () => {
+      if (elEmergency.value !== elPhone1.value) {
+        elSameAsPrimary.checked = false;
+      }
+    });
+  }
+
+  // 6. Guardian Same as Father / Mother
+  if (elGuardSameFather && elGuardSameMother && elGuardianName) {
+    elGuardSameFather.addEventListener("change", () => {
+      if (elGuardSameFather.checked) {
+        elGuardSameMother.checked = false;
+        elGuardianName.value = elFatherName ? elFatherName.value : "";
+        if (elRelation) elRelation.value = "Father";
+      }
+    });
+    elGuardSameMother.addEventListener("change", () => {
+      if (elGuardSameMother.checked) {
+        elGuardSameFather.checked = false;
+        elGuardianName.value = elMotherName ? elMotherName.value : "";
+        if (elRelation) elRelation.value = "Mother";
+      }
+    });
+  }
+
+  // 7. PIN Code before Post + Auto-fetch
+  let pinDebounce = null;
+  if (elPin) {
+    elPin.addEventListener("input", () => {
+      clearTimeout(pinDebounce);
+      const val = elPin.value.trim();
+      if (/^\d{6}$/.test(val)) {
+        if (elPinBadge) {
+          elPinBadge.textContent = "Searching...";
+          elPinBadge.style.color = "#2563eb";
+        }
+        pinDebounce = setTimeout(() => {
+          fetchPinCodeLocation(val, (info) => {
+            if (elState && info.state) elState.value = info.state;
+            if (elDistrict && info.district) elDistrict.value = info.district;
+            if (elPostDatalist && info.postOffices) {
+              elPostDatalist.innerHTML = info.postOffices.map(p => `<option value="${escapeHtml(p)}"></option>`).join("");
+            }
+            if (elPost && (!elPost.value || elPost.value.trim() === "") && info.postOffices.length) {
+              elPost.value = info.postOffices[0];
+            }
+            if (elPinBadge) {
+              elPinBadge.textContent = `✓ ${info.district || info.state}`;
+              elPinBadge.style.color = "#16a34a";
+            }
+            showToast(`Verified PIN: ${info.district}, ${info.state}`, "success");
+          });
+        }, 350);
+      } else {
+        if (elPinBadge) {
+          elPinBadge.textContent = "Auto-fetches Area";
+          elPinBadge.style.color = "#64748b";
+        }
+      }
+    });
+  }
+
+  // 8. TC Received other toggle
+  if (elTcReceived && elTcOtherContainer) {
+    elTcReceived.addEventListener("change", () => {
+      elTcOtherContainer.style.display = elTcReceived.value === "Other" ? "block" : "none";
+    });
+  }
+
+  // 9. Free of Charge toggle
+  if (elIsFree && elMonthlyFee) {
+    elIsFree.addEventListener("change", () => {
+      if (elIsFree.checked) {
+        elMonthlyFee.value = "0";
+        elMonthlyFee.readOnly = true;
+        elMonthlyFee.style.background = "#f1f5f9";
+        elMonthlyFee.style.cursor = "not-allowed";
+      } else {
+        elMonthlyFee.readOnly = false;
+        elMonthlyFee.style.background = "#ffffff";
+        elMonthlyFee.style.cursor = "text";
+        if (elClass && elClass.value) {
+          const f = getFeeStructureForClass(elClass.value);
+          elMonthlyFee.value = f.monthlyFee || "0";
+        }
+      }
+    });
+  }
+
+  // 10. + Add buttons for Village, Relation, Occupation, PrevSchool
+  const hookAddButton = (btnId, datalistId, saveFn, promptMsg) => {
+    const btn = outer.querySelector(btnId);
+    if (!btn) return;
+    btn.addEventListener("click", async () => {
+      const val = prompt(promptMsg);
+      if (val && val.trim()) {
+        const clean = val.trim();
+        saveFn(clean);
+        const dl = outer.querySelector(datalistId);
+        if (dl) {
+          const opt = document.createElement("option");
+          opt.value = clean;
+          dl.appendChild(opt);
+        }
+        showToast(`Added "${clean}" for future use`, "success");
+      }
+    });
+  };
+
+  hookAddButton("#adm_btnAddVillage", "#adm_village_datalist", saveCustomVillage, "Enter New Village / Area Name:");
+  hookAddButton("#adm_btnAddRelation", "#adm_relation_datalist", saveCustomRelation, "Enter New Guardian Relation (e.g. Grandfather, Uncle):");
+  hookAddButton("#adm_btnAddOccupation", "#adm_occupation_datalist", saveCustomOccupation, "Enter New Parent Occupation:");
+  hookAddButton("#adm_btnAddPrevSchool", "#adm_prevSchool_datalist", saveCustomPrevSchool, "Enter New Previous School Name:");
+
+  // 11. Live file previews
+  ["photo", "birthCert", "aadharDoc", "tcDoc", "parentIdDoc"].forEach(k => {
+    const fileInp = outer.querySelector(`#adm_${k}`);
+    const prevDiv = outer.querySelector(`#adm_prev_${k}`);
+    if (fileInp && prevDiv) {
+      fileInp.addEventListener("change", () => {
+        const file = fileInp.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            prevDiv.innerHTML = `<img src="${e.target.result}" style="width:60px; height:50px; object-fit:cover; border-radius:6px; border:1px solid #cbd5e1;">`;
+            prevDiv.style.display = "block";
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+    }
+  });
+
+  // If initial values have class, run fee check on edit if fees were empty
+  if (isEditing && elClass && elClass.value && (!elAdmFee.value || elAdmFee.value === "0")) {
+    const f = getFeeStructureForClass(elClass.value);
+    if (!elAdmFee.value || elAdmFee.value === "0") elAdmFee.value = f.admissionFee || "0";
   }
 }
 

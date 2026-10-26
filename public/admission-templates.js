@@ -269,6 +269,7 @@
     const motherTongue = (d.motherTongue || "Hindi").trim();
     const nationality = (d.nationality || "Indian").trim();
     const bloodGroup = (d.bloodGroup || d.blood_group || "B+").trim();
+    const medicalIssue = (d.medicalIssue || d.medical_issue || "None Reported • Medically Fit").trim();
     const formatAadharNumber = (raw) => {
       if (!raw || (typeof raw !== "string" && typeof raw !== "number")) return "N/A";
       const str = String(raw).trim().replace(/[^0-9]/g, "");
@@ -339,7 +340,7 @@
 
     return {
       fullName, admissionNo, rollNo, className, section, session,
-      dob, dobWords, age, gender, category, religion, motherTongue, nationality, bloodGroup,
+      dob, dobWords, age, gender, category, religion, motherTongue, nationality, bloodGroup, medicalIssue,
       aadhar: aadharFormatted, rawAadhar,
       fatherAadhar: fatherAadharFormatted, motherAadhar: motherAadharFormatted,
       rawFatherAadhar, rawMotherAadhar,
