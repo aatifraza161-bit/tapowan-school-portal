@@ -2509,7 +2509,7 @@ async function submitAdmission() {
     localStorage.removeItem("tps_admission_draft_v2");
     closeAdmissionForm();
     const wantPrint = await window.appConfirm("Print Admission Form?");
-      if (wantPrint) generateAdmissionPDF(res);
+      if (wantPrint) { if (typeof window.openAdmissionFormStudio === "function") window.openAdmissionFormStudio(res); else generateAdmissionPDF(res); }
     renderAll();
   } catch (err) {
     hideLoader();
@@ -2518,6 +2518,9 @@ async function submitAdmission() {
 }
 
 function generateAdmissionPDF(student) {
+  if (typeof window.openAdmissionFormStudio === "function") {
+    return window.openAdmissionFormStudio(student);
+  }
   if (typeof jspdf === "undefined") return showToast("PDF Library not loaded", "error");
   const { jsPDF } = jspdf;
   const doc = new jsPDF();
@@ -2628,9 +2631,27 @@ window.printAdmissionById = async (id) => {
   const store = getStore();
   const adm = (store.admissions || []).find(a => Number(a.id) === Number(id));
   if (adm) {
-    generateAdmissionPDF(adm);
+    if (typeof window.openAdmissionFormStudio === "function") {
+      window.openAdmissionFormStudio(adm);
+    } else {
+      generateAdmissionPDF(adm);
+    }
   } else {
     showToast("Admission record not found", "error");
+  }
+};
+
+window.printAdmissionByStudentId = async (id) => {
+  const store = getStore();
+  const st = (store.students || []).find(s => Number(s.id) === Number(id) || String(s.admissionNo || "").toLowerCase() === String(id).toLowerCase());
+  if (st) {
+    if (typeof window.openAdmissionFormStudio === "function") {
+      window.openAdmissionFormStudio(st);
+    } else {
+      generateAdmissionPDF(st);
+    }
+  } else {
+    showToast("Student record not found", "error");
   }
 };
 
@@ -3782,6 +3803,9 @@ function renderTable() {
         <td>
           <div class="student-actions">
             <button class="action-btn action-view" data-action="view" data-id="${item.id}">View</button>
+            <button class="action-btn" onclick="printAdmissionByStudentId(${item.id})" style="background:#e0e7ff;color:#4338ca;border:1px solid #c7d2fe;padding:5px 8px;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:3px;font-weight:700;font-size:0.75rem;" title="Print Official Admission Form">
+              <span class="material-symbols-outlined" style="font-size:15px;">history_edu</span> Form
+            </button>
             ${canWrite ? `<button class="action-btn action-edit" data-action="edit" data-id="${item.id}">Edit</button>` : ""}
             ${canDel ? `<button class="chip" data-delete-id="${item.id}">Delete</button>` : ""}
           </div>
@@ -4023,6 +4047,14 @@ function openStudentProfileById(studentId) {
   studentProfileStudent = student;
   activeStudentProfileTab = "profile";
   renderStudentProfile();
+  const admBtn = document.getElementById("studentProfilePrintAdmBtn");
+  if (admBtn) {
+    admBtn.onclick = () => {
+      if (studentProfileStudent && typeof window.openAdmissionFormStudio === "function") {
+        window.openAdmissionFormStudio(studentProfileStudent);
+      }
+    };
+  }
   refs.studentProfileBackdrop.classList.remove("hidden");
   refs.studentProfileModal.classList.remove("hidden");
   document.body?.classList?.add("no-scroll");

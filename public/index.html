@@ -995,9 +995,14 @@
         <h3 id="studentProfileName">Student Name</h3>
         <p id="studentProfileSub">Class &amp; Roll</p>
       </div>
-      <button id="studentProfileCloseBtn" class="student-profile-close" style="display:inline-flex;align-items:center;gap:4px;">
-        <span class="material-symbols-outlined" style="font-size:16px;">close</span> Close
-      </button>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button id="studentProfilePrintAdmBtn" type="button" class="action-btn" style="background:#e0e7ff;color:#4338ca;border:1px solid #c7d2fe;padding:6px 12px;border-radius:8px;cursor:pointer;font-weight:700;font-size:12px;display:inline-flex;align-items:center;gap:5px;" title="Print Official Admission Form">
+          <span class="material-symbols-outlined" style="font-size:16px;">history_edu</span> Admission Form
+        </button>
+        <button id="studentProfileCloseBtn" class="student-profile-close" style="display:inline-flex;align-items:center;gap:4px;">
+          <span class="material-symbols-outlined" style="font-size:16px;">close</span> Close
+        </button>
+      </div>
     </div>
     <div class="student-profile-tabs">
       <button class="student-profile-tab active" data-tab="profile">Profile</button>
@@ -1304,7 +1309,8 @@
     }
   </script>
   <!-- Pure 512-D ArcFace InsightFace GPU Engine -->
-  <script src="app.js?v=202610260750" defer></script>
+  <script src="admission-templates.js?v=202610261930" defer></script>
+  <script src="app.js?v=202610261930" defer></script>
   <script src="exam_module.js?v=202610231510" defer></script>
   <script src="reports_module.js?v=202610210830" defer></script>
   <script src="online_classes_module.js?v=202610210830" defer></script>
