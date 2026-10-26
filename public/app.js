@@ -21051,261 +21051,695 @@ async function renderAnnouncementsForm(cfg, studentOptions, classOptions, initia
 
   const isEdit = editRecordId != null;
 
-  // Header Banner
-  const headerHtml = `
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom:1px solid #f1f5f9; padding-bottom:12px;">
-      <div style="display:flex; align-items:center; gap:10px;">
-        <span style="background:#eff6ff; padding:8px 12px; border-radius:10px; border:1px solid #bfdbfe; display:inline-flex; align-items:center; justify-content:center;"><span class="material-symbols-outlined" style="font-size:24px; color:#2563eb;">campaign</span></span>
-        <div>
-          <h3 style="margin:0; font-size:1.15rem; color:#0f172a; font-weight:700;">${isEdit ? 'Edit School Announcement' : 'Create New Announcement / Notice'}</h3>
-          <p style="margin:2px 0 0 0; font-size:0.8rem; color:#64748b;">Broadcast alerts, celebrations, exam notices, school accounts, class & student specific notices</p>
-        </div>
+  // 1. Top Sub-Navigation Tabs (Unmissable Banner Controls)
+  const tabsHtml = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; background:linear-gradient(135deg, #f8fafc, #eff6ff); padding:8px 12px; border-radius:12px; border:1.5px solid #bfdbfe; flex-wrap:wrap; gap:10px;">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <button type="button" id="tabBtnAnnouncements" style="background:#2563eb; color:#ffffff; border:none; padding:10px 20px; border-radius:8px; font-weight:700; font-size:0.9rem; cursor:pointer; display:inline-flex; align-items:center; gap:8px; box-shadow:0 2px 4px rgba(37,99,235,0.25);">
+          <span class="material-symbols-outlined" style="font-size:20px;">campaign</span>
+          <span>📢 School Notices</span>
+        </button>
+        <button type="button" id="tabBtnBanners" style="background:#ffffff; color:#0f172a; border:1.5px solid #cbd5e1; padding:10px 20px; border-radius:8px; font-weight:700; font-size:0.9rem; cursor:pointer; display:inline-flex; align-items:center; gap:8px; box-shadow:0 1px 2px rgba(0,0,0,0.05);">
+          <span class="material-symbols-outlined" style="font-size:20px; color:#0284c7;">view_carousel</span>
+          <span>📱 Student App Banners (<span id="inPageBannerCountBadge">...</span>)</span>
+        </button>
       </div>
       <div style="display:flex; align-items:center; gap:8px;">
-        <button type="button" id="btnOpenBannerManager" style="background:#0284c7; color:#ffffff; border:none; padding:7px 14px; border-radius:8px; font-weight:700; font-size:0.82rem; cursor:pointer; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 4px rgba(2,132,199,0.25);" title="Open Student App Banners Carousel Manager">
-          <span class="material-symbols-outlined" style="font-size:18px;">view_carousel</span>
-          <span>Manage App Banners</span>
+        <button type="button" id="btnHeaderAddBanner" style="background:linear-gradient(135deg, #16a34a, #059669); color:#ffffff; border:none; padding:9px 18px; border-radius:8px; font-weight:700; font-size:0.85rem; cursor:pointer; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 4px rgba(22,163,74,0.3);">
+          <span class="material-symbols-outlined" style="font-size:20px;">add_photo_alternate</span>
+          <span>➕ Add New App Banner</span>
         </button>
+      </div>
+    </div>
+  `;
+
+  // 2. View 1: School Notices & Announcements Section
+  const noticeViewHtml = `
+    <div id="viewNoticeSection" style="display:block;">
+      <!-- Header Banner -->
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom:1px solid #f1f5f9; padding-bottom:12px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span style="background:#eff6ff; padding:8px 12px; border-radius:10px; border:1px solid #bfdbfe; display:inline-flex; align-items:center; justify-content:center;"><span class="material-symbols-outlined" style="font-size:24px; color:#2563eb;">campaign</span></span>
+          <div>
+            <h3 style="margin:0; font-size:1.15rem; color:#0f172a; font-weight:700;">${isEdit ? 'Edit School Announcement' : 'Create New Announcement / Notice'}</h3>
+            <p style="margin:2px 0 0 0; font-size:0.8rem; color:#64748b;">Broadcast alerts, celebrations, exam notices, school accounts, class & student specific notices</p>
+          </div>
+        </div>
         ${isEdit ? `<button type="button" class="action-btn" id="btnCancelAnnEdit" style="background:#f1f5f9; color:#475569; border:none; padding:6px 12px; border-radius:8px; font-weight:600; cursor:pointer;">Cancel Edit</button>` : ''}
       </div>
-    </div>
-  `;
 
-  // Quick Preset Templates
-  const templatesHtml = `
-    <div style="margin-bottom:16px; background:#f8fafc; padding:12px 14px; border-radius:10px; border:1px solid #e2e8f0;">
-      <div style="font-size:0.78rem; font-weight:700; color:#475569; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px; display:flex; align-items:center; gap:6px;">
-        <span style="display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:16px; color:#f59e0b;">bolt</span>Quick Preset Templates (Click to fill):</span>
-      </div>
-      <div style="display:flex; flex-wrap:wrap; gap:6px;" id="announcementTemplateBtns">
-        <button type="button" class="chip" data-tpl="celebration" style="background:#f3e8ff; color:#7e22ce; border-color:#d8b4fe; font-size:0.75rem; font-weight:600; cursor:pointer; margin:0; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">celebration</span>Independence / Celebration</button>
-        <button type="button" class="chip" data-tpl="exam" style="background:#e0e7ff; color:#3730a3; border-color:#a5b4fc; font-size:0.75rem; font-weight:600; cursor:pointer; margin:0; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">assignment</span>Mid-Term Exam Notice</button>
-        <button type="button" class="chip" data-tpl="accounts" style="background:#dcfce7; color:#15803d; border-color:#86efac; font-size:0.75rem; font-weight:600; cursor:pointer; margin:0; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">payments</span>Fee Due Notice</button>
-        <button type="button" class="chip" data-tpl="weather" style="background:#fee2e2; color:#dc2626; border-color:#fca5a5; font-size:0.75rem; font-weight:600; cursor:pointer; margin:0; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">warning</span>Weather / Holiday Alert</button>
-        <button type="button" class="chip" data-tpl="ptm" style="background:#e0f2fe; color:#0369a1; border-color:#bae6fd; font-size:0.75rem; font-weight:600; cursor:pointer; margin:0; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">groups</span>PTM Meeting Notice</button>
-      </div>
-    </div>
-  `;
-
-  // Form Fields Grid
-  const formGridHtml = `
-    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:14px; margin-bottom:16px;">
-      <!-- Title -->
-      <div class="field" style="grid-column: 1 / -1;">
-        <label style="font-weight:700; font-size:0.85rem; color:#1e293b; margin-bottom:4px; display:block;">Announcement Title <span style="color:#dc2626;">*</span></label>
-        <input type="text" id="annTitle" name="title" placeholder="e.g. Important Notice: Mid-Term Examination Schedule 2026-27" value="${escapeHtml(initialValues.title || '')}" style="width:100%; padding:10px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.95rem; font-weight:600;" required />
-      </div>
-
-      <!-- Category -->
-      <div class="field">
-        <label style="font-weight:700; font-size:0.85rem; color:#1e293b; margin-bottom:4px; display:block;">Category / Type <span style="color:#dc2626;">*</span></label>
-        <select id="annCategory" name="category" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.9rem; font-weight:600;">
-          <option value="Announcement" ${(initialValues.category === 'Announcement' || !initialValues.category) ? 'selected' : ''}>General Announcement</option>
-          <option value="Alert" ${initialValues.category === 'Alert' ? 'selected' : ''}>Alert (Emergency / Urgent)</option>
-          <option value="Celebration" ${initialValues.category === 'Celebration' ? 'selected' : ''}>Celebration & Events</option>
-          <option value="Exam" ${initialValues.category === 'Exam' ? 'selected' : ''}>Exam Notice & Datesheet</option>
-          <option value="Accounts" ${initialValues.category === 'Accounts' ? 'selected' : ''}>School Accounts & Fee Notice</option>
-          <option value="Holiday" ${initialValues.category === 'Holiday' ? 'selected' : ''}>Holiday & Vacation</option>
-          <option value="PTM" ${initialValues.category === 'PTM' ? 'selected' : ''}>Parent-Teacher Meeting (PTM)</option>
-          <option value="Sports" ${initialValues.category === 'Sports' ? 'selected' : ''}>Sports & Activities</option>
-        </select>
-      </div>
-
-      <!-- Posted By -->
-      <div class="field">
-        <label style="font-weight:700; font-size:0.85rem; color:#1e293b; margin-bottom:4px; display:block;">From / Posted By <span style="color:#dc2626;">*</span></label>
-        <select id="annPostedBy" name="postedBy" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.9rem; font-weight:600;">
-          <option value="Tapowan School Admin" ${(initialValues.postedBy === 'Tapowan School Admin' || !initialValues.postedBy) ? 'selected' : ''}>Tapowan School Admin</option>
-          <option value="Principal Office" ${initialValues.postedBy === 'Principal Office' ? 'selected' : ''}>Principal Office</option>
-          <option value="School Accounts Department" ${initialValues.postedBy === 'School Accounts Department' ? 'selected' : ''}>School Accounts Department</option>
-          <option value="Examination Cell" ${initialValues.postedBy === 'Examination Cell' ? 'selected' : ''}>Examination Cell</option>
-          <option value="Academic Coordinator" ${initialValues.postedBy === 'Academic Coordinator' ? 'selected' : ''}>Academic Coordinator</option>
-          <option value="Class Teacher" ${initialValues.postedBy === 'Class Teacher' ? 'selected' : ''}>Class Teacher</option>
-          <option value="Transport In-charge" ${initialValues.postedBy === 'Transport In-charge' ? 'selected' : ''}>Transport In-charge</option>
-        </select>
-      </div>
-
-      <!-- Target Audience Type -->
-      <div class="field">
-        <label style="font-weight:700; font-size:0.85rem; color:#1e293b; margin-bottom:4px; display:block;">Target Audience / Scope <span style="color:#dc2626;">*</span></label>
-        <select id="annTargetType" name="targetType" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.9rem; font-weight:600;">
-          <option value="all" ${(initialValues.targetType === 'all' || !initialValues.targetType) ? 'selected' : ''}>All School (Broadcast to Everyone)</option>
-          <option value="class" ${initialValues.targetType === 'class' ? 'selected' : ''}>Class Specific</option>
-          <option value="student" ${initialValues.targetType === 'student' ? 'selected' : ''}>Student Specific</option>
-          <option value="staff" ${initialValues.targetType === 'staff' ? 'selected' : ''}>Teachers & Staff Only</option>
-          <option value="parents" ${initialValues.targetType === 'parents' ? 'selected' : ''}>Parents Only</option>
-        </select>
-      </div>
-
-      <!-- Priority -->
-      <div class="field">
-        <label style="font-weight:700; font-size:0.85rem; color:#1e293b; margin-bottom:4px; display:block;">Priority Level</label>
-        <select id="annPriority" name="priority" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.9rem; font-weight:600;">
-          <option value="Normal" ${(initialValues.priority === 'Normal' || !initialValues.priority) ? 'selected' : ''}>Normal / Standard</option>
-          <option value="High" ${initialValues.priority === 'High' ? 'selected' : ''}>High Priority</option>
-          <option value="Urgent" ${initialValues.priority === 'Urgent' ? 'selected' : ''}>Urgent Alert (Pulsing)</option>
-        </select>
-      </div>
-
-      <!-- Date -->
-      <div class="field">
-        <label style="font-weight:700; font-size:0.85rem; color:#1e293b; margin-bottom:4px; display:block;">Notice Date</label>
-        <input type="date" id="annDate" name="date" value="${initialValues.date || todayStr()}" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.9rem;" />
-      </div>
-
-      <!-- Dynamic Class Specific Input -->
-      <div class="field" id="fieldAnnTargetClass" style="display:${initialValues.targetType === 'class' ? 'block' : 'none'};">
-        <label style="font-weight:700; font-size:0.85rem; color:#6d28d9; margin-bottom:4px; display:block;">Select Target Class</label>
-        <select id="annTargetClass" name="targetClass" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid #c4b5fd; font-size:0.9rem; font-weight:600;">
-          <option value="">Choose Class...</option>
-          ${classOptions.map(c => `<option value="${c}" ${initialValues.targetClass === c ? 'selected' : ''}>${c}</option>`).join('')}
-        </select>
-      </div>
-
-      <!-- Dynamic Student Specific Input -->
-      <div class="field" id="fieldAnnTargetStudent" style="grid-column: 1 / -1; display:${initialValues.targetType === 'student' ? 'block' : 'none'};">
-        <label style="font-weight:700; font-size:0.85rem; color:#0284c7; margin-bottom:4px; display:block;">Search & Select Specific Student</label>
-        <select id="annTargetStudent" name="targetStudent" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid #7dd3fc; font-size:0.9rem;">
-          <option value="">Choose Student by Name or Admission No...</option>
-          ${studentOptions.map(s => `<option value="${s.admissionNo}" data-name="${escapeHtml(s.studentName)}" data-class="${escapeHtml(s.className)}" ${initialValues.targetAdmissionNo === s.admissionNo ? 'selected' : ''}>${s.label}</option>`).join('')}
-        </select>
-      </div>
-
-      <!-- Message Content -->
-      <div class="field" style="grid-column: 1 / -1;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-          <label style="font-weight:700; font-size:0.85rem; color:#1e293b;">Announcement Body / Message <span style="color:#dc2626;">*</span></label>
-          <span id="annCharCount" style="font-size:0.75rem; color:#94a3b8;">0 chars</span>
+      <!-- Quick Preset Templates -->
+      <div style="margin-bottom:16px; background:#f8fafc; padding:12px 14px; border-radius:10px; border:1px solid #e2e8f0;">
+        <div style="font-size:0.78rem; font-weight:700; color:#475569; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px; display:flex; align-items:center; gap:6px;">
+          <span style="display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:16px; color:#f59e0b;">bolt</span>Quick Preset Templates (Click to fill):</span>
         </div>
-        <textarea id="annMessage" name="message" rows="5" placeholder="Enter complete announcement details, instructions, date schedules, or important guidelines..." style="width:100%; padding:12px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.92rem; font-family:inherit; line-height:1.5;" required>${escapeHtml(initialValues.message || '')}</textarea>
+        <div style="display:flex; flex-wrap:wrap; gap:6px;" id="announcementTemplateBtns">
+          <button type="button" class="chip" data-tpl="celebration" style="background:#f3e8ff; color:#7e22ce; border-color:#d8b4fe; font-size:0.75rem; font-weight:600; cursor:pointer; margin:0; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">celebration</span>Independence / Celebration</button>
+          <button type="button" class="chip" data-tpl="exam" style="background:#e0e7ff; color:#3730a3; border-color:#a5b4fc; font-size:0.75rem; font-weight:600; cursor:pointer; margin:0; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">assignment</span>Mid-Term Exam Notice</button>
+          <button type="button" class="chip" data-tpl="accounts" style="background:#dcfce7; color:#15803d; border-color:#86efac; font-size:0.75rem; font-weight:600; cursor:pointer; margin:0; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">payments</span>Fee Due Notice</button>
+          <button type="button" class="chip" data-tpl="weather" style="background:#fee2e2; color:#dc2626; border-color:#fca5a5; font-size:0.75rem; font-weight:600; cursor:pointer; margin:0; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">warning</span>Weather / Holiday Alert</button>
+          <button type="button" class="chip" data-tpl="ptm" style="background:#e0f2fe; color:#0369a1; border-color:#bae6fd; font-size:0.75rem; font-weight:600; cursor:pointer; margin:0; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:14px;">groups</span>PTM Meeting Notice</button>
+        </div>
       </div>
 
-      <!-- Cloud Push Sync Checkbox -->
-      <div class="field" style="grid-column: 1 / -1; display:flex; align-items:center; gap:8px; background:#f0fdf4; padding:10px 14px; border-radius:8px; border:1px solid #bbf7d0;">
-        <input type="checkbox" id="annPushSync" name="pushSync" checked style="width:18px; height:18px; cursor:pointer;" />
-        <label for="annPushSync" style="font-weight:600; font-size:0.85rem; color:#15803d; cursor:pointer; display:flex; align-items:center; gap:4px;">
-          <span class="material-symbols-outlined" style="font-size:16px;">send_to_mobile</span>Push to Student Mobile App (Instant In-App Notice & Notifications)
-        </label>
-      </div>
+      <!-- Form Fields Grid -->
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:14px; margin-bottom:16px;">
+        <!-- Title -->
+        <div class="field" style="grid-column: 1 / -1;">
+          <label style="font-weight:700; font-size:0.85rem; color:#1e293b; margin-bottom:4px; display:block;">Announcement Title <span style="color:#dc2626;">*</span></label>
+          <input type="text" id="annTitle" name="title" placeholder="e.g. Important Notice: Mid-Term Examination Schedule 2026-27" value="${escapeHtml(initialValues.title || '')}" style="width:100%; padding:10px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.95rem; font-weight:600;" required />
+        </div>
 
-      <!-- 📱 Student Mobile App Banner Integration Section -->
-      <div class="field" style="grid-column: 1 / -1; background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:12px; padding:16px; margin-top:4px; margin-bottom:4px; transition:all 0.2s ease;" id="annBannerCard">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <div style="display:flex; align-items:center; gap:12px;">
-            <div style="width:40px; height:40px; border-radius:10px; background:#eff6ff; border:1px solid #bfdbfe; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-              <span class="material-symbols-outlined" style="font-size:24px; color:#2563eb;">view_carousel</span>
-            </div>
+        <!-- Banner Shortcut Alert Card (Right under Title) -->
+        <div style="grid-column: 1 / -1; background:#f0fdf4; border:1.5px solid #86efac; border-radius:10px; padding:12px 16px; margin: 2px 0 4px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span class="material-symbols-outlined" style="font-size:24px; color:#16a34a;">view_carousel</span>
             <div>
-              <div style="font-weight:700; font-size:0.95rem; color:#0f172a; display:flex; align-items:center; gap:8px;">
-                <span>Feature in Student Mobile App Banner Carousel</span>
-                <span style="font-size:0.72rem; background:#dbeafe; color:#1e40af; padding:2px 8px; border-radius:6px; font-weight:700;">Mobile App</span>
-              </div>
-              <p style="margin:2px 0 0 0; font-size:0.78rem; color:#64748b;">Displays a high-resolution visual slide banner at the very top of the Student Mobile App home screen</p>
+              <div style="font-weight:700; font-size:0.88rem; color:#14532d;">Student Mobile App Top Banner Carousel</div>
+              <div style="font-size:0.75rem; color:#475569;">Show visual slide banners with delete, toggle, and upload options</div>
             </div>
           </div>
-          <label style="display:inline-flex; align-items:center; gap:8px; cursor:pointer; background:#ffffff; border:1px solid #cbd5e1; padding:6px 14px; border-radius:8px; user-select:none; box-shadow:0 1px 2px rgba(0,0,0,0.05);">
-            <input type="checkbox" id="annIsBanner" name="isBanner" style="width:18px; height:18px; cursor:pointer; accent-color:#2563eb;" />
-            <span style="font-weight:700; font-size:0.85rem; color:#1e293b;">Enable Banner</span>
+          <button type="button" id="btnShortcutManageBanners" style="background:#16a34a; color:#ffffff; border:none; padding:7px 14px; border-radius:8px; font-weight:700; font-size:0.82rem; cursor:pointer; display:inline-flex; align-items:center; gap:4px; box-shadow:0 1px 2px rgba(22,163,74,0.2);">
+            <span class="material-symbols-outlined" style="font-size:16px;">photo_library</span>
+            <span>View & Manage App Banners</span>
+          </button>
+        </div>
+
+        <!-- Category -->
+        <div class="field">
+          <label style="font-weight:700; font-size:0.85rem; color:#1e293b; margin-bottom:4px; display:block;">Category / Type <span style="color:#dc2626;">*</span></label>
+          <select id="annCategory" name="category" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.9rem; font-weight:600;">
+            <option value="Announcement" ${(initialValues.category === 'Announcement' || !initialValues.category) ? 'selected' : ''}>General Announcement</option>
+            <option value="Alert" ${initialValues.category === 'Alert' ? 'selected' : ''}>Alert (Emergency / Urgent)</option>
+            <option value="Celebration" ${initialValues.category === 'Celebration' ? 'selected' : ''}>Celebration & Events</option>
+            <option value="Exam" ${initialValues.category === 'Exam' ? 'selected' : ''}>Exam Notice & Datesheet</option>
+            <option value="Accounts" ${initialValues.category === 'Accounts' ? 'selected' : ''}>School Accounts & Fee Notice</option>
+            <option value="Holiday" ${initialValues.category === 'Holiday' ? 'selected' : ''}>Holiday & Vacation</option>
+            <option value="PTM" ${initialValues.category === 'PTM' ? 'selected' : ''}>Parent-Teacher Meeting (PTM)</option>
+            <option value="Sports" ${initialValues.category === 'Sports' ? 'selected' : ''}>Sports & Activities</option>
+          </select>
+        </div>
+
+        <!-- Posted By -->
+        <div class="field">
+          <label style="font-weight:700; font-size:0.85rem; color:#1e293b; margin-bottom:4px; display:block;">From / Posted By <span style="color:#dc2626;">*</span></label>
+          <select id="annPostedBy" name="postedBy" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.9rem; font-weight:600;">
+            <option value="Tapowan School Admin" ${(initialValues.postedBy === 'Tapowan School Admin' || !initialValues.postedBy) ? 'selected' : ''}>Tapowan School Admin</option>
+            <option value="Principal Office" ${initialValues.postedBy === 'Principal Office' ? 'selected' : ''}>Principal Office</option>
+            <option value="School Accounts Department" ${initialValues.postedBy === 'School Accounts Department' ? 'selected' : ''}>School Accounts Department</option>
+            <option value="Examination Cell" ${initialValues.postedBy === 'Examination Cell' ? 'selected' : ''}>Examination Cell</option>
+            <option value="Academic Coordinator" ${initialValues.postedBy === 'Academic Coordinator' ? 'selected' : ''}>Academic Coordinator</option>
+            <option value="Class Teacher" ${initialValues.postedBy === 'Class Teacher' ? 'selected' : ''}>Class Teacher</option>
+            <option value="Transport In-charge" ${initialValues.postedBy === 'Transport In-charge' ? 'selected' : ''}>Transport In-charge</option>
+          </select>
+        </div>
+
+        <!-- Target Audience Type -->
+        <div class="field">
+          <label style="font-weight:700; font-size:0.85rem; color:#1e293b; margin-bottom:4px; display:block;">Target Audience / Scope <span style="color:#dc2626;">*</span></label>
+          <select id="annTargetType" name="targetType" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.9rem; font-weight:600;">
+            <option value="all" ${(initialValues.targetType === 'all' || !initialValues.targetType) ? 'selected' : ''}>All School (Broadcast to Everyone)</option>
+            <option value="class" ${initialValues.targetType === 'class' ? 'selected' : ''}>Class Specific</option>
+            <option value="student" ${initialValues.targetType === 'student' ? 'selected' : ''}>Student Specific</option>
+            <option value="staff" ${initialValues.targetType === 'staff' ? 'selected' : ''}>Teachers & Staff Only</option>
+            <option value="parents" ${initialValues.targetType === 'parents' ? 'selected' : ''}>Parents Only</option>
+          </select>
+        </div>
+
+        <!-- Priority -->
+        <div class="field">
+          <label style="font-weight:700; font-size:0.85rem; color:#1e293b; margin-bottom:4px; display:block;">Priority Level</label>
+          <select id="annPriority" name="priority" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.9rem; font-weight:600;">
+            <option value="Normal" ${(initialValues.priority === 'Normal' || !initialValues.priority) ? 'selected' : ''}>Normal / Standard</option>
+            <option value="High" ${initialValues.priority === 'High' ? 'selected' : ''}>High Priority</option>
+            <option value="Urgent" ${initialValues.priority === 'Urgent' ? 'selected' : ''}>Urgent Alert (Pulsing)</option>
+          </select>
+        </div>
+
+        <!-- Date -->
+        <div class="field">
+          <label style="font-weight:700; font-size:0.85rem; color:#1e293b; margin-bottom:4px; display:block;">Notice Date</label>
+          <input type="date" id="annDate" name="date" value="${initialValues.date || todayStr()}" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.9rem;" />
+        </div>
+
+        <!-- Dynamic Class Specific Input -->
+        <div class="field" id="fieldAnnTargetClass" style="display:${initialValues.targetType === 'class' ? 'block' : 'none'};">
+          <label style="font-weight:700; font-size:0.85rem; color:#6d28d9; margin-bottom:4px; display:block;">Select Target Class</label>
+          <select id="annTargetClass" name="targetClass" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid #c4b5fd; font-size:0.9rem; font-weight:600;">
+            <option value="">Choose Class...</option>
+            ${classOptions.map(c => `<option value="${c}" ${initialValues.targetClass === c ? 'selected' : ''}>${c}</option>`).join('')}
+          </select>
+        </div>
+
+        <!-- Dynamic Student Specific Input -->
+        <div class="field" id="fieldAnnTargetStudent" style="grid-column: 1 / -1; display:${initialValues.targetType === 'student' ? 'block' : 'none'};">
+          <label style="font-weight:700; font-size:0.85rem; color:#0284c7; margin-bottom:4px; display:block;">Search & Select Specific Student</label>
+          <select id="annTargetStudent" name="targetStudent" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid #7dd3fc; font-size:0.9rem;">
+            <option value="">Choose Student by Name or Admission No...</option>
+            ${studentOptions.map(s => `<option value="${s.admissionNo}" data-name="${escapeHtml(s.studentName)}" data-class="${escapeHtml(s.className)}" ${initialValues.targetAdmissionNo === s.admissionNo ? 'selected' : ''}>${s.label}</option>`).join('')}
+          </select>
+        </div>
+
+        <!-- Message Content -->
+        <div class="field" style="grid-column: 1 / -1;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <label style="font-weight:700; font-size:0.85rem; color:#1e293b;">Announcement Body / Message <span style="color:#dc2626;">*</span></label>
+            <span id="annCharCount" style="font-size:0.75rem; color:#94a3b8;">0 chars</span>
+          </div>
+          <textarea id="annMessage" name="message" rows="5" placeholder="Enter complete announcement details, instructions, date schedules, or important guidelines..." style="width:100%; padding:12px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.92rem; font-family:inherit; line-height:1.5;" required>${escapeHtml(initialValues.message || '')}</textarea>
+        </div>
+
+        <!-- Cloud Push Sync Checkbox -->
+        <div class="field" style="grid-column: 1 / -1; display:flex; align-items:center; gap:8px; background:#f0fdf4; padding:10px 14px; border-radius:8px; border:1px solid #bbf7d0;">
+          <input type="checkbox" id="annPushSync" name="pushSync" checked style="width:18px; height:18px; cursor:pointer;" />
+          <label for="annPushSync" style="font-weight:600; font-size:0.85rem; color:#15803d; cursor:pointer; display:flex; align-items:center; gap:4px;">
+            <span class="material-symbols-outlined" style="font-size:16px;">send_to_mobile</span>Push to Student Mobile App (Instant In-App Notice & Notifications)
           </label>
         </div>
 
-        <!-- Expandable Banner Customizer -->
-        <div id="annBannerSection" style="display:none; margin-top:16px; border-top:1px dashed #cbd5e1; padding-top:16px;">
-          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:18px;">
-            <!-- Left Column: Inputs & Preset Pickers -->
-            <div>
-              <!-- Banner Title Input -->
-              <div style="margin-bottom:12px;">
-                <label style="font-weight:700; font-size:0.83rem; color:#1e293b; display:block; margin-bottom:4px;">Banner Overlay Title <span style="font-size:0.75rem; color:#64748b; font-weight:normal;">(shown on bottom of banner)</span></label>
-                <input type="text" id="annBannerTitle" placeholder="Banner text overlay (e.g. Mid-Term Examination 2026)" style="width:100%; padding:8px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.88rem; font-weight:600;" />
+        <!-- In-Form Student Mobile App Banner Integration Section -->
+        <div class="field" style="grid-column: 1 / -1; background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:12px; padding:16px; margin-top:4px; margin-bottom:4px; transition:all 0.2s ease;" id="annBannerCard">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; align-items:center; gap:12px;">
+              <div style="width:40px; height:40px; border-radius:10px; background:#eff6ff; border:1px solid #bfdbfe; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                <span class="material-symbols-outlined" style="font-size:24px; color:#2563eb;">view_carousel</span>
               </div>
+              <div>
+                <div style="font-weight:700; font-size:0.95rem; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                  <span>Feature in Student Mobile App Banner Carousel</span>
+                  <span style="font-size:0.72rem; background:#dbeafe; color:#1e40af; padding:2px 8px; border-radius:6px; font-weight:700;">Mobile App</span>
+                </div>
+                <p style="margin:2px 0 0 0; font-size:0.78rem; color:#64748b;">Displays a high-resolution visual slide banner at the very top of the Student Mobile App home screen</p>
+              </div>
+            </div>
+            <label style="display:inline-flex; align-items:center; gap:8px; cursor:pointer; background:#ffffff; border:1px solid #cbd5e1; padding:6px 14px; border-radius:8px; user-select:none; box-shadow:0 1px 2px rgba(0,0,0,0.05);">
+              <input type="checkbox" id="annIsBanner" name="isBanner" style="width:18px; height:18px; cursor:pointer; accent-color:#2563eb;" />
+              <span style="font-weight:700; font-size:0.85rem; color:#1e293b;">Enable Banner</span>
+            </label>
+          </div>
 
-              <!-- Image Source Selection Tabs -->
-              <div style="margin-bottom:12px;">
-                <label style="font-weight:700; font-size:0.83rem; color:#1e293b; display:block; margin-bottom:6px;">Choose Banner Image Source:</label>
-                <div style="display:flex; gap:6px; margin-bottom:10px;">
-                  <button type="button" class="chip" id="btnTabUpload" style="background:#2563eb; color:#fff; border-color:#2563eb; font-weight:700; margin:0; cursor:pointer; font-size:0.75rem; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:15px;">upload_file</span> Upload Photo</button>
-                  <button type="button" class="chip" id="btnTabPresets" style="background:#f1f5f9; color:#475569; border-color:#cbd5e1; font-weight:600; margin:0; cursor:pointer; font-size:0.75rem; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:15px;">auto_awesome</span> School Presets</button>
-                  <button type="button" class="chip" id="btnTabUrl" style="background:#f1f5f9; color:#475569; border-color:#cbd5e1; font-weight:600; margin:0; cursor:pointer; font-size:0.75rem; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:15px;">link</span> Custom URL</button>
+          <!-- Expandable Banner Customizer -->
+          <div id="annBannerSection" style="display:none; margin-top:16px; border-top:1px dashed #cbd5e1; padding-top:16px;">
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:18px;">
+              <div>
+                <div style="margin-bottom:12px;">
+                  <label style="font-weight:700; font-size:0.83rem; color:#1e293b; display:block; margin-bottom:4px;">Banner Overlay Title</label>
+                  <input type="text" id="annBannerTitle" placeholder="Banner text overlay (e.g. Mid-Term Examination 2026)" style="width:100%; padding:8px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.88rem; font-weight:600;" />
                 </div>
 
-                <!-- Source 1: File Upload Box -->
-                <div id="boxTabUpload" style="display:block; background:#ffffff; border:2px dashed #93c5fd; border-radius:10px; padding:14px; text-align:center; cursor:pointer;">
-                  <input type="file" id="annBannerFile" accept="image/*" style="display:none;" />
-                  <span class="material-symbols-outlined" style="font-size:32px; color:#3b82f6; display:block; margin-bottom:4px;">add_photo_alternate</span>
-                  <span style="font-size:0.85rem; font-weight:700; color:#1e3a8a; display:block;">Click to choose or drop banner image</span>
-                  <span style="font-size:0.75rem; color:#64748b; display:block; margin-top:2px;">Supports JPG, PNG, WebP (auto-optimized for mobile)</span>
-                  <span id="annUploadFileName" style="display:none; margin-top:6px; font-size:0.78rem; color:#059669; font-weight:700;"></span>
-                </div>
+                <div style="margin-bottom:12px;">
+                  <label style="font-weight:700; font-size:0.83rem; color:#1e293b; display:block; margin-bottom:6px;">Choose Banner Image Source:</label>
+                  <div style="display:flex; gap:6px; margin-bottom:10px;">
+                    <button type="button" class="chip" id="btnTabUpload" style="background:#2563eb; color:#fff; border-color:#2563eb; font-weight:700; margin:0; cursor:pointer; font-size:0.75rem; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:15px;">upload_file</span> Upload Photo</button>
+                    <button type="button" class="chip" id="btnTabPresets" style="background:#f1f5f9; color:#475569; border-color:#cbd5e1; font-weight:600; margin:0; cursor:pointer; font-size:0.75rem; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:15px;">auto_awesome</span> School Presets</button>
+                    <button type="button" class="chip" id="btnTabUrl" style="background:#f1f5f9; color:#475569; border-color:#cbd5e1; font-weight:600; margin:0; cursor:pointer; font-size:0.75rem; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:15px;">link</span> Custom URL</button>
+                  </div>
 
-                <!-- Source 2: Preset Chips -->
-                <div id="boxTabPresets" style="display:none; background:#ffffff; border:1px solid #cbd5e1; border-radius:10px; padding:12px;">
-                  <span style="font-size:0.75rem; color:#64748b; display:block; margin-bottom:8px; font-weight:600;">Click any template to select image:</span>
-                  <div style="display:flex; flex-wrap:wrap; gap:6px;" id="bannerPresetChips">
-                    <button type="button" class="chip" data-img="https://tapowan-school.vercel.app/banners/school_quiz_competition.webp" data-title="Quiz Competition 2026" style="background:#fef3c7; color:#b45309; border-color:#fde68a; font-size:0.75rem; margin:0; cursor:pointer;">🏆 Quiz & Competition</button>
-                    <button type="button" class="chip" data-img="https://tapowan-school.vercel.app/banners/school_event_flag.webp" data-title="Independence Day Celebration" style="background:#e0e7ff; color:#3730a3; border-color:#c7d2fe; font-size:0.75rem; margin:0; cursor:pointer;">🇮🇳 Independence & Events</button>
-                    <button type="button" class="chip" data-img="https://cdn.jsdelivr.net/gh/aatifraza161-bit/tapowan-school-portal@master/banners/banner_1792303908011_opt.jpg" data-title="🌸 Happy Durga Puja 🌸" style="background:#fce7f3; color:#be185d; border-color:#fbcfe8; font-size:0.75rem; margin:0; cursor:pointer;">🌸 Festival & Puja</button>
-                    <button type="button" class="chip" data-img="https://cdn.jsdelivr.net/gh/aatifraza161-bit/tapowan-school-portal@master/abdul_kalam_birthday_banner.jpg" data-title="Dr. A.P.J. Abdul Kalam Anniversary" style="background:#ecfdf5; color:#047857; border-color:#a7f3d0; font-size:0.75rem; margin:0; cursor:pointer;">🚀 Students' Day</button>
+                  <div id="boxTabUpload" style="display:block; background:#ffffff; border:2px dashed #93c5fd; border-radius:10px; padding:14px; text-align:center; cursor:pointer;">
+                    <input type="file" id="annBannerFile" accept="image/*" style="display:none;" />
+                    <span class="material-symbols-outlined" style="font-size:32px; color:#3b82f6; display:block; margin-bottom:4px;">add_photo_alternate</span>
+                    <span style="font-size:0.85rem; font-weight:700; color:#1e3a8a; display:block;">Click to choose or drop banner image</span>
+                    <span style="font-size:0.75rem; color:#64748b; display:block; margin-top:2px;">Supports JPG, PNG, WebP (auto-optimized for mobile)</span>
+                    <span id="annUploadFileName" style="display:none; margin-top:6px; font-size:0.78rem; color:#059669; font-weight:700;"></span>
+                  </div>
+
+                  <div id="boxTabPresets" style="display:none; background:#ffffff; border:1px solid #cbd5e1; border-radius:10px; padding:12px;">
+                    <span style="font-size:0.75rem; color:#64748b; display:block; margin-bottom:8px; font-weight:600;">Click any template to select image:</span>
+                    <div style="display:flex; flex-wrap:wrap; gap:6px;" id="bannerPresetChips">
+                      <button type="button" class="chip" data-img="https://tapowan-school.vercel.app/banners/school_quiz_competition.webp" data-title="Quiz Competition 2026" style="background:#fef3c7; color:#b45309; border-color:#fde68a; font-size:0.75rem; margin:0; cursor:pointer;">🏆 Quiz & Competition</button>
+                      <button type="button" class="chip" data-img="https://tapowan-school.vercel.app/banners/school_event_flag.webp" data-title="Independence Day Celebration" style="background:#e0e7ff; color:#3730a3; border-color:#c7d2fe; font-size:0.75rem; margin:0; cursor:pointer;">🇮🇳 Independence & Events</button>
+                      <button type="button" class="chip" data-img="https://cdn.jsdelivr.net/gh/aatifraza161-bit/tapowan-school-portal@master/banners/banner_1792303908011_opt.jpg" data-title="🌸 Happy Durga Puja 🌸" style="background:#fce7f3; color:#be185d; border-color:#fbcfe8; font-size:0.75rem; margin:0; cursor:pointer;">🌸 Festival & Puja</button>
+                      <button type="button" class="chip" data-img="https://cdn.jsdelivr.net/gh/aatifraza161-bit/tapowan-school-portal@master/abdul_kalam_birthday_banner.jpg" data-title="Dr. A.P.J. Abdul Kalam Anniversary" style="background:#ecfdf5; color:#047857; border-color:#a7f3d0; font-size:0.75rem; margin:0; cursor:pointer;">🚀 Students' Day</button>
+                    </div>
+                  </div>
+
+                  <div id="boxTabUrl" style="display:none;">
+                    <input type="url" id="annBannerUrlInput" placeholder="https://example.com/banner.jpg" style="width:100%; padding:8px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.85rem;" />
                   </div>
                 </div>
 
-                <!-- Source 3: Direct URL Box -->
-                <div id="boxTabUrl" style="display:none;">
-                  <input type="url" id="annBannerUrlInput" placeholder="https://example.com/banner.jpg" style="width:100%; padding:8px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.85rem;" />
+                <div>
+                  <label style="font-weight:700; font-size:0.8rem; color:#475569; display:block; margin-bottom:3px;">Banner Click Action / Link (Optional)</label>
+                  <input type="url" id="annBannerLink" placeholder="https://... or leave blank" style="width:100%; padding:7px 10px; border-radius:7px; border:1px solid #cbd5e1; font-size:0.82rem;" />
                 </div>
               </div>
 
-              <!-- Link Action (Optional) -->
-              <div>
-                <label style="font-weight:700; font-size:0.8rem; color:#475569; display:block; margin-bottom:3px;">Banner Click Action / Link <span style="font-weight:normal; font-size:0.72rem; color:#94a3b8;">(Optional)</span></label>
-                <input type="url" id="annBannerLink" placeholder="https://... or leave blank" style="width:100%; padding:7px 10px; border-radius:7px; border:1px solid #cbd5e1; font-size:0.82rem;" />
-              </div>
-            </div>
-
-            <!-- Right Column: Live Student Mobile Phone Simulator -->
-            <div style="display:flex; flex-direction:column; align-items:center;">
-              <div style="display:flex; justify-content:space-between; align-items:center; width:100%; max-width:340px; margin-bottom:6px;">
-                <span style="font-size:0.75rem; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:0.5px; display:inline-flex; align-items:center; gap:4px;">
-                  <span class="material-symbols-outlined" style="font-size:14px; color:#2563eb;">smartphone</span>
-                  Live Student App Preview
-                </span>
-                <span style="font-size:0.7rem; background:#10b981; color:#fff; padding:1px 6px; border-radius:4px; font-weight:700;">Live Feed</span>
-              </div>
-
-              <!-- Mobile Banner Card (Matches React Native DashboardScreen.js) -->
-              <div id="annBannerPreviewBox" style="width:100%; max-width:340px; height:150px; border-radius:18px; overflow:hidden; position:relative; background:#1e293b; box-shadow:0 8px 16px -4px rgba(0,0,0,0.25); border:1px solid #334155;">
-                <img id="annBannerPreviewImg" src="https://tapowan-school.vercel.app/banners/school_quiz_competition.webp" alt="Banner Preview" style="width:100%; height:100%; object-fit:cover; display:block;" />
-                <!-- RN Linear Gradient overlay simulation -->
-                <div style="position:absolute; bottom:0; left:0; right:0; padding:10px 14px 12px; background:linear-gradient(to top, rgba(15,23,42,0.92) 0%, rgba(15,23,42,0.6) 60%, transparent 100%);">
-                  <div id="annBannerPreviewTitle" style="color:#ffffff; font-size:0.85rem; font-weight:800; letter-spacing:-0.2px; text-shadow:0 1px 2px rgba(0,0,0,0.5); line-height:1.25;">Quiz Competition 2026</div>
+              <!-- Live Mobile Phone Simulator -->
+              <div style="display:flex; flex-direction:column; align-items:center;">
+                <div style="display:flex; justify-content:space-between; align-items:center; width:100%; max-width:340px; margin-bottom:6px;">
+                  <span style="font-size:0.75rem; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:0.5px; display:inline-flex; align-items:center; gap:4px;">
+                    <span class="material-symbols-outlined" style="font-size:14px; color:#2563eb;">smartphone</span>
+                    Live Student App Preview
+                  </span>
+                  <span style="font-size:0.7rem; background:#10b981; color:#fff; padding:1px 6px; border-radius:4px; font-weight:700;">Live Feed</span>
                 </div>
-                <!-- Pagination dots -->
-                <div style="position:absolute; top:8px; right:10px; display:flex; gap:4px;">
-                  <span style="width:12px; height:4px; border-radius:2px; background:#ffffff;"></span>
-                  <span style="width:4px; height:4px; border-radius:2px; background:rgba(255,255,255,0.4);"></span>
-                  <span style="width:4px; height:4px; border-radius:2px; background:rgba(255,255,255,0.4);"></span>
+
+                <div id="annBannerPreviewBox" style="width:100%; max-width:340px; height:150px; border-radius:18px; overflow:hidden; position:relative; background:#1e293b; box-shadow:0 8px 16px -4px rgba(0,0,0,0.25); border:1px solid #334155;">
+                  <img id="annBannerPreviewImg" src="https://tapowan-school.vercel.app/banners/school_quiz_competition.webp" alt="Banner Preview" style="width:100%; height:100%; object-fit:cover; display:block;" />
+                  <div style="position:absolute; bottom:0; left:0; right:0; padding:10px 14px 12px; background:linear-gradient(to top, rgba(15,23,42,0.92) 0%, rgba(15,23,42,0.6) 60%, transparent 100%);">
+                    <div id="annBannerPreviewTitle" style="color:#ffffff; font-size:0.85rem; font-weight:800; letter-spacing:-0.2px; text-shadow:0 1px 2px rgba(0,0,0,0.5); line-height:1.25;">Quiz Competition 2026</div>
+                  </div>
+                  <div style="position:absolute; top:8px; right:10px; display:flex; gap:4px;">
+                    <span style="width:12px; height:4px; border-radius:2px; background:#ffffff;"></span>
+                    <span style="width:4px; height:4px; border-radius:2px; background:rgba(255,255,255,0.4);"></span>
+                    <span style="width:4px; height:4px; border-radius:2px; background:rgba(255,255,255,0.4);"></span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Action Buttons -->
-    <div style="display:flex; justify-content:flex-end; gap:10px; border-top:1px solid #f1f5f9; padding-top:14px;">
-      <button type="button" class="btn secondary" id="btnAnnReset" style="padding:9px 18px; border-radius:8px; font-weight:600;">Clear Form</button>
-      <button type="submit" class="btn primary" id="btnAnnSubmit" style="background:#2563eb; color:#fff; padding:9px 24px; border-radius:8px; font-weight:700; display:inline-flex; align-items:center; gap:8px; cursor:pointer;">
-        <span class="material-symbols-outlined" style="font-size:18px;">campaign</span>
-        <span>${isEdit ? 'Update Announcement' : 'Publish Announcement'}</span>
-      </button>
+      <!-- Action Buttons -->
+      <div style="display:flex; justify-content:flex-end; gap:10px; border-top:1px solid #f1f5f9; padding-top:14px;">
+        <button type="button" class="btn secondary" id="btnAnnReset" style="padding:9px 18px; border-radius:8px; font-weight:600;">Clear Form</button>
+        <button type="submit" class="btn primary" id="btnAnnSubmit" style="background:#2563eb; color:#fff; padding:9px 24px; border-radius:8px; font-weight:700; display:inline-flex; align-items:center; gap:8px; cursor:pointer;">
+          <span class="material-symbols-outlined" style="font-size:18px;">campaign</span>
+          <span>${isEdit ? 'Update Announcement' : 'Publish Announcement'}</span>
+        </button>
+      </div>
     </div>
   `;
 
-  outer.innerHTML = headerHtml + templatesHtml + formGridHtml;
+  // 3. View 2: Dedicated Student App Banners View (Add & Delete Banners Directly!)
+  const bannerViewHtml = `
+    <div id="viewBannerSection" style="display:none;">
+      <!-- Banners View Header -->
+      <div style="background:#ffffff; border-radius:12px; padding:16px 20px; border:1px solid #e2e8f0; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="width:44px; height:44px; border-radius:12px; background:#eff6ff; border:1px solid #bfdbfe; display:flex; align-items:center; justify-content:center;">
+            <span class="material-symbols-outlined" style="font-size:26px; color:#2563eb;">view_carousel</span>
+          </div>
+          <div>
+            <h3 style="margin:0; font-size:1.15rem; font-weight:800; color:#0f172a;">Student Mobile App Top Banners Carousel</h3>
+            <p style="margin:2px 0 0 0; font-size:0.8rem; color:#64748b;">Manage visual slide banners displayed at the very top of the Student Mobile App home screen</p>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <button type="button" id="btnScrollToNewBanner" style="background:#2563eb; color:#ffffff; border:none; padding:8px 16px; border-radius:8px; font-weight:700; font-size:0.82rem; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+            <span class="material-symbols-outlined" style="font-size:18px;">add_circle</span>
+            <span>Add Banner</span>
+          </button>
+          <button type="button" id="btnRefreshInPageBanners" style="background:#f1f5f9; color:#475569; border:none; padding:8px 12px; border-radius:8px; font-weight:600; font-size:0.82rem; cursor:pointer; display:inline-flex; align-items:center; gap:4px;">
+            <span class="material-symbols-outlined" style="font-size:16px;">refresh</span>
+            <span>Refresh</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Add New Banner Card -->
+      <div id="inPageNewBannerCard" style="background:#ffffff; border:2px solid #93c5fd; border-radius:16px; padding:20px; margin-bottom:24px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom:1px solid #f1f5f9; padding-bottom:12px;">
+          <span style="font-weight:800; font-size:1rem; color:#1e3a8a; display:inline-flex; align-items:center; gap:8px;">
+            <span class="material-symbols-outlined" style="font-size:22px; color:#2563eb;">add_photo_alternate</span>
+            <span>➕ Add New Banner to Student App</span>
+          </span>
+          <span style="font-size:0.75rem; background:#dcfce7; color:#15803d; font-weight:700; padding:3px 10px; border-radius:6px;">Instant Live Update</span>
+        </div>
+
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap:20px;">
+          <!-- Left Column: Inputs -->
+          <div>
+            <div style="margin-bottom:14px;">
+              <label style="font-weight:700; font-size:0.85rem; color:#1e293b; display:block; margin-bottom:4px;">Banner Title <span style="color:#dc2626;">*</span></label>
+              <input type="text" id="ipbTitle" placeholder="e.g. Mid-Term Examination Schedule" style="width:100%; padding:10px 14px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.92rem; font-weight:600;" required />
+            </div>
+
+            <div style="margin-bottom:14px;">
+              <label style="font-weight:700; font-size:0.85rem; color:#1e293b; display:block; margin-bottom:6px;">Banner Image Source:</label>
+              <div style="display:flex; gap:6px; margin-bottom:10px;">
+                <button type="button" class="chip" id="ipbTabUpload" style="background:#2563eb; color:#fff; border-color:#2563eb; font-weight:700; margin:0; cursor:pointer; font-size:0.75rem; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:15px;">upload_file</span> Upload Photo</button>
+                <button type="button" class="chip" id="ipbTabPresets" style="background:#f1f5f9; color:#475569; border-color:#cbd5e1; font-weight:600; margin:0; cursor:pointer; font-size:0.75rem; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:15px;">auto_awesome</span> Presets</button>
+                <button type="button" class="chip" id="ipbTabUrl" style="background:#f1f5f9; color:#475569; border-color:#cbd5e1; font-weight:600; margin:0; cursor:pointer; font-size:0.75rem; display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:15px;">link</span> Image URL</button>
+              </div>
+
+              <!-- Upload Box -->
+              <div id="ipbBoxUpload" style="background:#f8fafc; border:2px dashed #93c5fd; border-radius:10px; padding:16px; text-align:center; cursor:pointer;">
+                <input type="file" id="ipbFileInput" accept="image/*" style="display:none;" />
+                <span class="material-symbols-outlined" style="font-size:32px; color:#3b82f6;">cloud_upload</span>
+                <div style="font-size:0.85rem; font-weight:700; color:#1e3a8a;">Click to select or drop banner photo</div>
+                <div style="font-size:0.75rem; color:#64748b;">Supports JPG, PNG, WebP</div>
+                <div id="ipbUploadLabel" style="display:none; font-size:0.78rem; color:#059669; font-weight:700; margin-top:6px;"></div>
+              </div>
+
+              <!-- Presets Box -->
+              <div id="ipbBoxPresets" style="display:none; background:#f8fafc; border:1px solid #cbd5e1; border-radius:10px; padding:12px;">
+                <div style="display:flex; flex-wrap:wrap; gap:6px;" id="ipbPresetChips">
+                  <button type="button" class="chip" data-img="https://tapowan-school.vercel.app/banners/school_quiz_competition.webp" data-title="Quiz Competition 2026" style="background:#fef3c7; color:#b45309; border-color:#fde68a; font-size:0.75rem; margin:0; cursor:pointer;">🏆 Quiz</button>
+                  <button type="button" class="chip" data-img="https://tapowan-school.vercel.app/banners/school_event_flag.webp" data-title="Independence Day Celebration" style="background:#e0e7ff; color:#3730a3; border-color:#c7d2fe; font-size:0.75rem; margin:0; cursor:pointer;">🇮🇳 Independence</button>
+                  <button type="button" class="chip" data-img="https://cdn.jsdelivr.net/gh/aatifraza161-bit/tapowan-school-portal@master/banners/banner_1792303908011_opt.jpg" data-title="🌸 Happy Durga Puja 🌸" style="background:#fce7f3; color:#be185d; border-color:#fbcfe8; font-size:0.75rem; margin:0; cursor:pointer;">🌸 Festival</button>
+                  <button type="button" class="chip" data-img="https://cdn.jsdelivr.net/gh/aatifraza161-bit/tapowan-school-portal@master/abdul_kalam_birthday_banner.jpg" data-title="Dr. A.P.J. Abdul Kalam Anniversary" style="background:#ecfdf5; color:#047857; border-color:#a7f3d0; font-size:0.75rem; margin:0; cursor:pointer;">🚀 Students' Day</button>
+                </div>
+              </div>
+
+              <!-- URL Box -->
+              <div id="ipbBoxUrl" style="display:none;">
+                <input type="url" id="ipbUrlInput" placeholder="https://example.com/banner.jpg" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:0.88rem;" />
+              </div>
+            </div>
+
+            <div style="margin-bottom:16px;">
+              <label style="font-weight:700; font-size:0.8rem; color:#475569; display:block; margin-bottom:3px;">Link Action / Web URL (Optional)</label>
+              <input type="url" id="ipbLinkInput" placeholder="https://... or leave blank" style="width:100%; padding:8px 12px; border-radius:7px; border:1px solid #cbd5e1; font-size:0.85rem;" />
+            </div>
+
+            <button type="button" id="btnPublishInPageBanner" style="background:linear-gradient(135deg, #2563eb, #1d4ed8); color:#ffffff; border:none; padding:11px 24px; border-radius:10px; font-weight:800; font-size:0.92rem; cursor:pointer; display:inline-flex; align-items:center; gap:8px; width:100%; justify-content:center; box-shadow:0 4px 6px -1px rgba(37,99,235,0.3);">
+              <span class="material-symbols-outlined" style="font-size:22px;">publish</span>
+              <span>Publish Banner to Student Mobile App</span>
+            </button>
+          </div>
+
+          <!-- Right Column: Live Mobile Phone Simulator Preview -->
+          <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; background:#f1f5f9; border-radius:14px; padding:16px; border:1px solid #e2e8f0;">
+            <div style="display:flex; justify-content:space-between; align-items:center; width:100%; max-width:320px; margin-bottom:8px;">
+              <span style="font-size:0.75rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; display:inline-flex; align-items:center; gap:4px;">
+                <span class="material-symbols-outlined" style="font-size:16px; color:#2563eb;">smartphone</span>
+                Student App Preview
+              </span>
+              <span style="font-size:0.68rem; background:#10b981; color:#fff; padding:2px 7px; border-radius:4px; font-weight:800;">Real Phone Display</span>
+            </div>
+            <div style="width:100%; max-width:320px; height:150px; border-radius:18px; overflow:hidden; position:relative; background:#1e293b; box-shadow:0 10px 20px -5px rgba(0,0,0,0.3); border:1.5px solid #334155;">
+              <img id="ipbPreviewImg" src="https://tapowan-school.vercel.app/banners/school_quiz_competition.webp" alt="Preview" style="width:100%; height:100%; object-fit:cover; display:block;" />
+              <div style="position:absolute; bottom:0; left:0; right:0; padding:10px 14px 12px; background:linear-gradient(to top, rgba(15,23,42,0.92) 0%, rgba(15,23,42,0.6) 60%, transparent 100%);">
+                <div id="ipbPreviewTitle" style="color:#ffffff; font-size:0.88rem; font-weight:800; letter-spacing:-0.2px; text-shadow:0 1px 2px rgba(0,0,0,0.6); line-height:1.25;">Quiz Competition 2026</div>
+              </div>
+              <div style="position:absolute; top:8px; right:10px; display:flex; gap:4px;">
+                <span style="width:12px; height:4px; border-radius:2px; background:#ffffff;"></span>
+                <span style="width:4px; height:4px; border-radius:2px; background:rgba(255,255,255,0.4);"></span>
+                <span style="width:4px; height:4px; border-radius:2px; background:rgba(255,255,255,0.4);"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Current Carousel Banners Section (With Clear Delete & Toggle Buttons) -->
+      <div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <h4 style="margin:0; font-size:1.05rem; font-weight:800; color:#0f172a; display:inline-flex; align-items:center; gap:8px;">
+            <span class="material-symbols-outlined" style="font-size:22px; color:#2563eb;">collections</span>
+            <span>All Current Carousel Banners</span>
+            <span id="ipbListCountBadge" style="font-size:0.75rem; background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; padding:2px 8px; border-radius:12px; font-weight:700;">Loading...</span>
+          </h4>
+        </div>
+
+        <div id="ipbBannerGrid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:16px;">
+          <div style="text-align:center; padding:30px; color:#64748b; font-size:0.88rem; grid-column:1/-1;">Loading banners from Turso Database...</div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  outer.innerHTML = tabsHtml + noticeViewHtml + bannerViewHtml;
   container.appendChild(outer);
 
-  // Wire event handlers
+  // 4. Wire Sub-Tab Switching
+  const tabBtnAnn = outer.querySelector('#tabBtnAnnouncements');
+  const tabBtnBan = outer.querySelector('#tabBtnBanners');
+  const viewNotice = outer.querySelector('#viewNoticeSection');
+  const viewBanner = outer.querySelector('#viewBannerSection');
+  const btnHeaderAdd = outer.querySelector('#btnHeaderAddBanner');
+  const btnShortcut = outer.querySelector('#btnShortcutManageBanners');
+
+  const switchTab = (tab) => {
+    if (tab === 'banners') {
+      tabBtnBan.style.background = '#2563eb';
+      tabBtnBan.style.color = '#ffffff';
+      tabBtnBan.style.border = 'none';
+      tabBtnBan.style.boxShadow = '0 2px 4px rgba(37,99,235,0.25)';
+      
+      tabBtnAnn.style.background = '#ffffff';
+      tabBtnAnn.style.color = '#0f172a';
+      tabBtnAnn.style.border = '1.5px solid #cbd5e1';
+      tabBtnAnn.style.boxShadow = '0 1px 2px rgba(0,0,0,0.05)';
+
+      viewNotice.style.display = 'none';
+      viewBanner.style.display = 'block';
+      loadInPageViewBanners();
+    } else {
+      tabBtnAnn.style.background = '#2563eb';
+      tabBtnAnn.style.color = '#ffffff';
+      tabBtnAnn.style.border = 'none';
+      tabBtnAnn.style.boxShadow = '0 2px 4px rgba(37,99,235,0.25)';
+
+      tabBtnBan.style.background = '#ffffff';
+      tabBtnBan.style.color = '#0f172a';
+      tabBtnBan.style.border = '1.5px solid #cbd5e1';
+      tabBtnBan.style.boxShadow = '0 1px 2px rgba(0,0,0,0.05)';
+
+      viewNotice.style.display = 'block';
+      viewBanner.style.display = 'none';
+    }
+  };
+
+  tabBtnAnn.addEventListener('click', () => switchTab('announcements'));
+  tabBtnBan.addEventListener('click', () => switchTab('banners'));
+  btnShortcut.addEventListener('click', () => switchTab('banners'));
+  btnHeaderAdd.addEventListener('click', () => {
+    switchTab('banners');
+    const titleInput = outer.querySelector('#ipbTitle');
+    if (titleInput) {
+      titleInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      titleInput.focus();
+    }
+  });
+
+  // 5. Wire In-Page Banners Management (Add, Toggle, Delete)
+  let ipbUploadedBase64 = null;
+  const ipbTitle = outer.querySelector('#ipbTitle');
+  const ipbPreviewTitle = outer.querySelector('#ipbPreviewTitle');
+  const ipbPreviewImg = outer.querySelector('#ipbPreviewImg');
+  const ipbFileInput = outer.querySelector('#ipbFileInput');
+  const ipbBoxUpload = outer.querySelector('#ipbBoxUpload');
+  const ipbBoxPresets = outer.querySelector('#ipbBoxPresets');
+  const ipbBoxUrl = outer.querySelector('#ipbBoxUrl');
+  const ipbTabUpload = outer.querySelector('#ipbTabUpload');
+  const ipbTabPresets = outer.querySelector('#ipbTabPresets');
+  const ipbTabUrl = outer.querySelector('#ipbTabUrl');
+  const ipbUrlInput = outer.querySelector('#ipbUrlInput');
+  const ipbLinkInput = outer.querySelector('#ipbLinkInput');
+  const ipbUploadLabel = outer.querySelector('#ipbUploadLabel');
+  const btnPublishInPageBanner = outer.querySelector('#btnPublishInPageBanner');
+  const ipbBannerGrid = outer.querySelector('#ipbBannerGrid');
+  const inPageBannerCountBadge = outer.querySelector('#inPageBannerCountBadge');
+  const ipbListCountBadge = outer.querySelector('#ipbListCountBadge');
+  const btnRefreshInPageBanners = outer.querySelector('#btnRefreshInPageBanners');
+
+  ipbTitle.addEventListener('input', () => {
+    ipbPreviewTitle.textContent = ipbTitle.value.trim() || 'Banner Title';
+  });
+
+  const setIpbTab = (tab) => {
+    [ipbTabUpload, ipbTabPresets, ipbTabUrl].forEach(b => {
+      b.style.background = '#f1f5f9';
+      b.style.color = '#475569';
+      b.style.borderColor = '#cbd5e1';
+    });
+    [ipbBoxUpload, ipbBoxPresets, ipbBoxUrl].forEach(bx => bx.style.display = 'none');
+
+    if (tab === 'upload') {
+      ipbTabUpload.style.background = '#2563eb';
+      ipbTabUpload.style.color = '#fff';
+      ipbTabUpload.style.borderColor = '#2563eb';
+      ipbBoxUpload.style.display = 'block';
+    } else if (tab === 'presets') {
+      ipbTabPresets.style.background = '#2563eb';
+      ipbTabPresets.style.color = '#fff';
+      ipbTabPresets.style.borderColor = '#2563eb';
+      ipbBoxPresets.style.display = 'block';
+    } else if (tab === 'url') {
+      ipbTabUrl.style.background = '#2563eb';
+      ipbTabUrl.style.color = '#fff';
+      ipbTabUrl.style.borderColor = '#2563eb';
+      ipbBoxUrl.style.display = 'block';
+    }
+  };
+
+  ipbTabUpload.addEventListener('click', () => setIpbTab('upload'));
+  ipbTabPresets.addEventListener('click', () => setIpbTab('presets'));
+  ipbTabUrl.addEventListener('click', () => setIpbTab('url'));
+
+  ipbBoxUpload.addEventListener('click', (e) => {
+    if (e.target !== ipbFileInput) ipbFileInput.click();
+  });
+  ipbFileInput.addEventListener('change', (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (re) => {
+      ipbUploadedBase64 = re.target.result;
+      ipbPreviewImg.src = ipbUploadedBase64;
+      ipbUploadLabel.style.display = 'block';
+      ipbUploadLabel.textContent = 'Selected: ' + file.name + ' (' + Math.round(file.size / 1024) + ' KB)';
+      showToast('Banner photo loaded!', 'success');
+    };
+    reader.readAsDataURL(file);
+  });
+
+  outer.querySelectorAll('#ipbPresetChips button[data-img]').forEach(chip => {
+    chip.addEventListener('click', () => {
+      ipbUploadedBase64 = null;
+      ipbPreviewImg.src = chip.dataset.img;
+      if (!ipbTitle.value.trim()) {
+        ipbTitle.value = chip.dataset.title;
+        ipbPreviewTitle.textContent = chip.dataset.title;
+      }
+      showToast('Selected preset image', 'success');
+    });
+  });
+
+  ipbUrlInput.addEventListener('input', () => {
+    ipbUploadedBase64 = null;
+    const v = ipbUrlInput.value.trim();
+    if (v) ipbPreviewImg.src = v;
+  });
+
+  // Publish new banner
+  btnPublishInPageBanner.addEventListener('click', async () => {
+    const t = ipbTitle.value.trim();
+    if (!t) return showToast('Please enter a banner title', 'error');
+    const imgSrc = ipbPreviewImg.src;
+    if (!imgSrc) return showToast('Please select or upload a banner image', 'error');
+
+    btnPublishInPageBanner.disabled = true;
+    btnPublishInPageBanner.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;animation:spin 1s linear infinite;">progress_activity</span> Publishing...';
+
+    try {
+      const res = await api('/api/school-banners', {
+        method: 'POST',
+        body: JSON.stringify({
+          title: t,
+          image_url: imgSrc,
+          link_url: ipbLinkInput.value.trim() || null,
+          mediaBase64: ipbUploadedBase64 || null,
+          is_active: 1
+        })
+      });
+
+      if (res && res.ok) {
+        showToast('🎉 Banner published successfully to Student Mobile App!', 'success');
+        ipbTitle.value = '';
+        ipbLinkInput.value = '';
+        ipbUploadedBase64 = null;
+        ipbUploadLabel.style.display = 'none';
+        loadInPageViewBanners();
+      } else {
+        showToast(res?.error || 'Failed to publish banner', 'error');
+      }
+    } catch (err) {
+      showToast('Error: ' + err.message, 'error');
+    } finally {
+      btnPublishInPageBanner.disabled = false;
+      btnPublishInPageBanner.innerHTML = '<span class="material-symbols-outlined" style="font-size:20px;">publish</span><span>Publish Banner to Student Mobile App</span>';
+    }
+  });
+
+  // Load and render in-page banners with Delete and Toggle controls
+  async function loadInPageViewBanners() {
+    try {
+      ipbBannerGrid.innerHTML = '<div style="text-align:center; padding:30px; color:#64748b; font-size:0.88rem; grid-column:1/-1;">Loading banners from Turso Database...</div>';
+      const res = await api('/api/school-banners');
+      const banners = res?.banners || [];
+      const activeCount = banners.filter(b => b.is_active == 1).length;
+      const countText = banners.length + ' banners (' + activeCount + ' active)';
+      
+      if (inPageBannerCountBadge) inPageBannerCountBadge.textContent = countText;
+      if (ipbListCountBadge) ipbListCountBadge.textContent = countText;
+
+      if (!banners.length) {
+        ipbBannerGrid.innerHTML = '<div style="text-align:center; padding:40px; color:#64748b; font-size:0.92rem; grid-column:1/-1;">No banners found. Use the form above to add your first Student App Banner!</div>';
+        return;
+      }
+
+      ipbBannerGrid.innerHTML = banners.map(b => {
+        const isActive = Number(b.is_active) === 1;
+        const createdStr = b.created_at ? new Date(b.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Recent';
+        return `
+          <div style="background:#ffffff; border:1.5px solid ${isActive ? '#93c5fd' : '#cbd5e1'}; border-radius:14px; overflow:hidden; box-shadow:0 2px 6px rgba(0,0,0,0.06); display:flex; flex-direction:column; position:relative;">
+            <!-- Thumbnail with title overlay -->
+            <div style="height:135px; position:relative; background:#1e293b; overflow:hidden;">
+              <img src="${escapeHtml(b.image_url)}" alt="Banner" style="width:100%; height:100%; object-fit:cover; display:block;" onerror="this.src='https://tapowan-school.vercel.app/banners/school_quiz_competition.webp'" />
+              <div style="position:absolute; bottom:0; left:0; right:0; padding:10px 12px; background:linear-gradient(to top, rgba(15,23,42,0.95), transparent);">
+                <div style="color:#ffffff; font-weight:800; font-size:0.85rem; line-height:1.25; text-shadow:0 1px 2px rgba(0,0,0,0.6);">${escapeHtml(b.title || 'Untitled Banner')}</div>
+              </div>
+              <span style="position:absolute; top:8px; left:8px; font-size:0.7rem; font-weight:800; padding:3px 8px; border-radius:6px; background:${isActive ? '#10b981' : '#64748b'}; color:#ffffff; box-shadow:0 1px 3px rgba(0,0,0,0.25);">
+                ${isActive ? '🟢 Live on App' : '⚪ Hidden'}
+              </span>
+            </div>
+
+            <!-- Card Actions (Clear Delete & Toggle Buttons) -->
+            <div style="padding:12px 14px; display:flex; justify-content:space-between; align-items:center; background:#ffffff; border-top:1px solid #f1f5f9;">
+              <div style="font-size:0.75rem; color:#64748b;">
+                <span class="material-symbols-outlined" style="font-size:13px; vertical-align:middle;">calendar_today</span> ${createdStr}
+              </div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <button type="button" class="btn-inpage-toggle" data-id="${b.id}" style="background:${isActive ? '#fef2f2' : '#f0fdf4'}; color:${isActive ? '#dc2626' : '#15803d'}; border:1px solid ${isActive ? '#fecaca' : '#bbf7d0'}; padding:6px 10px; border-radius:6px; font-size:0.78rem; font-weight:700; cursor:pointer;" title="${isActive ? 'Hide from student app' : 'Show live on student app'}">
+                  ${isActive ? 'Hide' : 'Show Live'}
+                </button>
+                <button type="button" class="btn-inpage-del" data-id="${b.id}" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; padding:6px 10px; border-radius:6px; font-size:0.78rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:3px;" title="Delete Banner from Student App">
+                  <span class="material-symbols-outlined" style="font-size:15px;">delete</span>
+                  <span>Delete</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Wire in-page toggle
+      ipbBannerGrid.querySelectorAll('.btn-inpage-toggle').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.dataset.id;
+          btn.disabled = true;
+          try {
+            const tres = await api('/api/school-banners/' + id + '/toggle', { method: 'PUT' });
+            if (tres && tres.ok) {
+              showToast('Banner status updated!', 'success');
+              loadInPageViewBanners();
+            } else {
+              showToast(tres?.error || 'Toggle failed', 'error');
+            }
+          } catch (err) {
+            showToast('Error: ' + err.message, 'error');
+          }
+        });
+      });
+
+      // Wire in-page delete
+      ipbBannerGrid.querySelectorAll('.btn-inpage-del').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.dataset.id;
+          if (!confirm('Are you sure you want to DELETE this banner from the Student Mobile App?')) return;
+          btn.disabled = true;
+          try {
+            const dres = await api('/api/school-banners/' + id, { method: 'DELETE' });
+            if (dres && dres.ok) {
+              showToast('Banner deleted successfully!', 'success');
+              loadInPageViewBanners();
+            } else {
+              showToast(dres?.error || 'Delete failed', 'error');
+            }
+          } catch (err) {
+            showToast('Error: ' + err.message, 'error');
+          }
+        });
+      });
+    } catch (err) {
+      console.error('[loadInPageViewBanners error]', err);
+      ipbBannerGrid.innerHTML = '<div style="text-align:center; padding:30px; color:#dc2626; font-size:0.85rem; grid-column:1/-1;">Failed to load banners: ' + escapeHtml(err.message) + '</div>';
+    }
+  }
+
+  btnRefreshInPageBanners.addEventListener('click', loadInPageViewBanners);
+  // Initial banner count fetch
+  api('/api/school-banners').then(res => {
+    const banners = res?.banners || [];
+    const activeCount = banners.filter(b => b.is_active == 1).length;
+    if (inPageBannerCountBadge) inPageBannerCountBadge.textContent = banners.length + ' (' + activeCount + ' live)';
+  }).catch(() => {});
+
+  // 6. Wire Notice Form Handlers
   const targetTypeSelect = outer.querySelector('#annTargetType');
   const fieldTargetClass = outer.querySelector('#fieldAnnTargetClass');
   const fieldTargetStudent = outer.querySelector('#fieldAnnTargetStudent');
@@ -21353,7 +21787,7 @@ async function renderAnnouncementsForm(cfg, studentOptions, classOptions, initia
       message: "Dear Parents, kindly clear the outstanding tuition and transport fees for the current session by the 10th of this month to avoid late fee charges. Payment can be made online via UPI or at the school fee counter."
     },
     weather: {
-      title: "🚨 Weather Alert: School Closed Tomorrow",
+      title: "⚠️ Weather Alert: School Closed Tomorrow",
       category: "Alert",
       postedBy: "Principal Office",
       priority: "Urgent",
@@ -21361,7 +21795,7 @@ async function renderAnnouncementsForm(cfg, studentOptions, classOptions, initia
       message: "Due to heavy rainfall and official district administration advisory, Tapowan Public School will remain closed tomorrow for all classes. Online study materials and assignments will be shared on the app. Regular classes resume the day after."
     },
     ptm: {
-      title: "👨‍👩‍👧 Invitation for Parent-Teacher Meeting (PTM)",
+      title: "👨‍👩‍👧‍👦 Invitation for Parent-Teacher Meeting (PTM)",
       category: "PTM",
       postedBy: "Principal Office",
       priority: "Normal",
@@ -21382,20 +21816,11 @@ async function renderAnnouncementsForm(cfg, studentOptions, classOptions, initia
       outer.querySelector('#annMessage').value = tpl.message;
       targetTypeSelect.dispatchEvent(new Event('change'));
       updateCharCount();
-      showToast(`⚡ Filled "${tpl.title}" template!`, "success");
+      showToast(`✨ Filled "${tpl.title}" template!`, "success");
     });
   });
 
-  const btnCancel = outer.querySelector('#btnCancelAnnEdit');
-  if (btnCancel) {
-    btnCancel.addEventListener('click', () => {
-      editRecordId = null;
-      renderForm(true);
-      renderTable();
-    });
-  }
-
-  // 📱 Wire Student App Banner Controls
+  // Wire In-Form Banner Controls
   const annIsBannerCb = outer.querySelector('#annIsBanner');
   const annBannerSection = outer.querySelector('#annBannerSection');
   const annBannerTitleInput = outer.querySelector('#annBannerTitle');
@@ -21424,7 +21849,6 @@ async function renderAnnouncementsForm(cfg, studentOptions, classOptions, initia
       }
     });
 
-    // Auto sync announcement title to banner title if user hasn't explicitly customized banner title
     const annTitleInput = outer.querySelector('#annTitle');
     if (annTitleInput) {
       annTitleInput.addEventListener('input', () => {
@@ -21444,7 +21868,6 @@ async function renderAnnouncementsForm(cfg, studentOptions, classOptions, initia
       });
     }
 
-    // Source tab switching
     const setSourceTab = (tab) => {
       [btnTabUpload, btnTabPresets, btnTabUrl].forEach(b => {
         if (!b) return;
@@ -21476,7 +21899,6 @@ async function renderAnnouncementsForm(cfg, studentOptions, classOptions, initia
     if (btnTabPresets) btnTabPresets.addEventListener('click', () => setSourceTab('presets'));
     if (btnTabUrl) btnTabUrl.addEventListener('click', () => setSourceTab('url'));
 
-    // File upload box click -> trigger hidden file input
     if (boxTabUpload && annBannerFileInput) {
       boxTabUpload.addEventListener('click', (e) => {
         if (e.target !== annBannerFileInput) annBannerFileInput.click();
@@ -21502,7 +21924,6 @@ async function renderAnnouncementsForm(cfg, studentOptions, classOptions, initia
       });
     }
 
-    // Presets clickers
     outer.querySelectorAll('#bannerPresetChips button[data-img]').forEach(chip => {
       chip.addEventListener('click', () => {
         window._lastUploadedBannerBase64 = null;
@@ -21515,7 +21936,6 @@ async function renderAnnouncementsForm(cfg, studentOptions, classOptions, initia
       });
     });
 
-    // Custom URL input
     if (annBannerUrlInput) {
       annBannerUrlInput.addEventListener('input', () => {
         window._lastUploadedBannerBase64 = null;
@@ -21525,13 +21945,12 @@ async function renderAnnouncementsForm(cfg, studentOptions, classOptions, initia
     }
   }
 
-  // Wire Manage App Banners header button
-  const btnOpenBannerManager = outer.querySelector('#btnOpenBannerManager');
-  if (btnOpenBannerManager) {
-    btnOpenBannerManager.addEventListener('click', () => {
-      if (typeof window.openStudentBannerManager === 'function') {
-        window.openStudentBannerManager();
-      }
+  const btnCancel = outer.querySelector('#btnCancelAnnEdit');
+  if (btnCancel) {
+    btnCancel.addEventListener('click', () => {
+      editRecordId = null;
+      renderForm(true);
+      renderTable();
     });
   }
 
