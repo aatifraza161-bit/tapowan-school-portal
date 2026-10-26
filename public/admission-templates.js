@@ -30,10 +30,10 @@
       widthMm: 210,
       heightMm: 297,
       orientation: "portrait",
-      pageRule: "@page { size: A4 portrait; margin: 6mm 6mm; }",
+      pageRule: "@page { size: A4 portrait; margin: 0; }",
       previewWidth: "794px",
-      previewMinHeight: "1070px",
-      targetDocHeight: "1055px"
+      previewMinHeight: "1123px",
+      targetDocHeight: "1123px"
     },
     a5: {
       id: "a5",
@@ -42,10 +42,10 @@
       widthMm: 148,
       heightMm: 210,
       orientation: "portrait",
-      pageRule: "@page { size: A5 portrait; margin: 4mm 4mm; }",
+      pageRule: "@page { size: A5 portrait; margin: 0; }",
       previewWidth: "560px",
-      previewMinHeight: "750px",
-      targetDocHeight: "740px"
+      previewMinHeight: "794px",
+      targetDocHeight: "794px"
     },
     a3: {
       id: "a3",
@@ -54,10 +54,10 @@
       widthMm: 420,
       heightMm: 297,
       orientation: "landscape",
-      pageRule: "@page { size: A3 landscape; margin: 8mm 8mm; }",
-      previewWidth: "1480px",
-      previewMinHeight: "1050px",
-      targetDocHeight: "1040px"
+      pageRule: "@page { size: A3 landscape; margin: 0; }",
+      previewWidth: "1588px",
+      previewMinHeight: "1123px",
+      targetDocHeight: "1123px"
     }
   };
 
@@ -90,7 +90,7 @@
 
     const name = getSettingVal('school_name') || (window.currentSchool && window.currentSchool.name) || "TAPOWAN PUBLIC SCHOOL";
     const tagline = getSettingVal('school_tagline') || "Quality Education for a Brighter Future";
-    const affiliation = getSettingVal('school_affiliation') || "Affiliated to CBSE, New Delhi • Affiliation No. CBSE/TPS/2026 • School Code: 65219";
+    const affiliation = getSettingVal('school_affiliation') || (window.currentSchool && window.currentSchool.affiliation) || "";
     const campus = getSettingVal('school_address') || aiAddress || "Prem Nagar Tapin North, Ramgarh, Jharkhand - 825314";
     const phone = getSettingVal('school_phone') || "+91 74880 61954, +91 95256 40237";
     const email = getSettingVal('school_email') || "info@tapowanschool.edu.in";
@@ -327,26 +327,24 @@
   }
 
   // --- PHOTO BOX COMPONENT WITH PERFECT TEXT WRAPPING ---
-  function renderPhotoFrame(photoUrl, label = "STUDENT PHOTOGRAPH", sizeId = "a4") {
+  function renderPhotoFrame(photoUrl, label = "STUDENT PHOTO", sizeId = "a4") {
     const isA5 = sizeId === "a5";
-    const w = isA5 ? "105px" : "130px";
-    const h = isA5 ? "125px" : "165px";
+    const w = isA5 ? "95px" : "115px";
+    const h = isA5 ? "115px" : "140px";
 
     if (photoUrl && photoUrl.length > 20) {
       return `
-        <div style="width:${w};height:${h};border:2px solid #1e3a8a;border-radius:6px;overflow:hidden;box-shadow:0 3px 8px rgba(0,0,0,0.12);background:#f8fafc;position:relative;flex-shrink:0;">
-          <img src="${photoUrl}" style="width:100%;height:100%;object-fit:cover;" alt="${label}" />
-          <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(30,58,138,0.9);color:#ffffff;font-size:8px;font-weight:700;text-align:center;padding:2px 0;letter-spacing:0.5px;">${label}</div>
+        <div style="width:${w};height:${h};border:1.5px solid #1e3a8a;border-radius:4px;overflow:hidden;background:#f8fafc;position:relative;flex-shrink:0;box-sizing:border-box;">
+          <img src="${photoUrl}" crossorigin="anonymous" style="width:100%;height:100%;object-fit:cover;" alt="${label}" onerror="this.src='student_avatar.png'" />
+          <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(30,58,138,0.85);color:#ffffff;font-size:7px;font-weight:700;text-align:center;padding:1.5px 0;letter-spacing:0.5px;">${label}</div>
         </div>`;
     }
     return `
-      <div style="width:${w};height:${h};border:2px dashed #94a3b8;border-radius:6px;background:#f8fafc;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:8px 6px;box-sizing:border-box;flex-shrink:0;">
-        <span class="material-symbols-outlined" style="font-size:${isA5 ? '26px' : '34px'};color:#94a3b8;margin-bottom:4px;">add_a_photo</span>
-        <div style="font-family:Arial,sans-serif;font-size:${isA5 ? '7.5px' : '9px'};font-weight:800;color:#334155;line-height:1.25;text-transform:uppercase;letter-spacing:0.2px;">
-          AFFIX RECENT<br />PASSPORT SIZE<br />COLOR PHOTO
+      <div style="width:${w};height:${h};border:1.5px dashed #94a3b8;border-radius:4px;background:#f8fafc;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:4px;box-sizing:border-box;flex-shrink:0;">
+        <span class="material-symbols-outlined" style="font-size:${isA5 ? '22px' : '28px'};color:#94a3b8;margin-bottom:2px;">add_a_photo</span>
+        <div style="font-size:7.5px;font-weight:700;color:#475569;line-height:1.2;text-transform:uppercase;">
+          AFFIX RECENT<br>PASSPORT PHOTO<br><span style="font-size:6.5px;color:#94a3b8;">(3.5 × 4.5 cm)</span>
         </div>
-        <div style="font-size:7.5px;color:#64748b;margin-top:3px;font-weight:600;">(3.5 cm × 4.5 cm)</div>
-        <div style="font-size:6.5px;color:#94a3b8;margin-top:2px;">(Cross-sign by Parent)</div>
       </div>`;
   }
 
@@ -372,21 +370,21 @@
       <div style="position:relative;z-index:1;display:flex;flex-direction:column;justify-content:space-between;height:100%;gap:${isA5 ? '6px' : '8px'};">
         
         <!-- INSTITUTIONAL BRANDING HEADER (DYNAMIC ERP DATA) -->
-        <div style="border-bottom:2px solid #1e3a8a;padding-bottom:6px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
-          <div style="display:flex;align-items:center;gap:10px;">
-            <img src="${school.logo}" style="width:${isA5 ? '48px' : '62px'};height:${isA5 ? '48px' : '62px'};object-fit:contain;" alt="Crest" />
-            <div>
-              <div style="font-size:${isA5 ? '15px' : '21px'};font-weight:900;color:#1e3a8a;letter-spacing:0.5px;line-height:1.1;text-transform:uppercase;">${school.name}</div>
-              <div style="font-size:${isA5 ? '8px' : '10px'};font-weight:700;color:#d97706;letter-spacing:0.3px;margin-top:1px;">${school.tagline}</div>
-              <div style="font-size:${isA5 ? '7px' : '8.5px'};color:#475569;margin-top:1px;">${school.affiliation}</div>
-              <div style="font-size:${isA5 ? '7px' : '8px'};color:#64748b;">${school.campus} • ${school.udise}</div>
+        <div style="border-bottom:2px solid #1e3a8a;padding-bottom:5px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1;">
+            <img src="${school.logo}" crossorigin="anonymous" style="width:${isA5 ? '44px' : '58px'};height:${isA5 ? '44px' : '58px'};object-fit:contain;flex-shrink:0;" alt="Crest" onerror="this.src='logo.png'" />
+            <div style="min-width:0;">
+              <div style="font-size:${isA5 ? '14px' : '19px'};font-weight:900;color:#1e3a8a;letter-spacing:0.5px;line-height:1.1;text-transform:uppercase;">${school.name}</div>
+              <div style="font-size:${isA5 ? '8px' : '9.5px'};font-weight:700;color:#d97706;letter-spacing:0.3px;margin-top:1px;">${school.tagline}</div>
+              ${school.affiliation ? `<div style="font-size:${isA5 ? '7px' : '8px'};color:#475569;margin-top:1px;font-weight:600;">${school.affiliation}</div>` : ''}
+              <div style="font-size:${isA5 ? '6.5px' : '7.5px'};color:#64748b;margin-top:1px;">${school.campus}${school.udise ? ` • ${school.udise}` : ''}${school.phone ? ` • Tel: ${school.phone}` : ''}</div>
             </div>
           </div>
-          <div style="text-align:right;">
-            <div style="display:inline-block;background:#1e3a8a;color:#ffffff;font-size:${isA5 ? '8.5px' : '11px'};font-weight:800;padding:3px 10px;border-radius:4px;letter-spacing:0.5px;text-transform:uppercase;">ADMISSION APPLICATION</div>
-            <div style="font-size:${isA5 ? '8px' : '9.5px'};font-weight:700;color:#0f172a;margin-top:3px;">Session: <span style="color:#d97706;">${s.session}</span></div>
-            <div style="font-size:8px;color:#475569;">Sl. No: <strong>${s.formNo}</strong> | Date: <strong>${s.admissionDate}</strong></div>
-            <div style="font-size:8px;color:#16a34a;font-weight:700;">Status: Verified &amp; Approved</div>
+          <div style="text-align:right;flex-shrink:0;">
+            <div style="display:inline-block;background:#1e3a8a;color:#ffffff;font-size:${isA5 ? '8px' : '10px'};font-weight:800;padding:2.5px 8px;border-radius:4px;letter-spacing:0.5px;text-transform:uppercase;white-space:nowrap;">ADMISSION APPLICATION</div>
+            <div style="font-size:${isA5 ? '7.5px' : '9px'};font-weight:700;color:#0f172a;margin-top:2px;white-space:nowrap;">Session: <span style="color:#d97706;">${s.session}</span></div>
+            <div style="font-size:${isA5 ? '7px' : '7.5px'};color:#475569;white-space:nowrap;">Sl. No: <strong>${s.formNo}</strong> | Date: <strong>${s.admissionDate}</strong></div>
+            <div style="font-size:${isA5 ? '7px' : '7.5px'};color:#16a34a;font-weight:700;white-space:nowrap;">Status: Verified &amp; Approved</div>
           </div>
         </div>
 
@@ -394,7 +392,7 @@
         <div>
           <div style="background:#1e3a8a;color:#ffffff;font-weight:800;font-size:${fHead};padding:3.5px 8px;border-radius:4px 4px 0 0;letter-spacing:0.4px;display:flex;justify-content:space-between;align-items:center;">
             <span>1. SCHOLAR'S GENERAL &amp; BIOGRAPHICAL PARTICULARS</span>
-            <span style="font-size:8.5px;color:#fde047;">Reg. No: ${s.admissionNo}</span>
+            <span style="font-size:8px;color:#fde047;white-space:nowrap;margin-left:8px;">Reg. No: ${s.admissionNo}</span>
           </div>
           <div style="display:flex;gap:10px;align-items:stretch;">
             <table style="flex:1;border-collapse:collapse;border:1px solid #cbd5e1;font-size:${fBase};">
@@ -568,11 +566,11 @@
             Enrolment Approved to Class: <strong>${s.className}</strong> | Section: <strong>${s.section}</strong> | Assigned Roll No: <strong>${s.rollNo}</strong> | Reg No: <strong>${s.admissionNo}</strong><br />
             Fee Clearance Voucher: <strong>PAID ₹${s.totalPayable.toLocaleString("en-IN")}</strong> | Receipt No: <strong>TPS-REC-${s.formNo}</strong> | Accounts Clearance: <span style="color:#16a34a;font-weight:800;">VERIFIED</span>
           </div>
-          <div style="text-align:center;border-left:1px dashed #cbd5e1;padding-left:12px;display:flex;flex-direction:column;align-items:center;">
-            <div style="width:85px;height:38px;border:1px dashed #1e3a8a;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;color:#1e3a8a;background:#ffffff;margin-bottom:2px;">
+          <div style="text-align:center;border-left:1px dashed #cbd5e1;padding-left:10px;display:flex;flex-direction:column;align-items:center;flex-shrink:0;min-width:110px;">
+            <div style="width:80px;height:32px;border:1px dashed #1e3a8a;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:6.5px;font-weight:700;color:#1e3a8a;background:#ffffff;margin-bottom:2px;">
               OFFICIAL SEAL
             </div>
-            <div style="font-size:8px;font-weight:800;color:#1e3a8a;">${school.principal} (Principal)</div>
+            <div style="font-size:7.5px;font-weight:800;color:#1e3a8a;white-space:nowrap;">${school.principal ? `${school.principal} (Principal)` : "Principal's Signature"}</div>
           </div>
         </div>
 
@@ -616,7 +614,7 @@
               <div style="font-size:${isA5 ? '8px' : '10px'};font-weight:700;color:#78350f;letter-spacing:0.5px;font-style:italic;">${school.estd} • ${school.tagline}</div>
             </div>
           </div>
-          <div style="font-size:7.5px;color:#78350f;letter-spacing:0.3px;">${school.affiliation} • ${school.campus}</div>
+          <div style="font-size:7.5px;color:#78350f;letter-spacing:0.3px;">${school.affiliation ? `${school.affiliation} • ` : ''}${school.campus}${school.udise ? ` • ${school.udise}` : ''}${school.phone ? ` • Tel: ${school.phone}` : ''}</div>
           <div style="margin-top:4px;display:flex;justify-content:space-between;align-items:center;background:#fef2f2;border:1px solid #fecaca;padding:2px 8px;border-radius:3px;">
             <span style="font-size:8px;font-weight:700;color:#881337;">FORM NO: ${s.formNo}</span>
             <span style="font-size:${isA5 ? '9.5px' : '11.5px'};font-weight:900;color:#881337;letter-spacing:1px;text-transform:uppercase;">APPLICATION FOR ADMISSION • SESSION ${s.session}</span>
@@ -754,7 +752,7 @@
             <img src="${school.logo}" style="width:48px;height:48px;object-fit:contain;" alt="Logo" />
             <div>
               <div style="font-size:${isA5 ? '15px' : '20px'};font-weight:900;color:#0f172a;letter-spacing:-0.5px;">${school.name}</div>
-              <div style="font-size:8px;color:#64748b;">${school.affiliation} • ${school.campus}</div>
+              <div style="font-size:8px;color:#64748b;">${school.affiliation ? `${school.affiliation} • ` : ''}${school.campus}${school.udise ? ` • ${school.udise}` : ''}${school.phone ? ` • Tel: ${school.phone}` : ''}</div>
             </div>
           </div>
           <div style="text-align:right;">
@@ -854,7 +852,7 @@
           <img src="${school.logo}" style="width:50px;height:50px;object-fit:contain;" alt="Logo" />
           <div style="text-align:center;flex:1;">
             <div style="font-size:${isA5 ? '15px' : '20px'};font-weight:900;letter-spacing:0.5px;text-transform:uppercase;">${school.name}</div>
-            <div style="font-size:8px;font-weight:700;">${school.affiliation}</div>
+            ${school.affiliation ? `<div style="font-size:8px;font-weight:700;">${school.affiliation}</div>` : ''}
             <div style="font-size:7.5px;">${school.campus} • ${school.contact}</div>
             <div style="display:inline-block;border:1.5px solid #000000;padding:2px 12px;font-weight:900;font-size:${isA5 ? '8.5px' : '10.5px'};margin-top:2px;text-transform:uppercase;">
               APPLICATION FOR ADMISSION • ACADEMIC SESSION ${s.session}
@@ -1070,7 +1068,7 @@
               INSTITUTIONAL CODE OF CONDUCT &amp; ACADEMIC REGULATIONS
             </div>
             <ol style="margin:0;padding-left:18px;color:#334155;">
-              <li><strong>Attendance Requirement:</strong> A minimum of 75% attendance is compulsory for eligibility in CBSE Board Examinations and annual promotions.</li>
+              <li><strong>Attendance Requirement:</strong> A minimum of 75% attendance is compulsory for eligibility in annual examinations and promotions.</li>
               <li><strong>Fee Schedule:</strong> Monthly tuition fees must be cleared on or before the 10th of every calendar month. Defaulting accounts attract late fee charges.</li>
               <li><strong>Uniform &amp; Discipline:</strong> Students must strictly attend school in full prescribed uniform with ID badge. Mobile phones and contraband are strictly prohibited.</li>
               <li><strong>Campus Safety:</strong> School transport arrangements are subject to route safety and geofence tracking policies.</li>
@@ -1102,7 +1100,7 @@
               OFFICIAL ADMISSION COMMITTEE RESOLUTION
             </div>
             <div style="font-size:9px;color:#166534;line-height:1.4;">
-              The application for admission of <strong>${s.fullName}</strong> to Class <strong>${s.className} (Section ${s.section})</strong> for Session <strong>${s.session}</strong> has been scrutinized and found compliant with CBSE affiliation bye-laws. All original transfer certificates and birth records have been authenticated.
+              The application for admission of <strong>${s.fullName}</strong> to Class <strong>${s.className} (Section ${s.section})</strong> for Session <strong>${s.session}</strong> has been scrutinized and found compliant with institutional admission norms and regulatory bye-laws. All original transfer certificates and birth records have been authenticated.
             </div>
             <div style="display:flex;justify-content:space-between;margin-top:24px;text-align:center;font-size:8.5px;font-weight:700;">
               <div style="border-top:1px solid #166534;width:30%;padding-top:4px;">Admission Scrutiny Officer</div>
@@ -1167,14 +1165,17 @@
       contentHtml = tmpl.render(s, sizeId);
     }
 
+    const padRoot = sizeId === "a5" ? "10px 12px" : (sizeId === "a3" ? "18px 24px" : "14px 18px");
+
     return `
-    <div id="tpsAdmissionPrintRoot" class="tps-print-container ${size.id}" style="width:100%;height:${size.targetDocHeight};min-height:${size.targetDocHeight};margin:0 auto;box-sizing:border-box;display:flex;flex-direction:column;">
+    <div id="tpsAdmissionPrintRoot" class="tps-print-container ${size.id}" style="width:${size.previewWidth};height:${size.targetDocHeight};max-height:${size.targetDocHeight};margin:0 auto;box-sizing:border-box;display:flex;flex-direction:column;padding:${padRoot};background:#ffffff;">
       <style>
         ${size.pageRule}
         @media print {
           html, body {
             margin: 0 !important;
             padding: 0 !important;
+            width: 100% !important;
             height: 100% !important;
             background: #ffffff !important;
             -webkit-print-color-adjust: exact !important;
@@ -1192,10 +1193,9 @@
             top: 0 !important;
             width: 100% !important;
             height: 100% !important;
-            min-height: 100% !important;
             max-height: 100% !important;
             margin: 0 !important;
-            padding: 0 !important;
+            padding: ${padRoot} !important;
             box-shadow: none !important;
             border: none !important;
             page-break-inside: avoid !important;
@@ -1204,8 +1204,11 @@
           }
           .tps-adm-doc {
             height: 100% !important;
-            min-height: 100% !important;
+            max-height: 100% !important;
             box-sizing: border-box !important;
+            page-break-inside: avoid !important;
+            page-break-after: avoid !important;
+            overflow: hidden !important;
           }
         }
       </style>
@@ -1411,6 +1414,7 @@
     const html = renderAdmissionFormHtml(studentData, templateId, sizeId);
     const size = ADMISSION_SIZES[sizeId] || ADMISSION_SIZES.a4;
     const school = getSchoolMeta();
+    const padRoot = sizeId === "a5" ? "10px 12px" : (sizeId === "a3" ? "18px 24px" : "14px 18px");
 
     try {
       let iframe = document.getElementById("__tps_adm_print_iframe__");
@@ -1439,16 +1443,38 @@
             <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800;900&family=Cinzel:wght@700;900&family=Inter:wght@400;600;700;800&display=swap">
             <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
             <style>
-              ${size.pageRule}
+              @page {
+                size: ${sizeId === "a3" ? "A3 landscape" : (sizeId === "a5" ? "A5 portrait" : "A4 portrait")};
+                margin: 0;
+              }
               * { box-sizing: border-box; }
               html, body {
                 margin: 0 !important;
                 padding: 0 !important;
+                width: 100% !important;
                 height: 100% !important;
-                background: #fff;
+                background: #ffffff !important;
                 font-family: 'Poppins', Arial, sans-serif;
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
+              }
+              #tpsAdmissionPrintRoot {
+                width: 100% !important;
+                height: 100% !important;
+                margin: 0 !important;
+                padding: ${padRoot} !important;
+                box-sizing: border-box !important;
+                page-break-inside: avoid !important;
+                page-break-after: avoid !important;
+                overflow: hidden !important;
+              }
+              .tps-adm-doc {
+                width: 100% !important;
+                height: 100% !important;
+                box-sizing: border-box !important;
+                page-break-inside: avoid !important;
+                page-break-after: avoid !important;
+                overflow: hidden !important;
               }
             </style>
           </head>
@@ -1486,32 +1512,54 @@
 
     const s = normalizeAdmissionStudentData(studentData);
     const size = ADMISSION_SIZES[sizeId] || ADMISSION_SIZES.a4;
-    const tempEl = document.createElement("div");
-    tempEl.style.width = size.previewWidth;
-    tempEl.style.height = size.targetDocHeight;
-    tempEl.style.background = "#ffffff";
-    tempEl.innerHTML = renderAdmissionFormHtml(studentData, templateId, sizeId);
-    document.body.appendChild(tempEl);
+    
+    // Exact dimensions
+    const targetWidth = parseInt(size.previewWidth, 10);
+    const targetHeight = parseInt(size.targetDocHeight, 10);
+
+    const tempWrapper = document.createElement("div");
+    tempWrapper.style.position = "fixed";
+    tempWrapper.style.left = "-9999px";
+    tempWrapper.style.top = "0";
+    tempWrapper.style.width = targetWidth + "px";
+    tempWrapper.style.height = targetHeight + "px";
+    tempWrapper.style.overflow = "hidden";
+    tempWrapper.style.background = "#ffffff";
+    tempWrapper.style.zIndex = "-9999";
+    tempWrapper.innerHTML = renderAdmissionFormHtml(studentData, templateId, sizeId);
+    document.body.appendChild(tempWrapper);
+
+    const pdfFormat = sizeId === "a3" ? [420, 297] : (sizeId === "a5" ? [148, 210] : [210, 297]);
 
     const opt = {
-      margin: sizeId === "a5" ? 4 : 6,
+      margin: 0, // CRITICAL: 0 margin ensures canvas fills the exact page size without horizontal clipping or bottom gap!
       filename: `Admission_Form_${s.admissionNo}_${s.className}.pdf`,
       image: { type: "jpeg", quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, logging: false },
+      html2canvas: {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        width: targetWidth,
+        height: targetHeight,
+        windowWidth: targetWidth,
+        windowHeight: targetHeight,
+        scrollX: 0,
+        scrollY: 0
+      },
       jsPDF: {
         unit: "mm",
-        format: sizeId === "a3" ? "a3" : (sizeId === "a5" ? "a5" : "a4"),
+        format: pdfFormat,
         orientation: size.orientation
       }
     };
 
-    if (typeof showToast === "function") showToast("Generating PDF file...", "info");
+    if (typeof showToast === "function") showToast("Generating high-resolution PDF...", "info");
 
-    html2pdf().set(opt).from(tempEl).save().then(() => {
-      tempEl.remove();
+    html2pdf().set(opt).from(tempWrapper).save().then(() => {
+      tempWrapper.remove();
       if (typeof showToast === "function") showToast("Admission Form PDF Downloaded!", "success");
     }).catch(err => {
-      tempEl.remove();
+      tempWrapper.remove();
       console.error("PDF download error:", err);
       if (typeof showToast === "function") showToast("PDF generation failed, opening print dialog...", "warning");
       window.printAdmissionForm(studentData, templateId, sizeId);
