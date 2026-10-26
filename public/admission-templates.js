@@ -1,16 +1,21 @@
 /**
- * Tapowan Public School - Enterprise Full-Page Multi-Size Admission Form Studio & Templates Engine
- * Guarantees 100% Full-Page Vertical Coverage on A4, A5, and A3 formats with zero empty bottom gap.
- * Includes all standard CBSE/ICSE institutional sections:
- *   - School Crest, Affiliation Code, UDISE No., ISO badge & Contact Strip
- *   - Candidate Biographical Profile (DOB in Figures & Words, Blood Group, Aadhaar, Age on 31st March)
- *   - Passport Photograph Frame (3.5 cm x 4.5 cm) with cross-signature guideline
- *   - Comprehensive 4-Column Parent/Guardian Particulars (Qualification, Occupation, Income, Contact)
- *   - Residential Postal Address & School Bus / Transport Route Details
- *   - Previous Academic Background & Sibling Enrolment Details
- *   - 8-Point Mandatory Document Verification Checklist
- *   - Statutory Parental Declaration, Code of Conduct Agreement & Dual Signatures
- *   - Formal "For Office Use Only" Docket (Assigned Class/Sec/Roll, Fee Clearance Ledger, Principal Seal)
+ * Tapowan Public School - Enterprise Multi-Size Admission Form Studio & Templates Engine
+ * 
+ * Key Features:
+ * 1. DYNAMIC ERP DATA FETCHING: School name, affiliation, address, phone, email, website,
+ *    logo, and principal are fetched live from ERP Settings (`getStore().settings` / `serverStore.settings`)
+ *    instead of being hardcoded.
+ * 2. UNIVERSAL DOB & AGE CALCULATION: Parses any date format (DD.MM.YYYY, DD/MM/YYYY, DD-MM-YYYY, YYYY-MM-DD)
+ *    and dynamically computes candidate's exact age on 31st March of the academic session (e.g. "4 Yrs 9 Mos").
+ *    Formats DOB in formal words (e.g. "First of June Two Thousand Twenty-One").
+ * 3. 100% FULL-PAGE VERTICAL FIT: All 5 templates (A4, A5, A3) use a flexbox architecture with
+ *    `justify-content: space-between` and explicit target heights (`1055px` on A4), eliminating empty bottom gaps.
+ * 4. 5 Publication-Grade Institutional Themes:
+ *    - 01. CBSE Modern Executive (Navy & Gold)
+ *    - 02. Royal Heritage Classical (Burgundy & Bronze)
+ *    - 03. Modern Minimalist Pro (Indigo & Slate)
+ *    - 04. CBSE Official Box-Grid (Board Examination Standard)
+ *    - 05. Dual Counter & Parent Copy (Perforated Split)
  */
 
 (function (window, document) {
@@ -56,16 +61,60 @@
     }
   };
 
-  // --- SCHOOL MASTER BRANDING CONSTANTS ---
-  const SCHOOL_META = {
-    name: "TAPOWAN PUBLIC SCHOOL",
-    tagline: "Quality Education for a Brighter Future",
-    affiliation: "Affiliated to CBSE, New Delhi • Affiliation No. CBSE/TPS/2026 • School Code: 65219",
-    campus: "Prem Nagar Campus, Near Bypass Road, Jharkhand - 825301",
-    contact: "Phone: +91 74880 61954, +91 95256 40237 | Email: info@tapowanschool.edu.in | Web: tapowan-school.pages.dev",
-    udise: "UDISE Code: 20040506702",
-    logo: "logo.png"
-  };
+  // --- DYNAMIC ERP SCHOOL DATA RESOLVER ---
+  function getSchoolMeta(customMeta = null) {
+    if (customMeta && typeof customMeta === "object") return customMeta;
+
+    let store = {};
+    try {
+      if (typeof getStore === "function") store = getStore() || {};
+      else if (typeof serverStore !== "undefined") store = serverStore || {};
+    } catch (_) {}
+
+    const settingsList = Array.isArray(store.settings) ? store.settings : [];
+    const getSettingVal = (k) => {
+      const row = settingsList.find(s => String(s.key || s.KEY || '').toLowerCase() === k.toLowerCase());
+      return row && row.value ? String(row.value).trim() : null;
+    };
+
+    // Check ai_school_knowledge for parsed fallback address & principal
+    let aiPrincipal = null;
+    let aiAddress = null;
+    const aiKnowledge = getSettingVal('ai_school_knowledge');
+    if (aiKnowledge) {
+      const pMatch = aiKnowledge.match(/Principal\s+(?:Name\s+)?is\s+([^\n\r]+)/i);
+      if (pMatch) aiPrincipal = pMatch[1].trim();
+      const aMatch = aiKnowledge.match(/School\s+address\s+is\s+([^\n\r]+)/i);
+      if (aMatch) aiAddress = aMatch[1].trim();
+    }
+
+    const name = getSettingVal('school_name') || (window.currentSchool && window.currentSchool.name) || "TAPOWAN PUBLIC SCHOOL";
+    const tagline = getSettingVal('school_tagline') || "Quality Education for a Brighter Future";
+    const affiliation = getSettingVal('school_affiliation') || "Affiliated to CBSE, New Delhi • Affiliation No. CBSE/TPS/2026 • School Code: 65219";
+    const campus = getSettingVal('school_address') || aiAddress || "Prem Nagar Tapin North, Ramgarh, Jharkhand - 825314";
+    const phone = getSettingVal('school_phone') || "+91 74880 61954, +91 95256 40237";
+    const email = getSettingVal('school_email') || "info@tapowanschool.edu.in";
+    const website = getSettingVal('school_website') || "tapowan-school.pages.dev";
+    const udise = getSettingVal('school_udise') || "UDISE Code: 20040506702";
+    const logo = getSettingVal('school_logo') || "logo.png";
+    const principal = getSettingVal('school_principal') || aiPrincipal || "Triveni Singh";
+    const estd = getSettingVal('school_estd') || "Estd. 2012";
+
+    return {
+      name,
+      tagline,
+      affiliation,
+      campus,
+      phone,
+      email,
+      website,
+      contact: `Phone: ${phone} | Email: ${email} | Web: ${website}`,
+      udise,
+      logo,
+      principal,
+      estd
+    };
+  }
 
   // --- NUMBER TO WORDS HELPER ---
   function numberToWords(num) {
@@ -83,32 +132,93 @@
     return str.trim();
   }
 
+  // --- UNIVERSAL DATE PARSER ---
+  function parseUniversalDate(dateStr) {
+    if (!dateStr || typeof dateStr !== "string") return null;
+    const trimmed = dateStr.trim();
+
+    // 1. Matches DD.MM.YYYY or DD/MM/YYYY or DD-MM-YYYY
+    let m = trimmed.match(/^(\d{1,2})[\.\/\-](\d{1,2})[\.\/\-](\d{4})$/);
+    if (m) {
+      const d = parseInt(m[1], 10);
+      const mo = parseInt(m[2], 10) - 1;
+      const y = parseInt(m[3], 10);
+      const dt = new Date(y, mo, d);
+      if (!isNaN(dt.getTime())) return { date: dt, day: d, month: mo, year: y };
+    }
+
+    // 2. Matches YYYY.MM.DD or YYYY/MM/DD or YYYY-MM-DD
+    m = trimmed.match(/^(\d{4})[\.\/\-](\d{1,2})[\.\/\-](\d{1,2})$/);
+    if (m) {
+      const y = parseInt(m[1], 10);
+      const mo = parseInt(m[2], 10) - 1;
+      const d = parseInt(m[3], 10);
+      const dt = new Date(y, mo, d);
+      if (!isNaN(dt.getTime())) return { date: dt, day: d, month: mo, year: y };
+    }
+
+    // 3. Fallback to native Date
+    const dt = new Date(trimmed);
+    if (!isNaN(dt.getTime())) {
+      return { date: dt, day: dt.getDate(), month: dt.getMonth(), year: dt.getFullYear() };
+    }
+    return null;
+  }
+
+  // --- DYNAMIC AGE CALCULATION AS ON 31ST MARCH OF THE SESSION ---
+  function calculateAgeFromDob(dateStr, sessionStr = "2026-2027") {
+    const parsed = parseUniversalDate(dateStr);
+    if (!parsed) return "-";
+
+    // Extract admission session reference year (e.g. "2026-2027" -> 2026)
+    let refYear = 2026;
+    const sessMatch = (sessionStr || "").match(/(\d{4})/);
+    if (sessMatch) {
+      refYear = parseInt(sessMatch[1], 10);
+    }
+
+    let years = refYear - parsed.year;
+    let months = 2 - parsed.month; // 2 = March (0-indexed: 0=Jan, 1=Feb, 2=Mar)
+    let days = 31 - parsed.day;
+
+    if (days < 0) {
+      months -= 1;
+      days += 31;
+    }
+    if (months < 0) {
+      years -= 1;
+      months += 12;
+    }
+
+    if (years < 0) return "Under 1 Yr";
+    if (months > 0) return `${years} Yrs ${months} Mos`;
+    return `${years} Yrs`;
+  }
+
+  // --- DATE IN FORMAL WORDS ---
   function dateToWords(dateStr) {
     if (!dateStr) return "";
-    try {
-      const parts = dateStr.split("-");
-      if (parts.length === 3) {
-        const y = parseInt(parts[0], 10);
-        const m = parseInt(parts[1], 10) - 1;
-        const d = parseInt(parts[2], 10);
-        const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-        const ordinals = ["", "First", "Second", "Third", "Fourth", "Fifth", "Sixth", "Seventh", "Eighth", "Ninth", "Tenth",
-          "Eleventh", "Twelfth", "Thirteenth", "Fourteenth", "Fifteenth", "Sixteenth", "Seventeenth", "Eighteenth", "Nineteenth", "Twentieth",
-          "Twenty-First", "Twenty-Second", "Twenty-Third", "Twenty-Fourth", "Twenty-Fifth", "Twenty-Sixth", "Twenty-Seventh", "Twenty-Eighth", "Twenty-Ninth", "Thirtieth", "Thirty-First"];
-        return `${ordinals[d] || d} of ${months[m] || ""} ${numberToWords(y)}`;
-      }
-    } catch (_) {}
-    return dateStr;
+    const parsed = parseUniversalDate(dateStr);
+    if (!parsed) return dateStr;
+
+    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const ordinals = ["", "First", "Second", "Third", "Fourth", "Fifth", "Sixth", "Seventh", "Eighth", "Ninth", "Tenth",
+      "Eleventh", "Twelfth", "Thirteenth", "Fourteenth", "Fifteenth", "Sixteenth", "Seventeenth", "Eighteenth", "Nineteenth", "Twentieth",
+      "Twenty-First", "Twenty-Second", "Twenty-Third", "Twenty-Fourth", "Twenty-Fifth", "Twenty-Sixth", "Twenty-Seventh", "Twenty-Eighth", "Twenty-Ninth", "Thirtieth", "Thirty-First"];
+
+    const dayWord = ordinals[parsed.day] || parsed.day;
+    const monthWord = months[parsed.month] || "";
+    const yearWord = numberToWords(parsed.year);
+    return `${dayWord} of ${monthWord} ${yearWord}`.trim();
   }
 
   function formatDisplayDate(dateStr) {
     if (!dateStr) return "-";
-    try {
-      const d = new Date(dateStr);
-      if (!isNaN(d.getTime())) {
-        return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-      }
-    } catch (_) {}
+    const parsed = parseUniversalDate(dateStr);
+    if (parsed) {
+      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      return `${String(parsed.day).padStart(2, "0")} ${months[parsed.month]} ${parsed.year}`;
+    }
     return dateStr;
   }
 
@@ -124,9 +234,12 @@
     const className = (d.classApplyingFor || d.className || d.class || "General").trim();
     const section = (d.section || "A").trim();
     const session = (d.session || "2026-2027").trim();
+
+    // Universal DOB & Dynamic Age Calculation
     const dob = (d.dob || d.dateOfBirth || "2015-01-01").trim();
     const dobWords = dateToWords(dob);
-    const age = (d.age || "-").toString().trim();
+    const age = calculateAgeFromDob(dob, session);
+
     const gender = (d.gender || "Male").trim();
     const category = (d.category || "General").trim();
     const religion = (d.religion || "Hindu").trim();
@@ -141,7 +254,7 @@
     const motherName = (d.motherName || d.mother_name || "Mother Name").trim();
     const guardianName = (d.guardianName || d.guardian_name || fatherName || "-").trim();
     const relation = (d.relation || (guardianName === fatherName ? "Father" : "Guardian")).trim();
-    const fatherOccupation = (d.fatherOccupation || d.occupation || "Self Employed / Business").trim();
+    const fatherOccupation = (d.fatherOccupation || d.occupation || "Business / Private").trim();
     const motherOccupation = (d.motherOccupation || "Homemaker").trim();
     const fatherQualification = (d.fatherQualification || "Graduate").trim();
     const motherQualification = (d.motherQualification || "Intermediate / Graduate").trim();
@@ -160,12 +273,12 @@
     const pin = (d.pin || d.pincode || "825301").trim();
     const fullAddress = d.address ? d.address.trim() : `${village}, P.O: ${post}, Dist: ${district}, ${state} - ${pin}`;
 
-    // Academic & Previous School
-    const prevSchool = (d.prevSchool || d.previousSchool || "DAV Public School").trim();
-    const lastClassPassed = (d.lastClassPassed || "Five").trim();
-    const tcReceived = (d.tcReceived || (d.tcDoc ? "Yes" : "Yes")).trim();
+    // Academic & Commute
+    const prevSchool = (d.prevSchool || d.previousSchool || "N/A").trim();
+    const lastClassPassed = (d.lastClassPassed || "N/A").trim();
+    const tcReceived = (d.tcReceived || (d.tcDoc ? "Yes" : "No")).trim();
     const siblingDetails = (d.siblingDetails || "None").trim();
-    const transportRoute = (d.transportFee > 0 || d.transportRoute) ? "School Bus (Route-04, Prem Nagar Point)" : "Private / Self Arrangement";
+    const transportRoute = (d.transportFee > 0 || d.transportRoute) ? "School Bus (Route-04, Prem Nagar)" : "Private / Self Arrangement";
 
     // Financials
     const admissionFee = parseFloat(d.admissionFee) || 1600;
@@ -243,30 +356,30 @@
   // =========================================================================
   function renderCbseModern(s, sizeId) {
     const isA5 = sizeId === "a5";
-    const isA3 = sizeId === "a3";
     const fBase = isA5 ? "8.5px" : "10px";
     const fHead = isA5 ? "9px" : "10.5px";
     const pCell = isA5 ? "3.5px 6px" : "5.5px 9px";
+    const school = getSchoolMeta();
 
     return `
     <div class="tps-adm-doc tps-cbse-modern" style="font-family:'Poppins',Arial,sans-serif;color:#1e293b;background:#ffffff;box-sizing:border-box;position:relative;line-height:1.3;font-size:${fBase};display:flex;flex-direction:column;justify-content:space-between;height:100%;border:2px solid #1e3a8a;border-radius:6px;padding:${isA5 ? '8px 10px' : '10px 14px'};">
       
       <!-- Faint Background Watermark -->
       <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);opacity:0.04;pointer-events:none;z-index:0;width:380px;height:380px;">
-        <img src="${SCHOOL_META.logo}" style="width:100%;height:100%;object-fit:contain;" alt="Watermark" />
+        <img src="${school.logo}" style="width:100%;height:100%;object-fit:contain;" alt="Watermark" />
       </div>
 
       <div style="position:relative;z-index:1;display:flex;flex-direction:column;justify-content:space-between;height:100%;gap:${isA5 ? '6px' : '8px'};">
         
-        <!-- INSTITUTIONAL BRANDING HEADER -->
+        <!-- INSTITUTIONAL BRANDING HEADER (DYNAMIC ERP DATA) -->
         <div style="border-bottom:2px solid #1e3a8a;padding-bottom:6px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
           <div style="display:flex;align-items:center;gap:10px;">
-            <img src="${SCHOOL_META.logo}" style="width:${isA5 ? '48px' : '62px'};height:${isA5 ? '48px' : '62px'};object-fit:contain;" alt="Crest" />
+            <img src="${school.logo}" style="width:${isA5 ? '48px' : '62px'};height:${isA5 ? '48px' : '62px'};object-fit:contain;" alt="Crest" />
             <div>
-              <div style="font-size:${isA5 ? '15px' : '21px'};font-weight:900;color:#1e3a8a;letter-spacing:0.5px;line-height:1.1;text-transform:uppercase;">${SCHOOL_META.name}</div>
-              <div style="font-size:${isA5 ? '8px' : '10px'};font-weight:700;color:#d97706;letter-spacing:0.3px;margin-top:1px;">${SCHOOL_META.tagline}</div>
-              <div style="font-size:${isA5 ? '7px' : '8.5px'};color:#475569;margin-top:1px;">${SCHOOL_META.affiliation}</div>
-              <div style="font-size:${isA5 ? '7px' : '8px'};color:#64748b;">${SCHOOL_META.campus} • ${SCHOOL_META.udise}</div>
+              <div style="font-size:${isA5 ? '15px' : '21px'};font-weight:900;color:#1e3a8a;letter-spacing:0.5px;line-height:1.1;text-transform:uppercase;">${school.name}</div>
+              <div style="font-size:${isA5 ? '8px' : '10px'};font-weight:700;color:#d97706;letter-spacing:0.3px;margin-top:1px;">${school.tagline}</div>
+              <div style="font-size:${isA5 ? '7px' : '8.5px'};color:#475569;margin-top:1px;">${school.affiliation}</div>
+              <div style="font-size:${isA5 ? '7px' : '8px'};color:#64748b;">${school.campus} • ${school.udise}</div>
             </div>
           </div>
           <div style="text-align:right;">
@@ -298,7 +411,7 @@
                 <td style="padding:${pCell};border:1px solid #cbd5e1;font-weight:700;color:#334155;">Date of Birth (DOB)</td>
                 <td style="width:27%;padding:${pCell};border:1px solid #cbd5e1;font-weight:700;color:#0f172a;">${s.dob}</td>
                 <td style="width:23%;padding:${pCell};border:1px solid #cbd5e1;font-weight:700;color:#334155;">Age (on 31st March)</td>
-                <td style="padding:${pCell};border:1px solid #cbd5e1;font-weight:700;color:#0f172a;">${s.age} Years</td>
+                <td style="padding:${pCell};border:1px solid #cbd5e1;font-weight:800;color:#2563eb;">${s.age}</td>
               </tr>
               <tr style="background:#f8fafc;">
                 <td style="padding:${pCell};border:1px solid #cbd5e1;font-weight:700;color:#334155;">DOB in Words</td>
@@ -432,7 +545,7 @@
         <!-- SECTION 7: STATUTORY PARENTAL DECLARATION & UNDERTAKING -->
         <div style="border:1px solid #1e3a8a;border-radius:4px;padding:6px 10px;background:#ffffff;">
           <div style="font-size:7.5px;color:#475569;text-align:justify;line-height:1.25;">
-            <strong style="color:#1e3a8a;">STATUTORY PARENTAL DECLARATION &amp; UNDERTAKING:</strong> I hereby solemnly declare that all particulars stated in this application are true, complete, and authentic to the best of my knowledge and belief. I agree to abide by all the academic, administrative, disciplinary, uniform, and fee regulations of Tapowan Public School. I understand that admission may be cancelled at any time if any document or representation is found inaccurate.
+            <strong style="color:#1e3a8a;">STATUTORY PARENTAL DECLARATION &amp; UNDERTAKING:</strong> I hereby solemnly declare that all particulars stated in this application are true, complete, and authentic to the best of my knowledge and belief. I agree to abide by all the academic, administrative, disciplinary, uniform, and fee regulations of ${school.name}. I understand that admission may be cancelled at any time if any document or representation is found inaccurate.
           </div>
           
           <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:18px;">
@@ -457,16 +570,16 @@
           </div>
           <div style="text-align:center;border-left:1px dashed #cbd5e1;padding-left:12px;display:flex;flex-direction:column;align-items:center;">
             <div style="width:85px;height:38px;border:1px dashed #1e3a8a;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;color:#1e3a8a;background:#ffffff;margin-bottom:2px;">
-              TAPOWAN SEAL
+              OFFICIAL SEAL
             </div>
-            <div style="font-size:8px;font-weight:800;color:#1e3a8a;">Principal's Seal &amp; Signature</div>
+            <div style="font-size:8px;font-weight:800;color:#1e3a8a;">${school.principal} (Principal)</div>
           </div>
         </div>
 
         <!-- FOOTER BAR -->
         <div style="display:flex;justify-content:space-between;font-size:7px;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:2px;">
-          <span>Form Code: TPS-ADM-2026-V3.5 • Generated on ${new Date().toLocaleDateString("en-IN")}</span>
-          <span>Official Portal: https://tapowan-school.pages.dev • Page 1 of 1</span>
+          <span>Form Code: TPS-ADM-2026-V3.6 • Generated on ${new Date().toLocaleDateString("en-IN")}</span>
+          <span>Official Portal: https://${school.website} • Page 1 of 1</span>
         </div>
 
       </div>
@@ -475,42 +588,43 @@
 
   // =========================================================================
   // TEMPLATE 2: ROYAL HERITAGE CLASSICAL (Burgundy & Bronze)
-  // FULL PAGE VERTICAL DISTRIBUTION GUARANTEE
+  // FULL PAGE VERTICAL DISTRIBUTION GUARANTEE WITH DYNAMIC ERP DATA
   // =========================================================================
   function renderRoyalHeritage(s, sizeId) {
     const isA5 = sizeId === "a5";
     const fBase = isA5 ? "8px" : "10px";
-    const fHead = isA5 ? "8.5px" : "10px";
-    const pCell = isA5 ? "3.5px 6px" : "5.5px 8px";
+    const fHead = isA5 ? "8.5px" : "10.5px";
+    const pCell = isA5 ? "3.5px 6px" : "5.5px 9px";
+    const school = getSchoolMeta();
 
     return `
     <div class="tps-adm-doc tps-royal-heritage" style="font-family:'Cinzel','Georgia',serif;color:#3b1e1e;background:#fffdfa;border:3px double #881337;padding:${isA5 ? '8px 10px' : '10px 14px'};box-sizing:border-box;position:relative;line-height:1.3;font-size:${fBase};display:flex;flex-direction:column;justify-content:space-between;height:100%;">
       
-      <!-- Corner Accents -->
+      <!-- Ornate Corner Accents -->
       <div style="position:absolute;top:4px;left:4px;width:20px;height:20px;border-top:2px solid #b45309;border-left:2px solid #b45309;"></div>
       <div style="position:absolute;top:4px;right:4px;width:20px;height:20px;border-top:2px solid #b45309;border-right:2px solid #b45309;"></div>
       <div style="position:absolute;bottom:4px;left:4px;width:20px;height:20px;border-bottom:2px solid #b45309;border-left:2px solid #b45309;"></div>
       <div style="position:absolute;bottom:4px;right:4px;width:20px;height:20px;border-bottom:2px solid #b45309;border-right:2px solid #b45309;"></div>
 
       <div style="position:relative;z-index:1;display:flex;flex-direction:column;justify-content:space-between;height:100%;gap:${isA5 ? '5px' : '7px'};">
-        <!-- HEADER -->
+        <!-- HEADER (DYNAMIC ERP DATA) -->
         <div style="text-align:center;border-bottom:2px solid #881337;padding-bottom:5px;">
           <div style="display:flex;justify-content:center;align-items:center;gap:10px;margin-bottom:2px;">
-            <img src="${SCHOOL_META.logo}" style="width:${isA5 ? '44px' : '58px'};height:${isA5 ? '44px' : '58px'};object-fit:contain;" alt="Crest" />
+            <img src="${school.logo}" style="width:${isA5 ? '44px' : '58px'};height:${isA5 ? '44px' : '58px'};object-fit:contain;" alt="Crest" />
             <div>
-              <div style="font-size:${isA5 ? '16px' : '22px'};font-weight:900;color:#881337;letter-spacing:1px;text-transform:uppercase;">${SCHOOL_META.name}</div>
-              <div style="font-size:${isA5 ? '8px' : '10px'};font-weight:700;color:#78350f;letter-spacing:0.5px;font-style:italic;">Estd. 2012 • Quality Education for a Brighter Future</div>
+              <div style="font-size:${isA5 ? '16px' : '22px'};font-weight:900;color:#881337;letter-spacing:1px;text-transform:uppercase;">${school.name}</div>
+              <div style="font-size:${isA5 ? '8px' : '10px'};font-weight:700;color:#78350f;letter-spacing:0.5px;font-style:italic;">${school.estd} • ${school.tagline}</div>
             </div>
           </div>
-          <div style="font-size:7.5px;color:#78350f;letter-spacing:0.3px;">${SCHOOL_META.affiliation} • ${SCHOOL_META.campus}</div>
+          <div style="font-size:7.5px;color:#78350f;letter-spacing:0.3px;">${school.affiliation} • ${school.campus}</div>
           <div style="margin-top:4px;display:flex;justify-content:space-between;align-items:center;background:#fef2f2;border:1px solid #fecaca;padding:2px 8px;border-radius:3px;">
-            <span style="font-size:8px;font-weight:700;color:#881337;">SL NO: ${s.formNo}</span>
+            <span style="font-size:8px;font-weight:700;color:#881337;">FORM NO: ${s.formNo}</span>
             <span style="font-size:${isA5 ? '9.5px' : '11.5px'};font-weight:900;color:#881337;letter-spacing:1px;text-transform:uppercase;">APPLICATION FOR ADMISSION • SESSION ${s.session}</span>
             <span style="font-size:8px;font-weight:700;color:#881337;">REG NO: ${s.admissionNo}</span>
           </div>
         </div>
 
-        <!-- PART I: SCHOLAR PROFILE -->
+        <!-- PART I: SCHOLAR BIOGRAPHICAL RECORD -->
         <div>
           <div style="background:#881337;color:#fffdfa;font-weight:700;font-size:${fHead};padding:3px 8px;letter-spacing:0.4px;">PART I : PARTICULARS OF THE SCHOLAR</div>
           <div style="display:flex;gap:10px;align-items:stretch;">
@@ -528,8 +642,8 @@
               <tr>
                 <td style="padding:${pCell};border:1px solid #cbd5e1;font-weight:700;color:#581c87;">Date of Birth</td>
                 <td style="padding:${pCell};border:1px solid #cbd5e1;font-weight:700;">${s.dob}</td>
-                <td style="padding:${pCell};border:1px solid #cbd5e1;font-weight:700;color:#581c87;">Age on 31st March</td>
-                <td style="padding:${pCell};border:1px solid #cbd5e1;font-weight:700;">${s.age} Years</td>
+                <td style="padding:${pCell};border:1px solid #cbd5e1;font-weight:700;color:#581c87;">Age (on 31st March)</td>
+                <td style="padding:${pCell};border:1px solid #cbd5e1;font-weight:800;color:#881337;">${s.age}</td>
               </tr>
               <tr style="background:#fff7ed;">
                 <td style="padding:${pCell};border:1px solid #cbd5e1;font-weight:700;color:#581c87;">DOB in Words</td>
@@ -550,7 +664,7 @@
           </div>
         </div>
 
-        <!-- PART II: PARENTAL RECORD -->
+        <!-- PART II: PARENTAL & GUARDIAN RECORD -->
         <div>
           <div style="background:#881337;color:#fffdfa;font-weight:700;font-size:${fHead};padding:3px 8px;letter-spacing:0.4px;">PART II : PARENTAL &amp; GUARDIAN RECORD</div>
           <table style="width:100%;border-collapse:collapse;border:1px solid #cbd5e1;font-size:${fBase};font-family:Arial,sans-serif;">
@@ -584,32 +698,37 @@
           <div style="margin-top:2px;color:#881337;font-weight:700;"><strong>Emergency Notification:</strong> ${s.emergencyContact} (${s.relation}) | <strong>Commute:</strong> ${s.transportRoute}</div>
         </div>
 
-        <!-- PART IV: FEE CLEARANCE -->
-        <div style="border:1.5px solid #881337;background:#fffdfa;padding:${pCell};display:flex;justify-content:space-between;align-items:center;font-family:Arial,sans-serif;">
-          <div>
-            <span style="font-weight:800;color:#881337;">ADMISSION FEE CLEARANCE VOUCHER:</span> Adm Fee: <strong>₹${s.admissionFee}</strong> | Tuition Fee: <strong>₹${s.monthlyFee}</strong>
+        <!-- PART IV: FEE CLEARANCE & CHECKLIST -->
+        <div style="border:1px solid #881337;background:#fffdfa;padding:${pCell};font-family:Arial,sans-serif;">
+          <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px dashed #fecaca;padding-bottom:3px;margin-bottom:3px;">
+            <div>
+              <span style="font-weight:800;color:#881337;">ADMISSION FEE CLEARANCE VOUCHER:</span> Adm Fee: <strong>₹${s.admissionFee}</strong> | Tuition Fee: <strong>₹${s.monthlyFee}</strong>
+            </div>
+            <div style="font-size:${isA5 ? '9.5px' : '11px'};font-weight:900;color:#166534;">
+              TOTAL PAID: ₹${s.totalPayable.toLocaleString("en-IN")} (Receipt: TPS-${s.formNo})
+            </div>
           </div>
-          <div style="font-size:${isA5 ? '9.5px' : '11px'};font-weight:900;color:#166534;">
-            TOTAL PAID: ₹${s.totalPayable.toLocaleString("en-IN")} (Receipt: TPS-${s.formNo})
+          <div style="font-size:7.5px;color:#581c87;">
+            <strong>ENCLOSURES:</strong> [${s.hasBirthCert ? '✔' : ' '}] Birth Certificate &nbsp; [${s.hasAadharDoc ? '✔' : ' '}] Aadhaar Card &nbsp; [${s.hasTcDoc ? '✔' : ' '}] TC &nbsp; [✔] Photos &nbsp; [✔] Parent ID &nbsp; [✔] Medical Fitness
           </div>
         </div>
 
-        <!-- UNDERTAKING & SIGNATURES -->
+        <!-- STATUTORY UNDERTAKING & SIGNATURES -->
         <div style="border:1px solid #881337;padding:6px 10px;background:#fffdfa;font-family:Arial,sans-serif;">
           <div style="font-size:7px;color:#581c87;text-align:justify;line-height:1.2;">
-            <strong>STATUTORY PARENTAL UNDERTAKING:</strong> I hereby declare that all entries in this form are correct and true. I promise to abide by all the school regulations and guidelines regarding studies, discipline, and fee revisions.
+            <strong>STATUTORY PARENTAL UNDERTAKING:</strong> I hereby declare that all entries in this form are correct and true. I promise to abide by all the regulations and guidelines of ${school.name} regarding studies, discipline, uniform, and fee revisions.
           </div>
-          <div style="display:flex;justify-content:space-between;margin-top:20px;text-align:center;">
+          <div style="display:flex;justify-content:space-between;margin-top:18px;text-align:center;">
             <div style="border-top:1px solid #881337;width:28%;padding-top:2px;font-size:7.5px;font-weight:700;color:#881337;">Father / Guardian Signature</div>
             <div style="border-top:1px solid #881337;width:28%;padding-top:2px;font-size:7.5px;font-weight:700;color:#881337;">Mother's Signature</div>
-            <div style="border-top:1.5px solid #881337;width:32%;padding-top:2px;font-size:8px;font-weight:800;color:#881337;">Principal &amp; Official Seal</div>
+            <div style="border-top:1.5px solid #881337;width:32%;padding-top:2px;font-size:8px;font-weight:800;color:#881337;">${school.principal} (Principal &amp; Seal)</div>
           </div>
         </div>
 
         <!-- FOOTER -->
         <div style="display:flex;justify-content:space-between;font-size:7px;color:#78350f;border-top:1px solid #fecaca;padding-top:2px;">
-          <span>Form: TPS-ROYAL-V3.5 • ${new Date().toLocaleDateString("en-IN")}</span>
-          <span>Official School Portal: https://tapowan-school.pages.dev • Page 1 of 1</span>
+          <span>Form: TPS-ROYAL-V3.6 • ${new Date().toLocaleDateString("en-IN")}</span>
+          <span>Official School Portal: https://${school.website} • Page 1 of 1</span>
         </div>
       </div>
     </div>`;
@@ -617,24 +736,25 @@
 
   // =========================================================================
   // TEMPLATE 3: MODERN MINIMALIST PRO (Indigo & Slate)
-  // FULL PAGE VERTICAL DISTRIBUTION GUARANTEE
+  // FULL PAGE VERTICAL DISTRIBUTION GUARANTEE WITH DYNAMIC ERP DATA
   // =========================================================================
   function renderMinimalistPro(s, sizeId) {
     const isA5 = sizeId === "a5";
     const fBase = isA5 ? "8.5px" : "10px";
     const pCell = isA5 ? "3.5px 6px" : "5.5px 9px";
+    const school = getSchoolMeta();
 
     return `
     <div class="tps-adm-doc tps-minimalist-pro" style="font-family:'Inter',system-ui,sans-serif;color:#0f172a;background:#ffffff;padding:${isA5 ? '8px 10px' : '10px 14px'};box-sizing:border-box;line-height:1.3;font-size:${fBase};display:flex;flex-direction:column;justify-content:space-between;height:100%;border:2px solid #e2e8f0;border-radius:8px;">
       
       <div style="display:flex;flex-direction:column;justify-content:space-between;height:100%;gap:${isA5 ? '5px' : '8px'};">
-        <!-- TOP BAR -->
+        <!-- TOP BAR (DYNAMIC ERP DATA) -->
         <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #e2e8f0;padding-bottom:6px;">
           <div style="display:flex;align-items:center;gap:10px;">
-            <img src="${SCHOOL_META.logo}" style="width:48px;height:48px;object-fit:contain;" alt="Logo" />
+            <img src="${school.logo}" style="width:48px;height:48px;object-fit:contain;" alt="Logo" />
             <div>
-              <div style="font-size:${isA5 ? '15px' : '20px'};font-weight:900;color:#0f172a;letter-spacing:-0.5px;">${SCHOOL_META.name}</div>
-              <div style="font-size:8px;color:#64748b;">${SCHOOL_META.affiliation} • Prem Nagar Campus</div>
+              <div style="font-size:${isA5 ? '15px' : '20px'};font-weight:900;color:#0f172a;letter-spacing:-0.5px;">${school.name}</div>
+              <div style="font-size:8px;color:#64748b;">${school.affiliation} • ${school.campus}</div>
             </div>
           </div>
           <div style="text-align:right;">
@@ -668,7 +788,7 @@
           <div style="flex:1;">
             <div style="font-weight:800;font-size:9px;color:#4f46e5;margin-bottom:3px;text-transform:uppercase;">Student Particulars</div>
             <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;font-size:${fBase};">
-              <tr><td style="padding:${pCell};border:1px solid #e2e8f0;color:#64748b;width:30%;">Date of Birth</td><td style="padding:${pCell};border:1px solid #e2e8f0;font-weight:700;">${s.dob} (${s.age} Yrs) • ${s.dobWords}</td></tr>
+              <tr><td style="padding:${pCell};border:1px solid #e2e8f0;color:#64748b;width:30%;">Date of Birth</td><td style="padding:${pCell};border:1px solid #e2e8f0;font-weight:700;">${s.dob} (Age: <strong>${s.age}</strong>) • ${s.dobWords}</td></tr>
               <tr style="background:#f8fafc;"><td style="padding:${pCell};border:1px solid #e2e8f0;color:#64748b;">Gender &amp; Blood Grp</td><td style="padding:${pCell};border:1px solid #e2e8f0;font-weight:700;">${s.gender} • <span style="color:#dc2626;">${s.bloodGroup}</span></td></tr>
               <tr><td style="padding:${pCell};border:1px solid #e2e8f0;color:#64748b;">Category &amp; Religion</td><td style="padding:${pCell};border:1px solid #e2e8f0;">${s.category} • ${s.religion} (${s.motherTongue})</td></tr>
               <tr style="background:#f8fafc;"><td style="padding:${pCell};border:1px solid #e2e8f0;color:#64748b;">Previous School</td><td style="padding:${pCell};border:1px solid #e2e8f0;">${s.prevSchool} (Class: ${s.lastClassPassed})</td></tr>
@@ -702,14 +822,14 @@
           <div style="display:flex;justify-content:space-between;text-align:center;">
             <div style="width:30%;border-top:1px solid #cbd5e1;padding-top:2px;font-size:8px;font-weight:700;color:#64748b;">Parent / Guardian Signature</div>
             <div style="width:30%;border-top:1px solid #cbd5e1;padding-top:2px;font-size:8px;font-weight:700;color:#64748b;">Admission Officer</div>
-            <div style="width:30%;border-top:1.5px solid #4f46e5;padding-top:2px;font-size:8.5px;font-weight:900;color:#4f46e5;">Principal's Seal &amp; Sign</div>
+            <div style="width:30%;border-top:1.5px solid #4f46e5;padding-top:2px;font-size:8.5px;font-weight:900;color:#4f46e5;">${school.principal} (Principal)</div>
           </div>
         </div>
 
         <!-- FOOTER -->
         <div style="display:flex;justify-content:space-between;font-size:7px;color:#94a3b8;border-top:1px solid #f1f5f9;padding-top:2px;">
-          <span>Form Code: TPS-MIN-V3.5 • ${new Date().toLocaleDateString("en-IN")}</span>
-          <span>https://tapowan-school.pages.dev • Page 1 of 1</span>
+          <span>Form Code: TPS-MIN-V3.6 • ${new Date().toLocaleDateString("en-IN")}</span>
+          <span>https://${school.website} • Page 1 of 1</span>
         </div>
       </div>
     </div>`;
@@ -717,24 +837,25 @@
 
   // =========================================================================
   // TEMPLATE 4: CBSE OFFICIAL BOX-GRID FORMAT (Board Standard)
-  // FULL PAGE VERTICAL DISTRIBUTION GUARANTEE
+  // FULL PAGE VERTICAL DISTRIBUTION GUARANTEE WITH DYNAMIC ERP DATA
   // =========================================================================
   function renderCbseBoxGrid(s, sizeId) {
     const isA5 = sizeId === "a5";
     const fBase = isA5 ? "8px" : "9.5px";
     const pCell = isA5 ? "3px 5px" : "5px 7px";
+    const school = getSchoolMeta();
 
     return `
     <div class="tps-adm-doc tps-cbse-box-grid" style="font-family:Arial,sans-serif;color:#000000;background:#ffffff;border:2px solid #000000;padding:${isA5 ? '8px 10px' : '10px 14px'};box-sizing:border-box;line-height:1.25;font-size:${fBase};display:flex;flex-direction:column;justify-content:space-between;height:100%;">
       
       <div style="display:flex;flex-direction:column;justify-content:space-between;height:100%;gap:${isA5 ? '5px' : '7px'};">
-        <!-- HEADER -->
+        <!-- HEADER (DYNAMIC ERP DATA) -->
         <div style="border-bottom:2px solid #000000;padding-bottom:5px;display:flex;justify-content:space-between;align-items:center;">
-          <img src="${SCHOOL_META.logo}" style="width:50px;height:50px;object-fit:contain;" alt="Logo" />
+          <img src="${school.logo}" style="width:50px;height:50px;object-fit:contain;" alt="Logo" />
           <div style="text-align:center;flex:1;">
-            <div style="font-size:${isA5 ? '15px' : '20px'};font-weight:900;letter-spacing:0.5px;text-transform:uppercase;">${SCHOOL_META.name}</div>
-            <div style="font-size:8px;font-weight:700;">${SCHOOL_META.affiliation}</div>
-            <div style="font-size:7.5px;">${SCHOOL_META.campus} • Contact: 7488061954</div>
+            <div style="font-size:${isA5 ? '15px' : '20px'};font-weight:900;letter-spacing:0.5px;text-transform:uppercase;">${school.name}</div>
+            <div style="font-size:8px;font-weight:700;">${school.affiliation}</div>
+            <div style="font-size:7.5px;">${school.campus} • ${school.contact}</div>
             <div style="display:inline-block;border:1.5px solid #000000;padding:2px 12px;font-weight:900;font-size:${isA5 ? '8.5px' : '10.5px'};margin-top:2px;text-transform:uppercase;">
               APPLICATION FOR ADMISSION • ACADEMIC SESSION ${s.session}
             </div>
@@ -759,8 +880,8 @@
 
             <div style="display:flex;gap:8px;margin-top:5px;">
               <div style="flex:1;">
-                <div style="font-size:7.5px;font-weight:700;">3. DATE OF BIRTH (DDMMYYYY):</div>
-                ${renderCharBoxes(s.dob.replace(/-/g, ""), 8)}
+                <div style="font-size:7.5px;font-weight:700;">3. DATE OF BIRTH:</div>
+                <div style="font-size:9px;font-weight:800;border:1px solid #000;padding:2px 6px;background:#f8fafc;">${s.dob} (Age: ${s.age})</div>
               </div>
               <div style="flex:1;">
                 <div style="font-size:7.5px;font-weight:700;">4. CLASS SOUGHT:</div>
@@ -820,13 +941,13 @@
         <div style="display:flex;justify-content:space-between;text-align:center;font-size:8px;font-weight:700;">
           <div style="border-top:1px solid #000;width:28%;padding-top:2px;">Signature of Parent/Guardian</div>
           <div style="border-top:1px solid #000;width:28%;padding-top:2px;">Admission Clerk (Verified)</div>
-          <div style="border-top:1px solid #000;width:28%;padding-top:2px;">Principal (Approved) &amp; Seal</div>
+          <div style="border-top:1px solid #000;width:28%;padding-top:2px;">${school.principal} (Principal &amp; Seal)</div>
         </div>
 
         <!-- FOOTER -->
         <div style="display:flex;justify-content:space-between;font-size:7px;border-top:1px solid #000;padding-top:2px;">
-          <span>Form Code: TPS-BOX-V3.5 • ${new Date().toLocaleDateString("en-IN")}</span>
-          <span>Official Portal: https://tapowan-school.pages.dev • Page 1 of 1</span>
+          <span>Form Code: TPS-BOX-V3.6 • ${new Date().toLocaleDateString("en-IN")}</span>
+          <span>Official Portal: https://${school.website} • Page 1 of 1</span>
         </div>
       </div>
     </div>`;
@@ -834,12 +955,13 @@
 
   // =========================================================================
   // TEMPLATE 5: DUAL COUNTER & PARENT COPY (Perforated Split)
-  // FULL PAGE VERTICAL DISTRIBUTION GUARANTEE
+  // FULL PAGE VERTICAL DISTRIBUTION GUARANTEE WITH DYNAMIC ERP DATA
   // =========================================================================
   function renderDualCounterSlip(s, sizeId) {
     const isA5 = sizeId === "a5";
     const fBase = isA5 ? "7.5px" : "9.5px";
     const pCell = isA5 ? "2.5px 5px" : "4.5px 8px";
+    const school = getSchoolMeta();
 
     function renderHalf(isParentCopy = false) {
       return `
@@ -847,10 +969,10 @@
         <!-- Header -->
         <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1.5px solid #1e3a8a;padding-bottom:3px;margin-bottom:4px;">
           <div style="display:flex;align-items:center;gap:8px;">
-            <img src="${SCHOOL_META.logo}" style="width:34px;height:34px;object-fit:contain;" alt="Logo" />
+            <img src="${school.logo}" style="width:34px;height:34px;object-fit:contain;" alt="Logo" />
             <div>
-              <div style="font-size:${isA5 ? '12px' : '15px'};font-weight:900;color:#1e3a8a;line-height:1.1;">${SCHOOL_META.name}</div>
-              <div style="font-size:7px;color:#64748b;">${SCHOOL_META.campus} • Ph: 7488061954</div>
+              <div style="font-size:${isA5 ? '12px' : '15px'};font-weight:900;color:#1e3a8a;line-height:1.1;">${school.name}</div>
+              <div style="font-size:7px;color:#64748b;">${school.campus} • Ph: ${school.phone}</div>
             </div>
           </div>
           <div style="text-align:right;">
@@ -876,7 +998,7 @@
           </tr>
           <tr>
             <td style="padding:${pCell};border:1px solid #cbd5e1;font-weight:700;color:#334155;">DOB / Blood Grp</td>
-            <td style="padding:${pCell};border:1px solid #cbd5e1;">${s.dob} • <strong style="color:#dc2626;">${s.bloodGroup}</strong></td>
+            <td style="padding:${pCell};border:1px solid #cbd5e1;">${s.dob} (Age: <strong>${s.age}</strong>) • <strong style="color:#dc2626;">${s.bloodGroup}</strong></td>
             <td style="padding:${pCell};border:1px solid #cbd5e1;font-weight:700;color:#334155;">Contact Phone</td>
             <td style="padding:${pCell};border:1px solid #cbd5e1;font-weight:700;color:#1e3a8a;">${s.phone1}</td>
           </tr>
@@ -896,7 +1018,7 @@
         <div style="display:flex;justify-content:space-between;margin-top:10px;text-align:center;font-size:7.5px;font-weight:700;color:#475569;">
           <div style="border-top:1px solid #64748b;width:30%;padding-top:2px;">Parent / Guardian Signature</div>
           <div style="border-top:1px solid #64748b;width:30%;padding-top:2px;">Cashier / In-Charge</div>
-          <div style="border-top:1.5px solid #1e3a8a;width:30%;padding-top:2px;color:#1e3a8a;font-weight:800;">Principal's Seal &amp; Signature</div>
+          <div style="border-top:1.5px solid #1e3a8a;width:30%;padding-top:2px;color:#1e3a8a;font-weight:800;">${school.principal} (Principal &amp; Seal)</div>
         </div>
       </div>`;
     }
@@ -923,6 +1045,7 @@
   // A3 DELUXE DOUBLE-SPREAD PROSPECTUS DOSSIER
   // =========================================================================
   function renderA3DoubleSpread(s, templateRenderer) {
+    const school = getSchoolMeta();
     return `
     <div class="tps-adm-doc tps-a3-double-spread" style="font-family:'Poppins',Arial,sans-serif;color:#1e293b;background:#ffffff;box-sizing:border-box;display:grid;grid-template-columns:1fr 1fr;gap:24px;border:3px solid #1e3a8a;padding:16px;height:100%;">
       
@@ -984,14 +1107,14 @@
             <div style="display:flex;justify-content:space-between;margin-top:24px;text-align:center;font-size:8.5px;font-weight:700;">
               <div style="border-top:1px solid #166534;width:30%;padding-top:4px;">Admission Scrutiny Officer</div>
               <div style="border-top:1px solid #166534;width:30%;padding-top:4px;">Accounts Department</div>
-              <div style="border-top:1.5px solid #166534;width:30%;padding-top:4px;color:#166534;font-weight:800;">Principal's Seal &amp; Signature</div>
+              <div style="border-top:1.5px solid #166534;width:30%;padding-top:4px;color:#166534;font-weight:800;">${school.principal} (Principal &amp; Seal)</div>
             </div>
           </div>
         </div>
 
         <!-- Legal Disclaimer -->
         <div style="font-size:8px;color:#94a3b8;text-align:center;border-top:1px solid #e2e8f0;padding-top:4px;">
-          Tapowan Public School Comprehensive Academic Folio • Document Authentication Code: TPS-CBSE-A3-${s.formNo}
+          ${school.name} Comprehensive Academic Folio • Document Authentication Code: TPS-CBSE-A3-${s.formNo}
         </div>
       </div>
     </div>`;
@@ -1139,7 +1262,7 @@
             <div>
               <div style="font-weight:800;font-size:1.02rem;color:#f8fafc;display:flex;align-items:center;gap:8px;">
                 <span>Admission Form Studio</span>
-                <span style="background:#2563eb;color:#ffffff;font-size:0.7rem;font-weight:700;padding:2px 8px;border-radius:12px;">Full-Page 100% Fit</span>
+                <span style="background:#2563eb;color:#ffffff;font-size:0.7rem;font-weight:700;padding:2px 8px;border-radius:12px;">Full-Page Fit</span>
               </div>
               <div style="font-size:0.75rem;color:#94a3b8;">
                 ${escapeHtml(student.fullName || student.studentName || "Student")} • Class: <strong>${escapeHtml(student.className || student.classApplyingFor || "-")}</strong> • Form: <strong>${escapeHtml(student.admissionNo || "New")}</strong>
@@ -1287,6 +1410,7 @@
   function printAdmissionForm(studentData, templateId = "cbse_modern", sizeId = "a4") {
     const html = renderAdmissionFormHtml(studentData, templateId, sizeId);
     const size = ADMISSION_SIZES[sizeId] || ADMISSION_SIZES.a4;
+    const school = getSchoolMeta();
 
     try {
       let iframe = document.getElementById("__tps_adm_print_iframe__");
@@ -1311,7 +1435,7 @@
         <html>
           <head>
             <meta charset="utf-8">
-            <title>Admission Form - ${SCHOOL_META.name}</title>
+            <title>Admission Form - ${school.name}</title>
             <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800;900&family=Cinzel:wght@700;900&family=Inter:wght@400;600;700;800&display=swap">
             <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
             <style>
@@ -1397,6 +1521,9 @@
   // --- EXPORT TO GLOBAL WINDOW OBJECT ---
   window.admissionFormSizes = ADMISSION_SIZES;
   window.admissionTemplates = ADMISSION_TEMPLATES;
+  window.getSchoolMeta = getSchoolMeta;
+  window.parseUniversalDate = parseUniversalDate;
+  window.calculateAgeFromDob = calculateAgeFromDob;
   window.normalizeAdmissionStudentData = normalizeAdmissionStudentData;
   window.renderAdmissionFormHtml = renderAdmissionFormHtml;
   window.openAdmissionFormStudio = openAdmissionFormStudio;
