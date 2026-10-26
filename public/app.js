@@ -228,99 +228,358 @@ window.ensureSlipTemplates = function() {
   return window._slipTemplatesLoadingPromise;
 };
 
-// Global EduCore Workplace & Hardware Settings Modal
-window.openEduCoreSettingsModal = function() {
-  const existingModal = document.getElementById("educoreSettingsModal");
+// Global School Profile & Institutional Branding Settings Modal
+window.openSchoolProfileModal = function() {
+  const existingModal = document.getElementById("schoolProfileSettingsModal");
   if (existingModal) existingModal.remove();
 
-  const savedQuality = localStorage.getItem("educore_camera_quality") || "1080p";
+  // Extract current school meta
+  let meta = {};
+  if (typeof window.getSchoolMeta === "function") {
+    meta = window.getSchoolMeta();
+  } else {
+    meta = {
+      name: "Tapowan Public School",
+      tagline: "Quality Education for a Brighter Future",
+      campus: "Prem Nagar Tapin North, Ramgarh, Jharkhand - 825314",
+      phone: "+91 74880 61954, +91 95256 40237",
+      email: "info@tapowanpublicschool.com",
+      principal: "Dr. R. K.",
+      logo: "logo.png",
+      code: "TPS-MAIN",
+      udise: "20040506702",
+      estd: "Estd. 2012",
+      affiliationBoard: "CBSE",
+      affiliationNo: "330845"
+    };
+  }
+
+  // Also query store settings for discrete keys
+  let store = {};
+  try {
+    if (typeof getStore === "function") store = getStore() || {};
+    else if (typeof serverStore !== "undefined") store = serverStore || {};
+  } catch (_) {}
+  const settingsList = Array.isArray(store.settings) ? store.settings : [];
+  const getSettingVal = (k) => {
+    const row = settingsList.find(s => String(s.key || s.KEY || '').toLowerCase() === k.toLowerCase());
+    return row && row.value ? String(row.value).trim() : null;
+  };
+
+  const schoolName = getSettingVal('school_name') || meta.name || "Tapowan Public School";
+  const schoolCode = getSettingVal('school_code') || meta.code || "TPS-MAIN";
+  const schoolSlug = getSettingVal('school_slug') || meta.slug || "tapowan-main";
+  const affBoard = getSettingVal('affiliation_board') || meta.affiliationBoard || "CBSE";
+  const affNo = getSettingVal('affiliation_no') || meta.affiliationNo || "";
+  const principal = getSettingVal('school_principal') || meta.principal || "Dr. R. K.";
+  const email = getSettingVal('school_email') || meta.email || "info@tapowanpublicschool.com";
+  const phone = getSettingVal('school_phone') || meta.phone || "+91 74880 61954, +91 95256 40237";
+  const address = getSettingVal('school_address') || meta.campus || "Prem Nagar Tapin North, Ramgarh, Jharkhand - 825314";
+  const tagline = getSettingVal('school_tagline') || meta.tagline || "Quality Education for a Brighter Future";
+  const udise = getSettingVal('school_udise') || meta.udise || "";
+  const estd = getSettingVal('school_estd') || meta.estd || "Estd. 2012";
+  const logo = getSettingVal('school_logo') || meta.logo || "logo.png";
+
   const modal = document.createElement("div");
-  modal.id = "educoreSettingsModal";
+  modal.id = "schoolProfileSettingsModal";
   modal.className = "designed-modal-backdrop";
-  modal.style.cssText = "position:fixed;inset:0;background:rgba(15,23,42,0.65);backdrop-filter:blur(6px);z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px;font-family:'Outfit',sans-serif;";
+  modal.style.cssText = "position:fixed;inset:0;background:rgba(15,23,42,0.68);backdrop-filter:blur(8px);z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px;font-family:'Outfit','Poppins',sans-serif;";
 
   modal.innerHTML = `
-    <div style="background:#ffffff;border-radius:18px;max-width:540px;width:100%;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);border:1px solid #e2e8f0;overflow:hidden;animation:modalScaleIn 0.2s cubic-bezier(0.16,1,0.3,1);">
-      <div style="background:#1e3a8a;color:#ffffff;padding:18px 24px;display:flex;align-items:center;justify-content:space-between;">
-        <div style="display:flex;align-items:center;gap:10px;">
-          <span class="material-symbols-outlined" style="font-size:24px;">settings</span>
-          <h3 style="margin:0;font-size:1.15rem;font-weight:800;letter-spacing:-0.02em;">EduCore Workplace & System Settings</h3>
+    <div style="background:#ffffff;border-radius:20px;max-width:680px;width:100%;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);border:1px solid #e2e8f0;overflow:hidden;animation:modalScaleIn 0.2s cubic-bezier(0.16,1,0.3,1);">
+      
+      <!-- Modal Header -->
+      <div style="background:linear-gradient(135deg, #1e3a8a 0%, #172554 100%);color:#ffffff;padding:18px 24px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="width:40px;height:40px;border-radius:10px;background:rgba(255,255,255,0.12);display:grid;place-items:center;border:1px solid rgba(255,255,255,0.2);">
+            <span class="material-symbols-outlined" style="font-size:24px;color:#93c5fd;">account_balance</span>
+          </div>
+          <div>
+            <h3 style="margin:0;font-size:1.15rem;font-weight:800;letter-spacing:-0.02em;">School Institutional Profile</h3>
+            <p style="margin:2px 0 0;font-size:0.75rem;color:#bfdbfe;font-weight:500;">Branding, affiliation & official school credentials auto-synced across ERP & Admission Forms</p>
+          </div>
         </div>
-        <button type="button" id="closeEduCoreSettingsBtn" style="background:none;border:none;color:#ffffff;cursor:pointer;padding:4px;border-radius:6px;display:flex;align-items:center;justify-content:center;opacity:0.8;transition:opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">
-          <span class="material-symbols-outlined" style="font-size:22px;">close</span>
+        <button type="button" id="closeSchoolProfileBtn" style="background:rgba(255,255,255,0.1);border:none;color:#ffffff;cursor:pointer;width:32px;height:32px;border-radius:8px;display:grid;place-items:center;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">
+          <span class="material-symbols-outlined" style="font-size:20px;">close</span>
         </button>
       </div>
 
-      <div style="padding:24px;display:flex;flex-direction:column;gap:18px;">
-        <div>
-          <label style="display:block;font-size:0.84rem;font-weight:700;color:#1e293b;margin-bottom:6px;">Camera Resolution & Stream Quality</label>
-          <select id="educoreSettingCamQuality" style="width:100%;padding:10px 14px;border:1.5px solid #cbd5e1;border-radius:10px;font-size:0.9rem;background:#f8fafc;color:#0f172a;outline:none;">
-            <option value="1080p" ${savedQuality === '1080p' ? 'selected' : ''}>Full HD 1080p (60 fps) - High Definition</option>
-            <option value="720p" ${savedQuality === '720p' ? 'selected' : ''}>HD 720p (30 fps) - Balanced Quality</option>
-            <option value="480p" ${savedQuality === '480p' ? 'selected' : ''}>SD 480p - Data Saver / Low Latency</option>
-          </select>
-        </div>
-
-        <div>
-          <label style="display:block;font-size:0.84rem;font-weight:700;color:#1e293b;margin-bottom:6px;">WebRTC VoIP Signaling Server</label>
-          <div style="display:flex;gap:8px;">
-            <input type="text" readonly value="https://tapowan-app.vercel.app/api" style="flex:1;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-size:0.88rem;background:#f1f5f9;color:#64748b;" />
-            <button type="button" id="educoreTestVoipBtn" style="padding:10px 16px;background:#1e3a8a;color:#ffffff;border:none;border-radius:10px;font-size:0.85rem;font-weight:700;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;">
-              <span class="material-symbols-outlined" style="font-size:16px;">network_check</span> Test
-            </button>
+      <!-- Modal Body (Scrollable) -->
+      <div style="padding:22px 24px;overflow-y:auto;display:flex;flex-direction:column;gap:16px;">
+        
+        <!-- School Crest / Emblem Section -->
+        <div style="border:1.5px solid #e2e8f0;border-radius:14px;padding:14px 16px;background:#f8fafc;display:flex;gap:16px;align-items:center;">
+          <div style="width:80px;height:80px;border:2px dashed #cbd5e1;border-radius:12px;background:#ffffff;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;padding:4px;box-sizing:border-box;">
+            <img id="spLogoPreview" src="${logo}" style="max-width:100%;max-height:100%;object-fit:contain;" alt="Crest" onerror="this.src='logo.png'" />
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:0.72rem;color:#64748b;line-height:1.3;margin-bottom:8px;">
+              Upload the official school crest or emblem. Visible across student mobile apps, web portals, ID cards, and digital receipts.
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <label style="background:#2563eb;color:#ffffff;cursor:pointer;padding:6px 14px;font-size:0.76rem;font-weight:700;border-radius:8px;display:inline-flex;align-items:center;gap:6px;transition:background 0.2s;" onmouseover="this.style.background='#1d4ed8'" onmouseout="this.style.background='#2563eb'">
+                <span class="material-symbols-outlined" style="font-size:16px;">folder_open</span> Change Image
+                <input type="file" id="spLogoFileInput" accept="image/*" style="display:none;" />
+              </label>
+              <button type="button" id="spRemoveLogoBtn" style="background:#fee2e2;color:#dc2626;border:none;cursor:pointer;padding:6px 12px;font-size:0.76rem;font-weight:700;border-radius:8px;display:inline-flex;align-items:center;gap:4px;">
+                <span class="material-symbols-outlined" style="font-size:15px;">close</span> Remove
+              </button>
+              <span style="font-size:0.7rem;color:#94a3b8;">PNG, JPG, SVG, WebP (Square recommended)</span>
+            </div>
+            <input type="text" id="spLogoUrlInput" value="${logo}" placeholder="/logo.png" style="width:100%;font-size:0.76rem;padding:6px 10px;border:1px solid #cbd5e1;border-radius:7px;background:#ffffff;margin-top:8px;font-family:monospace;box-sizing:border-box;color:#334155;outline:none;" />
           </div>
         </div>
 
-        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px;">
-          <div style="display:flex;align-items:center;gap:8px;font-size:0.85rem;font-weight:700;color:#0f172a;">
-            <span class="material-symbols-outlined" style="font-size:18px;color:#10b981;">verified_user</span>
-            Zero-Secret Cloud Database Proxy
+        <!-- 2-Column Responsive Grid Form -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          
+          <!-- School Official Name (Span 2) -->
+          <div style="grid-column:span 2;">
+            <label style="display:block;font-size:0.78rem;font-weight:800;color:#1e293b;margin-bottom:4px;">School Official Name *</label>
+            <input type="text" id="spSchoolName" required value="${schoolName}" placeholder="e.g. Tapowan Public School" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:9px;font-size:0.88rem;font-weight:700;color:#0f172a;background:#ffffff;box-sizing:border-box;outline:none;" />
           </div>
-          <div style="font-size:0.78rem;color:#64748b;">
-            Direct Turso tokens and secrets are fully protected server-side with zero credentials embedded in client scripts or mobile bytecode.
+
+          <!-- Unique School Code -->
+          <div>
+            <label style="display:block;font-size:0.78rem;font-weight:700;color:#1e293b;margin-bottom:4px;">Unique School Code</label>
+            <input type="text" id="spSchoolCode" value="${schoolCode}" placeholder="e.g. TPS-MAIN" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:9px;font-size:0.86rem;color:#0f172a;background:#ffffff;box-sizing:border-box;outline:none;" />
           </div>
+
+          <!-- Subdomain / Portal Slug -->
+          <div>
+            <label style="display:block;font-size:0.78rem;font-weight:700;color:#1e293b;margin-bottom:4px;">Subdomain / Portal Slug</label>
+            <input type="text" id="spSchoolSlug" value="${schoolSlug}" placeholder="e.g. tapowan-main" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:9px;font-size:0.86rem;color:#0f172a;background:#ffffff;box-sizing:border-box;outline:none;" />
+          </div>
+
+          <!-- Affiliation Board -->
+          <div>
+            <label style="display:block;font-size:0.78rem;font-weight:700;color:#1e293b;margin-bottom:4px;">Affiliation Board</label>
+            <select id="spAffiliationBoard" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:9px;font-size:0.86rem;font-weight:600;color:#0f172a;background:#ffffff;box-sizing:border-box;outline:none;">
+              <option value="CBSE" ${affBoard === 'CBSE' ? 'selected' : ''}>CBSE</option>
+              <option value="ICSE" ${affBoard === 'ICSE' ? 'selected' : ''}>ICSE</option>
+              <option value="State Board" ${affBoard === 'State Board' ? 'selected' : ''}>State Board</option>
+              <option value="IB / Cambridge" ${affBoard === 'IB / Cambridge' ? 'selected' : ''}>IB / Cambridge</option>
+              <option value="None / Other" ${affBoard === 'None / Other' ? 'selected' : ''}>None / Other</option>
+            </select>
+          </div>
+
+          <!-- Affiliation Number -->
+          <div>
+            <label style="display:block;font-size:0.78rem;font-weight:700;color:#1e293b;margin-bottom:4px;">Affiliation Number</label>
+            <input type="text" id="spAffiliationNo" value="${affNo}" placeholder="e.g. 330845" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:9px;font-size:0.86rem;color:#0f172a;background:#ffffff;box-sizing:border-box;outline:none;" />
+          </div>
+
+          <!-- Principal Name -->
+          <div>
+            <label style="display:block;font-size:0.78rem;font-weight:700;color:#1e293b;margin-bottom:4px;">Principal Name</label>
+            <input type="text" id="spPrincipalName" value="${principal}" placeholder="e.g. Dr. R. K." style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:9px;font-size:0.86rem;font-weight:600;color:#0f172a;background:#ffffff;box-sizing:border-box;outline:none;" />
+          </div>
+
+          <!-- Contact Email -->
+          <div>
+            <label style="display:block;font-size:0.78rem;font-weight:700;color:#1e293b;margin-bottom:4px;">Contact Email</label>
+            <input type="email" id="spContactEmail" value="${email}" placeholder="info@tapowanpublicschool.com" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:9px;font-size:0.86rem;color:#0f172a;background:#ffffff;box-sizing:border-box;outline:none;" />
+          </div>
+
+          <!-- Contact Phone Numbers -->
+          <div>
+            <label style="display:block;font-size:0.78rem;font-weight:700;color:#1e293b;margin-bottom:4px;">Contact Mobile / Phone Numbers</label>
+            <input type="text" id="spContactPhone" value="${phone}" placeholder="+91 74880 61954, +91 95256 40237" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:9px;font-size:0.86rem;color:#0f172a;background:#ffffff;box-sizing:border-box;outline:none;" />
+          </div>
+
+          <!-- School Tagline / Motto -->
+          <div>
+            <label style="display:block;font-size:0.78rem;font-weight:700;color:#1e293b;margin-bottom:4px;">Tagline / Motto</label>
+            <input type="text" id="spSchoolTagline" value="${tagline}" placeholder="Quality Education for a Brighter Future" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:9px;font-size:0.86rem;color:#0f172a;background:#ffffff;box-sizing:border-box;outline:none;" />
+          </div>
+
+          <!-- UDISE Code -->
+          <div>
+            <label style="display:block;font-size:0.78rem;font-weight:700;color:#1e293b;margin-bottom:4px;">UDISE Code</label>
+            <input type="text" id="spSchoolUdise" value="${udise}" placeholder="20040506702" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:9px;font-size:0.86rem;color:#0f172a;background:#ffffff;box-sizing:border-box;outline:none;" />
+          </div>
+
+          <!-- Established Year -->
+          <div>
+            <label style="display:block;font-size:0.78rem;font-weight:700;color:#1e293b;margin-bottom:4px;">Established Year</label>
+            <input type="text" id="spSchoolEstd" value="${estd}" placeholder="Estd. 2012" style="width:100%;padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:9px;font-size:0.86rem;color:#0f172a;background:#ffffff;box-sizing:border-box;outline:none;" />
+          </div>
+
+          <!-- School Campus Address (Span 2) -->
+          <div style="grid-column:span 2;">
+            <label style="display:block;font-size:0.78rem;font-weight:700;color:#1e293b;margin-bottom:4px;">School Campus Address</label>
+            <textarea id="spSchoolAddress" rows="2" placeholder="e.g. Prem Nagar Tapin North, Ramgarh, Jharkhand - 825314" style="width:100%;padding:8px 12px;border:1.5px solid #cbd5e1;border-radius:9px;font-size:0.86rem;color:#0f172a;background:#ffffff;box-sizing:border-box;outline:none;resize:vertical;">${address}</textarea>
+          </div>
+
         </div>
       </div>
 
-      <div style="padding:16px 24px;background:#f8fafc;border-top:1px solid #f1f5f9;display:flex;justify-content:flex-end;gap:10px;">
-        <button type="button" id="cancelEduCoreSettingsBtn" style="padding:9px 18px;border:1px solid #cbd5e1;background:#ffffff;color:#475569;border-radius:8px;font-weight:700;font-size:0.86rem;cursor:pointer;">Cancel</button>
-        <button type="button" id="saveEduCoreSettingsBtn" style="padding:9px 20px;background:#1e3a8a;color:#ffffff;border:none;border-radius:8px;font-weight:700;font-size:0.86rem;cursor:pointer;">Save Settings</button>
+      <!-- Modal Footer -->
+      <div style="padding:16px 24px;background:#f8fafc;border-top:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
+        <div style="font-size:0.75rem;color:#64748b;display:flex;align-items:center;gap:6px;">
+          <span class="material-symbols-outlined" style="font-size:16px;color:#10b981;">sync</span>
+          Changes immediately update Admission Forms & Receipts
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button type="button" id="cancelSchoolProfileBtn" style="padding:9px 18px;border:1px solid #cbd5e1;background:#ffffff;color:#475569;border-radius:9px;font-weight:700;font-size:0.86rem;cursor:pointer;">Cancel</button>
+          <button type="button" id="saveSchoolProfileBtn" style="padding:9px 22px;background:#2563eb;color:#ffffff;border:none;border-radius:9px;font-weight:700;font-size:0.86rem;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background 0.2s;" onmouseover="this.style.background='#1d4ed8'" onmouseout="this.style.background='#2563eb'">
+            <span class="material-symbols-outlined" style="font-size:17px;">save</span> Save Profile
+          </button>
+        </div>
       </div>
+
     </div>
   `;
 
   document.body.appendChild(modal);
 
-  const closeBtn = modal.querySelector("#closeEduCoreSettingsBtn");
-  const cancelBtn = modal.querySelector("#cancelEduCoreSettingsBtn");
-  const saveBtn = modal.querySelector("#saveEduCoreSettingsBtn");
-  const testVoipBtn = modal.querySelector("#educoreTestVoipBtn");
-  const qualitySelect = modal.querySelector("#educoreSettingCamQuality");
-
   const closeModal = () => modal.remove();
-  closeBtn.onclick = closeModal;
-  cancelBtn.onclick = closeModal;
+  modal.querySelector("#closeSchoolProfileBtn").onclick = closeModal;
+  modal.querySelector("#cancelSchoolProfileBtn").onclick = closeModal;
   modal.onclick = (e) => { if (e.target === modal) closeModal(); };
 
-  testVoipBtn.onclick = () => {
-    if (typeof window.showToast === "function") {
-      window.showToast("WebRTC VoIP & Signaling Gateway: Connected & Active (24ms)", "success");
-    } else {
-      alert("WebRTC VoIP & Signaling Gateway: Connected & Active (24ms)");
+  // Logo file upload handler
+  const logoFileInput = modal.querySelector("#spLogoFileInput");
+  const logoUrlInput = modal.querySelector("#spLogoUrlInput");
+  const logoPreview = modal.querySelector("#spLogoPreview");
+  const removeLogoBtn = modal.querySelector("#spRemoveLogoBtn");
+
+  logoFileInput.onchange = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (re) => {
+        const dataUrl = re.target.result;
+        logoPreview.src = dataUrl;
+        logoUrlInput.value = dataUrl;
+      };
+      reader.readAsDataURL(file);
     }
   };
 
-  saveBtn.onclick = () => {
-    const q = qualitySelect.value;
+  logoUrlInput.oninput = () => {
+    const val = logoUrlInput.value.trim() || "logo.png";
+    logoPreview.src = val;
+  };
+
+  removeLogoBtn.onclick = () => {
+    logoUrlInput.value = "logo.png";
+    logoPreview.src = "logo.png";
+  };
+
+  // Save profile handler
+  const saveBtn = modal.querySelector("#saveSchoolProfileBtn");
+  saveBtn.onclick = async () => {
+    const nameVal = modal.querySelector("#spSchoolName").value.trim();
+    if (!nameVal) {
+      if (typeof window.showToast === "function") window.showToast("School Official Name is required", "error");
+      else alert("School Official Name is required");
+      return;
+    }
+
+    const codeVal = modal.querySelector("#spSchoolCode").value.trim();
+    const slugVal = modal.querySelector("#spSchoolSlug").value.trim();
+    const boardVal = modal.querySelector("#spAffiliationBoard").value.trim();
+    const affNoVal = modal.querySelector("#spAffiliationNo").value.trim();
+    const principalVal = modal.querySelector("#spPrincipalName").value.trim();
+    const emailVal = modal.querySelector("#spContactEmail").value.trim();
+    const phoneVal = modal.querySelector("#spContactPhone").value.trim();
+    const addressVal = modal.querySelector("#spSchoolAddress").value.trim();
+    const taglineVal = modal.querySelector("#spSchoolTagline").value.trim();
+    const udiseVal = modal.querySelector("#spSchoolUdise").value.trim();
+    const estdVal = modal.querySelector("#spSchoolEstd").value.trim();
+    const logoVal = logoUrlInput.value.trim() || "logo.png";
+
+    let affiliationString = "";
+    if (affNoVal) {
+      affiliationString = `Affiliated to ${boardVal} • Affiliation No. ${affNoVal}`;
+    } else if (boardVal && boardVal !== "None / Other") {
+      affiliationString = `Affiliated to ${boardVal}`;
+    }
+
+    const payload = [
+      { key: "school_name", value: nameVal },
+      { key: "school_code", value: codeVal },
+      { key: "school_slug", value: slugVal },
+      { key: "affiliation_board", value: boardVal },
+      { key: "affiliation_no", value: affNoVal },
+      { key: "school_affiliation", value: affiliationString },
+      { key: "school_principal", value: principalVal },
+      { key: "school_email", value: emailVal },
+      { key: "school_phone", value: phoneVal },
+      { key: "school_address", value: addressVal },
+      { key: "school_tagline", value: taglineVal },
+      { key: "school_udise", value: udiseVal },
+      { key: "school_estd", value: estdVal },
+      { key: "school_logo", value: logoVal }
+    ];
+
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:17px;animation:spin 1s linear infinite;">progress_activity</span> Saving...';
+
     try {
-      localStorage.setItem("educore_camera_quality", q);
-    } catch (_) {}
-    closeModal();
-    if (typeof window.showToast === "function") {
-      window.showToast("Workplace settings saved successfully", "success");
+      // Save settings to backend
+      for (const item of payload) {
+        try {
+          await api("/api/settings", {
+            method: "POST",
+            body: JSON.stringify({ key: item.key, value: item.value, category: "SchoolProfile" })
+          });
+        } catch (e) {
+          console.warn("Setting save warn:", item.key, e);
+        }
+      }
+
+      // Update in-memory store
+      if (!serverStore.settings) serverStore.settings = [];
+      payload.forEach(item => {
+        const row = serverStore.settings.find(s => String(s.key || s.KEY || '').toLowerCase() === item.key.toLowerCase());
+        if (row) row.value = item.value;
+        else serverStore.settings.push({ key: item.key, value: item.value, category: "SchoolProfile" });
+      });
+
+      // Update currentSchool global
+      if (!window.currentSchool) window.currentSchool = {};
+      window.currentSchool.name = nameVal;
+      window.currentSchool.principal = principalVal;
+      window.currentSchool.address = addressVal;
+      window.currentSchool.phone = phoneVal;
+      window.currentSchool.email = emailVal;
+      window.currentSchool.logo = logoVal;
+      window.currentSchool.affiliation = affiliationString;
+      window.currentSchool.affiliationBoard = boardVal;
+      window.currentSchool.affiliationNo = affNoVal;
+
+      closeModal();
+
+      if (typeof window.showToast === "function") {
+        window.showToast("School Profile saved successfully! Admission forms & documents updated.", "success");
+      } else {
+        alert("School Profile saved successfully!");
+      }
+
+      // If admission form studio is currently open, trigger its re-render
+      const studioModal = document.getElementById("tpsAdmStudioModal");
+      if (studioModal && typeof window.updateAdmissionStudioPreview === "function") {
+        window.updateAdmissionStudioPreview();
+      }
+
+    } catch (err) {
+      console.error("Save profile error:", err);
+      if (typeof window.showToast === "function") {
+        window.showToast("Failed to save profile: " + err.message, "error");
+      } else {
+        alert("Failed to save profile: " + err.message);
+      }
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:17px;">save</span> Save Profile';
     }
   };
 };
+
+// Backward-compatible alias
+window.openEduCoreSettingsModal = window.openSchoolProfileModal;
 
 const FACE_KEY = "school_face_embeddings_v2";
 const CLASS_STANDARD_OPTIONS = ["Nursery", "LKG", "UKG", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];

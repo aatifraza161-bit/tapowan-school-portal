@@ -74,7 +74,7 @@
     const settingsList = Array.isArray(store.settings) ? store.settings : [];
     const getSettingVal = (k) => {
       const row = settingsList.find(s => String(s.key || s.KEY || '').toLowerCase() === k.toLowerCase());
-      return row && row.value ? String(row.value).trim() : null;
+      return row && row.value !== undefined && row.value !== null && String(row.value).trim() !== '' ? String(row.value).trim() : null;
     };
 
     // Check ai_school_knowledge for parsed fallback address & principal
@@ -88,31 +88,54 @@
       if (aMatch) aiAddress = aMatch[1].trim();
     }
 
-    const name = getSettingVal('school_name') || (window.currentSchool && window.currentSchool.name) || "TAPOWAN PUBLIC SCHOOL";
-    const tagline = getSettingVal('school_tagline') || "Quality Education for a Brighter Future";
-    const affiliation = getSettingVal('school_affiliation') || (window.currentSchool && window.currentSchool.affiliation) || "";
-    const campus = getSettingVal('school_address') || aiAddress || "Prem Nagar Tapin North, Ramgarh, Jharkhand - 825314";
-    const phone = getSettingVal('school_phone') || "+91 74880 61954, +91 95256 40237";
-    const email = getSettingVal('school_email') || "info@tapowanschool.edu.in";
-    const website = getSettingVal('school_website') || "tapowan-school.pages.dev";
-    const udise = getSettingVal('school_udise') || "UDISE Code: 20040506702";
-    const logo = getSettingVal('school_logo') || "logo.png";
-    const principal = getSettingVal('school_principal') || aiPrincipal || "Triveni Singh";
-    const estd = getSettingVal('school_estd') || "Estd. 2012";
+    const curr = window.currentSchool || {};
+
+    const name = getSettingVal('school_name') || curr.name || curr.school_name || "Tapowan Public School";
+    const tagline = getSettingVal('school_tagline') || curr.tagline || "Quality Education for a Brighter Future";
+
+    const board = getSettingVal('affiliation_board') || curr.affiliation_board || curr.affiliationBoard || "";
+    const affNo = getSettingVal('affiliation_no') || curr.affiliation_no || curr.affiliationNo || "";
+    let affiliation = getSettingVal('school_affiliation') || curr.affiliation || "";
+    if (!affiliation && board && board !== "None" && board !== "None / Other") {
+      affiliation = `Affiliated to ${board}`;
+      if (affNo) affiliation += ` • Affiliation No. ${affNo}`;
+    }
+
+    const campus = getSettingVal('school_address') || curr.address || curr.campus || aiAddress || "Prem Nagar Tapin North, Ramgarh, Jharkhand - 825314";
+    const phone = getSettingVal('school_phone') || curr.phone || "+91 74880 61954, +91 95256 40237";
+    const email = getSettingVal('school_email') || curr.email || "info@tapowanpublicschool.com";
+    const website = getSettingVal('school_website') || curr.website || (window.location && window.location.host ? window.location.host : "tapowan-school.pages.dev");
+
+    const rawUdise = getSettingVal('school_udise') || curr.udise || "20040506702";
+    const udise = rawUdise ? (rawUdise.toLowerCase().includes('udise') ? rawUdise : `UDISE Code: ${rawUdise}`) : "";
+
+    const logo = getSettingVal('school_logo') || curr.logo || "logo.png";
+    const principal = getSettingVal('school_principal') || curr.principal || aiPrincipal || "Dr. R. K.";
+    const estd = getSettingVal('school_estd') || curr.estd || "Estd. 2012";
+    const schoolCode = getSettingVal('school_code') || curr.code || curr.school_code || "TPS-MAIN";
+    const schoolSlug = getSettingVal('school_slug') || curr.slug || "tapowan-main";
 
     return {
       name,
       tagline,
       affiliation,
+      affiliationBoard: board,
+      affiliationNo: affNo,
       campus,
+      address: campus,
       phone,
       email,
       website,
       contact: `Phone: ${phone} | Email: ${email} | Web: ${website}`,
       udise,
+      rawUdise,
       logo,
       principal,
-      estd
+      estd,
+      code: schoolCode,
+      schoolCode,
+      slug: schoolSlug,
+      schoolSlug
     };
   }
 
@@ -748,7 +771,7 @@
           <div style="display:flex;justify-content:space-between;margin-top:18px;text-align:center;">
             <div style="border-top:1px solid #881337;width:28%;padding-top:2px;font-size:7.5px;font-weight:700;color:#881337;">Father / Guardian Signature</div>
             <div style="border-top:1px solid #881337;width:28%;padding-top:2px;font-size:7.5px;font-weight:700;color:#881337;">Mother's Signature</div>
-            <div style="border-top:1.5px solid #881337;width:32%;padding-top:2px;font-size:8px;font-weight:800;color:#881337;">${school.principal} (Principal &amp; Seal)</div>
+            <div style="border-top:1.5px solid #881337;width:32%;padding-top:2px;font-size:8px;font-weight:800;color:#881337;">${school.principal ? `${school.principal} (Principal &amp; Seal)` : "Principal &amp; Official Seal"}</div>
           </div>
         </div>
 
@@ -849,7 +872,7 @@
           <div style="display:flex;justify-content:space-between;text-align:center;">
             <div style="width:30%;border-top:1px solid #cbd5e1;padding-top:2px;font-size:8px;font-weight:700;color:#64748b;">Parent / Guardian Signature</div>
             <div style="width:30%;border-top:1px solid #cbd5e1;padding-top:2px;font-size:8px;font-weight:700;color:#64748b;">Admission Officer</div>
-            <div style="width:30%;border-top:1.5px solid #4f46e5;padding-top:2px;font-size:8.5px;font-weight:900;color:#4f46e5;">${school.principal} (Principal)</div>
+            <div style="width:30%;border-top:1.5px solid #4f46e5;padding-top:2px;font-size:8.5px;font-weight:900;color:#4f46e5;">${school.principal ? `${school.principal} (Principal)` : "Principal's Signature"}</div>
           </div>
         </div>
 
@@ -972,7 +995,7 @@
         <div style="display:flex;justify-content:space-between;text-align:center;font-size:8px;font-weight:700;">
           <div style="border-top:1px solid #000;width:28%;padding-top:2px;">Signature of Parent/Guardian</div>
           <div style="border-top:1px solid #000;width:28%;padding-top:2px;">Admission Clerk (Verified)</div>
-          <div style="border-top:1px solid #000;width:28%;padding-top:2px;">${school.principal} (Principal &amp; Seal)</div>
+          <div style="border-top:1px solid #000;width:28%;padding-top:2px;">${school.principal ? `${school.principal} (Principal &amp; Seal)` : "Principal &amp; Official Seal"}</div>
         </div>
 
         <!-- FOOTER -->
@@ -1003,7 +1026,7 @@
             <img src="${school.logo}" style="width:34px;height:34px;object-fit:contain;" alt="Logo" />
             <div>
               <div style="font-size:${isA5 ? '12px' : '15px'};font-weight:900;color:#1e3a8a;line-height:1.1;">${school.name}</div>
-              <div style="font-size:7px;color:#64748b;">${school.campus} • Ph: ${school.phone}</div>
+              <div style="font-size:7px;color:#64748b;">${school.affiliation ? `${school.affiliation} • ` : ''}${school.campus} • Ph: ${school.phone}</div>
             </div>
           </div>
           <div style="text-align:right;">
@@ -1049,7 +1072,7 @@
         <div style="display:flex;justify-content:space-between;margin-top:10px;text-align:center;font-size:7.5px;font-weight:700;color:#475569;">
           <div style="border-top:1px solid #64748b;width:30%;padding-top:2px;">Parent / Guardian Signature</div>
           <div style="border-top:1px solid #64748b;width:30%;padding-top:2px;">Cashier / In-Charge</div>
-          <div style="border-top:1.5px solid #1e3a8a;width:30%;padding-top:2px;color:#1e3a8a;font-weight:800;">${school.principal} (Principal &amp; Seal)</div>
+          <div style="border-top:1.5px solid #1e3a8a;width:30%;padding-top:2px;color:#1e3a8a;font-weight:800;">${school.principal ? `${school.principal} (Principal &amp; Seal)` : "Principal &amp; Official Seal"}</div>
         </div>
       </div>`;
     }
@@ -1138,7 +1161,7 @@
             <div style="display:flex;justify-content:space-between;margin-top:24px;text-align:center;font-size:8.5px;font-weight:700;">
               <div style="border-top:1px solid #166534;width:30%;padding-top:4px;">Admission Scrutiny Officer</div>
               <div style="border-top:1px solid #166534;width:30%;padding-top:4px;">Accounts Department</div>
-              <div style="border-top:1.5px solid #166534;width:30%;padding-top:4px;color:#166534;font-weight:800;">${school.principal} (Principal &amp; Seal)</div>
+              <div style="border-top:1.5px solid #166534;width:30%;padding-top:4px;color:#166534;font-weight:800;">${school.principal ? `${school.principal} (Principal &amp; Seal)` : "Principal &amp; Official Seal"}</div>
             </div>
           </div>
         </div>
@@ -1436,9 +1459,20 @@
       modal.remove();
     });
 
+    // Attach updater to modal DOM for live ERP school profile sync
+    modal._updatePreview = updatePreview;
+
     // Initial render
     updatePreview();
   }
+
+  // Live synchronizer: allows external modals (like School Profile) to trigger live re-render
+  window.updateAdmissionStudioPreview = function() {
+    const modal = document.getElementById("tpsAdmissionStudioModal");
+    if (modal && typeof modal._updatePreview === "function") {
+      modal._updatePreview();
+    }
+  };
 
   // =========================================================================
   // PRINT EXECUTION PIPELINE
