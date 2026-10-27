@@ -13208,20 +13208,58 @@ refs.dynamicForm.addEventListener("submit", async (e) => {
         payload.dueMgmtParticulars = appliedDueMgmtParticulars;
         payload.consolidatedDueMgmtIds = JSON.stringify(appliedDueMgmtIds);
         payload.consolidatedFeeIds = JSON.stringify(appliedFeeIds);
-        const std = (getStore().students || []).find(s => String(s.admissionNo) === String(payload.admissionNo));
-        const stdTuition = std ? (parseFloat(std.monthlyFee) || 0) : 0;
-        if (stdTuition > 0 && appliedDueMgmtAmount >= stdTuition) {
-            payload.tuitionFee = String((parseFloat(payload.tuitionFee)||0) + stdTuition);
-            const rem = appliedDueMgmtAmount - stdTuition;
-            if (rem > 0) {
-                if (appliedDueMgmtParticulars && appliedDueMgmtParticulars.toLowerCase().includes("late")) {
-                    payload.lateFee = String((parseFloat(payload.lateFee)||0) + rem);
-                } else {
-                    payload.otherFee = String((parseFloat(payload.otherFee)||0) + rem);
-                }
+
+        const store = getStore();
+        const duesList = store.dueManagement || [];
+        const feesList = store.fees || [];
+
+        // Accurately map each due to its exact fee category instead of assuming Tuition/Late
+        const resolveFeeKey = (p) => {
+          const s = String(p || "").toLowerCase();
+          if (s.includes("tuition")) return "tuitionFee";
+          if (s.includes("admission") && !s.includes("form")) return "admissionFee";
+          if (s.includes("transport") || s.includes("transpot") || s.includes("bus") || s.includes("van")) return "transportFee";
+          if (s.includes("exam")) return "examFee";
+          if (s.includes("computer")) return "computerFee";
+          if (s.includes("development")) return "developmentFee";
+          if (s.includes("lab")) return "labFee";
+          if (s.includes("sports")) return "sportsFee";
+          if (s.includes("library")) return "libraryFee";
+          if (s.includes("hostel")) return "hostelFee";
+          if (s.includes("late") || s.includes("fine") || s.includes("penalty")) return "lateFee";
+          return "otherFee";
+        };
+
+        let totalDuesAllocated = 0;
+        appliedDueMgmtIds.forEach(dId => {
+          const d = duesList.find(r => String(r.id) === String(dId));
+          if (d) {
+            const dueBal = parseFloat(d.balance != null && d.balance !== "" ? d.balance : d.dueAmount) || 0;
+            if (dueBal > 0) {
+              const k = resolveFeeKey(d.particulars);
+              payload[k] = String(Math.round(((parseFloat(payload[k]) || 0) + dueBal) * 100) / 100);
+              totalDuesAllocated += dueBal;
             }
-        } else {
-            payload.tuitionFee = String((parseFloat(payload.tuitionFee)||0) + appliedDueMgmtAmount);
+          }
+        });
+
+        appliedFeeIds.forEach(fId => {
+          const f = feesList.find(r => String(r.id) === String(fId));
+          if (f) {
+            const fBal = parseFloat(f.balance) || 0;
+            if (fBal > 0) {
+              const k = resolveFeeKey(f.feeTypes || f.dueMgmtParticulars || "other");
+              payload[k] = String(Math.round(((parseFloat(payload[k]) || 0) + fBal) * 100) / 100);
+              totalDuesAllocated += fBal;
+            }
+          }
+        });
+
+        // Fallback for unallocated remainder or if cache IDs were missing
+        const unallocated = Math.round((appliedDueMgmtAmount - totalDuesAllocated) * 100) / 100;
+        if (unallocated > 0.01) {
+          const k = resolveFeeKey(appliedDueMgmtParticulars);
+          payload[k] = String(Math.round(((parseFloat(payload[k]) || 0) + unallocated) * 100) / 100);
         }
       }
       if (editRecordId != null && Number(editRecordId) > 0) {
@@ -13255,17 +13293,18 @@ refs.dynamicForm.addEventListener("submit", async (e) => {
       if (bal <= 0 && paid > 0) {
         // Due is fully paid (or overpaid) - move payment into fees module and remove from dueManagement
         const partLower = String(payload.particulars || "").toLowerCase();
-        let compKey = "tuitionFee";
-        if (partLower.includes("late")) compKey = "lateFee";
-        else if (partLower.includes("transport")) compKey = "transportFee";
-        else if (partLower.includes("admission")) compKey = "admissionFee";
+        let compKey = "otherFee";
+        if (partLower.includes("tuition")) compKey = "tuitionFee";
+        else if (partLower.includes("late") || partLower.includes("fine") || partLower.includes("penalty")) compKey = "lateFee";
+        else if (partLower.includes("transport") || partLower.includes("transpot") || partLower.includes("bus") || partLower.includes("van")) compKey = "transportFee";
+        else if (partLower.includes("admission") && !partLower.includes("form")) compKey = "admissionFee";
         else if (partLower.includes("computer")) compKey = "computerFee";
         else if (partLower.includes("development")) compKey = "developmentFee";
         else if (partLower.includes("lab")) compKey = "labFee";
         else if (partLower.includes("sports")) compKey = "sportsFee";
         else if (partLower.includes("library")) compKey = "libraryFee";
         else if (partLower.includes("exam")) compKey = "examFee";
-        else if (!partLower.includes("tuition")) compKey = "otherFee";
+        else if (partLower.includes("hostel")) compKey = "hostelFee";
 
         const currentSession = (typeof getCurrentSession === "function" ? getCurrentSession() : "") || "2026-27";
         const feePayload = {
@@ -13275,7 +13314,7 @@ refs.dynamicForm.addEventListener("submit", async (e) => {
           rollNo: payload.rollNo || "",
           term: payload.session || currentSession,
           month: payload.month || "",
-          feeTypes: payload.particulars || "Tuition Fee",
+          feeTypes: payload.particulars || "School Fee",
           [compKey]: String(due),
           totalFee: String(due),
           paidAmount: String(paid),
@@ -19623,10 +19662,14 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
         if (f.month) f.month.split(",").forEach(m => monthsToSelect.add(m.trim().toLowerCase().substring(0,3)));
       });
       studentDues.forEach(d => {
-        if (d.month) d.month.split(",").forEach(m => monthsToSelect.add(m.trim().toLowerCase().substring(0,3)));
-        // Fallback to parse particulars for months if month field is empty
-        const mMatch = (d.particulars || "").match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/gi);
-        if (mMatch) mMatch.forEach(m => monthsToSelect.add(m.toLowerCase().substring(0,3)));
+        // Only auto-select month pills if the due is explicitly a recurring TUITION fee
+        const isTuitionDue = (d.particulars || "").toLowerCase().includes("tuition");
+        if (isTuitionDue) {
+          if (d.month) d.month.split(",").forEach(m => monthsToSelect.add(m.trim().toLowerCase().substring(0,3)));
+          // Fallback to parse particulars for months if month field is empty
+          const mMatch = (d.particulars || "").match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/gi);
+          if (mMatch) mMatch.forEach(m => monthsToSelect.add(m.toLowerCase().substring(0,3)));
+        }
       });
       
       const monthContainer = form.querySelector("#bd-month-selector");
@@ -23601,7 +23644,24 @@ async function renderDueManagementForm(cfg, studentOptions, classOptions, initia
   particularsField.className = "field";
   particularsField.style.gridColumn = "span 2";
   
-  const allFeeTypes = new Set(["Previous Session Balance", "Late Fee"]);
+  const standardFeeTypes = [
+    "Tuition Fee",
+    "Admission Fee",
+    "Transport Fee",
+    "Exam Fee",
+    "Computer Fee",
+    "Development Fee",
+    "Annual Fee",
+    "Late Fee",
+    "Previous Session Balance",
+    "Lab Fee",
+    "Sports Fee",
+    "Library Fee",
+    "Hostel Fee",
+    "Books & Dress Fee",
+    "Other / Custom Fee"
+  ];
+  const allFeeTypes = new Set(standardFeeTypes);
   const structures = (typeof getStore === "function" ? getStore().feeStructures : []) || [];
   structures.forEach(f => {
     let desc = f.description || "";
@@ -23611,7 +23671,10 @@ async function renderDueManagementForm(cfg, studentOptions, classOptions, initia
     if (f.feeType === "Other" && desc) allFeeTypes.add(desc);
     else if (fType) allFeeTypes.add(fType);
   });
+  if (baseParticulars) allFeeTypes.add(baseParticulars);
   
+  const isCustomInitial = baseParticulars && !standardFeeTypes.includes(baseParticulars) && !Array.from(allFeeTypes).some(t => t === baseParticulars && t !== "Other / Custom Fee");
+
   const optionsHtml = Array.from(allFeeTypes).map(t => `<option value="${t}" ${baseParticulars === t ? 'selected' : ''}>${t}</option>`).join("");
   
   particularsField.innerHTML = `
@@ -23620,22 +23683,126 @@ async function renderDueManagementForm(cfg, studentOptions, classOptions, initia
       <option value="">Select Fee Type...</option>
       ${optionsHtml}
     </select>
+    <div id="due_custom_wrap" style="display:${isCustomInitial || baseParticulars === 'Other / Custom Fee' ? 'block' : 'none'}; margin-top:6px;">
+      <input type="text" id="due_custom_particulars" value="${isCustomInitial ? escapeHtml(baseParticulars) : ''}" placeholder="Type custom fee description (e.g. ID Card, Tour, Fine)..." style="width:100%; border:1.5px solid #cbd5e1; border-radius:6px; padding:6px 10px; font-size:0.85rem; font-weight:600;">
+    </div>
     <input type="hidden" name="particulars" value="${initialValues.particulars || ""}">
   `;
   
   const hiddenParticulars = particularsField.querySelector("input[name='particulars']");
   const feeTypeSelect = particularsField.querySelector("#due_feeType_select");
+  const customWrap = particularsField.querySelector("#due_custom_wrap");
+  const customParticularsInput = particularsField.querySelector("#due_custom_particulars");
   formRefs.particulars = hiddenParticulars;
   row2.appendChild(particularsField);
   
+  const updateDueAmountForSelection = () => {
+    let rawFt = feeTypeSelect.value || "";
+    if (rawFt === "Other / Custom Fee") {
+      rawFt = customParticularsInput && customParticularsInput.value.trim() ? customParticularsInput.value.trim() : "";
+    }
+    const ftLower = rawFt.toLowerCase();
+    const studentVal = formRefs.studentName ? formRefs.studentName.value : "";
+    const s = studentOptions.find(o => o.value === studentVal);
+    const cls = formRefs.className ? formRefs.className.value : (s ? s.className : "");
+    const targetClassKey = typeof canonicalClassFeeKey === "function" ? canonicalClassFeeKey(cls) : (cls || "").toUpperCase();
+
+    // 1. Tuition Fee: respect student custom monthly fee, fee structure, or master rate
+    if (ftLower.includes("tuition")) {
+      if (s && s.monthlyFee && parseFloat(s.monthlyFee) > 0) {
+        formRefs.dueAmount.value = s.monthlyFee;
+        calc();
+        return;
+      }
+      if (typeof getFeeStructureForClass === "function" && cls) {
+        const fs = getFeeStructureForClass(cls);
+        if (fs && fs.monthlyFee && parseFloat(fs.monthlyFee) > 0) {
+          formRefs.dueAmount.value = fs.monthlyFee;
+          calc();
+          return;
+        }
+      }
+    }
+
+    // 2. Admission Fee
+    if (ftLower.includes("admission")) {
+      if (typeof getFeeStructureForClass === "function" && cls) {
+        const fs = getFeeStructureForClass(cls);
+        if (fs && fs.admissionFee && parseFloat(fs.admissionFee) > 0) {
+          formRefs.dueAmount.value = fs.admissionFee;
+          calc();
+          return;
+        }
+      }
+    }
+
+    // 3. Transport Fee
+    if (ftLower.includes("transport") || ftLower.includes("transpot") || ftLower.includes("bus")) {
+      if (typeof getFeeStructureForClass === "function" && cls) {
+        const fs = getFeeStructureForClass(cls);
+        if (fs && fs.transportFee && parseFloat(fs.transportFee) > 0) {
+          formRefs.dueAmount.value = fs.transportFee;
+          calc();
+          return;
+        }
+      }
+    }
+
+    // 4. Search feeStructures for exact feeType or description matching this class
+    if (cls && ftLower) {
+      const matched = structures.find(str => {
+        const strClassKey = typeof canonicalClassFeeKey === "function" ? canonicalClassFeeKey(str.className) : (str.className || "").toUpperCase();
+        if (strClassKey !== targetClassKey) return false;
+        const sType = String(str.feeType || "").toLowerCase();
+        const sDesc = String(str.description || "").toLowerCase();
+        return sType === ftLower || sDesc === ftLower ||
+               (ftLower.includes("exam") && sType.includes("exam")) ||
+               (ftLower.includes("computer") && sType.includes("computer")) ||
+               (ftLower.includes("development") && sType.includes("development")) ||
+               (ftLower.includes("late") && (sType.includes("late") || sDesc.includes("late")));
+      });
+
+      if (matched && matched.amount && parseFloat(matched.amount) > 0) {
+        formRefs.dueAmount.value = matched.amount;
+        calc();
+        return;
+      }
+    }
+
+    // 5. Default Late fee
+    if (ftLower.includes("late")) {
+      formRefs.dueAmount.value = "50";
+      calc();
+      return;
+    }
+
+    // If editing and no automatic amount matched, retain existing dueAmount
+    if (editRecordId && initialValues.dueAmount) {
+      formRefs.dueAmount.value = initialValues.dueAmount;
+    }
+    calc();
+  };
+
   // Sync logic for Dropdown + Month = Particulars
   const syncParticulars = () => {
-      const ft = feeTypeSelect.value || "";
-      const m = formRefs.month.value || "";
-      if (ft && m) hiddenParticulars.value = `${ft} of ${m}`;
-      else hiddenParticulars.value = ft;
+    let ft = feeTypeSelect.value || "";
+    if (ft === "Other / Custom Fee") {
+      if (customWrap) customWrap.style.display = "block";
+      ft = customParticularsInput && customParticularsInput.value.trim() ? customParticularsInput.value.trim() : "Other Fee";
+    } else {
+      if (customWrap) customWrap.style.display = "none";
+    }
+    const m = formRefs.month.value || "";
+    if (ft && m) hiddenParticulars.value = `${ft} of ${m}`;
+    else hiddenParticulars.value = ft;
   };
-  feeTypeSelect.addEventListener("change", syncParticulars);
+  feeTypeSelect.addEventListener("change", () => {
+    syncParticulars();
+    updateDueAmountForSelection();
+  });
+  if (customParticularsInput) {
+    customParticularsInput.addEventListener("input", syncParticulars);
+  }
   formRefs.month.addEventListener("change", syncParticulars);
   
   // Row 3: Remarks (Full Row)
@@ -23721,10 +23888,7 @@ async function renderDueManagementForm(cfg, studentOptions, classOptions, initia
                             if (formRefs.rollNo) formRefs.rollNo.value = s.rollNo || "";
                             if (formRefs.admissionNo) formRefs.admissionNo.value = s.admissionNo || "";
                             if (formRefs.fatherName) formRefs.fatherName.value = s.fatherName || "";
-                            if (formRefs.dueAmount && s.monthlyFee && parseFloat(s.monthlyFee) > 0) {
-                                formRefs.dueAmount.value = s.monthlyFee;
-                                calc();
-                            }
+                            updateDueAmountForSelection();
                         }
                     }
                 });
@@ -23738,10 +23902,7 @@ async function renderDueManagementForm(cfg, studentOptions, classOptions, initia
                 if (formRefs.rollNo) formRefs.rollNo.value = s.rollNo || "";
                 if (formRefs.admissionNo) formRefs.admissionNo.value = s.admissionNo || "";
                 if (formRefs.fatherName) formRefs.fatherName.value = s.fatherName || "";
-                if (formRefs.dueAmount && s.monthlyFee && parseFloat(s.monthlyFee) > 0) {
-                    formRefs.dueAmount.value = s.monthlyFee;
-                    calc();
-                }
+                updateDueAmountForSelection();
             }
         });
     }

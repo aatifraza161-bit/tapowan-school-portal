@@ -6799,12 +6799,12 @@ async function runAutomatedFeeTask() {
                     });
                     if (tuitionAlreadyPaid) continue;
 
-                    // 2. Guard: Must have an active unpaid tuition due for this month to warrant a late fee
+                    // 2. Guard: Must have an active unpaid TUITION due for this month to warrant a late fee
                     const hasUnpaidTuitionDue = dueManagement.some(d =>
                         d.admissionNo === admNo &&
                         isMonthMatch(d.month, mName) &&
                         isUnpaidStatus(d.status) &&
-                        !(d.particulars || "").toLowerCase().includes("late")
+                        (d.particulars || "").toLowerCase().includes("tuition")
                     );
                     if (!hasUnpaidTuitionDue) continue;
                 }
