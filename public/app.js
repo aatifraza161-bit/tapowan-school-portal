@@ -707,7 +707,7 @@ const moduleConfig = {
       "fatherName", "fatherAadharNo", "motherName", "motherAadharNo",
       "guardianName", "relation", "occupation", "incomeRange",
       "session", "admissionDate", "prevSchool", "lastClassPassed", "tcReceived",
-      "admissionFee", "monthlyFee", "isFreeOfCharge", "transportFee", "discount",
+      "admissionFee", "monthlyFee", "isFreeOfCharge", "transportArea", "transportFee", "discount",
       "status",
       "photo", "birthCert", "aadharDoc", "tcDoc", "parentIdDoc",
       "studentAadharNo", "aadhar", "fatherAadhar", "motherAadhar", "tc", "reportCard"
@@ -742,7 +742,7 @@ const moduleConfig = {
     fields: [
       "admissionNo", "rollNo", "fullName", "className", "section", "gender", "dob",
       "fatherName", "motherName", "phone", "address", "photo",
-      "status", "monthlyFee", "isFreeOfCharge", "aadhar", "tc", "reportCard", "fatherAadhar", "motherAadhar",
+      "status", "monthlyFee", "isFreeOfCharge", "transportArea", "transportFee", "aadhar", "tc", "reportCard", "fatherAadhar", "motherAadhar",
       "studentAadharNo", "fatherAadharNo", "motherAadharNo"
     ],
     columns: ["admissionNo", "fullName", "className", "phone", "gender", "status"]
@@ -13002,7 +13002,7 @@ refs.dynamicForm.addEventListener("submit", async (e) => {
       if (payload.fatherAadharNo && !payload.fatherAadhar) payload.fatherAadhar = payload.fatherAadharNo;
       if (payload.motherAadharNo && !payload.motherAadhar) payload.motherAadhar = payload.motherAadharNo;
 
-      ["village", "relation", "occupation", "prevSchool"].forEach(k => {
+      ["village", "relation", "occupation", "prevSchool", "transportArea"].forEach(k => {
         if (payload[k] === "__ADD_NEW__") payload[k] = "";
       });
 
@@ -24048,6 +24048,41 @@ function saveCustomPrevSchool(p) {
   } catch(e){}
 }
 
+function getTransportAreaList() {
+  let saved = [];
+  try { saved = JSON.parse(localStorage.getItem("tps_custom_transport_areas") || "[]"); } catch(e){}
+  const store = (typeof getStore === "function") ? getStore() : {};
+  const fromStudents = (store.students || []).map(s => s.transportArea).filter(Boolean);
+  const fromAdmissions = (store.admissions || []).map(a => a.transportArea).filter(Boolean);
+  const fromRoutes = (store.transport || []).map(t => t.pickupPoint || t.routeName).filter(Boolean);
+  const defaults = [
+    "None / Not Availed",
+    "Prem Nagar",
+    "Tapowan Campus",
+    "Barhi",
+    "Padma",
+    "Barkatha",
+    "Chouparan",
+    "Hazaribagh",
+    "Konra",
+    "Gome",
+    "Ranchi Road"
+  ];
+  return Array.from(new Set([...defaults, ...saved, ...fromStudents, ...fromAdmissions, ...fromRoutes].map(t => String(t).trim()))).filter(Boolean);
+}
+
+function saveCustomTransportArea(t) {
+  if (!t || !t.trim() || t === "None / Not Availed" || t === "__ADD_NEW__") return;
+  const clean = t.trim();
+  try {
+    let saved = JSON.parse(localStorage.getItem("tps_custom_transport_areas") || "[]");
+    if (!saved.includes(clean)) {
+      saved.push(clean);
+      localStorage.setItem("tps_custom_transport_areas", JSON.stringify(saved));
+    }
+  } catch(e){}
+}
+
 function generateNextAdmissionNo() {
   const store = getStore();
   let maxNum = 0;
@@ -24274,6 +24309,7 @@ function saveCustomAdmissionOptions(payload) {
   if (payload.relation) saveCustomRelation(payload.relation);
   if (payload.occupation) saveCustomOccupation(payload.occupation);
   if (payload.prevSchool) saveCustomPrevSchool(payload.prevSchool);
+  if (payload.transportArea) saveCustomTransportArea(payload.transportArea);
 }
 
 async function renderAdmissionsForm(cfg, initialValues = {}) {
@@ -24318,6 +24354,12 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
     prevSchoolList.unshift(initialValues.prevSchool);
   }
 
+  const transportAreaList = getTransportAreaList();
+  const currentTransportArea = initialValues.transportArea || "None / Not Availed";
+  if (currentTransportArea && !transportAreaList.includes(currentTransportArea)) {
+    transportAreaList.splice(1, 0, currentTransportArea);
+  }
+
   const isFree = String(initialValues.isFreeOfCharge || "").toLowerCase() === "true" || initialValues.isFreeOfCharge === 1;
 
   // Resolve initial fees based on selected class or master structure
@@ -24325,7 +24367,9 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
   const initialClassFees = initialClass ? getFeeStructureForClass(initialClass) : { admissionFee: "", monthlyFee: "", transportFee: "" };
   const defaultAdmFee = (initialValues.admissionFee != null && String(initialValues.admissionFee) !== "" && String(initialValues.admissionFee) !== "0") ? String(initialValues.admissionFee) : (initialClassFees.admissionFee || "");
   const defaultMonthlyFee = (initialValues.monthlyFee != null && String(initialValues.monthlyFee) !== "" && String(initialValues.monthlyFee) !== "0") ? String(initialValues.monthlyFee) : (initialClassFees.monthlyFee || "");
-  const defaultTransportFee = (initialValues.transportFee != null && String(initialValues.transportFee) !== "" && String(initialValues.transportFee) !== "0") ? String(initialValues.transportFee) : (initialClassFees.transportFee || "");
+  const defaultTransportFee = (initialValues.transportFee != null && String(initialValues.transportFee) !== "" && String(initialValues.transportFee) !== "0")
+    ? String(initialValues.transportFee)
+    : ((currentTransportArea && currentTransportArea !== "None / Not Availed") ? (initialClassFees.transportFee || "0") : "0");
 
   // Outer Wrapper
   const outer = document.createElement("div");
@@ -24768,6 +24812,17 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
           </div>
           <input type="number" id="adm_monthlyFee" name="monthlyFee" min="0" value="${escapeHtml(defaultMonthlyFee)}" ${isFree ? "readonly style='width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; font-weight:700; background:#f1f5f9; cursor:not-allowed;'" : "style='width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; font-weight:700; background:#ffffff;'"} placeholder="0">
         </div>
+        <!-- Transport Area -->
+        <div class="field">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+            <label style="font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin:0;">Transport Area / Route</label>
+            <span style="font-size:0.68rem; color:#2563eb; font-weight:700;">Pickup Stop</span>
+          </div>
+          <select id="adm_transportArea" name="transportArea" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; background:#ffffff;">
+            ${transportAreaList.map(a => `<option value="${escapeHtml(a)}" ${currentTransportArea === a ? "selected" : ""}>${escapeHtml(a)}</option>`).join("")}
+            <option value="__ADD_NEW__" style="font-weight:700; color:#2563eb; background:#eff6ff;">➕ + Add New Transport Area...</option>
+          </select>
+        </div>
         <!-- Transport Fee -->
         <div class="field">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
@@ -24877,6 +24932,7 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
   const elIsFree = outer.querySelector("#adm_isFreeOfCharge");
   const elAdmFee = outer.querySelector("#adm_admissionFee");
   const elMonthlyFee = outer.querySelector("#adm_monthlyFee");
+  const elTransportArea = outer.querySelector("#adm_transportArea");
   const elTransportFee = outer.querySelector("#adm_transportFee");
 
   // 1. Refresh Admission No
@@ -24930,7 +24986,9 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
       }
       if (elTransportFee) {
         if (!isEditing || force || !elTransportFee.value || elTransportFee.value === "0") {
-          elTransportFee.value = fees.transportFee || "0";
+          if (elTransportArea && elTransportArea.value && elTransportArea.value !== "None / Not Availed") {
+            elTransportFee.value = fees.transportFee || "0";
+          }
         }
       }
     }
@@ -25140,6 +25198,28 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
   hookDropdownAddOption("#adm_relation", saveCustomRelation, "Enter New Guardian Relation (e.g. Grandfather, Uncle):");
   hookDropdownAddOption("#adm_occupation", saveCustomOccupation, "Enter New Parent Occupation:");
   hookDropdownAddOption("#adm_prevSchool", saveCustomPrevSchool, "Enter New Previous School Name:");
+  hookDropdownAddOption("#adm_transportArea", (val) => {
+    saveCustomTransportArea(val);
+    if (elTransportFee && (!elTransportFee.value || elTransportFee.value === "0")) {
+      const cls = elClass ? elClass.value : "";
+      const f = getFeeStructureForClass(cls);
+      elTransportFee.value = f.transportFee || "450";
+    }
+  }, "Enter New Transport Area / Route Name:");
+
+  if (elTransportArea && elTransportFee) {
+    elTransportArea.addEventListener("change", () => {
+      if (elTransportArea.value === "None / Not Availed" || !elTransportArea.value) {
+        elTransportFee.value = "0";
+      } else if (elTransportArea.value !== "__ADD_NEW__") {
+        if (!elTransportFee.value || elTransportFee.value === "0") {
+          const cls = elClass ? elClass.value : "";
+          const f = getFeeStructureForClass(cls);
+          elTransportFee.value = f.transportFee || "450";
+        }
+      }
+    });
+  }
 
   // 11. Live file previews
   ["photo", "birthCert", "aadharDoc", "tcDoc", "parentIdDoc"].forEach(k => {
