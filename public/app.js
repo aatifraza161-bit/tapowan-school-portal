@@ -24143,11 +24143,21 @@ const TPS_EXCLUDED_DUMMY_ROUTES = [
   "Route 5 (Campus Express Shuttle)"
 ];
 
+// One-time cleanup of legacy hardcoded dummy routes from localStorage
+(function purgeLegacyDummyRoutes() {
+  try {
+    let saved = JSON.parse(localStorage.getItem("tps_custom_transport_routes") || "[]");
+    const filtered = saved.filter(r => !TPS_EXCLUDED_DUMMY_ROUTES.includes(r));
+    if (filtered.length !== saved.length) {
+      localStorage.setItem("tps_custom_transport_routes", JSON.stringify(filtered));
+    }
+  } catch(e){}
+})();
+
 function getTransportRouteList() {
   let saved = [];
   try {
     saved = JSON.parse(localStorage.getItem("tps_custom_transport_routes") || "[]");
-    saved = saved.filter(r => !TPS_EXCLUDED_DUMMY_ROUTES.includes(r));
   } catch(e){}
   const store = (typeof getStore === "function") ? getStore() : {};
   const fromStudents = (store.students || []).map(s => s.transportRoute).filter(Boolean);
@@ -24157,20 +24167,26 @@ function getTransportRouteList() {
     "None / No Route"
   ];
   return Array.from(new Set([...defaults, ...saved, ...fromStudents, ...fromAdmissions, ...fromTransport].map(t => String(t).trim())))
-    .filter(Boolean)
-    .filter(r => !TPS_EXCLUDED_DUMMY_ROUTES.includes(r));
+    .filter(Boolean);
 }
 
 function saveCustomTransportRoute(r) {
   if (!r || !r.trim() || r === "None / No Route" || r === "__ADD_NEW__") return;
   const clean = r.trim();
-  if (TPS_EXCLUDED_DUMMY_ROUTES.includes(clean)) return;
   try {
     let saved = JSON.parse(localStorage.getItem("tps_custom_transport_routes") || "[]");
-    saved = saved.filter(x => !TPS_EXCLUDED_DUMMY_ROUTES.includes(x));
     if (!saved.includes(clean)) {
       saved.push(clean);
       localStorage.setItem("tps_custom_transport_routes", JSON.stringify(saved));
+    }
+  } catch(e){}
+  try {
+    if (typeof getStore === "function") {
+      const store = getStore();
+      if (!store.transport) store.transport = [];
+      if (!store.transport.some(t => t.routeName === clean)) {
+        store.transport.push({ routeName: clean, pickupPoint: clean });
+      }
     }
   } catch(e){}
 }
@@ -24974,7 +24990,9 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
         <div class="field">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
             <label style="font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin:0;">Route / Bus Line</label>
-            <span style="font-size:0.68rem; color:#d97706; font-weight:700;">Transit Path</span>
+            <button type="button" id="btn_quickAddRoute" style="background:#fef3c7; border:1px solid #f59e0b; color:#b45309; border-radius:4px; padding:2px 8px; font-size:0.72rem; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; gap:3px;">
+              ➕ Add Route
+            </button>
           </div>
           <select id="adm_transportRoute" name="transportRoute" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; background:#ffffff;">
             ${transportRouteList.map(r => `<option value="${escapeHtml(r)}" ${currentTransportRoute === r ? "selected" : ""}>${escapeHtml(r)}</option>`).join("")}
@@ -24986,7 +25004,9 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
         <div class="field">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
             <label style="font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin:0;">Transport Area / Stop</label>
-            <span style="font-size:0.68rem; color:#2563eb; font-weight:700;">Pickup Stop</span>
+            <button type="button" id="btn_quickAddArea" style="background:#eff6ff; border:1px solid #3b82f6; color:#1d4ed8; border-radius:4px; padding:2px 8px; font-size:0.72rem; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; gap:3px;">
+              ➕ Add Area
+            </button>
           </div>
           <select id="adm_transportArea" name="transportArea" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; background:#ffffff;">
             ${transportAreaList.map(a => `<option value="${escapeHtml(a)}" ${currentTransportArea === a ? "selected" : ""}>${escapeHtml(a)}</option>`).join("")}
@@ -25327,7 +25347,7 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
     });
   }
 
-  // 10. + Add Option directly inside Dropdowns for Village, Relation, Occupation, PrevSchool
+  // 10. + Add Option directly inside Dropdowns for Village, Relation, Occupation, PrevSchool, Transport
   const hookDropdownAddOption = (selectSelector, saveFn, promptMsg) => {
     const sel = outer.querySelector(selectSelector);
     if (!sel) return;
@@ -25339,33 +25359,44 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
       }
     });
 
-    sel.addEventListener("change", () => {
+    sel.addEventListener("change", async () => {
       if (sel.value === "__ADD_NEW__") {
-        const val = prompt(promptMsg);
-        if (val && val.trim()) {
-          const clean = val.trim();
-          saveFn(clean);
+        try {
+          let val = (typeof window.appPrompt === "function")
+            ? await window.appPrompt(promptMsg, "", { title: "Add New Option", confirmText: "Add", cancelText: "Cancel" })
+            : prompt(promptMsg);
+          if (val && typeof val.then === "function") {
+            val = await val;
+          }
+          if (val && typeof val === "string" && val.trim()) {
+            const clean = val.trim();
+            if (typeof saveFn === "function") saveFn(clean);
 
-          let existingOpt = Array.from(sel.options).find(opt => opt.value.toLowerCase() === clean.toLowerCase());
-          if (!existingOpt) {
-            existingOpt = document.createElement("option");
-            existingOpt.value = clean;
-            existingOpt.textContent = clean;
-            const addNewOpt = sel.querySelector('option[value="__ADD_NEW__"]');
-            if (addNewOpt) {
-              sel.insertBefore(existingOpt, addNewOpt);
-            } else {
-              sel.appendChild(existingOpt);
+            let existingOpt = Array.from(sel.options).find(opt => opt.value.toLowerCase() === clean.toLowerCase());
+            if (!existingOpt) {
+              existingOpt = document.createElement("option");
+              existingOpt.value = clean;
+              existingOpt.textContent = clean;
+              const addNewOpt = sel.querySelector('option[value="__ADD_NEW__"]');
+              if (addNewOpt) {
+                sel.insertBefore(existingOpt, addNewOpt);
+              } else {
+                sel.appendChild(existingOpt);
+              }
             }
+            sel.value = existingOpt.value;
+            sel._prevValue = existingOpt.value;
+            sel.dispatchEvent(new Event("change"));
+            if (typeof showToast === "function") {
+              showToast(`Added "${clean}" to options`, "success");
+            }
+          } else {
+            // User cancelled prompt: revert back to previously selected option
+            sel.value = sel._prevValue || (sel.options[0] ? sel.options[0].value : "");
           }
-          sel.value = existingOpt.value;
-          sel._prevValue = existingOpt.value;
-          if (typeof showToast === "function") {
-            showToast(`Added "${clean}" to options`, "success");
-          }
-        } else {
-          // User cancelled prompt: revert back to previously selected option
-          sel.value = sel._prevValue || "";
+        } catch(err) {
+          console.error("Error adding dropdown option:", err);
+          sel.value = sel._prevValue || (sel.options[0] ? sel.options[0].value : "");
         }
       } else {
         sel._prevValue = sel.value;
@@ -25445,8 +25476,62 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
     });
   }
 
+  // Quick Add Buttons for Route & Transport Area
+  const btnQuickAddRoute = outer.querySelector("#btn_quickAddRoute");
+  if (btnQuickAddRoute && elTransportRoute) {
+    btnQuickAddRoute.addEventListener("click", () => {
+      elTransportRoute.value = "__ADD_NEW__";
+      elTransportRoute.dispatchEvent(new Event("change"));
+    });
+  }
+  const btnQuickAddArea = outer.querySelector("#btn_quickAddArea");
+  if (btnQuickAddArea && elTransportArea) {
+    btnQuickAddArea.addEventListener("click", () => {
+      elTransportArea.value = "__ADD_NEW__";
+      elTransportArea.dispatchEvent(new Event("change"));
+    });
+  }
+
   // Hook Route Dropdown Add Option
-  hookDropdownAddOption("#adm_transportRoute", saveCustomTransportRoute, "Enter New Transport Route Name (e.g. Route 6 - Barhi Bypass):");
+  hookDropdownAddOption("#adm_transportRoute", (val) => {
+    saveCustomTransportRoute(val);
+    const busRadio = outer.querySelector("input[name='vehicleType'][value='Bus']");
+    const checkedRadio = outer.querySelector("input[name='vehicleType']:checked");
+    if (!checkedRadio || checkedRadio.value === "None") {
+      if (busRadio) busRadio.checked = true;
+      updateVehicleStyle("Bus");
+    }
+    if (elTransportFee && (!elTransportFee.value || elTransportFee.value === "0")) {
+      const cls = elClass ? elClass.value : "";
+      const f = getFeeStructureForClass(cls);
+      elTransportFee.value = f.transportFee || "450";
+    }
+  }, "Enter New Transport Route Name (e.g. Route 1 - Prem Nagar to School):");
+
+  // Route Change Listener (Auto-sync vehicle type)
+  if (elTransportRoute) {
+    elTransportRoute.addEventListener("change", () => {
+      if (elTransportRoute.value === "None / No Route" || !elTransportRoute.value) {
+        if (!elTransportArea || elTransportArea.value === "None / Not Availed" || !elTransportArea.value) {
+          const noneRadio = outer.querySelector("input[name='vehicleType'][value='None']");
+          if (noneRadio) noneRadio.checked = true;
+          updateVehicleStyle("None");
+        }
+      } else if (elTransportRoute.value !== "__ADD_NEW__") {
+        const busRadio = outer.querySelector("input[name='vehicleType'][value='Bus']");
+        const checkedRadio = outer.querySelector("input[name='vehicleType']:checked");
+        if (!checkedRadio || checkedRadio.value === "None") {
+          if (busRadio) busRadio.checked = true;
+          updateVehicleStyle("Bus");
+        }
+        if (elTransportFee && (!elTransportFee.value || elTransportFee.value === "0")) {
+          const cls = elClass ? elClass.value : "";
+          const f = getFeeStructureForClass(cls);
+          elTransportFee.value = f.transportFee || "450";
+        }
+      }
+    });
+  }
 
   // Hook Transport Area Dropdown Add Option
   hookDropdownAddOption("#adm_transportArea", (val) => {
@@ -25467,9 +25552,11 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
   if (elTransportArea && elTransportFee) {
     elTransportArea.addEventListener("change", () => {
       if (elTransportArea.value === "None / Not Availed" || !elTransportArea.value) {
-        const noneRadio = outer.querySelector("input[name='vehicleType'][value='None']");
-        if (noneRadio) noneRadio.checked = true;
-        updateVehicleStyle("None");
+        if (!elTransportRoute || elTransportRoute.value === "None / No Route" || !elTransportRoute.value) {
+          const noneRadio = outer.querySelector("input[name='vehicleType'][value='None']");
+          if (noneRadio) noneRadio.checked = true;
+          updateVehicleStyle("None");
+        }
       } else if (elTransportArea.value !== "__ADD_NEW__") {
         const busRadio = outer.querySelector("input[name='vehicleType'][value='Bus']");
         const checkedRadio = outer.querySelector("input[name='vehicleType']:checked");
