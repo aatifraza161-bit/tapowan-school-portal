@@ -23902,43 +23902,79 @@ function calculateAgeString(dobString) {
   return months > 0 ? `${years} Yrs ${months} Mos` : `${years} Yrs`;
 }
 
-function getNextRollNoForClass(className, section) {
-  if (!className) return "";
-  const store = getStore();
-  const cNorm = String(className).trim().toLowerCase();
-  const sNorm = section ? String(section).trim().toLowerCase() : "";
-  const rolls = (store.students || [])
-    .filter(s => {
-      const sc = String(s.className || "").trim().toLowerCase();
-      if (sc !== cNorm) return false;
-      if (sNorm && s.section && String(s.section).trim().toLowerCase() !== sNorm) return false;
-      return true;
-    })
-    .map(s => parseInt(String(s.rollNo).replace(/\D/g, ""), 10))
-    .filter(n => !isNaN(n) && n > 0);
-  return rolls.length ? Math.max(...rolls) + 1 : 1;
-}
-
 function canonicalClassFeeKey(cls) {
   if (!cls) return "";
   let s = String(cls).trim().toUpperCase();
   s = s.replace(/^(CLASS|GRADE)\s+/i, "");
-  s = s.replace(/[-_\s]+[A-Z0-9]$/i, "");
+  s = s.replace(/\s*\(\s*(?:SEC(?:TION)?\s*)?[A-Z0-9]+\s*\)$/i, "");
+  s = s.replace(/[\-_\\/\s]+(?:SEC(?:TION)?\s*)?[A-Z0-9]+$/i, "");
   s = s.trim();
-  if (["1", "I", "CLASS 1", "CLASS I"].includes(s)) return "I";
-  if (["2", "II", "CLASS 2", "CLASS II"].includes(s)) return "II";
-  if (["3", "III", "CLASS 3", "CLASS III"].includes(s)) return "III";
-  if (["4", "IV", "CLASS 4", "CLASS IV"].includes(s)) return "IV";
-  if (["5", "V", "CLASS 5", "CLASS V"].includes(s)) return "V";
-  if (["6", "VI", "CLASS 6", "CLASS VI"].includes(s)) return "VI";
-  if (["7", "VII", "CLASS 7", "CLASS VII"].includes(s)) return "VII";
-  if (["8", "VIII", "CLASS 8", "CLASS VIII"].includes(s)) return "VIII";
-  if (["9", "IX", "CLASS 9", "CLASS IX"].includes(s)) return "IX";
-  if (["10", "X", "CLASS 10", "CLASS X"].includes(s)) return "X";
+  if (["1", "I", "CLASS 1", "CLASS I", "IST", "1ST"].includes(s)) return "I";
+  if (["2", "II", "CLASS 2", "CLASS II", "2ND"].includes(s)) return "II";
+  if (["3", "III", "CLASS 3", "CLASS III", "3RD"].includes(s)) return "III";
+  if (["4", "IV", "CLASS 4", "CLASS IV", "4TH"].includes(s)) return "IV";
+  if (["5", "V", "CLASS 5", "CLASS V", "5TH"].includes(s)) return "V";
+  if (["6", "VI", "CLASS 6", "CLASS VI", "6TH"].includes(s)) return "VI";
+  if (["7", "VII", "CLASS 7", "CLASS VII", "7TH"].includes(s)) return "VII";
+  if (["8", "VIII", "CLASS 8", "CLASS VIII", "8TH"].includes(s)) return "VIII";
+  if (["9", "IX", "CLASS 9", "CLASS IX", "9TH"].includes(s)) return "IX";
+  if (["10", "X", "CLASS 10", "CLASS X", "10TH"].includes(s)) return "X";
+  if (["11", "XI", "CLASS 11", "CLASS XI", "11TH"].includes(s)) return "XI";
+  if (["12", "XII", "CLASS 12", "CLASS XII", "12TH"].includes(s)) return "XII";
   if (["N/C", "NC", "NUR", "NURSERY"].includes(s)) return "NURSERY";
-  if (["LKG"].includes(s)) return "LKG";
-  if (["UKG"].includes(s)) return "UKG";
+  if (["LKG", "L.K.G", "L.K.G."].includes(s)) return "LKG";
+  if (["UKG", "U.K.G", "U.K.G."].includes(s)) return "UKG";
   return s;
+}
+
+function extractCanonicalSection(sec, cls) {
+  let s = String(sec || "").trim().toUpperCase();
+  s = s.replace(/^(?:SEC(?:TION)?\s*)/i, "").trim();
+  if (s) return s;
+  if (cls) {
+    const rawCls = String(cls).trim().toUpperCase();
+    const parenMatch = rawCls.match(/\(\s*(?:SEC(?:TION)?\s*)?([A-Z0-9]+)\s*\)$/i);
+    if (parenMatch) return parenMatch[1].toUpperCase();
+    const sepMatch = rawCls.match(/[\-_\\/\s]+(?:SEC(?:TION)?\s*)?([A-Z0-9]+)$/i);
+    if (sepMatch) return sepMatch[1].toUpperCase();
+  }
+  return "";
+}
+
+function getNextRollNoForClass(className, section) {
+  if (!className) return "";
+  const store = getStore();
+  const targetClass = canonicalClassFeeKey(className);
+  const targetSec = extractCanonicalSection(section, className);
+
+  // Combine enrolled students and admissions
+  const candidates = [
+    ...(store.students || window.students || []),
+    ...(store.admissions || window.admissions || [])
+  ];
+
+  const rolls = candidates
+    .filter(s => {
+      if (!s) return false;
+      const sCls = canonicalClassFeeKey(s.className || s.classApplyingFor);
+      if (sCls !== targetClass) return false;
+
+      const sSec = extractCanonicalSection(s.section, s.className);
+      // If target section is specified (e.g. "A") and candidate's section is also specified,
+      // require them to match; if candidate has no section, include them to avoid collision.
+      if (targetSec && sSec && targetSec !== sSec) {
+        return false;
+      }
+      return true;
+    })
+    .map(s => {
+      const rawRoll = s.rollNo != null ? s.rollNo : s.roll_no;
+      if (rawRoll == null || rawRoll === "") return NaN;
+      return parseInt(String(rawRoll).replace(/\D/g, ""), 10);
+    })
+    .filter(n => !isNaN(n) && n > 0);
+
+  return rolls.length ? Math.max(...rolls) + 1 : 1;
 }
 
 const OFFICIAL_MASTER_FEES = {
@@ -24160,7 +24196,10 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
             <label style="font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin:0;">Roll No (Auto Assigned)</label>
             <span id="adm_rollBadge" style="font-size:0.68rem; background:#eff6ff; color:#2563eb; font-weight:700; padding:1px 6px; border-radius:4px;">Next Available</span>
           </div>
-          <input type="number" id="adm_rollNo" name="rollNo" value="${escapeHtml(initialValues.rollNo || "")}" placeholder="e.g. 1" min="1" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; font-weight:700; background:#f8fafc;">
+          <div style="display:flex; gap:6px;">
+            <input type="number" id="adm_rollNo" name="rollNo" value="${escapeHtml(initialValues.rollNo || "")}" placeholder="e.g. 1" min="1" style="flex:1; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; font-weight:700; background:#f8fafc;">
+            <button type="button" id="adm_btnRefreshRollNo" title="Recalculate next roll number" style="background:#f1f5f9; border:1.5px solid #cbd5e1; border-radius:8px; padding:0 10px; cursor:pointer; color:#475569; display:flex; align-items:center;"><span class="material-symbols-outlined" style="font-size:16px;">autorenew</span></button>
+          </div>
         </div>
         <!-- Session -->
         <div class="field">
@@ -24622,6 +24661,7 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
   const elClassApplyingFor = outer.querySelector("#adm_classApplyingFor");
   const elSection = outer.querySelector("#adm_section");
   const elRollNo = outer.querySelector("#adm_rollNo");
+  const elBtnRefreshRollNo = outer.querySelector("#adm_btnRefreshRollNo");
   const elDob = outer.querySelector("#adm_dob");
   const elAge = outer.querySelector("#adm_age");
   const elPhone1 = outer.querySelector("#adm_phone1");
@@ -24655,6 +24695,21 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
       const next = generateNextAdmissionNo();
       if (elAdmNo) elAdmNo.value = next;
       showToast(`Generated Admission No: ${next}`, "info");
+    });
+  }
+
+  // 1b. Refresh Roll No
+  if (elBtnRefreshRollNo) {
+    elBtnRefreshRollNo.addEventListener("click", () => {
+      const selectedClass = elClass ? elClass.value : "";
+      if (selectedClass) {
+        const sec = elSection ? elSection.value : "";
+        const nextRoll = getNextRollNoForClass(selectedClass, sec);
+        if (elRollNo) elRollNo.value = nextRoll;
+        showToast(`Calculated Roll No: ${nextRoll} for Class ${selectedClass} (${sec || 'A'})`, "info");
+      } else {
+        showToast("Please select a class first", "warning");
+      }
     });
   }
 
@@ -24895,6 +24950,20 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
         if (!serverStore) serverStore = {};
         serverStore.feeStructures = rows;
         window.feeStructures = rows;
+        if (elClass && elClass.value) {
+          handleClassChange(!isEditing);
+        }
+      }
+    }).catch(() => {});
+  }
+
+  // Pre-load students roster asynchronously if not yet present in client cache
+  if (!getStore().students?.length) {
+    api("/api/modules/students").then(rows => {
+      if (Array.isArray(rows) && rows.length) {
+        if (!serverStore) serverStore = {};
+        serverStore.students = rows;
+        window.students = rows;
         if (elClass && elClass.value) {
           handleClassChange(!isEditing);
         }
