@@ -13002,6 +13002,10 @@ refs.dynamicForm.addEventListener("submit", async (e) => {
       if (payload.fatherAadharNo && !payload.fatherAadhar) payload.fatherAadhar = payload.fatherAadharNo;
       if (payload.motherAadharNo && !payload.motherAadhar) payload.motherAadhar = payload.motherAadharNo;
 
+      ["village", "relation", "occupation", "prevSchool"].forEach(k => {
+        if (payload[k] === "__ADD_NEW__") payload[k] = "";
+      });
+
       if (typeof saveCustomAdmissionOptions === "function") {
         saveCustomAdmissionOptions(payload);
       }
@@ -24293,9 +24297,26 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
   `).join("");
 
   const villageList = getVillageList();
+  if (initialValues.village && !villageList.includes(initialValues.village)) {
+    villageList.unshift(initialValues.village);
+  }
+
   const relationList = getRelationList();
+  const currentRelation = initialValues.relation || "Father";
+  if (currentRelation && !relationList.includes(currentRelation)) {
+    relationList.unshift(currentRelation);
+  }
+
   const occupationList = getOccupationList();
+  const currentOccupation = initialValues.occupation || "Farmer / Agriculture";
+  if (currentOccupation && !occupationList.includes(currentOccupation)) {
+    occupationList.unshift(currentOccupation);
+  }
+
   const prevSchoolList = getPrevSchoolList();
+  if (initialValues.prevSchool && !prevSchoolList.includes(initialValues.prevSchool)) {
+    prevSchoolList.unshift(initialValues.prevSchool);
+  }
 
   const isFree = String(initialValues.isFreeOfCharge || "").toLowerCase() === "true" || initialValues.isFreeOfCharge === 1;
 
@@ -24313,20 +24334,8 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
 
   outer.innerHTML = `
     <!-- DATALISTS FOR DYNAMIC COMBOBOXES -->
-    <datalist id="adm_village_datalist">
-      ${villageList.map(v => `<option value="${escapeHtml(v)}"></option>`).join("")}
-    </datalist>
     <datalist id="adm_post_datalist">
       ${initialValues.post ? `<option value="${escapeHtml(initialValues.post)}"></option>` : ""}
-    </datalist>
-    <datalist id="adm_relation_datalist">
-      ${relationList.map(r => `<option value="${escapeHtml(r)}"></option>`).join("")}
-    </datalist>
-    <datalist id="adm_occupation_datalist">
-      ${occupationList.map(o => `<option value="${escapeHtml(o)}"></option>`).join("")}
-    </datalist>
-    <datalist id="adm_prevSchool_datalist">
-      ${prevSchoolList.map(p => `<option value="${escapeHtml(p)}"></option>`).join("")}
     </datalist>
 
     <!-- SECTION 1: ACADEMIC & ADMISSION DETAILS -->
@@ -24551,11 +24560,12 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:14px;">
           <!-- Village -->
           <div class="field">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-              <label style="font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin:0;">Village / Area</label>
-              <button type="button" id="adm_btnAddVillage" style="background:#eff6ff; border:1px solid #bfdbfe; color:#2563eb; font-size:0.68rem; font-weight:700; padding:1px 6px; border-radius:4px; cursor:pointer;">+ Add</button>
-            </div>
-            <input type="text" id="adm_village" name="village" list="adm_village_datalist" value="${escapeHtml(initialValues.village || "")}" placeholder="Select or type village" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem;">
+            <label style="display:block; font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">Village / Area</label>
+            <select id="adm_village" name="village" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; background:#ffffff;">
+              <option value="">Select Village / Area</option>
+              ${villageList.map(v => `<option value="${escapeHtml(v)}" ${initialValues.village === v ? "selected" : ""}>${escapeHtml(v)}</option>`).join("")}
+              <option value="__ADD_NEW__" style="font-weight:700; color:#2563eb; background:#eff6ff;">➕ + Add New Village / Area...</option>
+            </select>
           </div>
           <!-- PIN Code (Before Post!) -->
           <div class="field">
@@ -24636,19 +24646,19 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
         </div>
         <!-- Relation -->
         <div class="field">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-            <label style="font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin:0;">Relation *</label>
-            <button type="button" id="adm_btnAddRelation" style="background:#eff6ff; border:1px solid #bfdbfe; color:#2563eb; font-size:0.68rem; font-weight:700; padding:1px 6px; border-radius:4px; cursor:pointer;">+ Add</button>
-          </div>
-          <input type="text" id="adm_relation" name="relation" list="adm_relation_datalist" value="${escapeHtml(initialValues.relation || "Father")}" placeholder="Relation (e.g. Father, Mother, Uncle)" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem;">
+          <label style="display:block; font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">Relation *</label>
+          <select id="adm_relation" name="relation" required style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; background:#ffffff;">
+            ${relationList.map(r => `<option value="${escapeHtml(r)}" ${(initialValues.relation || "Father") === r ? "selected" : ""}>${escapeHtml(r)}</option>`).join("")}
+            <option value="__ADD_NEW__" style="font-weight:700; color:#2563eb; background:#eff6ff;">➕ + Add New Relation...</option>
+          </select>
         </div>
         <!-- Occupation -->
         <div class="field">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-            <label style="font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin:0;">Parent Occupation</label>
-            <button type="button" id="adm_btnAddOccupation" style="background:#eff6ff; border:1px solid #bfdbfe; color:#2563eb; font-size:0.68rem; font-weight:700; padding:1px 6px; border-radius:4px; cursor:pointer;">+ Add</button>
-          </div>
-          <input type="text" id="adm_occupation" name="occupation" list="adm_occupation_datalist" value="${escapeHtml(initialValues.occupation || "Farmer / Agriculture")}" placeholder="Occupation" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem;">
+          <label style="display:block; font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">Parent Occupation</label>
+          <select id="adm_occupation" name="occupation" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; background:#ffffff;">
+            ${occupationList.map(o => `<option value="${escapeHtml(o)}" ${(initialValues.occupation || "Farmer / Agriculture") === o ? "selected" : ""}>${escapeHtml(o)}</option>`).join("")}
+            <option value="__ADD_NEW__" style="font-weight:700; color:#2563eb; background:#eff6ff;">➕ + Add New Occupation...</option>
+          </select>
         </div>
         <!-- Income Range -->
         <div class="field">
@@ -24675,11 +24685,12 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:14px;">
         <!-- Prev School -->
         <div class="field">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-            <label style="font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin:0;">Previous School</label>
-            <button type="button" id="adm_btnAddPrevSchool" style="background:#eff6ff; border:1px solid #bfdbfe; color:#2563eb; font-size:0.68rem; font-weight:700; padding:1px 6px; border-radius:4px; cursor:pointer;">+ Add</button>
-          </div>
-          <input type="text" id="adm_prevSchool" name="prevSchool" list="adm_prevSchool_datalist" value="${escapeHtml(initialValues.prevSchool || "")}" placeholder="Name of previous school" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem;">
+          <label style="display:block; font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px;">Previous School</label>
+          <select id="adm_prevSchool" name="prevSchool" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; background:#ffffff;">
+            <option value="">None / Fresh Admission</option>
+            ${prevSchoolList.map(p => `<option value="${escapeHtml(p)}" ${initialValues.prevSchool === p ? "selected" : ""}>${escapeHtml(p)}</option>`).join("")}
+            <option value="__ADD_NEW__" style="font-weight:700; color:#2563eb; background:#eff6ff;">➕ + Add New Previous School...</option>
+          </select>
         </div>
         <!-- Last Class Passed -->
         <div class="field">
@@ -24992,14 +25003,20 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
       if (elGuardSameFather.checked) {
         elGuardSameMother.checked = false;
         elGuardianName.value = elFatherName ? elFatherName.value : "";
-        if (elRelation) elRelation.value = "Father";
+        if (elRelation) {
+          elRelation.value = "Father";
+          elRelation._prevValue = "Father";
+        }
       }
     });
     elGuardSameMother.addEventListener("change", () => {
       if (elGuardSameMother.checked) {
         elGuardSameFather.checked = false;
         elGuardianName.value = elMotherName ? elMotherName.value : "";
-        if (elRelation) elRelation.value = "Mother";
+        if (elRelation) {
+          elRelation.value = "Mother";
+          elRelation._prevValue = "Mother";
+        }
       }
     });
   }
@@ -25073,30 +25090,56 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
     });
   }
 
-  // 10. + Add buttons for Village, Relation, Occupation, PrevSchool
-  const hookAddButton = (btnId, datalistId, saveFn, promptMsg) => {
-    const btn = outer.querySelector(btnId);
-    if (!btn) return;
-    btn.addEventListener("click", async () => {
-      const val = prompt(promptMsg);
-      if (val && val.trim()) {
-        const clean = val.trim();
-        saveFn(clean);
-        const dl = outer.querySelector(datalistId);
-        if (dl) {
-          const opt = document.createElement("option");
-          opt.value = clean;
-          dl.appendChild(opt);
+  // 10. + Add Option directly inside Dropdowns for Village, Relation, Occupation, PrevSchool
+  const hookDropdownAddOption = (selectSelector, saveFn, promptMsg) => {
+    const sel = outer.querySelector(selectSelector);
+    if (!sel) return;
+
+    sel._prevValue = sel.value;
+    sel.addEventListener("focus", () => {
+      if (sel.value !== "__ADD_NEW__") {
+        sel._prevValue = sel.value;
+      }
+    });
+
+    sel.addEventListener("change", () => {
+      if (sel.value === "__ADD_NEW__") {
+        const val = prompt(promptMsg);
+        if (val && val.trim()) {
+          const clean = val.trim();
+          saveFn(clean);
+
+          let existingOpt = Array.from(sel.options).find(opt => opt.value.toLowerCase() === clean.toLowerCase());
+          if (!existingOpt) {
+            existingOpt = document.createElement("option");
+            existingOpt.value = clean;
+            existingOpt.textContent = clean;
+            const addNewOpt = sel.querySelector('option[value="__ADD_NEW__"]');
+            if (addNewOpt) {
+              sel.insertBefore(existingOpt, addNewOpt);
+            } else {
+              sel.appendChild(existingOpt);
+            }
+          }
+          sel.value = existingOpt.value;
+          sel._prevValue = existingOpt.value;
+          if (typeof showToast === "function") {
+            showToast(`Added "${clean}" to options`, "success");
+          }
+        } else {
+          // User cancelled prompt: revert back to previously selected option
+          sel.value = sel._prevValue || "";
         }
-        showToast(`Added "${clean}" for future use`, "success");
+      } else {
+        sel._prevValue = sel.value;
       }
     });
   };
 
-  hookAddButton("#adm_btnAddVillage", "#adm_village_datalist", saveCustomVillage, "Enter New Village / Area Name:");
-  hookAddButton("#adm_btnAddRelation", "#adm_relation_datalist", saveCustomRelation, "Enter New Guardian Relation (e.g. Grandfather, Uncle):");
-  hookAddButton("#adm_btnAddOccupation", "#adm_occupation_datalist", saveCustomOccupation, "Enter New Parent Occupation:");
-  hookAddButton("#adm_btnAddPrevSchool", "#adm_prevSchool_datalist", saveCustomPrevSchool, "Enter New Previous School Name:");
+  hookDropdownAddOption("#adm_village", saveCustomVillage, "Enter New Village / Area Name:");
+  hookDropdownAddOption("#adm_relation", saveCustomRelation, "Enter New Guardian Relation (e.g. Grandfather, Uncle):");
+  hookDropdownAddOption("#adm_occupation", saveCustomOccupation, "Enter New Parent Occupation:");
+  hookDropdownAddOption("#adm_prevSchool", saveCustomPrevSchool, "Enter New Previous School Name:");
 
   // 11. Live file previews
   ["photo", "birthCert", "aadharDoc", "tcDoc", "parentIdDoc"].forEach(k => {
