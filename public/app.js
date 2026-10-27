@@ -8633,6 +8633,8 @@ function renderModuleTools() {
     refs.freeTeachersBtn.classList.toggle("hidden", currentModule !== "timetable");
   }
   if (refs.print4in1Btn) refs.print4in1Btn.classList.toggle("hidden", currentModule !== "fees");
+  const printFsBtn = document.getElementById("printFeeStructureBtn");
+  if (printFsBtn) printFsBtn.classList.toggle("hidden", !(currentModule === "fees" || currentModule === "dueManagement"));
   if (refs.appReleasesBtn) refs.appReleasesBtn.classList.toggle("hidden", currentModule !== "appLiveUsers");
   if (refs.liveOtaStreamBtn) refs.liveOtaStreamBtn.classList.toggle("hidden", currentModule !== "appLiveUsers");
 
@@ -17794,7 +17796,8 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
           <h2 style="margin:0;font-size:1.4rem;color:var(--primary,#1e3a8a);display:flex;align-items:center;gap:8px;"><span class="material-symbols-outlined" style="font-size:26px;">inventory_2</span> Fee Structure Prices</h2>
           <p style="margin:4px 0 0;color:#64748b;font-size:0.88rem;">Manage class-wise book, dress, and fee costs. Auto-linked to Fee receipts.</p>
         </div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          <button id="bd-print-fs-btn" style="background:#0f766e;color:#fff;border:none;border-radius:8px;padding:9px 18px;cursor:pointer;font-size:0.9rem;display:inline-flex;align-items:center;gap:6px;font-weight:600;box-shadow:0 2px 5px rgba(15,118,110,0.25);"><span class="material-symbols-outlined" style="font-size:18px;">print</span> Print Fee Structure</button>
           <button id="bd-add-btn" style="background:#1e3a8a;color:#fff;border:none;border-radius:8px;padding:9px 18px;cursor:pointer;font-size:0.9rem;display:inline-flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:18px;">add</span> Add Item</button>
           <button id="bd-refresh-btn" style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:8px;padding:9px 14px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;" title="Refresh"><span class="material-symbols-outlined" style="font-size:18px;color:#475569;">refresh</span></button>
         </div>
@@ -17910,7 +17913,10 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
             <h3 style="margin:0;font-size:1.1rem;color:#1e3a8a;display:flex;align-items:center;gap:8px;"><span class="material-symbols-outlined" style="font-size:22px;">payments</span> Monthly Fee Structures</h3>
             <p style="margin:3px 0 0;color:#64748b;font-size:0.82rem;">Set class-wise monthly fee amounts. These appear as a dropdown when adding a fee record.</p>
           </div>
-          <button id="fs-add-btn" style="background:#1e3a8a;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:0.88rem;display:inline-flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:16px;">add</span> Add Fee Structure</button>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <button id="fs-print-fs-btn" style="background:#0f766e;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:0.88rem;display:inline-flex;align-items:center;gap:6px;font-weight:600;"><span class="material-symbols-outlined" style="font-size:16px;">print</span> Print Fee Structure</button>
+            <button id="fs-add-btn" style="background:#1e3a8a;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:0.88rem;display:inline-flex;align-items:center;gap:6px;"><span class="material-symbols-outlined" style="font-size:16px;">add</span> Add Fee Structure</button>
+          </div>
         </div>
         <div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden;">
           <table id="fs-table" style="width:100%;border-collapse:collapse;font-size:0.86rem;">
@@ -18131,6 +18137,11 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
   }
 
   function attachBDListeners() {
+    document.getElementById("bd-print-fs-btn")?.addEventListener("click", () => {
+      if (typeof window.openFeeStructurePrintModal === "function") {
+        window.openFeeStructurePrintModal();
+      }
+    });
     document.getElementById("bd-add-btn")?.addEventListener("click", () => openBDModal(null));
     document.getElementById("bd-modal-cancel")?.addEventListener("click", closeBDModal);
     document.getElementById("bd-refresh-btn")?.addEventListener("click", async () => {
@@ -18265,6 +18276,11 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
   }
 
   function attachFSListeners() {
+    document.getElementById("fs-print-fs-btn")?.addEventListener("click", () => {
+      if (typeof window.openFeeStructurePrintModal === "function") {
+        window.openFeeStructurePrintModal();
+      }
+    });
     document.getElementById("fs-add-btn")?.addEventListener("click", () => openFSModal(null));
     document.getElementById("fs-modal-cancel")?.addEventListener("click", closeFSModal);
     document.getElementById("fs-modal")?.addEventListener("click", e => {

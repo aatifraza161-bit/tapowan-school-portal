@@ -586,6 +586,7 @@
             <button id="exportPdfBtn" class="btn-action btn-pdf"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px;">picture_as_pdf</span> Export PDF</button>
             <button id="printDocBtn" class="btn-action btn-print"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px;">print</span> Print Document</button>
             <button id="print4in1Btn" class="btn-action btn-print hidden"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px;">grid_view</span> Print 4-in-1</button>
+            <button id="printFeeStructureBtn" class="btn-action btn-print hidden" onclick="if(window.openFeeStructurePrintModal) window.openFeeStructurePrintModal()" style="background:#0f766e; color:#ffffff; border:none; font-weight:700;"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px;">payments</span> Fee Structure</button>
             <button id="appReleasesBtn" type="button" class="btn-action hidden" onclick="if(window.openAppReleaseControlModal) window.openAppReleaseControlModal()" style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;font-weight:700;"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px;">system_update</span> App Releases</button>
             <button id="liveOtaStreamBtn" type="button" class="btn-action hidden" onclick="if(window.openLiveOtaStreamPanel) window.openLiveOtaStreamPanel()" style="background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;font-weight:700;"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px;">cell_tower</span> Live Devices & Status</button>
             <button id="onlinePaymentsAccessControlBtn" type="button" class="btn-action hidden" onclick="if(window.openOnlinePaymentAccessControlModal) window.openOnlinePaymentAccessControlModal()" style="background:linear-gradient(135deg, #4f46e5, #7c3aed); color:#ffffff; border:none; font-weight:700; box-shadow:0 2px 6px rgba(79,70,229,0.3);"><span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:4px;">security</span> Access Control & WA Gateway</button>
@@ -1310,7 +1311,8 @@
   </script>
   <!-- Pure 512-D ArcFace InsightFace GPU Engine -->
   <script src="admission-templates.js?v=202610262215" defer></script>
-  <script src="app.js?v=202610262316" defer></script>
+  <script src="fee-structure-print.js?v=202610270530" defer></script>
+  <script src="app.js?v=202610270530" defer></script>
   <script src="exam_module.js?v=202610231510" defer></script>
   <script src="reports_module.js?v=202610210830" defer></script>
   <script src="online_classes_module.js?v=202610210830" defer></script>
