@@ -447,12 +447,38 @@ _Automated School Finance Service • Tapowan Public School_`;
 }
 
 /**
- * 6. Query Recent IVR Logs
+ * 6. Auto-Purge IVR Call Logs Older Than 24 Hours
+ */
+async function purgeOldIvrLogs() {
+  try {
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19);
+    const res = await db.execute({
+      sql: `DELETE FROM app_ivr_call_logs WHERE created_at < ? OR created_at IS NULL`,
+      args: [cutoff],
+      skipCache: true
+    });
+    const purgedCount = res?.rowsAffected || 0;
+    if (purgedCount > 0) {
+      console.log(`[CallAutomation Purge] Auto-removed ${purgedCount} IVR call logs older than 24h (cutoff: ${cutoff})`);
+    }
+    return { ok: true, purgedCount, cutoff };
+  } catch (err) {
+    console.warn('[CallAutomation Purge Warning]:', err.message);
+    return { ok: false, error: err.message };
+  }
+}
+
+/**
+ * 7. Query Recent IVR Logs (Auto-purges & limits to last 24 hours)
  */
 async function getIvrLogs({ limit = 50, page = 1, search = '' } = {}) {
   try {
-    let whereClauses = [];
-    let args = [];
+    // 1. Auto-remove call logs older than 24 hours on every fetch
+    await purgeOldIvrLogs();
+
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19);
+    let whereClauses = ["created_at >= ?"];
+    let args = [cutoff];
 
     if (search && search.trim()) {
       const s = `%${search.trim().toLowerCase()}%`;
@@ -504,7 +530,9 @@ async function getIvrStats() {
           SUM(CASE WHEN payment_link_sent = 1 THEN 1 ELSE 0 END) as linksSent,
           SUM(due_amount) as totalDueReminded
         FROM app_ivr_call_logs
+        WHERE created_at >= ?
       `,
+      args: [new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19)],
       skipCache: true
     });
 
@@ -574,6 +602,7 @@ module.exports = {
   buildIvrScript,
   initiateIvrCall,
   handleIvrKeypress,
+  purgeOldIvrLogs,
   getIvrLogs,
   getIvrStats,
   getIvrSessionDetails

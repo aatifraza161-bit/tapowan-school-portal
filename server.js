@@ -2188,6 +2188,24 @@ app.get('/api/calls/ivr/stats', authRequired, async (req, res) => {
   }
 });
 
+// F2. Auto-Purge IVR Call Logs Older Than 24 Hours
+app.post('/api/calls/ivr/purge', authRequired, async (req, res) => {
+  try {
+    const result = await callAutomation.purgeOldIvrLogs();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+app.delete('/api/calls/ivr/logs', authRequired, async (req, res) => {
+  try {
+    const result = await callAutomation.purgeOldIvrLogs();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // G. IVR Call Session Details (Directly accessible by active callId for mobile app speech personalization)
 const handleIvrSessionDetails = async (req, res) => {
   try {

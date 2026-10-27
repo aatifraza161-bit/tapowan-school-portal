@@ -988,13 +988,34 @@
     }
   }
 
+  window.purgeIvrLogsNow = async function () {
+    if (!confirm("Are you sure you want to clear call history? All call logs older than 24 hours are removed automatically.")) return;
+    try {
+      const res = await fetchWithAuth("/api/calls/ivr/purge", { method: "POST" });
+      if (res && res.ok) {
+        if (window.showToast) window.showToast("Call history cleared successfully", "success");
+        window.openIvrLogsModal();
+      } else {
+        if (window.showToast) window.showToast(res?.error || "Failed to clear logs", "error");
+      }
+    } catch (err) {
+      if (window.showToast) window.showToast("Error: " + err.message, "error");
+    }
+  };
+
   /**
    * Modal: Call Audit Logs
    */
   window.openIvrLogsModal = async function () {
     try {
       const data = await fetchWithAuth('/api/calls/ivr/logs?limit=50');
-      const logs = (data && data.ok) ? data.logs || [] : [];
+      const allLogs = (data && data.ok) ? data.logs || [] : [];
+      const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+      const logs = allLogs.filter(l => {
+        if (!l.created_at) return false;
+        const ts = new Date(String(l.created_at).replace(' ', 'T') + 'Z').getTime();
+        return isNaN(ts) || ts >= oneDayAgo;
+      });
 
       let rowsHtml = logs.map(l => `
         <tr style="border-bottom: 1px solid #e2e8f0; font-size: 0.82rem;">
@@ -1017,19 +1038,29 @@
       `).join('');
 
       if (logs.length === 0) {
-        rowsHtml = `<tr><td colspan="7" style="padding: 30px; text-align: center; color: #94a3b8;">No IVR automated calls logged yet.</td></tr>`;
+        rowsHtml = `<tr><td colspan="7" style="padding: 30px; text-align: center; color: #94a3b8;">No IVR calls in the past 24 hours. Older logs have been automatically cleaned up.</td></tr>`;
       }
 
       const modalHtml = `
         <div id="ivrLogsModalBackdrop" style="position: fixed; inset: 0; background: rgba(15,23,42,0.6); backdrop-filter: blur(6px); z-index: 999999; display: flex; align-items: center; justify-content: center; padding: 20px;">
           <div style="background: #ffffff; border-radius: 16px; width: 100%; max-width: 900px; max-height: 85vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.25);">
             <div style="padding: 18px 24px; border-bottom: 1.5px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
-              <h2 style="font-size: 1.15rem; font-weight: 800; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 8px;">
-                <span class="material-symbols-outlined" style="color: #4f46e5;">history</span> Automated IVR Call History & WhatsApp Logs
-              </h2>
-              <button type="button" onclick="document.getElementById('ivrLogsModalBackdrop').remove()" style="border: none; background: #f1f5f9; border-radius: 8px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <h2 style="font-size: 1.12rem; font-weight: 800; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 8px;">
+                  <span class="material-symbols-outlined" style="color: #4f46e5;">history</span> Automated IVR Call History & WhatsApp Logs
+                </h2>
+                <span style="font-size: 0.72rem; color: #4f46e5; background: #eef2ff; border: 1px solid #c7d2fe; padding: 3px 8px; border-radius: 6px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+                  <span class="material-symbols-outlined" style="font-size: 14px;">auto_delete</span> Auto-Removed After 24 Hrs
+                </span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <button type="button" onclick="window.purgeIvrLogsNow()" title="Clear Call History" style="border: 1.5px solid #fca5a5; background: #fef2f2; color: #dc2626; border-radius: 8px; padding: 6px 12px; font-weight: 700; font-size: 0.78rem; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                  <span class="material-symbols-outlined" style="font-size: 16px;">delete_sweep</span> Clear History
+                </button>
+                <button type="button" onclick="document.getElementById('ivrLogsModalBackdrop').remove()" style="border: none; background: #f1f5f9; border-radius: 8px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
                 <span class="material-symbols-outlined" style="font-size: 18px;">close</span>
               </button>
+              </div>
             </div>
             <div style="padding: 16px 24px; overflow-y: auto; flex: 1;">
               <table style="width: 100%; border-collapse: collapse;">
