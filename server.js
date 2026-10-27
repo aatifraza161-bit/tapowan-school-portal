@@ -5472,19 +5472,23 @@ app.get("/api/whatsapp/due-fees", authRequired, async (req, res) => {
       })
     ]);
 
-    const fees = feesRes.rows || [];
-    const students = studentsRes.rows || [];
-    const dueMgmt = dueRes.rows || [];
+    const { normalizeRow } = require("./server/db-sqlite");
+    const fees = (feesRes.rows || []).map(r => typeof normalizeRow === "function" ? normalizeRow("fees", r) : r);
+    const students = (studentsRes.rows || []).map(r => typeof normalizeRow === "function" ? normalizeRow("students", r) : r);
+    const dueMgmt = (dueRes.rows || []).map(r => typeof normalizeRow === "function" ? normalizeRow("dueManagement", r) : r);
 
     const studentAdmMap = {};
     const studentNameMap = {};
     students.forEach(s => { 
-      // Avoid mapping dummy admission numbers so it falls back to studentNameMap correctly
-      if (s.admissionNo && s.admissionNo !== "00" && s.admissionNo !== "0" && s.admissionNo.toLowerCase() !== "temp") {
-          studentAdmMap[s.admissionNo] = s;
+      const adm = String(s.admissionNo || s.admissionno || "").trim();
+      if (adm && adm !== "00" && adm !== "0" && adm.toLowerCase() !== "temp") {
+          studentAdmMap[adm] = s;
+          studentAdmMap[adm.toLowerCase()] = s;
       }
-      // Only set name map if no collision (BUG-9 fix: prefer admissionNo lookup)
-      if (!studentNameMap[s.fullName]) studentNameMap[s.fullName] = s; 
+      const name = String(s.fullName || s.fullname || "").trim();
+      if (name && !studentNameMap[name.toLowerCase()]) {
+        studentNameMap[name.toLowerCase()] = s;
+      }
     });
 
     const results = [];
@@ -5499,24 +5503,26 @@ app.get("/api/whatsapp/due-fees", authRequired, async (req, res) => {
         return (status === "pending" || status === "partial") && bal > 0;
       })
       .forEach(f => {
-        const student = studentAdmMap[f.admissionNo] || studentNameMap[f.studentName] || {};
-        const dedupKey = `${f.admissionNo || f.studentName}__${f.month || f.term || ""}`;
+        const adm = String(f.admissionNo || f.admissionno || "").trim();
+        const name = String(f.studentName || f.studentname || "").trim();
+        const student = studentAdmMap[adm] || studentAdmMap[adm.toLowerCase()] || studentNameMap[name.toLowerCase()] || {};
+        const dedupKey = `${adm || name}__${f.month || f.term || ""}`;
         seenKeys.add(dedupKey);
         results.push({
           feeId: f.id,
-          admissionNo: f.admissionNo || student.admissionNo || "",
-          studentName: f.studentName || "",
-          className: f.className || student.className || "",
-          rollNo: f.rollNo || student.rollNo || "",
-          fatherName: student.fatherName || "",
-          parentName: student.fatherName || "",
-          phone: student.phone || "",
-          balance: f.balance || "0",
-          totalFee: f.totalFee || "0",
-          paidAmount: f.paidAmount || "0",
+          admissionNo: adm || student.admissionNo || student.admissionno || "",
+          studentName: name || student.fullName || student.fullname || f.studentName || f.studentname || "",
+          className: f.className || f.classname || student.className || student.classname || "",
+          rollNo: f.rollNo || f.rollno || student.rollNo || student.rollno || "",
+          fatherName: student.fatherName || student.fathername || f.fatherName || f.fathername || "",
+          parentName: student.fatherName || student.fathername || f.fatherName || f.fathername || "",
+          phone: student.phone || student.phone1 || "",
+          balance: String(f.balance || "0"),
+          totalFee: String(f.totalFee || f.totalfee || "0"),
+          paidAmount: String(f.paidAmount || f.paidamount || "0"),
           term: f.term || "Fee Slip",
           status: f.status || "Pending",
-          paymentDate: f.paymentDate || "",
+          paymentDate: f.paymentDate || f.paymentdate || "",
           source: "fees"
         });
       });
@@ -5529,25 +5535,27 @@ app.get("/api/whatsapp/due-fees", authRequired, async (req, res) => {
         return status !== "paid" && bal > 0;
       })
       .forEach(d => {
-        // BUG-8 fix: skip if a fee slip already covers this student+month
-        const monthFromParticulars = (d.particulars || "").replace("Tuition fee of ", "").replace("Late fee of ", "");
-        const dedupKey = `${d.admissionNo || d.studentName}__${monthFromParticulars}`;
+        const adm = String(d.admissionNo || d.admissionno || "").trim();
+        const name = String(d.studentName || d.studentname || "").trim();
+        const particulars = d.particulars || "";
+        const monthFromParticulars = particulars.replace(/Tuition fee of /i, "").replace(/Late fee of /i, "").trim();
+        const dedupKey = `${adm || name}__${monthFromParticulars}`;
         if (seenKeys.has(dedupKey)) return; // Already have a fee slip for this
         
-        const student = studentAdmMap[d.admissionNo] || studentNameMap[d.studentName] || {};
+        const student = studentAdmMap[adm] || studentAdmMap[adm.toLowerCase()] || studentNameMap[name.toLowerCase()] || {};
         results.push({
           feeId: `dm-${d.id}`,
-          admissionNo: d.admissionNo || student.admissionNo || "",
-          studentName: d.studentName || "",
-          className: d.className || student.className || "",
-          rollNo: d.rollNo || student.rollNo || "",
-          fatherName: student.fatherName || "",
-          parentName: student.fatherName || "",
-          phone: student.phone || "",
-          balance: d.balance || "0",
-          totalFee: d.dueAmount || "0",
-          paidAmount: d.paidAmount || "0",
-          term: d.particulars || "Due Mgmt",
+          admissionNo: adm || student.admissionNo || student.admissionno || "",
+          studentName: name || student.fullName || student.fullname || "",
+          className: d.className || d.classname || student.className || student.classname || "",
+          rollNo: d.rollNo || d.rollno || student.rollNo || student.rollno || "",
+          fatherName: student.fatherName || student.fathername || "",
+          parentName: student.fatherName || student.fathername || "",
+          phone: student.phone || student.phone1 || "",
+          balance: String(d.balance || "0"),
+          totalFee: String(d.dueAmount || d.dueamount || d.balance || "0"),
+          paidAmount: String(d.paidAmount || d.paidamount || "0"),
+          term: particulars || "Due Mgmt",
           status: (d.status === "Unpaid" || !d.status) ? "Pending" : d.status,
           paymentDate: "",
           source: "dueManagement"

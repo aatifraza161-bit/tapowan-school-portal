@@ -20498,9 +20498,16 @@ function openWhatsApp(phone, message) {
 
     // Augment every row with extended student details for template variables
     displayList = displayList.map(item => {
-      const student = students.find(s => s.admissionNo === item.admissionNo) || {};
+      const student = students.find(s => 
+        (s.admissionNo && item.admissionNo && String(s.admissionNo).trim().toLowerCase() === String(item.admissionNo).trim().toLowerCase()) ||
+        (s.fullName && item.studentName && String(s.fullName).trim().toLowerCase() === String(item.studentName).trim().toLowerCase())
+      ) || {};
       return {
         ...item,
+        studentName: item.studentName || student.fullName || "",
+        className: item.className || student.className || "",
+        rollNo: item.rollNo || student.rollNo || "",
+        phone: item.phone || student.phone || "",
         motherName: student.motherName || "",
         fatherName: student.fatherName || item.fatherName || "",
         gender: student.gender || "",
@@ -20658,8 +20665,8 @@ function openWhatsApp(phone, message) {
                 ${displayList.map((row, i) => `
                   <tr class="wa-row" data-idx="${i}">
                     <td><input type="checkbox" class="wa-row-check" data-idx="${i}" /></td>
-                    <td><strong>${row.studentName}</strong><br><small style="color:#64748b">${row.rollNo || "No Roll"}</small></td>
-                    <td>${row.className}</td>
+                    <td><strong>${row.studentName || "—"}</strong><br><small style="color:#64748b">${row.rollNo ? ("Roll: " + row.rollNo) : "No Roll"}</small></td>
+                    <td><strong style="color:#1e293b">${row.className || "—"}</strong></td>
                     <td>
                       <div style="font-weight:600">${row.fatherName || row.parentName || "—"}</div>
                       <div style="color:#64748b;font-size:0.82rem">${row.phone ? '<span class="material-symbols-outlined" style="font-size:13px; vertical-align:middle; margin-right:3px;">call</span>' + row.phone : "<span style='color:#ef4444'>No phone</span>"}</div>
