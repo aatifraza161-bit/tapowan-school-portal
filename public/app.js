@@ -2633,12 +2633,14 @@ async function openAdmissionForm() {
     saveAdmissionDraft(false);
   };
   window.autoFillAdmissionFees = (cls) => {
-    const structures = getStore().feeStructures || [];
-    const monthly = structures.find(f => f.className === cls && f.feeType?.toLowerCase().includes("monthly"))?.amount || "";
-    const admission = structures.find(f => f.className === cls && f.feeType?.toLowerCase().includes("admission"))?.amount || "";
-    if (monthly) document.getElementById("adm_monthlyFee").value = monthly;
-    if (admission) document.getElementById("adm_admissionFee").value = admission;
-    saveAdmissionDraft(false);
+    const f = typeof getFeeStructureForClass === "function" ? getFeeStructureForClass(cls) : { admissionFee: "", monthlyFee: "", transportFee: "" };
+    const mEl = document.getElementById("adm_monthlyFee");
+    const aEl = document.getElementById("adm_admissionFee");
+    const tEl = document.getElementById("adm_transportFee");
+    if (mEl && f.monthlyFee) mEl.value = f.monthlyFee;
+    if (aEl && f.admissionFee) aEl.value = f.admissionFee;
+    if (tEl && f.transportFee) tEl.value = f.transportFee;
+    if (typeof saveAdmissionDraft === "function") saveAdmissionDraft(false);
   };
   window.handleAdmUpload = async (input, key) => {
     const file = input.files[0];
@@ -23917,27 +23919,91 @@ function getNextRollNoForClass(className, section) {
   return rolls.length ? Math.max(...rolls) + 1 : 1;
 }
 
+function canonicalClassFeeKey(cls) {
+  if (!cls) return "";
+  let s = String(cls).trim().toUpperCase();
+  s = s.replace(/^(CLASS|GRADE)\s+/i, "");
+  s = s.replace(/[-_\s]+[A-Z0-9]$/i, "");
+  s = s.trim();
+  if (["1", "I", "CLASS 1", "CLASS I"].includes(s)) return "I";
+  if (["2", "II", "CLASS 2", "CLASS II"].includes(s)) return "II";
+  if (["3", "III", "CLASS 3", "CLASS III"].includes(s)) return "III";
+  if (["4", "IV", "CLASS 4", "CLASS IV"].includes(s)) return "IV";
+  if (["5", "V", "CLASS 5", "CLASS V"].includes(s)) return "V";
+  if (["6", "VI", "CLASS 6", "CLASS VI"].includes(s)) return "VI";
+  if (["7", "VII", "CLASS 7", "CLASS VII"].includes(s)) return "VII";
+  if (["8", "VIII", "CLASS 8", "CLASS VIII"].includes(s)) return "VIII";
+  if (["9", "IX", "CLASS 9", "CLASS IX"].includes(s)) return "IX";
+  if (["10", "X", "CLASS 10", "CLASS X"].includes(s)) return "X";
+  if (["N/C", "NC", "NUR", "NURSERY"].includes(s)) return "NURSERY";
+  if (["LKG"].includes(s)) return "LKG";
+  if (["UKG"].includes(s)) return "UKG";
+  return s;
+}
+
+const OFFICIAL_MASTER_FEES = {
+  "NURSERY": { admissionFee: "1000", monthlyFee: "400", transportFee: "450" },
+  "LKG":     { admissionFee: "1000", monthlyFee: "430", transportFee: "450" },
+  "UKG":     { admissionFee: "1000", monthlyFee: "430", transportFee: "450" },
+  "I":       { admissionFee: "1000", monthlyFee: "480", transportFee: "500" },
+  "II":      { admissionFee: "1000", monthlyFee: "480", transportFee: "500" },
+  "III":     { admissionFee: "1000", monthlyFee: "500", transportFee: "500" },
+  "IV":      { admissionFee: "1000", monthlyFee: "500", transportFee: "500" },
+  "V":       { admissionFee: "1000", monthlyFee: "500", transportFee: "500" },
+  "VI":      { admissionFee: "1000", monthlyFee: "600", transportFee: "550" },
+  "VII":     { admissionFee: "1000", monthlyFee: "600", transportFee: "550" },
+  "VIII":    { admissionFee: "1000", monthlyFee: "600", transportFee: "550" },
+  "IX":      { admissionFee: "1000", monthlyFee: "550", transportFee: "600" },
+  "X":       { admissionFee: "1000", monthlyFee: "550", transportFee: "600" }
+};
+
 function getFeeStructureForClass(className) {
-  const res = { admissionFee: "0", monthlyFee: "0", transportFee: "0" };
+  const targetKey = canonicalClassFeeKey(className);
+  const fallback = OFFICIAL_MASTER_FEES[targetKey] || { admissionFee: "1000", monthlyFee: "500", transportFee: "450" };
+  const res = { ...fallback };
   if (!className) return res;
-  const store = getStore();
-  const cNorm = String(className).trim().toLowerCase();
-  const structs = (store.feeStructures || []).filter(s => String(s.className || "").trim().toLowerCase() === cNorm);
-  
+
+  const store = (typeof getStore === "function") ? getStore() : {};
+  let allStructs = [];
+  if (Array.isArray(store.feeStructures)) allStructs.push(...store.feeStructures);
+  if (Array.isArray(store.feestructures)) allStructs.push(...store.feestructures);
+  if (Array.isArray(window.feeStructures)) allStructs.push(...window.feeStructures);
+  if (typeof serverStore !== "undefined" && Array.isArray(serverStore?.feeStructures)) {
+    allStructs.push(...serverStore.feeStructures);
+  }
+
+  // Deduplicate and filter by matching class canonical key
+  const seenIds = new Set();
+  const structs = allStructs.filter(s => {
+    const idKey = s.id ? String(s.id) : `${s.className}_${s.feeType}_${s.amount}`;
+    if (seenIds.has(idKey)) return false;
+    seenIds.add(idKey);
+    return canonicalClassFeeKey(s.className || s.classname) === targetKey;
+  });
+
   for (const s of structs) {
-    const type = String(s.feeType || "").toLowerCase();
+    const type = String(s.feeType || s.feetype || "").toLowerCase();
     const term = String(s.term || "").toLowerCase();
     const desc = String(s.description || "").toLowerCase();
-    const amt = String(s.amount || "0");
+    const amt = String(s.amount != null ? s.amount : "");
 
-    if (type.includes("admission") || desc.includes("admission")) {
+    if (!amt || amt === "0") continue;
+
+    // Admission Fee (excluding form fee)
+    if ((type.includes("admission") && !type.includes("form") && !desc.includes("form")) || 
+        (desc.includes("admission fee") && !desc.includes("form"))) {
       res.admissionFee = amt;
-    } else if (type.includes("tuition") || desc.includes("tuition") || term === "monthly") {
+    } 
+    // Monthly Tuition Fee (excluding transport)
+    else if (type.includes("tuition") || desc.includes("tuition") || (term === "monthly" && !type.includes("transport") && !desc.includes("transport"))) {
       res.monthlyFee = amt;
-    } else if (type.includes("transport") || type.includes("van") || desc.includes("transport")) {
+    } 
+    // Transport Fee
+    else if (type.includes("transport") || type.includes("van") || type.includes("bus") || desc.includes("transport")) {
       res.transportFee = amt;
     }
   }
+
   return res;
 }
 
@@ -24017,6 +24083,13 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
   const prevSchoolList = getPrevSchoolList();
 
   const isFree = String(initialValues.isFreeOfCharge || "").toLowerCase() === "true" || initialValues.isFreeOfCharge === 1;
+
+  // Resolve initial fees based on selected class or master structure
+  const initialClass = initialValues.className || initialValues.classApplyingFor || (classList.length ? classList[0] : "");
+  const initialClassFees = initialClass ? getFeeStructureForClass(initialClass) : { admissionFee: "", monthlyFee: "", transportFee: "" };
+  const defaultAdmFee = (initialValues.admissionFee != null && String(initialValues.admissionFee) !== "" && String(initialValues.admissionFee) !== "0") ? String(initialValues.admissionFee) : (initialClassFees.admissionFee || "");
+  const defaultMonthlyFee = (initialValues.monthlyFee != null && String(initialValues.monthlyFee) !== "" && String(initialValues.monthlyFee) !== "0") ? String(initialValues.monthlyFee) : (initialClassFees.monthlyFee || "");
+  const defaultTransportFee = (initialValues.transportFee != null && String(initialValues.transportFee) !== "" && String(initialValues.transportFee) !== "0") ? String(initialValues.transportFee) : (initialClassFees.transportFee || "");
 
   // Outer Wrapper
   const outer = document.createElement("div");
@@ -24456,7 +24529,7 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
             <label style="font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin:0;">Admission Fee (₹)</label>
             <span style="font-size:0.68rem; color:#64748b;">Editable</span>
           </div>
-          <input type="number" id="adm_admissionFee" name="admissionFee" min="0" value="${escapeHtml(initialValues.admissionFee != null ? initialValues.admissionFee : "0")}" placeholder="0" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; font-weight:700;">
+          <input type="number" id="adm_admissionFee" name="admissionFee" min="0" value="${escapeHtml(defaultAdmFee)}" placeholder="0" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; font-weight:700;">
         </div>
         <!-- Monthly Tuition Fee -->
         <div class="field">
@@ -24464,7 +24537,7 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
             <label style="font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin:0;">Monthly Tuition Fee (₹) *</label>
             <span style="font-size:0.68rem; color:#2563eb; font-weight:700;">Locked Rate</span>
           </div>
-          <input type="number" id="adm_monthlyFee" name="monthlyFee" min="0" value="${escapeHtml(initialValues.monthlyFee != null ? initialValues.monthlyFee : "0")}" ${isFree ? "readonly style='width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; font-weight:700; background:#f1f5f9; cursor:not-allowed;'" : "style='width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; font-weight:700; background:#ffffff;'"} placeholder="0">
+          <input type="number" id="adm_monthlyFee" name="monthlyFee" min="0" value="${escapeHtml(defaultMonthlyFee)}" ${isFree ? "readonly style='width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; font-weight:700; background:#f1f5f9; cursor:not-allowed;'" : "style='width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; font-weight:700; background:#ffffff;'"} placeholder="0">
         </div>
         <!-- Transport Fee -->
         <div class="field">
@@ -24472,7 +24545,7 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
             <label style="font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin:0;">Transport Fee (₹)</label>
             <span style="font-size:0.68rem; color:#64748b;">Editable</span>
           </div>
-          <input type="number" id="adm_transportFee" name="transportFee" min="0" value="${escapeHtml(initialValues.transportFee != null ? initialValues.transportFee : "0")}" placeholder="0" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem;">
+          <input type="number" id="adm_transportFee" name="transportFee" min="0" value="${escapeHtml(defaultTransportFee)}" placeholder="0" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem;">
         </div>
         <!-- One-Time Discount -->
         <div class="field">
@@ -24586,32 +24659,41 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
   }
 
   // 2. Class change: auto-assign roll no & auto-fill fee structure
-  const handleClassChange = () => {
-    const selectedClass = elClass.value;
+  const handleClassChange = (force = false) => {
+    const selectedClass = elClass ? elClass.value : "";
     if (elClassApplyingFor) elClassApplyingFor.value = selectedClass;
     
     // Auto assign roll number
     if (selectedClass) {
       const sec = elSection ? elSection.value : "";
       const nextRoll = getNextRollNoForClass(selectedClass, sec);
-      if (elRollNo && (!isEditing || !elRollNo.value)) {
+      if (elRollNo && (!isEditing || !elRollNo.value || force)) {
         elRollNo.value = nextRoll;
       }
       
-      // Auto fetch fees
+      // Auto fetch fees from class fee structure
       const fees = getFeeStructureForClass(selectedClass);
-      if (elAdmFee && (!isEditing || elAdmFee.value === "0" || !elAdmFee.value)) {
-        elAdmFee.value = fees.admissionFee || "0";
+      if (elAdmFee) {
+        if (!isEditing || force || !elAdmFee.value || elAdmFee.value === "0") {
+          elAdmFee.value = fees.admissionFee || "0";
+        }
       }
-      if (elMonthlyFee && !elIsFree.checked && (!isEditing || elMonthlyFee.value === "0" || !elMonthlyFee.value)) {
-        elMonthlyFee.value = fees.monthlyFee || "0";
+      if (elMonthlyFee && !elIsFree.checked) {
+        if (!isEditing || force || !elMonthlyFee.value || elMonthlyFee.value === "0") {
+          elMonthlyFee.value = fees.monthlyFee || "0";
+        }
       }
-      if (elTransportFee && (!isEditing || elTransportFee.value === "0" || !elTransportFee.value)) {
-        elTransportFee.value = fees.transportFee || "0";
+      if (elTransportFee) {
+        if (!isEditing || force || !elTransportFee.value || elTransportFee.value === "0") {
+          elTransportFee.value = fees.transportFee || "0";
+        }
       }
     }
   };
-  if (elClass) elClass.addEventListener("change", handleClassChange);
+  if (elClass) {
+    elClass.addEventListener("change", () => handleClassChange(true));
+    elClass.addEventListener("input", () => handleClassChange(true));
+  }
   if (elSection) {
     elSection.addEventListener("change", () => {
       if (elClass.value && (!isEditing || !elRollNo.value)) {
@@ -24801,10 +24883,23 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
     }
   });
 
-  // If initial values have class, run fee check on edit if fees were empty
-  if (isEditing && elClass && elClass.value && (!elAdmFee.value || elAdmFee.value === "0")) {
-    const f = getFeeStructureForClass(elClass.value);
-    if (!elAdmFee.value || elAdmFee.value === "0") elAdmFee.value = f.admissionFee || "0";
+  // If class is already selected upon form render, auto-populate fees immediately
+  if (elClass && elClass.value) {
+    handleClassChange(!isEditing);
+  }
+
+  // Pre-load fee structures asynchronously if not yet present in client cache
+  if (!getStore().feeStructures?.length) {
+    api("/api/modules/feeStructures").then(rows => {
+      if (Array.isArray(rows) && rows.length) {
+        if (!serverStore) serverStore = {};
+        serverStore.feeStructures = rows;
+        window.feeStructures = rows;
+        if (elClass && elClass.value) {
+          handleClassChange(!isEditing);
+        }
+      }
+    }).catch(() => {});
   }
 }
 
