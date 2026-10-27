@@ -54,11 +54,11 @@
     </div>
     <div style="margin-bottom:14px;">
       <div class="field-label">Driver Name</div>
-      <input type="text" id="driverNameInput" class="input-box" value="Ramesh Yadav" placeholder="Driver Full Name">
+      <input type="text" id="driverNameInput" class="input-box" value="" placeholder="Driver Full Name">
     </div>
     <div>
       <div class="field-label">Driver Contact Number</div>
-      <input type="tel" id="driverPhoneInput" class="input-box" value="9876543210" placeholder="Mobile Number">
+      <input type="tel" id="driverPhoneInput" class="input-box" value="" placeholder="10-Digit Mobile Number">
     </div>
   </div>
 
@@ -172,23 +172,38 @@
     const driverName = document.getElementById("driverNameInput").value.trim();
     const driverPhone = document.getElementById("driverPhoneInput").value.trim();
 
+    if (vehicleNo) localStorage.setItem("tps_driver_vehicle", vehicleNo);
+    if (driverName) localStorage.setItem("tps_driver_name", driverName);
+    if (driverPhone) localStorage.setItem("tps_driver_phone", driverPhone);
+
+    const payload = JSON.stringify({
+      vehicleNo: vehicleNo,
+      lat: lat,
+      lng: lng,
+      speed: speedKmh,
+      heading: heading,
+      altitude: alt,
+      accuracy: acc,
+      ignition: "ON",
+      driverName: driverName,
+      driverPhone: driverPhone
+    });
+
     try {
-      const res = await fetch("/api/transport/gps/update", {
+      let res = await fetch("/api/transport/gps/update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          vehicleNo: vehicleNo,
-          lat: lat,
-          lng: lng,
-          speed: speedKmh,
-          heading: heading,
-          altitude: alt,
-          accuracy: acc,
-          ignition: "ON",
-          driverName: driverName,
-          driverPhone: driverPhone
-        })
+        body: payload
       });
+
+      if (!res.ok) {
+        res = await fetch("https://tapowan-app.vercel.app/api/transport/gps/update", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: payload
+        });
+      }
+
       if (res.ok) {
         pingsCount++;
         pingsCountEl.textContent = `Pings sent: ${pingsCount}`;
@@ -251,6 +266,14 @@
     if (isTracking) stopTracking();
     else startTracking();
   });
+
+  // Restore remembered driver details
+  const savedVeh = localStorage.getItem("tps_driver_vehicle");
+  const savedName = localStorage.getItem("tps_driver_name");
+  const savedPhone = localStorage.getItem("tps_driver_phone");
+  if (savedVeh) document.getElementById("vehicleNoInput").value = savedVeh;
+  if (savedName) document.getElementById("driverNameInput").value = savedName;
+  if (savedPhone) document.getElementById("driverPhoneInput").value = savedPhone;
 </script>
 
 </body>

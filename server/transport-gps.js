@@ -192,12 +192,26 @@ const handleGpsUpdate = async (req, res) => {
     const isAtCampus = (distanceKm * 1000) <= SCHOOL_COORDS.radiusMeters;
     const status = isAtCampus ? "At Campus" : (speed > 2 ? "Moving" : "Idle");
 
-    // 1. Ensure vehicle exists in registry
+    // 1. Ensure vehicle exists in registry & update driver details if provided
+    const driverName = String(payload.driverName || payload.driver_name || "").trim();
+    const driverPhone = String(payload.driverPhone || payload.driver_phone || "").trim();
+
+    if (driverName || driverPhone) {
+      await runRaw(`
+        UPDATE transport_vehicles
+        SET driver_name = CASE WHEN ? != '' THEN ? ELSE driver_name END,
+            driver_phone = CASE WHEN ? != '' THEN ? ELSE driver_phone END
+        WHERE UPPER(TRIM(vehicle_no)) = UPPER(TRIM(?))
+      `, [driverName, driverName, driverPhone, driverPhone, vehicleNo]).catch(() => {});
+    }
+
     await runRaw(`
-      INSERT INTO transport_vehicles (vehicle_no, device_id, vehicle_type, route_name, driver_name)
-      VALUES (?, ?, 'Van', 'Main Campus Route', 'School Driver')
-      ON CONFLICT(vehicle_no) DO NOTHING
-    `, [vehicleNo, payload.deviceId || vehicleNo]);
+      INSERT INTO transport_vehicles (vehicle_no, device_id, vehicle_type, route_name, driver_name, driver_phone)
+      VALUES (?, ?, 'Van', 'Main Campus Route', ?, ?)
+      ON CONFLICT(vehicle_no) DO UPDATE SET
+        driver_name = CASE WHEN excluded.driver_name IS NOT NULL AND excluded.driver_name != '' AND excluded.driver_name != 'School Driver' THEN excluded.driver_name ELSE transport_vehicles.driver_name END,
+        driver_phone = CASE WHEN excluded.driver_phone IS NOT NULL AND excluded.driver_phone != '' THEN excluded.driver_phone ELSE transport_vehicles.driver_phone END
+    `, [vehicleNo, payload.deviceId || vehicleNo, driverName || 'School Driver', driverPhone || '']).catch(() => {});
 
     // 2. UPSERT into transport_gps_live
     await runRaw(`

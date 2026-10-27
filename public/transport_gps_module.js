@@ -1,7 +1,7 @@
 // public/transport_gps_module.js
 // Real Google Maps Live Site & Telematics Tracking Engine for Tapowan Public School
 // Displays the Official Interactive Google Maps Web Interface (Real Site) with
-// Ramgarh & Hazaribagh Regional Jump Controls, Live Telematics HUD, and Fleet Tracking
+// Ramgarh & Hazaribagh Regional Jump Controls, Live Telematics HUD, Driver Management, and Fleet Tracking
 
 (function () {
   const SCHOOL_COORDS = {
@@ -10,6 +10,19 @@
     name: "Tapowan Public School (Prem Nagar)",
     radiusMeters: 50.0
   };
+
+  // Haversine distance in km
+  function getDistanceFromSchoolKm(lat, lng) {
+    if (!lat || !lng) return 0;
+    const R = 6371;
+    const dLat = (lat - SCHOOL_COORDS.lat) * (Math.PI / 180);
+    const dLng = (lng - SCHOOL_COORDS.lng) * (Math.PI / 180);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(SCHOOL_COORDS.lat * (Math.PI / 180)) * Math.cos(lat * (Math.PI / 180)) *
+              Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return parseFloat((R * c).toFixed(2));
+  }
 
   // Ramgarh - Hazaribagh Regional Corridor Presets (NH-20 / NH-33)
   const REGION_PRESETS = {
@@ -113,8 +126,8 @@
           <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:12px;">
             <div class="van-hud-card">
               <div style="font-size:0.72rem; font-weight:800; text-transform:uppercase; color:#64748b; letter-spacing:0.5px;">Vehicle Status</div>
-              <div id="hud_vanStatus" style="font-size:1.15rem; font-weight:800; color:#16a34a; display:flex; align-items:center; gap:6px;">
-                <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#16a34a;"></span>
+              <div id="hud_vanStatus" style="font-size:1.15rem; font-weight:800; color:#0284c7; display:flex; align-items:center; gap:6px;">
+                <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#0284c7;"></span>
                 <span>Connecting...</span>
               </div>
               <div id="hud_vehicleName" style="font-size:0.75rem; color:#64748b; font-weight:600;">JH-02-VAN-01 &bull; School Van</div>
@@ -139,11 +152,16 @@
             </div>
 
             <div class="van-hud-card">
-              <div style="font-size:0.72rem; font-weight:800; text-transform:uppercase; color:#64748b; letter-spacing:0.5px;">Driver In-Charge</div>
-              <div id="hud_driverName" style="font-size:1.05rem; font-weight:800; color:#1e293b;">Ramesh Yadav</div>
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div style="font-size:0.72rem; font-weight:800; text-transform:uppercase; color:#64748b; letter-spacing:0.5px;">Driver In-Charge</div>
+                <button type="button" id="btn_openEditDriverModal" style="background:#eff6ff; border:1px solid #bfdbfe; color:#2563eb; font-size:0.72rem; font-weight:800; cursor:pointer; padding:2px 8px; border-radius:6px; display:inline-flex; align-items:center; gap:2px;">
+                  ✏️ Edit Details
+                </button>
+              </div>
+              <div id="hud_driverName" style="font-size:1.05rem; font-weight:800; color:#1e293b;">Connecting to driver...</div>
               <div style="margin-top:2px;">
-                <a id="hud_driverCallBtn" href="tel:9876543210" style="display:inline-flex; align-items:center; gap:4px; font-size:0.75rem; font-weight:700; color:#2563eb; text-decoration:none; background:#eff6ff; padding:2px 8px; border-radius:6px;">
-                  📞 9876543210 &bull; Call Driver
+                <a id="hud_driverCallBtn" href="tel:" style="display:inline-flex; align-items:center; gap:4px; font-size:0.75rem; font-weight:700; color:#64748b; text-decoration:none; background:#f1f5f9; padding:2px 8px; border-radius:6px;">
+                  📞 Awaiting Signal...
                 </a>
               </div>
             </div>
@@ -250,7 +268,7 @@
                 </div>
                 <div>
                   <div style="font-weight:800; font-size:0.92rem; color:#0f172a; display:flex; align-items:center; gap:6px;">
-                    <span id="footer_vanNo">JH-02-VAN-01</span> &bull; <span id="footer_vanRoute" style="color:#64748b; font-weight:600;">Main Campus Route (Prem Nagar - Barhi)</span>
+                    <span id="footer_vanNo">JH-02-VAN-01</span> &bull; <span id="footer_vanRoute" style="color:#64748b; font-weight:600;">Main Campus Route</span>
                   </div>
                   <div style="font-size:0.8rem; color:#475569; margin-top:2px;">
                     <strong>Live Van Position:</strong> <span id="footer_vanCoords" style="font-family:monospace; color:#2563eb; font-weight:700;">23.820968° N, 85.511963° E</span> &bull; <span id="footer_vanAddress" style="color:#16a34a; font-weight:700;">Prem Nagar Campus, Tapowan Public School</span>
@@ -303,7 +321,7 @@
                 <div style="font-weight:800; font-size:0.95rem; color:#0f172a; margin-bottom:6px;">1. SinoTrack (ST-901 / ST-902 / ST-905)</div>
                 <p style="font-size:0.82rem; color:#64748b; margin-bottom:10px;">Send these SMS commands to the SIM card inside the tracker:</p>
                 <div style="background:#0f172a; color:#38bdf8; padding:10px 12px; border-radius:6px; font-family:monospace; font-size:0.8rem; line-height:1.6;">
-                  8040000 tapowan-school.vercel.app 80<br>
+                  8040000 tapowan-app.vercel.app 80<br>
                   7100000<br>
                   8050000 10
                 </div>
@@ -315,7 +333,7 @@
                 <div style="font-weight:800; font-size:0.95rem; color:#0f172a; margin-bottom:6px;">2. Coban (TK102 / TK103 / GPS103)</div>
                 <p style="font-size:0.82rem; color:#64748b; margin-bottom:10px;">Send these SMS commands to the tracker SIM:</p>
                 <div style="background:#0f172a; color:#38bdf8; padding:10px 12px; border-radius:6px; font-family:monospace; font-size:0.8rem; line-height:1.6;">
-                  adminip123456 tapowan-school.vercel.app 80<br>
+                  adminip123456 tapowan-app.vercel.app 80<br>
                   gprs123456<br>
                   fix010s***n123456
                 </div>
@@ -340,6 +358,45 @@
                 <div style="font-weight:800; font-size:0.92rem; color:#1e40af;">Zero-Cost Instant GPS Tracking via Mobile Phone</div>
                 <p style="font-size:0.83rem; color:#1e3a8a; margin:4px 0 8px;">If you want to track the van immediately before your hardware GPS tracker is configured, the driver can open <a href="/driver-gps.html" target="_blank" style="font-weight:800; color:#2563eb;">/driver-gps.html</a> on any phone mounted on the van dashboard and tap "Start Tracking". It keeps the phone awake and broadcasts live satellite telemetry!</p>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Edit Driver & Vehicle Details Modal -->
+        <div id="editDriverModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.6); backdrop-filter:blur(4px); z-index:9999; align-items:center; justify-content:center;">
+          <div style="background:#ffffff; border-radius:16px; width:90%; max-width:440px; padding:24px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.2); display:flex; flex-direction:column; gap:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:12px;">
+              <h3 style="margin:0; font-size:1.15rem; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                <span>🚐</span> Edit Vehicle & Driver Details
+              </h3>
+              <button type="button" id="btn_closeEditDriverModal" style="background:none; border:none; font-size:22px; color:#64748b; cursor:pointer; line-height:1;">&times;</button>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:12px;">
+              <div>
+                <label style="font-size:0.75rem; font-weight:800; text-transform:uppercase; color:#64748b; display:block; margin-bottom:4px;">Vehicle Registration No</label>
+                <input type="text" id="modal_vehicleNo" style="width:100%; padding:9px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:700; box-sizing:border-box;" value="JH-02-VAN-01" />
+              </div>
+
+              <div>
+                <label style="font-size:0.75rem; font-weight:800; text-transform:uppercase; color:#64748b; display:block; margin-bottom:4px;">Driver Full Name</label>
+                <input type="text" id="modal_driverName" style="width:100%; padding:9px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:700; box-sizing:border-box;" placeholder="Enter Driver Name" />
+              </div>
+
+              <div>
+                <label style="font-size:0.75rem; font-weight:800; text-transform:uppercase; color:#64748b; display:block; margin-bottom:4px;">Driver Contact Number</label>
+                <input type="tel" id="modal_driverPhone" style="width:100%; padding:9px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:700; box-sizing:border-box;" placeholder="10-Digit Mobile Number" />
+              </div>
+
+              <div>
+                <label style="font-size:0.75rem; font-weight:800; text-transform:uppercase; color:#64748b; display:block; margin-bottom:4px;">Route Description</label>
+                <input type="text" id="modal_routeName" style="width:100%; padding:9px 12px; border:1.5px solid #cbd5e1; border-radius:8px; font-weight:700; box-sizing:border-box;" placeholder="e.g. Ramgarh - Mandu - Campus" />
+              </div>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
+              <button type="button" id="btn_cancelEditDriverModal" class="btn secondary" style="padding:9px 16px; border-radius:8px; font-weight:700;">Cancel</button>
+              <button type="button" id="btn_saveEditDriverModal" class="btn primary" style="padding:9px 20px; border-radius:8px; font-weight:800; background:#2563eb; color:#fff;">Save Details</button>
             </div>
           </div>
         </div>
@@ -520,6 +577,87 @@
       });
     }
 
+    // Wire Edit Driver Modal
+    const btnOpenModal = container.querySelector("#btn_openEditDriverModal");
+    const modal = container.querySelector("#editDriverModal");
+    const btnCloseModal = container.querySelector("#btn_closeEditDriverModal");
+    const btnCancelModal = container.querySelector("#btn_cancelEditDriverModal");
+    const btnSaveModal = container.querySelector("#btn_saveEditDriverModal");
+
+    const modalVeh = container.querySelector("#modal_vehicleNo");
+    const modalName = container.querySelector("#modal_driverName");
+    const modalPhone = container.querySelector("#modal_driverPhone");
+    const modalRoute = container.querySelector("#modal_routeName");
+
+    if (btnOpenModal && modal) {
+      btnOpenModal.addEventListener("click", () => {
+        const van = activeVehiclesList.find(v => v.vehicleNo === currentVehicleNo) || {};
+        if (modalVeh) modalVeh.value = van.vehicleNo || currentVehicleNo;
+        if (modalName) modalName.value = (van.driverName && van.driverName !== "School Driver" && van.driverName !== "Connecting to driver...") ? van.driverName : "";
+        if (modalPhone) modalPhone.value = van.driverPhone || "";
+        if (modalRoute) modalRoute.value = van.routeName || "Main Campus Route";
+        modal.style.display = "flex";
+      });
+    }
+
+    const closeModal = () => { if (modal) modal.style.display = "none"; };
+    if (btnCloseModal) btnCloseModal.addEventListener("click", closeModal);
+    if (btnCancelModal) btnCancelModal.addEventListener("click", closeModal);
+
+    if (btnSaveModal) {
+      btnSaveModal.addEventListener("click", async () => {
+        const vNo = modalVeh.value.trim() || currentVehicleNo;
+        const dName = modalName.value.trim();
+        const dPhone = modalPhone.value.trim();
+        const rName = modalRoute.value.trim();
+
+        btnSaveModal.textContent = "Saving...";
+
+        try {
+          let saved = false;
+          try {
+            const res = await fetch("/api/transport/vehicles", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                vehicleNo: vNo,
+                driverName: dName,
+                driverPhone: dPhone,
+                routeName: rName
+              })
+            });
+            if (res.ok) saved = true;
+          } catch (_) {}
+
+          if (!saved) {
+            await fetch("/api/db/query", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                sql: `
+                  INSERT INTO transport_vehicles (vehicle_no, device_id, vehicle_type, route_name, driver_name, driver_phone)
+                  VALUES (?, ?, 'Van', ?, ?, ?)
+                  ON CONFLICT(vehicle_no) DO UPDATE SET
+                    driver_name = excluded.driver_name,
+                    driver_phone = excluded.driver_phone,
+                    route_name = excluded.route_name
+                `,
+                args: [vNo, vNo, rName || "Main Campus Route", dName || "School Driver", dPhone || ""]
+              })
+            });
+          }
+
+          if (typeof showToast === "function") showToast(`Driver details updated for ${vNo}!`, "success");
+          closeModal();
+          fetchLiveGpsData();
+        } catch (e) {
+          alert("Error saving driver: " + e.message);
+        } finally {
+          btnSaveModal.textContent = "Save Details";
+        }
+      });
+    }
+
     // Initial state
     switchTab(activeTab);
     lastLoadedIframeUrl = buildGoogleEmbedUrl(currentQuery, currentZoom, currentMapType);
@@ -563,13 +701,91 @@
     }
   }
 
-  // Fetch Live Telemetry from /api/transport/gps/live
+  // Fetch Live Telemetry from /api/transport/gps/live with direct DB failover
   async function fetchLiveGpsData() {
     try {
-      const res = await fetch("/api/transport/gps/live");
-      if (!res.ok) return;
-      const data = await res.json();
-      if (!data.ok || !data.vehicles || !data.vehicles.length) return;
+      let data = null;
+      try {
+        const res = await fetch("/api/transport/gps/live");
+        if (res.ok) {
+          data = await res.json();
+        }
+      } catch (_) {}
+
+      // Fallback directly to Turso DB proxy if endpoint has any proxy latency
+      if (!data || !data.ok || !data.vehicles || !data.vehicles.length) {
+        try {
+          const dbRes = await fetch("/api/db/query", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sql: `
+                SELECT 
+                  v.id as vehicle_id,
+                  v.vehicle_no,
+                  v.device_id,
+                  v.vehicle_type,
+                  v.route_name,
+                  v.driver_name,
+                  v.driver_phone,
+                  v.capacity,
+                  l.latitude,
+                  l.longitude,
+                  l.speed,
+                  l.heading,
+                  l.ignition,
+                  l.status,
+                  l.address,
+                  l.updated_at
+                FROM transport_vehicles v
+                LEFT JOIN transport_gps_live l ON UPPER(TRIM(v.vehicle_no)) = UPPER(TRIM(l.vehicle_no))
+                WHERE v.is_active = 1
+                ORDER BY v.id ASC
+              `,
+              args: []
+            })
+          });
+          if (dbRes.ok) {
+            const dbData = await dbRes.json();
+            if (dbData.rows && dbData.rows.length) {
+              const now = Date.now();
+              const vehicles = dbData.rows.map(r => {
+                const lat = parseFloat(r.latitude ?? r.lat) || SCHOOL_COORDS.lat;
+                const lng = parseFloat(r.longitude ?? r.lng ?? r.lon) || SCHOOL_COORDS.lng;
+                const speed = parseFloat(r.speed) || 0;
+                const lastUpdateMs = r.updated_at ? new Date(r.updated_at).getTime() : 0;
+                const ageSeconds = lastUpdateMs > 0 ? Math.floor((now - lastUpdateMs) / 1000) : 99999;
+                const isOnline = ageSeconds <= 600;
+                const dist = getDistanceFromSchoolKm(lat, lng);
+                const isAtCampus = (dist * 1000) <= 50.0;
+                const st = isAtCampus ? "At Campus" : (speed > 2 ? "Moving" : (isOnline ? "Idle" : "Stationary"));
+                const eta = isAtCampus ? 0 : Math.max(1, Math.round((dist / (speed > 5 ? speed : 25)) * 60));
+
+                return {
+                  vehicleNo: r.vehicle_no || "JH-02-VAN-01",
+                  driverName: r.driver_name || "School Driver",
+                  driverPhone: r.driver_phone || "",
+                  routeName: r.route_name || "School Transit Route",
+                  latitude: lat,
+                  longitude: lng,
+                  speed: speed,
+                  heading: parseFloat(r.heading) || 0,
+                  status: st,
+                  isOnline: isOnline,
+                  distanceFromCampusKm: dist,
+                  isInsideGeofence: isAtCampus,
+                  etaMinutes: eta,
+                  address: r.address || (isAtCampus ? "Prem Nagar Campus, Tapowan Public School" : `En Route (${dist} km from campus)`),
+                  ageSeconds: ageSeconds
+                };
+              });
+              data = { ok: true, vehicles: vehicles };
+            }
+          }
+        } catch (_) {}
+      }
+
+      if (!data || !data.ok || !data.vehicles || !data.vehicles.length) return;
 
       activeVehiclesList = data.vehicles;
       updateVehicleSelector(activeVehiclesList);
@@ -662,9 +878,23 @@
     }
 
     if (hudDriverName) hudDriverName.textContent = van.driverName || "School Driver";
-    if (hudCallBtn && van.driverPhone) {
-      hudCallBtn.href = `tel:${van.driverPhone}`;
-      hudCallBtn.innerHTML = `📞 ${van.driverPhone} &bull; Call Driver`;
+    if (hudCallBtn) {
+      if (van.driverPhone && van.driverPhone !== "9876543210") {
+        hudCallBtn.href = `tel:${van.driverPhone}`;
+        hudCallBtn.style.color = "#2563eb";
+        hudCallBtn.style.background = "#eff6ff";
+        hudCallBtn.innerHTML = `📞 ${van.driverPhone} &bull; Call Driver`;
+      } else if (van.driverPhone) {
+        hudCallBtn.href = `tel:${van.driverPhone}`;
+        hudCallBtn.style.color = "#2563eb";
+        hudCallBtn.style.background = "#eff6ff";
+        hudCallBtn.innerHTML = `📞 ${van.driverPhone} &bull; Call Driver`;
+      } else {
+        hudCallBtn.href = "javascript:void(0)";
+        hudCallBtn.style.color = "#64748b";
+        hudCallBtn.style.background = "#f1f5f9";
+        hudCallBtn.innerHTML = `📞 No Phone Set`;
+      }
     }
 
     if (btnOpenApp && van.latitude && van.longitude) {
