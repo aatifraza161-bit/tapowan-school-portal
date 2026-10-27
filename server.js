@@ -35,6 +35,7 @@ const {
   cleanupCallLogs,
   runMaster24HrLogCleanup,
   broadcastSilentOtaPush,
+  broadcastSilentApkPush,
   wakeRemotePreviewDevice,
   broadcastAppIconChange
 } = require("./server/calls");
@@ -2238,6 +2239,17 @@ app.post("/api/admin/ota/broadcast-push", adminRequired, async (req, res) => {
       }
     }
     const result = await broadcastSilentOtaPush({ bundleUrl, bundleVersionCode, bundleVersion, targetAdmissionNo });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// 13a. Silent Background Full APK Push Broadcast
+app.post("/api/admin/apk/broadcast-push", adminRequired, async (req, res) => {
+  try {
+    const { apkUrl, versionCode, version, targetAdmissionNo } = req.body || {};
+    const result = await broadcastSilentApkPush({ apkUrl, versionCode, version, targetAdmissionNo });
     res.json(result);
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
