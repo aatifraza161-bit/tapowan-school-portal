@@ -3064,7 +3064,11 @@ function renderForm(forceRefresh) {
       admissionNo: s.admissionNo || "",
       monthlyFee: s.monthlyFee || ""
     }));
-    const classOptions = Array.from(new Set((store.classes || []).map((x) => [x.className, x.section].filter(Boolean).join("-")).filter(Boolean)));
+    const classOptions = Array.from(new Set([
+      ...CLASS_STANDARD_OPTIONS,
+      ...(store.classes || []).map((x) => [x.className, x.section].filter(Boolean).join("-")).filter(Boolean),
+      ...(store.students || []).map(s => s.className).filter(Boolean)
+    ])).filter(Boolean);
     const formRefs = {};
     
     let initialValues = {};
@@ -3083,7 +3087,11 @@ function renderForm(forceRefresh) {
       rollNo: s.rollNo || "",
       className: s.className || ""
     }));
-    const classOptions = Array.from(new Set((store.classes || []).map((x) => [x.className, x.section].filter(Boolean).join("-")).filter(Boolean)));
+    const classOptions = Array.from(new Set([
+      ...CLASS_STANDARD_OPTIONS,
+      ...(store.classes || []).map((x) => [x.className, x.section].filter(Boolean).join("-")).filter(Boolean),
+      ...(store.students || []).map(s => s.className).filter(Boolean)
+    ])).filter(Boolean);
     
     let initialValues = {};
     if (editRecordId != null) {
@@ -8437,7 +8445,11 @@ function populateEnrollStudentSelect() {
   const searchInputEl = document.getElementById('faceEnrollSearchInput');
   
   if (classFilterEl && classFilterEl.options.length <= 1 && !isTeachers) {
-    const classOptions = Array.from(new Set((store.classes || []).map((x) => [x.className, x.section].filter(Boolean).join("-")).filter(Boolean)));
+    const classOptions = Array.from(new Set([
+      ...CLASS_STANDARD_OPTIONS,
+      ...(store.classes || []).map((x) => [x.className, x.section].filter(Boolean).join("-")).filter(Boolean),
+      ...(store.students || []).map(s => s.className).filter(Boolean)
+    ])).filter(Boolean);
     classFilterEl.innerHTML = '<option value="">All Classes</option>';
     classOptions.forEach(opt => {
       const o = document.createElement("option");
@@ -30392,25 +30404,119 @@ function renderWeeklyEvaluationForm(studentOptions, classOptions, initialValues 
   const container = refs.dynamicForm;
   container.innerHTML = "";
 
-  const formWrap = document.createElement("div");
-  formWrap.className = "admission-grid"; // Reusing admission-grid for multi-column layout
-  formWrap.style.display = "grid";
-  formWrap.style.gridTemplateColumns = "repeat(auto-fit, minmax(250px, 1fr))";
-  formWrap.style.gap = "20px";
-  formWrap.style.background = "#fff";
-  formWrap.style.padding = "20px";
-  formWrap.style.borderRadius = "12px";
-  formWrap.style.boxShadow = "0 2px 10px rgba(0,0,0,0.02)";
-  formWrap.style.border = "1px solid #e2e8f0";
-
-  // Title
-  const title = document.createElement("h3");
-  title.textContent = editRecordId ? "Edit Weekly Evaluation" : "New Weekly Evaluation";
-  title.style.gridColumn = "1 / -1";
-  title.style.margin = "0 0 10px 0";
-  title.style.borderBottom = "2px solid #f1f5f9";
-  title.style.paddingBottom = "10px";
-  formWrap.appendChild(title);
+  // Inject Dedicated Scoped CSS if not already present
+  if (!document.getElementById("weekly-eval-styles")) {
+    const styleEl = document.createElement("style");
+    styleEl.id = "weekly-eval-styles";
+    styleEl.textContent = `
+      .we-container {
+        grid-column: 1 / -1 !important;
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 18px !important;
+        box-sizing: border-box !important;
+      }
+      .we-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 20px 22px;
+        box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
+        box-sizing: border-box;
+      }
+      .we-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+        padding-bottom: 10px;
+        border-bottom: 1.5px solid #f1f5f9;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .we-card-title {
+        font-weight: 800;
+        font-size: 0.95rem;
+        color: #1e293b;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .we-card-badge {
+        font-size: 0.72rem;
+        color: #64748b;
+        font-weight: 700;
+        background: #f8fafc;
+        padding: 3px 10px;
+        border-radius: 20px;
+        border: 1px solid #e2e8f0;
+        letter-spacing: 0.02em;
+      }
+      .we-field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .we-label {
+        font-size: 0.72rem;
+        font-weight: 800;
+        color: #475569;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin: 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .we-input, .we-select, .we-textarea {
+        width: 100%;
+        border: 1.5px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 9px 12px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #0f172a;
+        background: #ffffff;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        outline: none;
+        box-sizing: border-box;
+        font-family: inherit;
+      }
+      .we-input:focus, .we-select:focus, .we-textarea:focus {
+        border-color: #4f46e5;
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+      }
+      .we-input[readonly] {
+        background: #f8fafc;
+        color: #64748b;
+        cursor: not-allowed;
+      }
+      .we-btn-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 14px;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        cursor: pointer;
+        border: none;
+        transition: all 0.2s ease;
+      }
+      .we-btn-pill:hover {
+        filter: brightness(1.08);
+        transform: translateY(-1px);
+      }
+      .we-btn-pill:active {
+        transform: translateY(0);
+      }
+      @media (max-width: 768px) {
+        .we-card { padding: 14px 16px; }
+      }
+    `;
+    document.head.appendChild(styleEl);
+  }
 
   // Determine current Monday to Saturday for defaults if not editing
   let defStart = "";
@@ -30423,189 +30529,390 @@ function renderWeeklyEvaluationForm(studentOptions, classOptions, initialValues 
     const saturday = new Date(monday);
     saturday.setDate(monday.getDate() + 5);
     
-    defStart = monday.toISOString().slice(0,10);
-    defEnd = saturday.toISOString().slice(0,10);
+    defStart = monday.toISOString().slice(0, 10);
+    defEnd = saturday.toISOString().slice(0, 10);
   }
 
-  const classSelectStr = classOptions.map(o => `<option value="${o}" ${initialValues.className === o ? "selected" : ""}>${o}</option>`).join("");
-  const studentSelectStr = studentOptions.map(o => `<option value="${o.value}" ${initialValues.studentName === o.value ? "selected" : ""}>${o.label}</option>`).join("");
-
   const gradeOptions = ["A1", "A2", "B1", "B2", "C", "D", "E"];
-  const getGradeHtml = (val) => `<option value="">Select Grade</option>` + gradeOptions.map(g => `<option value="${g}" ${val === g ? "selected" : ""}>${g}</option>`).join("");
+  const gradeLabels = {
+    "A1": "A1 • Outstanding",
+    "A2": "A2 • Excellent",
+    "B1": "B1 • Very Good",
+    "B2": "B2 • Good",
+    "C": "C • Satisfactory",
+    "D": "D • Needs Work",
+    "E": "E • Unsatisfactory"
+  };
 
-  const elementsDef = [
-    { type: "section", text: "Evaluation Period & Student Details" },
-    { name: "weekStartDate", label: "Week Start Date (Monday)", type: "date", value: initialValues.weekStartDate || defStart },
-    { name: "weekEndDate", label: "Week End Date (Saturday)", type: "date", value: initialValues.weekEndDate || defEnd, readonly: true },
-    { name: "className", label: "Class & Section", type: "select", html: `<option value="">Select Class</option>${classSelectStr}` },
-    { name: "studentName", label: "Student Name", type: "select", html: `<option value="">Select Student</option>${studentSelectStr}` },
-    { name: "rollNo", label: "Roll No", type: "text", value: initialValues.rollNo || "" },
-    
-    { type: "section", text: "Academic Main Subjects" },
-    { name: "maths", label: "Maths", type: "select", html: getGradeHtml(initialValues.maths) },
-    { name: "english", label: "English", type: "select", html: getGradeHtml(initialValues.english) },
-    { name: "hindi", label: "Hindi", type: "select", html: getGradeHtml(initialValues.hindi) },
-    { name: "science", label: "Science", type: "select", html: getGradeHtml(initialValues.science) },
-    { name: "sst", label: "SST", type: "select", html: getGradeHtml(initialValues.sst) },
-    
-    { type: "section", text: "Reading & Writing Skills" },
-    { name: "readingEng", label: "Reading (English)", type: "select", html: getGradeHtml(initialValues.readingEng) },
-    { name: "readingHindi", label: "Reading (Hindi)", type: "select", html: getGradeHtml(initialValues.readingHindi) },
-    { name: "writingEng", label: "Writing (English)", type: "select", html: getGradeHtml(initialValues.writingEng) },
-    { name: "writingHindi", label: "Writing (Hindi)", type: "select", html: getGradeHtml(initialValues.writingHindi) },
-    
-    { type: "section", text: "Co-curricular & Discipline" },
-    { name: "attanDance", label: "Attendance/Dance %", type: "text", value: initialValues.attanDance || "", placeholder: "%" },
-    { name: "dicipLine", label: "Discipline/Line (G)", type: "select", html: getGradeHtml(initialValues.dicipLine) },
-    { name: "uniform", label: "Uniform (G)", type: "select", html: getGradeHtml(initialValues.uniform) },
-    { name: "activities", label: "Activities (G)", type: "select", html: getGradeHtml(initialValues.activities) },
-    
-    { type: "section", text: "Overall Assessment" },
-    { name: "overall", label: "Over All (G)", type: "select", html: getGradeHtml(initialValues.overall), style: "font-weight:bold; color:var(--brand);" },
-    { name: "teacherRemark", label: "Teacher Remark", type: "text", value: initialValues.teacherRemark || "" }
-  ];
+  const getGradeHtml = (val) =>
+    `<option value="">-- Select Grade --</option>` +
+    gradeOptions.map(g => `<option value="${g}" ${val === g ? "selected" : ""}>${gradeLabels[g] || g}</option>`).join("");
+
+  const formWrap = document.createElement("div");
+  formWrap.className = "we-container";
+
+  // 1. Header Banner
+  const banner = document.createElement("div");
+  banner.style.cssText = "background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border: 1px solid #334155; border-radius: 14px; padding: 18px 22px; color: #ffffff; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; box-shadow: 0 4px 18px rgba(15, 23, 42, 0.12);";
+  banner.innerHTML = `
+    <div style="display:flex; align-items:center; gap:12px;">
+      <div style="width:44px; height:44px; border-radius:12px; background:linear-gradient(135deg, #4f46e5, #7c3aed); display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(99,102,241,0.35);">
+        <span class="material-symbols-outlined" style="font-size:24px; color:#ffffff;">military_tech</span>
+      </div>
+      <div>
+        <h3 style="margin:0 0 3px 0; font-size:1.15rem; font-weight:800; color:#ffffff; letter-spacing:-0.01em;">
+          ${editRecordId ? "Edit Weekly Evaluation Record" : "New Weekly Evaluation"}
+        </h3>
+        <p style="margin:0; font-size:0.78rem; color:#94a3b8; font-weight:500;">
+          Continuous Comprehensive Evaluation (CCE) • Weekly Academic &amp; Behavioral Grading
+        </p>
+      </div>
+    </div>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <span style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); padding:5px 12px; border-radius:20px; font-size:0.75rem; font-weight:700; color:#e2e8f0; display:inline-flex; align-items:center; gap:6px;">
+        <span class="material-symbols-outlined" style="font-size:16px; color:#38bdf8;">calendar_month</span> Academic Cycle 2026-27
+      </span>
+    </div>
+  `;
+  formWrap.appendChild(banner);
 
   const inputEls = {};
 
-  elementsDef.forEach(f => {
-    if (f.type === "section") {
-      const st = document.createElement("h4");
-      st.textContent = f.text;
-      st.style.gridColumn = "1 / -1";
-      st.style.margin = "15px 0 5px 0";
-      st.style.color = "var(--brand)";
-      st.style.fontSize = "1.05rem";
-      st.style.borderBottom = "1px solid #f1f5f9";
-      st.style.paddingBottom = "5px";
-      formWrap.appendChild(st);
-      return;
-    }
+  // 2. Card 1: Evaluation Period & Student Information
+  const card1 = document.createElement("div");
+  card1.className = "we-card";
+  card1.innerHTML = `
+    <div class="we-card-header">
+      <div class="we-card-title">
+        <span class="material-symbols-outlined" style="color:#4f46e5; font-size:22px;">school</span>
+        <span>Evaluation Period &amp; Student Identity</span>
+      </div>
+      <span class="we-card-badge">Core Enrollment &amp; Schedule</span>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:14px;">
+      <div class="we-field">
+        <label class="we-label">
+          <span>Week Start (Mon) *</span>
+          <span style="font-size:0.68rem; color:#4f46e5; font-weight:700;">Start Date</span>
+        </label>
+        <input type="date" id="we_weekStartDate" name="weekStartDate" class="we-input" value="${escapeHtml(initialValues.weekStartDate || defStart)}">
+      </div>
+      <div class="we-field">
+        <label class="we-label">
+          <span>Week End (Sat)</span>
+          <span style="font-size:0.68rem; color:#15803d; font-weight:700; background:#dcfce7; padding:1px 6px; border-radius:4px;">Mon + 5 Days</span>
+        </label>
+        <input type="date" id="we_weekEndDate" name="weekEndDate" class="we-input" value="${escapeHtml(initialValues.weekEndDate || defEnd)}" readonly>
+      </div>
+      <div class="we-field">
+        <label class="we-label">
+          <span>Class &amp; Section *</span>
+        </label>
+        <select id="we_className" name="className" class="we-select">
+          <option value="">-- Select Class --</option>
+          ${classOptions.map(o => `<option value="${escapeHtml(o)}" ${initialValues.className === o ? "selected" : ""}>${escapeHtml(o)}</option>`).join("")}
+        </select>
+      </div>
+      <div class="we-field">
+        <label class="we-label">
+          <span>Student Name *</span>
+          <span id="we_studentBadge" style="font-size:0.68rem; color:#64748b; font-weight:700;"></span>
+        </label>
+        <select id="we_studentName" name="studentName" class="we-select">
+          <option value="">-- Select Student --</option>
+          ${studentOptions.map(o => `<option value="${escapeHtml(o.value)}" ${initialValues.studentName === o.value ? "selected" : ""}>${escapeHtml(o.label)}</option>`).join("")}
+        </select>
+      </div>
+      <div class="we-field">
+        <label class="we-label">
+          <span>Roll No</span>
+          <span style="font-size:0.68rem; color:#64748b; font-weight:700;">Auto-Filled</span>
+        </label>
+        <input type="text" id="we_rollNo" name="rollNo" class="we-input" placeholder="e.g. 1" value="${escapeHtml(initialValues.rollNo || "")}">
+      </div>
+    </div>
+  `;
+  formWrap.appendChild(card1);
 
-    const fieldDiv = document.createElement("div");
-    fieldDiv.className = "field";
-    const label = document.createElement("label");
-    label.textContent = f.label;
-    label.setAttribute("for", "we_" + f.name);
-    fieldDiv.appendChild(label);
+  // 3. Card 2: Core Academic Subjects (5 Subjects)
+  const card2 = document.createElement("div");
+  card2.className = "we-card";
+  card2.innerHTML = `
+    <div class="we-card-header">
+      <div class="we-card-title">
+        <span class="material-symbols-outlined" style="color:#0284c7; font-size:22px;">menu_book</span>
+        <span>Core Academic Subjects (5 Subjects)</span>
+      </div>
+      <span class="we-card-badge">Grading Scale: A1 to E</span>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:14px;">
+      <div class="we-field">
+        <label class="we-label">Mathematics</label>
+        <select id="we_maths" name="maths" class="we-select we-grade-select">
+          ${getGradeHtml(initialValues.maths)}
+        </select>
+      </div>
+      <div class="we-field">
+        <label class="we-label">English</label>
+        <select id="we_english" name="english" class="we-select we-grade-select">
+          ${getGradeHtml(initialValues.english)}
+        </select>
+      </div>
+      <div class="we-field">
+        <label class="we-label">Hindi</label>
+        <select id="we_hindi" name="hindi" class="we-select we-grade-select">
+          ${getGradeHtml(initialValues.hindi)}
+        </select>
+      </div>
+      <div class="we-field">
+        <label class="we-label">Science</label>
+        <select id="we_science" name="science" class="we-select we-grade-select">
+          ${getGradeHtml(initialValues.science)}
+        </select>
+      </div>
+      <div class="we-field">
+        <label class="we-label">Social Studies (SST)</label>
+        <select id="we_sst" name="sst" class="we-select we-grade-select">
+          ${getGradeHtml(initialValues.sst)}
+        </select>
+      </div>
+    </div>
+  `;
+  formWrap.appendChild(card2);
 
-    let input;
-    if (f.type === "select") {
-      input = document.createElement("select");
-      input.innerHTML = f.html;
-    } else {
-      input = document.createElement("input");
-      input.type = f.type;
-      input.value = f.value;
-      if (f.placeholder) input.placeholder = f.placeholder;
-      if (f.readonly) input.readOnly = true;
-      if (f.style) input.style = f.style;
-    }
-    input.id = "we_" + f.name;
-    input.name = f.name;
-    
-    // Auto-calculate Saturday based on Monday
-    if (f.name === "weekStartDate") {
-      input.addEventListener("change", (e) => {
-        if (!e.target.value) return;
-        const d = new Date(e.target.value);
-        d.setDate(d.getDate() + 5);
-        if (inputEls.weekEndDate) inputEls.weekEndDate.value = d.toISOString().slice(0, 10);
-      });
-    }
+  // 4. Card 3: Language & Foundational Literacy Skills (4 Skills)
+  const card3 = document.createElement("div");
+  card3.className = "we-card";
+  card3.innerHTML = `
+    <div class="we-card-header">
+      <div class="we-card-title">
+        <span class="material-symbols-outlined" style="color:#10b981; font-size:22px;">record_voice_over</span>
+        <span>Language &amp; Literacy Skills</span>
+      </div>
+      <span class="we-card-badge">Reading &amp; Writing Fluency</span>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:14px;">
+      <div class="we-field">
+        <label class="we-label">Reading (English)</label>
+        <select id="we_readingEng" name="readingEng" class="we-select we-grade-select">
+          ${getGradeHtml(initialValues.readingEng)}
+        </select>
+      </div>
+      <div class="we-field">
+        <label class="we-label">Reading (Hindi)</label>
+        <select id="we_readingHindi" name="readingHindi" class="we-select we-grade-select">
+          ${getGradeHtml(initialValues.readingHindi)}
+        </select>
+      </div>
+      <div class="we-field">
+        <label class="we-label">Writing (English)</label>
+        <select id="we_writingEng" name="writingEng" class="we-select we-grade-select">
+          ${getGradeHtml(initialValues.writingEng)}
+        </select>
+      </div>
+      <div class="we-field">
+        <label class="we-label">Writing (Hindi)</label>
+        <select id="we_writingHindi" name="writingHindi" class="we-select we-grade-select">
+          ${getGradeHtml(initialValues.writingHindi)}
+        </select>
+      </div>
+    </div>
+  `;
+  formWrap.appendChild(card3);
 
-    // Filter students by class
-    if (f.name === "className") {
-      input.addEventListener("change", (e) => {
-        const selectedClass = e.target.value;
-        if (inputEls.studentName) {
-          let filtered = studentOptions;
-          if (selectedClass) {
-            filtered = studentOptions.filter(o => o.className === selectedClass);
-          }
-          const newHtml = `<option value="">Select Student</option>` + filtered.map(o => `<option value="${o.value}">${o.label}</option>`).join("");
-          inputEls.studentName.innerHTML = newHtml;
-          inputEls.studentName.value = "";
-        }
-        if (inputEls.rollNo) inputEls.rollNo.value = "";
-      });
-    }
+  // 5. Card 4: Co-Curricular, Discipline & Attendance
+  const card4 = document.createElement("div");
+  card4.className = "we-card";
+  card4.innerHTML = `
+    <div class="we-card-header">
+      <div class="we-card-title">
+        <span class="material-symbols-outlined" style="color:#f59e0b; font-size:22px;">diversity_3</span>
+        <span>Attendance, Discipline &amp; Co-Curricular</span>
+      </div>
+      <span class="we-card-badge">Holistic Development</span>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:14px;">
+      <div class="we-field">
+        <label class="we-label">
+          <span>Attendance %</span>
+          <span style="font-size:0.68rem; color:#b45309; font-weight:700;">Percentage</span>
+        </label>
+        <div style="position:relative; display:flex; align-items:center;">
+          <input type="text" id="we_attanDance" name="attanDance" class="we-input" placeholder="e.g. 95" value="${escapeHtml(initialValues.attanDance || "")}" style="padding-right:32px;">
+          <span style="position:absolute; right:12px; font-weight:700; color:#94a3b8; pointer-events:none;">%</span>
+        </div>
+      </div>
+      <div class="we-field">
+        <label class="we-label">Discipline &amp; Line (G)</label>
+        <select id="we_dicipLine" name="dicipLine" class="we-select we-grade-select">
+          ${getGradeHtml(initialValues.dicipLine)}
+        </select>
+      </div>
+      <div class="we-field">
+        <label class="we-label">Uniform &amp; Cleanliness (G)</label>
+        <select id="we_uniform" name="uniform" class="we-select we-grade-select">
+          ${getGradeHtml(initialValues.uniform)}
+        </select>
+      </div>
+      <div class="we-field">
+        <label class="we-label">Activities &amp; Participation (G)</label>
+        <select id="we_activities" name="activities" class="we-select we-grade-select">
+          ${getGradeHtml(initialValues.activities)}
+        </select>
+      </div>
+    </div>
+  `;
+  formWrap.appendChild(card4);
 
-    // Auto-fill student rollno and class
-    if (f.name === "studentName") {
-      input.addEventListener("change", (e) => {
-        const val = e.target.value;
-        const sOpt = studentOptions.find(o => o.value === val);
-        if (sOpt) {
-          if (inputEls.rollNo && sOpt.rollNo) inputEls.rollNo.value = sOpt.rollNo;
-          if (inputEls.className && sOpt.className && !inputEls.className.value) {
-            inputEls.className.value = sOpt.className;
-          }
-        }
-      });
-    }
+  // 6. Card 5: Overall Evaluation & AI Remark
+  const card5 = document.createElement("div");
+  card5.className = "we-card";
+  card5.innerHTML = `
+    <div class="we-card-header">
+      <div class="we-card-title">
+        <span class="material-symbols-outlined" style="color:#ec4899; font-size:22px;">workspace_premium</span>
+        <span>Composite Overall Evaluation &amp; Teacher Remark</span>
+      </div>
+      <span class="we-card-badge">Final Grade &amp; Feedback</span>
+    </div>
+    <div style="display:grid; grid-template-columns:minmax(240px, 1fr) minmax(320px, 2fr); gap:18px;">
+      <!-- Overall Grade -->
+      <div class="we-field">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+          <label class="we-label" style="margin:0;">
+            <span>Overall Grade *</span>
+          </label>
+        </div>
+        <select id="we_overall" name="overall" class="we-select we-grade-select" style="border:2px solid #6366f1; background:#f5f3ff; color:#3730a3; font-weight:800; font-size:0.98rem; padding:10px 14px;">
+          ${getGradeHtml(initialValues.overall)}
+        </select>
+        <button type="button" id="we_btnAutoOverall" class="we-btn-pill" style="margin-top:8px; background:#4f46e5; color:#ffffff; width:100%; justify-content:center; padding:9px 14px;">
+          <span class="material-symbols-outlined" style="font-size:18px;">calculate</span>
+          <span>Auto Calculate from Grades</span>
+        </button>
+      </div>
+      <!-- Teacher Remark -->
+      <div class="we-field">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+          <label class="we-label" style="margin:0;">Teacher Observation &amp; Remark</label>
+          <button type="button" id="we_btnAiRemark" class="we-btn-pill" style="background:linear-gradient(135deg, #8b5cf6, #6366f1); color:#ffffff; padding:4px 10px; font-size:0.75rem;">
+            <span class="material-symbols-outlined" style="font-size:16px;">auto_awesome</span>
+            <span>AI Remark</span>
+          </button>
+        </div>
+        <textarea id="we_teacherRemark" name="teacherRemark" class="we-textarea" rows="3" placeholder="Enter academic feedback or click AI Remark to generate observation..." style="resize:vertical; min-height:82px; font-size:0.88rem; line-height:1.45;">${escapeHtml(initialValues.teacherRemark || "")}</textarea>
+      </div>
+    </div>
+  `;
+  formWrap.appendChild(card5);
 
-    inputEls[f.name] = input;
-    fieldDiv.appendChild(input);
-    formWrap.appendChild(fieldDiv);
+  // 7. Card 6: Bottom Action Bar
+  const actionBar = document.createElement("div");
+  actionBar.style.cssText = "background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:18px 24px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px; box-shadow:0 1px 4px rgba(15,23,42,0.04);";
+  actionBar.innerHTML = `
+    <div style="display:flex; align-items:center; gap:8px;">
+      <span class="material-symbols-outlined" style="color:#6366f1; font-size:20px;">verified</span>
+      <span style="font-size:0.83rem; color:#64748b; font-weight:600;">
+        Weekly evaluations reflect on the Student Mobile App &amp; printable CCE report card.
+      </span>
+    </div>
+    <div style="display:flex; align-items:center; gap:12px;">
+      <button type="button" id="we_btnCancel" style="background:#f1f5f9; color:#475569; border:1.5px solid #cbd5e1; border-radius:10px; padding:10px 20px; font-weight:700; font-size:0.88rem; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:all 0.2s;">
+        <span class="material-symbols-outlined" style="font-size:18px;">close</span> Cancel
+      </button>
+      <button type="button" id="we_btnSave" style="background:linear-gradient(135deg, #2563eb, #4f46e5); color:#ffffff; border:none; border-radius:10px; padding:11px 28px; font-weight:800; font-size:0.92rem; cursor:pointer; display:inline-flex; align-items:center; gap:8px; box-shadow:0 4px 14px rgba(37,99,235,0.3); transition:all 0.2s;">
+        <span class="material-symbols-outlined" style="font-size:20px;">check_circle</span>
+        ${editRecordId ? "Update Evaluation" : "Save Evaluation"}
+      </button>
+    </div>
+  `;
+  formWrap.appendChild(actionBar);
+
+  container.appendChild(formWrap);
+
+  // Map inputs into inputEls
+  const fieldNames = [
+    "weekStartDate", "weekEndDate", "className", "studentName", "rollNo",
+    "maths", "english", "hindi", "science", "sst",
+    "readingEng", "readingHindi", "writingEng", "writingHindi",
+    "attanDance", "dicipLine", "uniform", "activities",
+    "overall", "teacherRemark"
+  ];
+  fieldNames.forEach(fn => {
+    const el = formWrap.querySelector(`#we_${fn}`);
+    if (el) inputEls[fn] = el;
   });
 
-  // Action Buttons
-  const actionDiv = document.createElement("div");
-  actionDiv.style.gridColumn = "1 / -1";
-  actionDiv.style.display = "flex";
-  actionDiv.style.gap = "10px";
-  actionDiv.style.marginTop = "20px";
-  
-  const saveBtn = document.createElement("button");
-  saveBtn.type = "button";
-  saveBtn.textContent = editRecordId ? "Update Evaluation" : "Save Evaluation";
-  saveBtn.className = "tbl-btn";
-  saveBtn.onclick = async () => {
-    const payload = {};
-    Object.keys(inputEls).forEach(k => { payload[k] = inputEls[k].value; });
+  // Wire Event Listeners
+  // 1. Auto-calculate Saturday based on Monday
+  if (inputEls.weekStartDate) {
+    inputEls.weekStartDate.addEventListener("change", (e) => {
+      if (!e.target.value) return;
+      const d = new Date(e.target.value);
+      d.setDate(d.getDate() + 5);
+      if (inputEls.weekEndDate) inputEls.weekEndDate.value = d.toISOString().slice(0, 10);
+    });
+  }
+
+  // 2. Filter students when className changes
+  const studentBadge = formWrap.querySelector("#we_studentBadge");
+  const filterStudents = (selectedClass) => {
+    if (!inputEls.studentName) return;
+    let filtered = studentOptions;
+    if (selectedClass) {
+      const target = selectedClass.trim().toLowerCase();
+      filtered = studentOptions.filter(o => {
+        const c = (o.className || "").trim().toLowerCase();
+        return c === target || c.startsWith(target) || target.startsWith(c);
+      });
+    }
+    const currentVal = inputEls.studentName.value;
+    inputEls.studentName.innerHTML = `<option value="">-- Select Student (${filtered.length} available) --</option>` +
+      filtered.map(o => `<option value="${escapeHtml(o.value)}" ${currentVal === o.value ? "selected" : ""}>${escapeHtml(o.label)}</option>`).join("");
     
-    try {
-      if (editRecordId) {
-        await api("/api/modules/weeklyEvaluation/" + editRecordId, { method: "PUT", body: JSON.stringify(payload) });
-        showToast("Weekly evaluation updated");
-        editRecordId = null;
-      } else {
-        await api("/api/modules/weeklyEvaluation", { method: "POST", body: JSON.stringify(payload) });
-        showToast("Weekly evaluation saved");
-      }
-      await loadStore();
-      renderTable();
-      renderForm(true); // reset
-    } catch (err) {
-      showToast(err.message, "error");
+    if (studentBadge) {
+      studentBadge.textContent = selectedClass ? `${filtered.length} students` : "";
     }
   };
-  
-  const cancelBtn = document.createElement("button");
-  cancelBtn.type = "button";
-  cancelBtn.textContent = "Cancel";
-  cancelBtn.className = "tbl-btn del";
-  cancelBtn.onclick = () => {
-    editRecordId = null;
-    renderForm(true);
-  };
 
-  const autoBtn = document.createElement("button");
-  autoBtn.type = "button";
-  autoBtn.textContent = "Auto Overall";
-  autoBtn.className = "tbl-btn edit";
-  autoBtn.style.background = "#64748b";
-  autoBtn.onclick = () => {
-     const gradeFields = ["maths", "english", "hindi", "science", "sst", "readingEng", "readingHindi", "writingEng", "writingHindi", "dicipLine", "uniform", "activities"];
-     const scores = { "A1": 7, "A2": 6, "B1": 5, "B2": 4, "C": 3, "D": 2, "E": 1 };
-     let total = 0; let count = 0;
-     gradeFields.forEach(k => {
-        if(inputEls[k] && inputEls[k].value && scores[inputEls[k].value]) {
-           total += scores[inputEls[k].value];
-           count++;
+  if (inputEls.className) {
+    inputEls.className.addEventListener("change", (e) => {
+      filterStudents(e.target.value);
+      if (inputEls.rollNo) inputEls.rollNo.value = "";
+    });
+  }
+
+  // 3. Auto-fill student rollno and className
+  if (inputEls.studentName) {
+    inputEls.studentName.addEventListener("change", (e) => {
+      const val = e.target.value;
+      const sOpt = studentOptions.find(o => o.value === val);
+      if (sOpt) {
+        if (inputEls.rollNo && sOpt.rollNo) inputEls.rollNo.value = sOpt.rollNo;
+        if (inputEls.className && sOpt.className && !inputEls.className.value) {
+          inputEls.className.value = sOpt.className;
+          filterStudents(sOpt.className);
+          inputEls.studentName.value = val;
         }
-     });
-     if (count > 0) {
+      }
+    });
+  }
+
+  // 4. Auto Overall calculation
+  const autoBtn = formWrap.querySelector("#we_btnAutoOverall");
+  if (autoBtn) {
+    autoBtn.addEventListener("click", () => {
+      const gradeFields = ["maths", "english", "hindi", "science", "sst", "readingEng", "readingHindi", "writingEng", "writingHindi", "dicipLine", "uniform", "activities"];
+      const scores = { "A1": 7, "A2": 6, "B1": 5, "B2": 4, "C": 3, "D": 2, "E": 1 };
+      let total = 0;
+      let count = 0;
+      gradeFields.forEach(k => {
+        if (inputEls[k] && inputEls[k].value && scores[inputEls[k].value]) {
+          total += scores[inputEls[k].value];
+          count++;
+        }
+      });
+      if (count > 0) {
         const avg = total / count;
         let finalGrade = "E";
         if (avg >= 6.5) finalGrade = "A1";
@@ -30616,54 +30923,109 @@ function renderWeeklyEvaluationForm(studentOptions, classOptions, initialValues 
         else if (avg >= 1.5) finalGrade = "D";
         
         if (inputEls.overall) inputEls.overall.value = finalGrade;
-        showToast("Overall calculated: " + finalGrade);
-     } else {
-        window.alert("Please fill in some grades first.");
-     }
-  };
+        showToast("Composite Overall calculated: " + finalGrade + " (" + (gradeLabels[finalGrade] || "") + ")");
+      } else {
+        alert("Please select grades for at least 1 academic or skill subject first.");
+      }
+    });
+  }
 
-  const aiBtn = document.createElement("button");
-  aiBtn.type = "button";
-  aiBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">auto_awesome</span> AI Remark';
-  aiBtn.className = "tbl-btn import";
-  aiBtn.style.display = "inline-flex";
-  aiBtn.style.alignItems = "center";
-  aiBtn.style.gap = "5px";
-  aiBtn.onclick = async () => {
-     const studentName = inputEls.studentName && inputEls.studentName.options[inputEls.studentName.selectedIndex].text;
-     const overall = inputEls.overall ? inputEls.overall.value : "";
-     if (!studentName || studentName === "Select Student" || !overall) {
-        return window.alert("Please select a student and ensure Overall grade is filled first.");
-     }
-     
-     const gradeMap = { "A1": 95, "A2": 85, "B1": 75, "B2": 65, "C": 55, "D": 40, "E": 20 };
-     const percentage = gradeMap[overall] || 50;
-     
-     aiBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;animation:spin 1s linear infinite;">sync</span> Generating...';
-     aiBtn.disabled = true;
-     try {
-       const result = await api("/api/ai/generate-remark", { 
-         method: "POST", 
-         body: JSON.stringify({ studentName, grade: overall, percentage }) 
-       });
-       if (result && result.remark) {
-         if (inputEls.teacherRemark) inputEls.teacherRemark.value = result.remark;
-         showToast("Remark generated!");
-       }
-     } catch(err) {
-       showToast("Failed to generate remark", "error");
-     }
-     aiBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">auto_awesome</span> AI Remark';
-     aiBtn.disabled = false;
-  };
+  // 5. AI Remark Generator
+  const aiBtn = formWrap.querySelector("#we_btnAiRemark");
+  if (aiBtn) {
+    aiBtn.addEventListener("click", async () => {
+      const studentName = inputEls.studentName && inputEls.studentName.options[inputEls.studentName.selectedIndex]?.text;
+      const overall = inputEls.overall ? inputEls.overall.value : "";
+      if (!studentName || studentName.includes("Select Student") || !overall) {
+        return alert("Please select a Student and assign an Overall Grade before generating an AI remark.");
+      }
 
-  actionDiv.appendChild(saveBtn);
-  actionDiv.appendChild(autoBtn);
-  actionDiv.appendChild(aiBtn);
-  if (editRecordId) actionDiv.appendChild(cancelBtn);
-  
-  formWrap.appendChild(actionDiv);
-  container.appendChild(formWrap);
+      const gradeMap = { "A1": 95, "A2": 85, "B1": 75, "B2": 65, "C": 55, "D": 40, "E": 20 };
+      const percentage = gradeMap[overall] || 50;
+      const originalHtml = aiBtn.innerHTML;
+
+      aiBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:15px; animation:spin 1s linear infinite;">sync</span> Generating...';
+      aiBtn.disabled = true;
+
+      try {
+        const result = await api("/api/ai/generate-remark", {
+          method: "POST",
+          body: JSON.stringify({ studentName, grade: overall, percentage })
+        });
+        if (result && result.remark) {
+          if (inputEls.teacherRemark) inputEls.teacherRemark.value = result.remark;
+          showToast("AI Remark generated successfully!");
+        }
+      } catch (err) {
+        showToast("Failed to generate AI remark: " + err.message, "error");
+      } finally {
+        aiBtn.innerHTML = originalHtml;
+        aiBtn.disabled = false;
+      }
+    });
+  }
+
+  // 6. Save / Update Evaluation
+  const saveBtn = formWrap.querySelector("#we_btnSave");
+  if (saveBtn) {
+    saveBtn.addEventListener("click", async () => {
+      const payload = {};
+      Object.keys(inputEls).forEach(k => { payload[k] = inputEls[k].value; });
+
+      // Automatically determine section if className has hyphen or section field
+      if (payload.className && payload.className.includes("-")) {
+        payload.section = payload.className.split("-")[1] || "";
+      } else {
+        payload.section = initialValues.section || "";
+      }
+
+      if (!payload.weekStartDate) {
+        return alert("Please select a Week Start Date.");
+      }
+      if (!payload.studentName) {
+        return alert("Please select a Student.");
+      }
+
+      saveBtn.disabled = true;
+      const originalText = saveBtn.innerHTML;
+      saveBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px; animation:spin 1s linear infinite;">sync</span> Saving...';
+
+      try {
+        if (editRecordId) {
+          await api("/api/modules/weeklyEvaluation/" + editRecordId, { method: "PUT", body: JSON.stringify(payload) });
+          showToast("Weekly evaluation updated successfully!");
+          editRecordId = null;
+        } else {
+          await api("/api/modules/weeklyEvaluation", { method: "POST", body: JSON.stringify(payload) });
+          showToast("Weekly evaluation saved successfully!");
+        }
+        await loadStore();
+        renderTable();
+        if (typeof closeFormPanel === "function") {
+          closeFormPanel();
+        } else {
+          renderForm(true);
+        }
+      } catch (err) {
+        showToast(err.message, "error");
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = originalText;
+      }
+    });
+  }
+
+  // 7. Cancel
+  const cancelBtn = formWrap.querySelector("#we_btnCancel");
+  if (cancelBtn) {
+    cancelBtn.addEventListener("click", () => {
+      editRecordId = null;
+      if (typeof closeFormPanel === "function") {
+        closeFormPanel();
+      } else {
+        renderForm(true);
+      }
+    });
+  }
 }
 
 
