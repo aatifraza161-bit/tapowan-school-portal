@@ -1912,6 +1912,9 @@ app.post("/api/db/batch", dbProxyLimiter, async (req, res) => {
 // ── Secure Zero-Secret CabHUB API Gateway ──
 app.use('/api/cabhub', require('./server/cabhub'));
 
+// ── Transport & School Van Hardware GPS Tracking Gateway ──
+app.use('/api/transport', require('./server/transport-gps'));
+
 // ── Dedicated Faculty Online Notification Endpoint (Strictly alerts Aatif Raza only) ──
 app.post("/api/notify/teacher-online", async (req, res) => {
   try {

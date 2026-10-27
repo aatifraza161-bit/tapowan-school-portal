@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>TPS School Van — Driver GPS Tracker</title>
+  <link rel="icon" type="image/x-icon" href="icon.ico">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: #0f172a; color: #f8fafc; min-height: 100vh; display: flex; flex-direction: column; }
+    header { background: #1e293b; padding: 16px 20px; border-bottom: 1px solid #334155; display: flex; align-items: center; justify-content: space-between; }
+    .school-title { font-size: 1.1rem; font-weight: 800; color: #fbbf24; display: flex; align-items: center; gap: 8px; }
+    .pulse-dot { width: 10px; height: 10px; border-radius: 50%; background: #64748b; }
+    .pulse-dot.active { background: #22c55e; box-shadow: 0 0 10px #22c55e; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.2); } }
+    main { flex: 1; padding: 20px; max-width: 480px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; gap: 16px; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2); }
+    .field-label { font-size: 0.75rem; text-transform: uppercase; font-weight: 800; color: #94a3b8; letter-spacing: 0.5px; margin-bottom: 6px; }
+    .input-box { width: 100%; padding: 12px 16px; border-radius: 10px; border: 1.5px solid #475569; background: #0f172a; color: #fff; font-size: 1rem; font-weight: 600; }
+    .input-box:focus { outline: none; border-color: #3b82f6; }
+    .speedo-wrap { text-align: center; padding: 24px 10px; }
+    .speed-number { font-size: 4.5rem; font-weight: 900; line-height: 1; color: #38bdf8; font-variant-numeric: tabular-nums; }
+    .speed-unit { font-size: 0.9rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-top: 4px; }
+    .telemetry-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+    .tele-item { background: #0f172a; border-radius: 10px; padding: 12px; border: 1px solid #334155; }
+    .tele-val { font-size: 1.1rem; font-weight: 800; color: #f1f5f9; margin-top: 2px; }
+    .btn-main { width: 100%; padding: 18px; border-radius: 14px; border: none; font-size: 1.2rem; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: all 0.2s; }
+    .btn-start { background: linear-gradient(135deg, #16a34a, #15803d); color: #fff; box-shadow: 0 4px 14px rgba(22,163,74,0.4); }
+    .btn-start:active { transform: scale(0.98); }
+    .btn-stop { background: linear-gradient(135deg, #dc2626, #b91c1c); color: #fff; box-shadow: 0 4px 14px rgba(220,38,38,0.4); }
+    .status-bar { text-align: center; font-size: 0.85rem; color: #94a3b8; }
+    .wakelock-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 0.75rem; background: #334155; padding: 4px 10px; border-radius: 20px; color: #cbd5e1; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="school-title">
+    <span>🚐</span>
+    <span>TPS School Van GPS</span>
+  </div>
+  <div style="display:flex; align-items:center; gap:8px;">
+    <div id="statusDot" class="pulse-dot"></div>
+    <span id="statusText" style="font-size:0.8rem; font-weight:700; color:#94a3b8;">DISCONNECTED</span>
+  </div>
+</header>
+
+<main>
+  <!-- Vehicle Identity Card -->
+  <div class="card" id="configCard">
+    <div style="margin-bottom:14px;">
+      <div class="field-label">Vehicle Registration No</div>
+      <input type="text" id="vehicleNoInput" class="input-box" value="JH-02-VAN-01" placeholder="e.g. JH-02-VAN-01">
+    </div>
+    <div style="margin-bottom:14px;">
+      <div class="field-label">Driver Name</div>
+      <input type="text" id="driverNameInput" class="input-box" value="Ramesh Yadav" placeholder="Driver Full Name">
+    </div>
+    <div>
+      <div class="field-label">Driver Contact Number</div>
+      <input type="tel" id="driverPhoneInput" class="input-box" value="9876543210" placeholder="Mobile Number">
+    </div>
+  </div>
+
+  <!-- Real-Time Telematics Gauge -->
+  <div class="card">
+    <div class="speedo-wrap">
+      <div class="speed-number" id="speedDisplay">0</div>
+      <div class="speed-unit">KM / H &bull; LIVE SPEED</div>
+    </div>
+
+    <div class="telemetry-grid">
+      <div class="tele-item">
+        <div class="field-label">Distance to Campus</div>
+        <div class="tele-val" id="distDisplay">-- km</div>
+      </div>
+      <div class="tele-item">
+        <div class="field-label">Estimated ETA</div>
+        <div class="tele-val" id="etaDisplay">-- mins</div>
+      </div>
+      <div class="tele-item">
+        <div class="field-label">Latitude</div>
+        <div class="tele-val" id="latDisplay" style="font-size:0.95rem; font-family:monospace;">--</div>
+      </div>
+      <div class="tele-item">
+        <div class="field-label">Longitude</div>
+        <div class="tele-val" id="lngDisplay" style="font-size:0.95rem; font-family:monospace;">--</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Primary Toggle Button -->
+  <button id="toggleTrackingBtn" class="btn-main btn-start">
+    <span>▶</span>
+    <span>START LIVE TRACKING</span>
+  </button>
+
+  <div class="status-bar" style="display:flex; justify-content:space-between; align-items:center;">
+    <span id="pingsCount">Pings sent: 0</span>
+    <span class="wakelock-badge" id="wakeLockStatus">⚡ Keep-Awake: Inactive</span>
+  </div>
+</main>
+
+<script>
+  let isTracking = false;
+  let watchId = null;
+  let wakeLock = null;
+  let pingsCount = 0;
+  let lastLat = null;
+  let lastLng = null;
+
+  const btn = document.getElementById("toggleTrackingBtn");
+  const dot = document.getElementById("statusDot");
+  const statusText = document.getElementById("statusText");
+  const speedDisplay = document.getElementById("speedDisplay");
+  const latDisplay = document.getElementById("latDisplay");
+  const lngDisplay = document.getElementById("lngDisplay");
+  const distDisplay = document.getElementById("distDisplay");
+  const etaDisplay = document.getElementById("etaDisplay");
+  const pingsCountEl = document.getElementById("pingsCount");
+  const wakeLockStatus = document.getElementById("wakeLockStatus");
+
+  const SCHOOL_LAT = 23.8209682;
+  const SCHOOL_LNG = 85.5119629;
+
+  function calculateDistanceKm(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return parseFloat((R * c).toFixed(2));
+  }
+
+  async function requestWakeLock() {
+    try {
+      if ('wakeLock' in navigator) {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLockStatus.textContent = "⚡ Screen Always On";
+        wakeLockStatus.style.background = "#065f46";
+        wakeLockStatus.style.color = "#34d399";
+      }
+    } catch (e) {
+      console.warn("WakeLock error:", e);
+    }
+  }
+
+  async function sendGpsCoordinates(pos) {
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+    const speedKmh = pos.coords.speed ? Math.max(0, Math.round(pos.coords.speed * 3.6)) : 0;
+    const heading = pos.coords.heading || 0;
+    const alt = pos.coords.altitude || 0;
+    const acc = pos.coords.accuracy || 5;
+
+    lastLat = lat;
+    lastLng = lng;
+
+    latDisplay.textContent = lat.toFixed(5);
+    lngDisplay.textContent = lng.toFixed(5);
+    speedDisplay.textContent = speedKmh;
+
+    const dist = calculateDistanceKm(lat, lng, SCHOOL_LAT, SCHOOL_LNG);
+    distDisplay.textContent = dist + " km";
+
+    const eta = (dist * 1000 <= 50) ? 0 : Math.max(1, Math.round((dist / (speedKmh > 5 ? speedKmh : 25)) * 60));
+    etaDisplay.textContent = (dist * 1000 <= 50) ? "At School" : `~${eta} mins`;
+
+    const vehicleNo = document.getElementById("vehicleNoInput").value.trim() || "JH-02-VAN-01";
+    const driverName = document.getElementById("driverNameInput").value.trim();
+    const driverPhone = document.getElementById("driverPhoneInput").value.trim();
+
+    try {
+      const res = await fetch("/api/transport/gps/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          vehicleNo: vehicleNo,
+          lat: lat,
+          lng: lng,
+          speed: speedKmh,
+          heading: heading,
+          altitude: alt,
+          accuracy: acc,
+          ignition: "ON",
+          driverName: driverName,
+          driverPhone: driverPhone
+        })
+      });
+      if (res.ok) {
+        pingsCount++;
+        pingsCountEl.textContent = `Pings sent: ${pingsCount}`;
+      }
+    } catch (e) {
+      console.warn("GPS push network error:", e);
+    }
+  }
+
+  function startTracking() {
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser");
+      return;
+    }
+
+    isTracking = true;
+    btn.className = "btn-main btn-stop";
+    btn.innerHTML = `<span>⏹</span><span>STOP TRACKING</span>`;
+    dot.className = "pulse-dot active";
+    statusText.textContent = "TRANSMITTING LIVE";
+    statusText.style.color = "#22c55e";
+
+    requestWakeLock();
+
+    watchId = navigator.geolocation.watchPosition(
+      sendGpsCoordinates,
+      (err) => {
+        console.warn("GPS error:", err);
+        statusText.textContent = "GPS ERROR: " + err.message;
+        statusText.style.color = "#ef4444";
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 1000
+      }
+    );
+  }
+
+  function stopTracking() {
+    isTracking = false;
+    if (watchId) navigator.geolocation.clearWatch(watchId);
+    if (wakeLock) {
+      wakeLock.release().catch(() => {});
+      wakeLock = null;
+    }
+
+    btn.className = "btn-main btn-start";
+    btn.innerHTML = `<span>▶</span><span>START LIVE TRACKING</span>`;
+    dot.className = "pulse-dot";
+    statusText.textContent = "DISCONNECTED";
+    statusText.style.color = "#94a3b8";
+    wakeLockStatus.textContent = "⚡ Keep-Awake: Inactive";
+    wakeLockStatus.style.background = "#334155";
+    wakeLockStatus.style.color = "#cbd5e1";
+    speedDisplay.textContent = "0";
+  }
+
+  btn.addEventListener("click", () => {
+    if (isTracking) stopTracking();
+    else startTracking();
+  });
+</script>
+
+</body>
+</html>

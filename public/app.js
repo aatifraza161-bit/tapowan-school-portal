@@ -764,7 +764,7 @@ const moduleConfig = {
     columns: ["payId", "studentName", "className", "term", "totalFee", "paidAmount", "balance", "status"] 
   },
   library: { title: "Library", subtitle: "Manage books, issues and returns", fields: ["bookCode", "bookTitle", "author", "issuedTo", "issueDate", "returnDate", "status"], columns: ["bookCode", "bookTitle", "author", "issuedTo", "issueDate", "returnDate", "status"] },
-  transport: { title: "Transport", subtitle: "Track routes, buses and student allocation", fields: ["routeName", "vehicleNo", "driverName", "studentName", "pickupPoint", "monthlyFee"], columns: ["routeName", "vehicleNo", "driverName", "studentName", "pickupPoint", "monthlyFee"] },
+  transport: { title: "Transport & Van GPS Tracking", subtitle: "Real-time satellite GPS map, live route telematics and student allocation", fields: ["routeName", "vehicleNo", "driverName", "studentName", "pickupPoint", "monthlyFee"], columns: ["routeName", "vehicleNo", "driverName", "studentName", "pickupPoint", "monthlyFee"] },
   hostel: { title: "Hostel", subtitle: "Manage hostel rooms and allocations", fields: ["hostelName", "roomNo", "studentName", "warden", "checkInDate", "bedNo", "status"], columns: ["hostelName", "roomNo", "studentName", "warden", "checkInDate", "bedNo", "status"] },
   payroll: { title: "Payroll", subtitle: "Generate salary records and allowances", fields: ["employeeName", "designation", "month", "basicSalary", "allowances", "deductions", "netPay"], columns: ["employeeName", "designation", "month", "basicSalary", "allowances", "deductions", "netPay"] },
   users: { title: "Users & Roles", subtitle: "System user accounts and permissions", fields: ["username", "fullName", "role", "email", "status", "lastLogin", "password"], columns: ["username", "fullName", "role", "email", "status", "lastLogin"] },
@@ -3736,6 +3736,32 @@ function renderTable() {
     }
   } else if (onlinePayBanner) {
     onlinePayBanner.style.display = "none";
+  }
+
+  // Handle Transport Live GPS Tracking Dashboard
+  let transportGpsContainer = document.getElementById("transportGpsDashboardContainer");
+  const toolsPanelEl = document.querySelector(".tools-panel");
+  if (currentModule === "transport") {
+    if (!transportGpsContainer && tableWrapEl && tableWrapEl.parentNode) {
+      transportGpsContainer = document.createElement("div");
+      transportGpsContainer.id = "transportGpsDashboardContainer";
+      transportGpsContainer.style.marginBottom = "20px";
+      tableWrapEl.parentNode.insertBefore(transportGpsContainer, tableWrapEl);
+    }
+    if (transportGpsContainer) {
+      transportGpsContainer.style.display = "block";
+      if (typeof window.renderTransportGpsDashboard === "function") {
+        window.renderTransportGpsDashboard(transportGpsContainer);
+      }
+    }
+  } else {
+    if (transportGpsContainer) transportGpsContainer.style.display = "none";
+    if (tableWrapEl && currentModule !== "attendance" && currentModule !== "teacherAttendance") {
+      tableWrapEl.style.display = "";
+    }
+    if (toolsPanelEl) {
+      toolsPanelEl.style.display = "";
+    }
   }
 
   if (currentModule === "timetable") {
