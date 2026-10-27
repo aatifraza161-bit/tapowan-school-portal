@@ -707,7 +707,7 @@ const moduleConfig = {
       "fatherName", "fatherAadharNo", "motherName", "motherAadharNo",
       "guardianName", "relation", "occupation", "incomeRange",
       "session", "admissionDate", "prevSchool", "lastClassPassed", "tcReceived",
-      "admissionFee", "monthlyFee", "isFreeOfCharge", "transportArea", "transportFee", "discount",
+      "admissionFee", "monthlyFee", "isFreeOfCharge", "vehicleType", "transportRoute", "transportArea", "pickupPoint", "transportFee", "discount",
       "status",
       "photo", "birthCert", "aadharDoc", "tcDoc", "parentIdDoc",
       "studentAadharNo", "aadhar", "fatherAadhar", "motherAadhar", "tc", "reportCard"
@@ -742,7 +742,7 @@ const moduleConfig = {
     fields: [
       "admissionNo", "rollNo", "fullName", "className", "section", "gender", "dob",
       "fatherName", "motherName", "phone", "address", "photo",
-      "status", "monthlyFee", "isFreeOfCharge", "transportArea", "transportFee", "aadhar", "tc", "reportCard", "fatherAadhar", "motherAadhar",
+      "status", "monthlyFee", "isFreeOfCharge", "vehicleType", "transportRoute", "transportArea", "pickupPoint", "transportFee", "aadhar", "tc", "reportCard", "fatherAadhar", "motherAadhar",
       "studentAadharNo", "fatherAadharNo", "motherAadharNo"
     ],
     columns: ["admissionNo", "fullName", "className", "phone", "gender", "status"]
@@ -1683,6 +1683,11 @@ function toLabel(key) {
     lastClassPassed: "Last Class Passed",
     tcReceived: "TC Received",
     isFreeOfCharge: "Free Of Charge",
+    vehicleType: "Vehicle Mode (Bus/Van)",
+    transportRoute: "Transport Route",
+    transportArea: "Transport Area / Stop",
+    pickupPoint: "Pickup Point / Landmark",
+    transportFee: "Transport Fee (₹)",
     studentAadharNo: "Student Aadhaar",
     fatherAadharNo: "Father Aadhaar",
     motherAadharNo: "Mother Aadhaar"
@@ -2765,6 +2770,14 @@ function renderAdmPreview() {
         <div class="preview-item"><span>Monthly:</span> ₹${d.monthlyFee || 0}</div>
         <div class="preview-item"><span>Discount:</span> ₹${d.discount || 0}</div>
       </div>
+      ${(d.vehicleType && d.vehicleType !== "None") ? `
+      <div class="preview-section" style="background:#fffbeb; border-color:#fde68a;">
+        <h4>Transport Facility (${escapeHtml(d.vehicleType || "Bus")})</h4>
+        <div class="preview-item"><span>Route:</span> ${escapeHtml(d.transportRoute || "None")}</div>
+        <div class="preview-item"><span>Area:</span> ${escapeHtml(d.transportArea || "None")}</div>
+        ${d.pickupPoint ? `<div class="preview-item"><span>Pickup:</span> ${escapeHtml(d.pickupPoint)}</div>` : ""}
+        <div class="preview-item"><span>Monthly Fee:</span> ₹${d.transportFee || 0}</div>
+      </div>` : ""}
     </div>
   `;
 }
@@ -4519,6 +4532,36 @@ function renderStudentProfile() {
         </div>
       </div>
       </div>
+      ${(student.vehicleType && student.vehicleType !== "None" && student.vehicleType !== "") || (student.transportFee && Number(student.transportFee) > 0) ? `
+      <div style="background:linear-gradient(135deg, #ffffff, #f8fafc); border-radius:20px; padding:24px; border:1px solid #e2e8f0; margin-bottom:24px; box-shadow:0 8px 30px rgba(0,0,0,0.02); position:relative; overflow:hidden;">
+        <div style="position:absolute; right:-30px; top:-30px; width:150px; height:150px; border-radius:50%; background:linear-gradient(135deg, #fef3c7, #fffbeb); opacity:0.6; pointer-events:none;"></div>
+        <h4 style="position:relative; z-index:1; font-size:1rem; font-weight:800; color:#1e293b; margin-bottom:20px; display:flex; align-items:center; gap:8px;">
+          <span class="material-symbols-outlined" style="font-size:22px;color:#d97706;">directions_bus</span> Transport Facility (${escapeHtml(student.vehicleType || "Bus")})
+        </h4>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:10px;">
+          <div style="background:#fffbeb; padding:12px 14px; border-radius:14px; border:1px solid #fde68a;">
+            <div style="font-size:0.62rem; color:#92400e; font-weight:800; text-transform:uppercase;">Vehicle Mode</div>
+            <div style="color:#0f172a; font-weight:700; font-size:0.85rem;">${student.vehicleType === 'Van' ? '🚐 Van' : '🚌 Bus'}</div>
+          </div>
+          <div style="background:#fffbeb; padding:12px 14px; border-radius:14px; border:1px solid #fde68a;">
+            <div style="font-size:0.62rem; color:#92400e; font-weight:800; text-transform:uppercase;">Route</div>
+            <div style="color:#0f172a; font-weight:700; font-size:0.85rem;">${student.transportRoute || "-"}</div>
+          </div>
+          <div style="background:#fffbeb; padding:12px 14px; border-radius:14px; border:1px solid #fde68a;">
+            <div style="font-size:0.62rem; color:#92400e; font-weight:800; text-transform:uppercase;">Area / Stop</div>
+            <div style="color:#0f172a; font-weight:700; font-size:0.85rem;">${student.transportArea || "-"}</div>
+          </div>
+          ${student.pickupPoint ? `
+          <div style="background:#fffbeb; padding:12px 14px; border-radius:14px; border:1px solid #fde68a;">
+            <div style="font-size:0.62rem; color:#92400e; font-weight:800; text-transform:uppercase;">Pickup Point</div>
+            <div style="color:#0f172a; font-weight:700; font-size:0.85rem;">${student.pickupPoint}</div>
+          </div>` : ''}
+          <div style="background:#fffbeb; padding:12px 14px; border-radius:14px; border:1px solid #fde68a;">
+            <div style="font-size:0.62rem; color:#92400e; font-weight:800; text-transform:uppercase;">Monthly Transport Fee</div>
+            <div style="color:#b45309; font-weight:800; font-size:0.85rem;">₹${student.transportFee || 0}</div>
+          </div>
+        </div>
+      </div>` : ''}
       <div style="background:linear-gradient(135deg, #ffffff, #f8fafc); border-radius:20px; padding:24px; border:1px solid #e2e8f0; margin-bottom:24px; box-shadow:0 8px 30px rgba(0,0,0,0.02); position:relative; overflow:hidden;">
   <div style="position:absolute; right:-30px; top:-30px; width:150px; height:150px; border-radius:50%; background:linear-gradient(135deg, #d1fae5, #ecfdf5); opacity:0.6; pointer-events:none;"></div>
   <h4 style="position:relative; z-index:1; font-size:1rem; font-weight:800; color:#1e293b; margin-bottom:20px; display:flex; align-items:center; gap:8px;"><span class="material-symbols-outlined" style="font-size:22px;color:#10b981;">folder_open</span> Documents</h4>
@@ -13002,7 +13045,16 @@ refs.dynamicForm.addEventListener("submit", async (e) => {
       if (payload.fatherAadharNo && !payload.fatherAadhar) payload.fatherAadhar = payload.fatherAadharNo;
       if (payload.motherAadharNo && !payload.motherAadhar) payload.motherAadhar = payload.motherAadharNo;
 
-      ["village", "relation", "occupation", "prevSchool", "transportArea"].forEach(k => {
+      const vRadio = e.target.querySelector("input[name='vehicleType']:checked");
+      if (vRadio) payload.vehicleType = vRadio.value;
+      if (!payload.vehicleType || payload.vehicleType === "None") {
+        payload.vehicleType = "None";
+        payload.transportFee = "0";
+        if (!payload.transportArea || payload.transportArea === "__ADD_NEW__") payload.transportArea = "None / Not Availed";
+        if (!payload.transportRoute || payload.transportRoute === "__ADD_NEW__") payload.transportRoute = "None / No Route";
+      }
+
+      ["village", "relation", "occupation", "prevSchool", "transportArea", "transportRoute"].forEach(k => {
         if (payload[k] === "__ADD_NEW__") payload[k] = "";
       });
 
@@ -24083,6 +24135,36 @@ function saveCustomTransportArea(t) {
   } catch(e){}
 }
 
+function getTransportRouteList() {
+  let saved = [];
+  try { saved = JSON.parse(localStorage.getItem("tps_custom_transport_routes") || "[]"); } catch(e){}
+  const store = (typeof getStore === "function") ? getStore() : {};
+  const fromStudents = (store.students || []).map(s => s.transportRoute).filter(Boolean);
+  const fromAdmissions = (store.admissions || []).map(a => a.transportRoute).filter(Boolean);
+  const fromTransport = (store.transport || []).map(t => t.routeName).filter(Boolean);
+  const defaults = [
+    "None / No Route",
+    "Route 1 (Prem Nagar - Barhi)",
+    "Route 2 (Padma - Chouparan)",
+    "Route 3 (Barkatha - Hazaribagh)",
+    "Route 4 (Konra - Gome - Ranchi Road)",
+    "Route 5 (Campus Express Shuttle)"
+  ];
+  return Array.from(new Set([...defaults, ...saved, ...fromStudents, ...fromAdmissions, ...fromTransport].map(t => String(t).trim()))).filter(Boolean);
+}
+
+function saveCustomTransportRoute(r) {
+  if (!r || !r.trim() || r === "None / No Route" || r === "__ADD_NEW__") return;
+  const clean = r.trim();
+  try {
+    let saved = JSON.parse(localStorage.getItem("tps_custom_transport_routes") || "[]");
+    if (!saved.includes(clean)) {
+      saved.push(clean);
+      localStorage.setItem("tps_custom_transport_routes", JSON.stringify(saved));
+    }
+  } catch(e){}
+}
+
 function generateNextAdmissionNo() {
   const store = getStore();
   let maxNum = 0;
@@ -24310,6 +24392,7 @@ function saveCustomAdmissionOptions(payload) {
   if (payload.occupation) saveCustomOccupation(payload.occupation);
   if (payload.prevSchool) saveCustomPrevSchool(payload.prevSchool);
   if (payload.transportArea) saveCustomTransportArea(payload.transportArea);
+  if (payload.transportRoute) saveCustomTransportRoute(payload.transportRoute);
 }
 
 async function renderAdmissionsForm(cfg, initialValues = {}) {
@@ -24360,6 +24443,15 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
     transportAreaList.splice(1, 0, currentTransportArea);
   }
 
+  const transportRouteList = getTransportRouteList();
+  const currentTransportRoute = initialValues.transportRoute || "None / No Route";
+  if (currentTransportRoute && !transportRouteList.includes(currentTransportRoute)) {
+    transportRouteList.splice(1, 0, currentTransportRoute);
+  }
+
+  const currentVehicleType = initialValues.vehicleType || ((initialValues.transportFee && Number(initialValues.transportFee) > 0) ? "Bus" : "None");
+  const isTransportActive = currentVehicleType === "Bus" || currentVehicleType === "Van";
+
   const isFree = String(initialValues.isFreeOfCharge || "").toLowerCase() === "true" || initialValues.isFreeOfCharge === 1;
 
   // Resolve initial fees based on selected class or master structure
@@ -24369,7 +24461,7 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
   const defaultMonthlyFee = (initialValues.monthlyFee != null && String(initialValues.monthlyFee) !== "" && String(initialValues.monthlyFee) !== "0") ? String(initialValues.monthlyFee) : (initialClassFees.monthlyFee || "");
   const defaultTransportFee = (initialValues.transportFee != null && String(initialValues.transportFee) !== "" && String(initialValues.transportFee) !== "0")
     ? String(initialValues.transportFee)
-    : ((currentTransportArea && currentTransportArea !== "None / Not Availed") ? (initialClassFees.transportFee || "0") : "0");
+    : (isTransportActive ? (initialClassFees.transportFee || "450") : "0");
 
   // Outer Wrapper
   const outer = document.createElement("div");
@@ -24812,25 +24904,6 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
           </div>
           <input type="number" id="adm_monthlyFee" name="monthlyFee" min="0" value="${escapeHtml(defaultMonthlyFee)}" ${isFree ? "readonly style='width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; font-weight:700; background:#f1f5f9; cursor:not-allowed;'" : "style='width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; font-weight:700; background:#ffffff;'"} placeholder="0">
         </div>
-        <!-- Transport Area -->
-        <div class="field">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-            <label style="font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin:0;">Transport Area / Route</label>
-            <span style="font-size:0.68rem; color:#2563eb; font-weight:700;">Pickup Stop</span>
-          </div>
-          <select id="adm_transportArea" name="transportArea" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; background:#ffffff;">
-            ${transportAreaList.map(a => `<option value="${escapeHtml(a)}" ${currentTransportArea === a ? "selected" : ""}>${escapeHtml(a)}</option>`).join("")}
-            <option value="__ADD_NEW__" style="font-weight:700; color:#2563eb; background:#eff6ff;">➕ + Add New Transport Area...</option>
-          </select>
-        </div>
-        <!-- Transport Fee -->
-        <div class="field">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-            <label style="font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin:0;">Transport Fee (₹)</label>
-            <span style="font-size:0.68rem; color:#64748b;">Editable</span>
-          </div>
-          <input type="number" id="adm_transportFee" name="transportFee" min="0" value="${escapeHtml(defaultTransportFee)}" placeholder="0" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem;">
-        </div>
         <!-- One-Time Discount -->
         <div class="field">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
@@ -24842,7 +24915,93 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
       </div>
     </div>
 
-    <!-- SECTION 7: DOCUMENT ATTACHMENTS (OPTIONAL) -->
+    <!-- SECTION 7: TRANSPORT FACILITY & ROUTE SETUP -->
+    <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:18px 20px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; padding-bottom:8px; border-bottom:1.5px solid #f1f5f9;">
+        <div style="font-weight:800; font-size:0.95rem; color:#1e293b; display:flex; align-items:center; gap:8px;">
+          <span class="material-symbols-outlined" style="color:#d97706; font-size:22px;">directions_bus</span>
+          <span>Transport Facility &amp; Route Setup</span>
+        </div>
+        <span style="font-size:0.75rem; color:#d97706; font-weight:700; background:#fef3c7; padding:3px 8px; border-radius:6px;">Bus / Van Transit</span>
+      </div>
+
+      <!-- Vehicle Mode Tick Options -->
+      <div style="margin-bottom:14px; background:#fffbeb; border:1.5px solid #fde68a; border-radius:10px; padding:14px 16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:10px;">
+          <label style="display:flex; align-items:center; gap:10px; font-weight:800; font-size:0.9rem; color:#92400e; cursor:pointer;">
+            <input type="checkbox" id="adm_isTransportAvailed" ${isTransportActive ? "checked" : ""} style="width:20px; height:20px; accent-color:#d97706; cursor:pointer;">
+            <span>Avail School Transport Facility</span>
+          </label>
+          <span style="font-size:0.75rem; color:#b45309; font-weight:600;">Daily Student Transit</span>
+        </div>
+
+        <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+          <span style="font-size:0.75rem; font-weight:800; color:#78350f; text-transform:uppercase; letter-spacing:0.5px;">Vehicle Mode:</span>
+
+          <label id="lbl_vehicle_bus" style="display:inline-flex; align-items:center; gap:8px; padding:7px 14px; border:1.5px solid ${currentVehicleType === 'Bus' ? '#d97706' : '#cbd5e1'}; background:${currentVehicleType === 'Bus' ? '#fef3c7' : '#ffffff'}; border-radius:8px; cursor:pointer; font-weight:800; font-size:0.86rem; color:${currentVehicleType === 'Bus' ? '#92400e' : '#475569'}; transition:all 0.15s;">
+            <input type="radio" name="vehicleType" value="Bus" ${currentVehicleType === "Bus" ? "checked" : ""} style="width:16px; height:16px; accent-color:#d97706; cursor:pointer;">
+            <span>🚌 Bus</span>
+          </label>
+
+          <label id="lbl_vehicle_van" style="display:inline-flex; align-items:center; gap:8px; padding:7px 14px; border:1.5px solid ${currentVehicleType === 'Van' ? '#d97706' : '#cbd5e1'}; background:${currentVehicleType === 'Van' ? '#fef3c7' : '#ffffff'}; border-radius:8px; cursor:pointer; font-weight:800; font-size:0.86rem; color:${currentVehicleType === 'Van' ? '#92400e' : '#475569'}; transition:all 0.15s;">
+            <input type="radio" name="vehicleType" value="Van" ${currentVehicleType === "Van" ? "checked" : ""} style="width:16px; height:16px; accent-color:#d97706; cursor:pointer;">
+            <span>🚐 Van</span>
+          </label>
+
+          <label id="lbl_vehicle_none" style="display:inline-flex; align-items:center; gap:8px; padding:7px 14px; border:1.5px solid ${(!currentVehicleType || currentVehicleType === 'None') ? '#64748b' : '#cbd5e1'}; background:${(!currentVehicleType || currentVehicleType === 'None') ? '#f1f5f9' : '#ffffff'}; border-radius:8px; cursor:pointer; font-weight:700; font-size:0.86rem; color:${(!currentVehicleType || currentVehicleType === 'None') ? '#1e293b' : '#64748b'}; transition:all 0.15s;">
+            <input type="radio" name="vehicleType" value="None" ${(!currentVehicleType || currentVehicleType === "None") ? "checked" : ""} style="width:16px; height:16px; accent-color:#64748b; cursor:pointer;">
+            <span>🚶 None / Self Conveyance</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Transport Fields Grid -->
+      <div id="adm_transportFieldsContainer" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:14px; opacity:${isTransportActive ? '1' : '0.55'}; pointer-events:${isTransportActive ? 'auto' : 'none'};">
+        <!-- Route / Bus Line -->
+        <div class="field">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+            <label style="font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin:0;">Route / Bus Line</label>
+            <span style="font-size:0.68rem; color:#d97706; font-weight:700;">Transit Path</span>
+          </div>
+          <select id="adm_transportRoute" name="transportRoute" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; background:#ffffff;">
+            ${transportRouteList.map(r => `<option value="${escapeHtml(r)}" ${currentTransportRoute === r ? "selected" : ""}>${escapeHtml(r)}</option>`).join("")}
+            <option value="__ADD_NEW__" style="font-weight:700; color:#d97706; background:#fffbeb;">➕ + Add New Route...</option>
+          </select>
+        </div>
+
+        <!-- Transport Area / Stop -->
+        <div class="field">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+            <label style="font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin:0;">Transport Area / Stop</label>
+            <span style="font-size:0.68rem; color:#2563eb; font-weight:700;">Pickup Stop</span>
+          </div>
+          <select id="adm_transportArea" name="transportArea" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; background:#ffffff;">
+            ${transportAreaList.map(a => `<option value="${escapeHtml(a)}" ${currentTransportArea === a ? "selected" : ""}>${escapeHtml(a)}</option>`).join("")}
+            <option value="__ADD_NEW__" style="font-weight:700; color:#2563eb; background:#eff6ff;">➕ + Add New Transport Area...</option>
+          </select>
+        </div>
+
+        <!-- Specific Pickup Point / Landmark -->
+        <div class="field">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+            <label style="font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin:0;">Pickup Point / Landmark</label>
+            <span style="font-size:0.68rem; color:#64748b;">Boarding Spot</span>
+          </div>
+          <input type="text" id="adm_pickupPoint" name="pickupPoint" value="${escapeHtml(initialValues.pickupPoint || "")}" placeholder="e.g. Near Shiv Mandir, Main Chowk" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem;">
+        </div>
+
+        <!-- Monthly Transport Fee -->
+        <div class="field">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+            <label style="font-size:0.73rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin:0;">Monthly Transport Fee (₹)</label>
+            <span style="font-size:0.68rem; color:#d97706; font-weight:700;">Rate</span>
+          </div>
+          <input type="number" id="adm_transportFee" name="transportFee" min="0" value="${escapeHtml(defaultTransportFee)}" placeholder="0" style="width:100%; border:1.5px solid #cbd5e1; border-radius:8px; padding:9px 12px; font-size:0.9rem; font-weight:700; color:#b45309;">
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 8: DOCUMENT ATTACHMENTS (OPTIONAL) -->
     <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:18px 20px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; padding-bottom:8px; border-bottom:1.5px solid #f1f5f9;">
         <div style="font-weight:800; font-size:0.95rem; color:#1e293b; display:flex; align-items:center; gap:8px;">
@@ -24885,7 +25044,7 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
       </div>
     </div>
 
-    <!-- SECTION 8: ACTION BUTTONS -->
+    <!-- SECTION 9: ACTION BUTTONS -->
     <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:8px; padding:16px 0;">
       <button type="button" onclick="if(window.closeFormPanel) window.closeFormPanel()" class="btn-action" style="background:#f1f5f9; color:#475569; border:1.5px solid #cbd5e1; border-radius:8px; padding:10px 22px; font-weight:700; font-size:0.9rem; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
         <span class="material-symbols-outlined" style="font-size:18px;">close</span> Cancel
@@ -24932,7 +25091,12 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
   const elIsFree = outer.querySelector("#adm_isFreeOfCharge");
   const elAdmFee = outer.querySelector("#adm_admissionFee");
   const elMonthlyFee = outer.querySelector("#adm_monthlyFee");
+  const elIsTransport = outer.querySelector("#adm_isTransportAvailed");
+  const elVehicleRadios = outer.querySelectorAll("input[name='vehicleType']");
+  const elTransportFieldsContainer = outer.querySelector("#adm_transportFieldsContainer");
+  const elTransportRoute = outer.querySelector("#adm_transportRoute");
   const elTransportArea = outer.querySelector("#adm_transportArea");
+  const elPickupPoint = outer.querySelector("#adm_pickupPoint");
   const elTransportFee = outer.querySelector("#adm_transportFee");
 
   // 1. Refresh Admission No
@@ -24985,9 +25149,11 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
         }
       }
       if (elTransportFee) {
-        if (!isEditing || force || !elTransportFee.value || elTransportFee.value === "0") {
-          if (elTransportArea && elTransportArea.value && elTransportArea.value !== "None / Not Availed") {
-            elTransportFee.value = fees.transportFee || "0";
+        const checkedRadio = outer.querySelector("input[name='vehicleType']:checked");
+        const isTransport = checkedRadio && (checkedRadio.value === "Bus" || checkedRadio.value === "Van");
+        if (isTransport) {
+          if (!isEditing || force || !elTransportFee.value || elTransportFee.value === "0") {
+            elTransportFee.value = fees.transportFee || "450";
           }
         }
       }
@@ -25198,20 +25364,106 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
   hookDropdownAddOption("#adm_relation", saveCustomRelation, "Enter New Guardian Relation (e.g. Grandfather, Uncle):");
   hookDropdownAddOption("#adm_occupation", saveCustomOccupation, "Enter New Parent Occupation:");
   hookDropdownAddOption("#adm_prevSchool", saveCustomPrevSchool, "Enter New Previous School Name:");
+  // 10b. Transport Facility & Vehicle Mode (Bus / Van) Dynamic Logic
+  const updateVehicleStyle = (val) => {
+    const cleanVal = (val || "None").trim();
+    ["bus", "van", "none"].forEach(v => {
+      const card = outer.querySelector(`#lbl_vehicle_${v}`);
+      if (!card) return;
+      const isSelected = (cleanVal.toLowerCase() === v);
+      if (v === "none") {
+        card.style.borderColor = isSelected ? "#64748b" : "#cbd5e1";
+        card.style.background = isSelected ? "#f1f5f9" : "#ffffff";
+        card.style.color = isSelected ? "#1e293b" : "#64748b";
+        card.style.fontWeight = isSelected ? "800" : "600";
+      } else {
+        card.style.borderColor = isSelected ? "#d97706" : "#cbd5e1";
+        card.style.background = isSelected ? "#fef3c7" : "#ffffff";
+        card.style.color = isSelected ? "#92400e" : "#475569";
+        card.style.fontWeight = isSelected ? "800" : "600";
+      }
+    });
+
+    const isAvailed = (cleanVal === "Bus" || cleanVal === "Van");
+    if (elIsTransport) elIsTransport.checked = isAvailed;
+    if (elTransportFieldsContainer) {
+      elTransportFieldsContainer.style.opacity = isAvailed ? "1" : "0.55";
+      elTransportFieldsContainer.style.pointerEvents = isAvailed ? "auto" : "none";
+    }
+
+    if (!isAvailed) {
+      if (elTransportFee) elTransportFee.value = "0";
+      if (elTransportArea) elTransportArea.value = "None / Not Availed";
+      if (elTransportRoute) elTransportRoute.value = "None / No Route";
+    } else {
+      if (elTransportArea && (!elTransportArea.value || elTransportArea.value === "None / Not Availed")) {
+        const firstActive = transportAreaList.find(a => a !== "None / Not Availed") || "Prem Nagar";
+        elTransportArea.value = firstActive;
+      }
+      if (elTransportRoute && (!elTransportRoute.value || elTransportRoute.value === "None / No Route")) {
+        const firstRoute = transportRouteList.find(r => r !== "None / No Route") || "Route 1 (Prem Nagar - Barhi)";
+        elTransportRoute.value = firstRoute;
+      }
+      if (elTransportFee && (!elTransportFee.value || elTransportFee.value === "0")) {
+        const cls = elClass ? elClass.value : "";
+        const f = getFeeStructureForClass(cls);
+        elTransportFee.value = f.transportFee || "450";
+      }
+    }
+  };
+
+  elVehicleRadios.forEach(r => {
+    r.addEventListener("change", () => {
+      if (r.checked) updateVehicleStyle(r.value);
+    });
+  });
+
+  if (elIsTransport) {
+    elIsTransport.addEventListener("change", () => {
+      if (elIsTransport.checked) {
+        const busRadio = outer.querySelector("input[name='vehicleType'][value='Bus']");
+        if (busRadio) busRadio.checked = true;
+        updateVehicleStyle("Bus");
+      } else {
+        const noneRadio = outer.querySelector("input[name='vehicleType'][value='None']");
+        if (noneRadio) noneRadio.checked = true;
+        updateVehicleStyle("None");
+      }
+    });
+  }
+
+  // Hook Route Dropdown Add Option
+  hookDropdownAddOption("#adm_transportRoute", saveCustomTransportRoute, "Enter New Transport Route Name (e.g. Route 6 - Barhi Bypass):");
+
+  // Hook Transport Area Dropdown Add Option
   hookDropdownAddOption("#adm_transportArea", (val) => {
     saveCustomTransportArea(val);
+    const busRadio = outer.querySelector("input[name='vehicleType'][value='Bus']");
+    const checkedRadio = outer.querySelector("input[name='vehicleType']:checked");
+    if (!checkedRadio || checkedRadio.value === "None") {
+      if (busRadio) busRadio.checked = true;
+      updateVehicleStyle("Bus");
+    }
     if (elTransportFee && (!elTransportFee.value || elTransportFee.value === "0")) {
       const cls = elClass ? elClass.value : "";
       const f = getFeeStructureForClass(cls);
       elTransportFee.value = f.transportFee || "450";
     }
-  }, "Enter New Transport Area / Route Name:");
+  }, "Enter New Transport Area / Stop Name:");
 
   if (elTransportArea && elTransportFee) {
     elTransportArea.addEventListener("change", () => {
       if (elTransportArea.value === "None / Not Availed" || !elTransportArea.value) {
-        elTransportFee.value = "0";
+        const noneRadio = outer.querySelector("input[name='vehicleType'][value='None']");
+        if (noneRadio) noneRadio.checked = true;
+        updateVehicleStyle("None");
       } else if (elTransportArea.value !== "__ADD_NEW__") {
+        const busRadio = outer.querySelector("input[name='vehicleType'][value='Bus']");
+        const checkedRadio = outer.querySelector("input[name='vehicleType']:checked");
+        if (!checkedRadio || checkedRadio.value === "None") {
+          if (busRadio) busRadio.checked = true;
+          updateVehicleStyle("Bus");
+        }
         if (!elTransportFee.value || elTransportFee.value === "0") {
           const cls = elClass ? elClass.value : "";
           const f = getFeeStructureForClass(cls);
