@@ -24135,29 +24135,39 @@ function saveCustomTransportArea(t) {
   } catch(e){}
 }
 
+const TPS_EXCLUDED_DUMMY_ROUTES = [
+  "Route 1 (Prem Nagar - Barhi)",
+  "Route 2 (Padma - Chouparan)",
+  "Route 3 (Barkatha - Hazaribagh)",
+  "Route 4 (Konra - Gome - Ranchi Road)",
+  "Route 5 (Campus Express Shuttle)"
+];
+
 function getTransportRouteList() {
   let saved = [];
-  try { saved = JSON.parse(localStorage.getItem("tps_custom_transport_routes") || "[]"); } catch(e){}
+  try {
+    saved = JSON.parse(localStorage.getItem("tps_custom_transport_routes") || "[]");
+    saved = saved.filter(r => !TPS_EXCLUDED_DUMMY_ROUTES.includes(r));
+  } catch(e){}
   const store = (typeof getStore === "function") ? getStore() : {};
   const fromStudents = (store.students || []).map(s => s.transportRoute).filter(Boolean);
   const fromAdmissions = (store.admissions || []).map(a => a.transportRoute).filter(Boolean);
   const fromTransport = (store.transport || []).map(t => t.routeName).filter(Boolean);
   const defaults = [
-    "None / No Route",
-    "Route 1 (Prem Nagar - Barhi)",
-    "Route 2 (Padma - Chouparan)",
-    "Route 3 (Barkatha - Hazaribagh)",
-    "Route 4 (Konra - Gome - Ranchi Road)",
-    "Route 5 (Campus Express Shuttle)"
+    "None / No Route"
   ];
-  return Array.from(new Set([...defaults, ...saved, ...fromStudents, ...fromAdmissions, ...fromTransport].map(t => String(t).trim()))).filter(Boolean);
+  return Array.from(new Set([...defaults, ...saved, ...fromStudents, ...fromAdmissions, ...fromTransport].map(t => String(t).trim())))
+    .filter(Boolean)
+    .filter(r => !TPS_EXCLUDED_DUMMY_ROUTES.includes(r));
 }
 
 function saveCustomTransportRoute(r) {
   if (!r || !r.trim() || r === "None / No Route" || r === "__ADD_NEW__") return;
   const clean = r.trim();
+  if (TPS_EXCLUDED_DUMMY_ROUTES.includes(clean)) return;
   try {
     let saved = JSON.parse(localStorage.getItem("tps_custom_transport_routes") || "[]");
+    saved = saved.filter(x => !TPS_EXCLUDED_DUMMY_ROUTES.includes(x));
     if (!saved.includes(clean)) {
       saved.push(clean);
       localStorage.setItem("tps_custom_transport_routes", JSON.stringify(saved));
@@ -24444,7 +24454,10 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
   }
 
   const transportRouteList = getTransportRouteList();
-  const currentTransportRoute = initialValues.transportRoute || "None / No Route";
+  let currentTransportRoute = initialValues.transportRoute || "None / No Route";
+  if (TPS_EXCLUDED_DUMMY_ROUTES.includes(currentTransportRoute)) {
+    currentTransportRoute = "None / No Route";
+  }
   if (currentTransportRoute && !transportRouteList.includes(currentTransportRoute)) {
     transportRouteList.splice(1, 0, currentTransportRoute);
   }
@@ -25401,8 +25414,8 @@ async function renderAdmissionsForm(cfg, initialValues = {}) {
         elTransportArea.value = firstActive;
       }
       if (elTransportRoute && (!elTransportRoute.value || elTransportRoute.value === "None / No Route")) {
-        const firstRoute = transportRouteList.find(r => r !== "None / No Route") || "Route 1 (Prem Nagar - Barhi)";
-        elTransportRoute.value = firstRoute;
+        const firstRoute = transportRouteList.find(r => r !== "None / No Route" && !TPS_EXCLUDED_DUMMY_ROUTES.includes(r));
+        if (firstRoute) elTransportRoute.value = firstRoute;
       }
       if (elTransportFee && (!elTransportFee.value || elTransportFee.value === "0")) {
         const cls = elClass ? elClass.value : "";
