@@ -44,15 +44,16 @@
   let pollIntervalTimer = null;
   let activeTab = "map"; // "map" | "roster" | "setup"
   let autoFollow = false; // off by default so user can freely interact with real Google Map
+  let hasCenteredInitialVan = false;
   let currentVehicleNo = "JH-02-VAN-01";
   let activeVehiclesList = [];
   let currentMapType = "m"; // "m" = Roadmap / Streets, "k" = Satellite, "p" = Terrain
   let currentQuery = REGION_PRESETS.campus.query;
-  let currentZoom = 15;
+  let currentZoom = 16;
   let lastLoadedIframeUrl = "";
 
   // Helper to build real Google Maps embed URL
-  function buildGoogleEmbedUrl(query, zoom = 15, mapType = "m") {
+  function buildGoogleEmbedUrl(query, zoom = 16, mapType = "m") {
     return `https://maps.google.com/maps?q=${query}&t=${mapType}&z=${zoom}&output=embed`;
   }
 
@@ -183,11 +184,11 @@
               <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; border-top:1px solid #e2e8f0; padding-top:8px;">
                 <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                   <span style="font-size:0.72rem; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px;">Corridor Jump:</span>
+                  <button type="button" class="corridor-jump-btn" id="btn_focusTrackVan" style="background:#eff6ff; border-color:#93c5fd; color:#1d4ed8; font-weight:800;" title="Track Real Van Position on Google Map">
+                    🚐 Track Active Van
+                  </button>
                   <button type="button" class="corridor-jump-btn" id="btn_focusCampus" title="Focus Tapowan Campus (Prem Nagar)">
                     🏫 School Campus
-                  </button>
-                  <button type="button" class="corridor-jump-btn" id="btn_focusTrackVan" style="background:#eff6ff; border-color:#93c5fd; color:#1d4ed8;" title="Track Real Van Position on Google Map">
-                    🚐 Track Active Van
                   </button>
                   <button type="button" class="corridor-jump-btn" id="btn_focusCorridor" title="Ramgarh - Hazaribagh NH-20 Highway Corridor">
                     🛣️ Ramgarh - Hazaribagh
@@ -238,6 +239,32 @@
                 <div id="pill_vanSpeed" style="color:#22c55e; font-weight:800;">0 km/h</div>
                 <div style="height:12px; width:1px; background:#475569;"></div>
                 <div id="pill_vanDist" style="color:#fbbf24;">-- km to Campus</div>
+              </div>
+            </div>
+
+            <!-- Real-Time Telematics & Location Summary Footer -->
+            <div style="background:#ffffff; border-top:1px solid #e2e8f0; padding:12px 18px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <div style="width:38px; height:38px; border-radius:50%; background:#eff6ff; border:1.5px solid #bfdbfe; display:flex; align-items:center; justify-content:center; font-size:18px;">
+                  📍
+                </div>
+                <div>
+                  <div style="font-weight:800; font-size:0.92rem; color:#0f172a; display:flex; align-items:center; gap:6px;">
+                    <span id="footer_vanNo">JH-02-VAN-01</span> &bull; <span id="footer_vanRoute" style="color:#64748b; font-weight:600;">Main Campus Route (Prem Nagar - Barhi)</span>
+                  </div>
+                  <div style="font-size:0.8rem; color:#475569; margin-top:2px;">
+                    <strong>Live Van Position:</strong> <span id="footer_vanCoords" style="font-family:monospace; color:#2563eb; font-weight:700;">23.820968° N, 85.511963° E</span> &bull; <span id="footer_vanAddress" style="color:#16a34a; font-weight:700;">Prem Nagar Campus, Tapowan Public School</span>
+                  </div>
+                </div>
+              </div>
+
+              <div style="display:flex; align-items:center; gap:8px;">
+                <button type="button" class="btn secondary" id="btn_footerTrackVan" style="padding:6px 14px; font-size:0.8rem; font-weight:700; border-radius:8px; display:inline-flex; align-items:center; gap:4px; background:#eff6ff; border-color:#93c5fd; color:#1d4ed8;">
+                  🎯 Center Map on Van
+                </button>
+                <a id="footer_googleMapsDir" href="https://www.google.com/maps/dir/?api=1&destination=23.8209682,85.5119629" target="_blank" class="btn secondary" style="padding:6px 14px; font-size:0.8rem; font-weight:700; border-radius:8px; display:inline-flex; align-items:center; gap:4px; text-decoration:none; background:#f0fdf4; border-color:#86efac; color:#166534;">
+                  🧭 Google Driving Directions
+                </a>
               </div>
             </div>
           </div>
@@ -418,15 +445,22 @@
       });
     }
 
+    const focusVanPosition = () => {
+      const van = activeVehiclesList.find(v => v.vehicleNo === currentVehicleNo) || activeVehiclesList[0];
+      if (van && van.latitude && van.longitude) {
+        const q = `${van.latitude},${van.longitude}(${encodeURIComponent(van.vehicleNo + ' - ' + (van.driverName || 'Van'))})`;
+        updateMapFrame(q, 16, currentMapType);
+      }
+    };
+
     const btnFocusTrackVan = container.querySelector("#btn_focusTrackVan");
     if (btnFocusTrackVan) {
-      btnFocusTrackVan.addEventListener("click", () => {
-        const van = activeVehiclesList.find(v => v.vehicleNo === currentVehicleNo) || activeVehiclesList[0];
-        if (van && van.latitude && van.longitude) {
-          const q = `${van.latitude},${van.longitude}(${encodeURIComponent(van.vehicleNo + ' - ' + (van.driverName || 'Van'))})`;
-          updateMapFrame(q, 16, currentMapType);
-        }
-      });
+      btnFocusTrackVan.addEventListener("click", focusVanPosition);
+    }
+
+    const btnFooterTrackVan = container.querySelector("#btn_footerTrackVan");
+    if (btnFooterTrackVan) {
+      btnFooterTrackVan.addEventListener("click", focusVanPosition);
     }
 
     const btnFocusCorridor = container.querySelector("#btn_focusCorridor");
@@ -458,6 +492,7 @@
         btnFollowToggle.textContent = autoFollow ? "⚡ Auto-Follow: ON" : "⚡ Auto-Follow: OFF";
         btnFollowToggle.style.background = autoFollow ? "#dcfce7" : "#f1f5f9";
         btnFollowToggle.style.color = autoFollow ? "#15803d" : "#475569";
+        if (autoFollow) focusVanPosition();
       });
     }
 
@@ -517,7 +552,7 @@
         const van = activeVehiclesList.find(v => v.vehicleNo === currentVehicleNo);
         if (van) {
           updateHudDisplays(van);
-          if (autoFollow && van.latitude && van.longitude) {
+          if (van.latitude && van.longitude) {
             const iframe = document.getElementById("realGoogleMapFrame");
             const q = `${van.latitude},${van.longitude}(${encodeURIComponent(van.vehicleNo)})`;
             currentQuery = q;
@@ -545,10 +580,19 @@
       currentVehicleNo = van.vehicleNo;
       updateHudDisplays(van);
 
+      // On first load, center Google Map directly on the active van
+      if (!hasCenteredInitialVan && van.latitude && van.longitude) {
+        hasCenteredInitialVan = true;
+        const iframe = document.getElementById("realGoogleMapFrame");
+        const targetQ = `${van.latitude},${van.longitude}(${encodeURIComponent('School Van ' + van.vehicleNo)})`;
+        currentQuery = targetQ;
+        if (iframe) iframe.src = buildGoogleEmbedUrl(targetQ, currentZoom, currentMapType);
+      }
+
       // If Auto-Follow is active, update Google Map to van's current location
       if (autoFollow && van.latitude && van.longitude) {
         const iframe = document.getElementById("realGoogleMapFrame");
-        const targetQ = `${van.latitude},${van.longitude}(${encodeURIComponent(van.vehicleNo)})`;
+        const targetQ = `${van.latitude},${van.longitude}(${encodeURIComponent('School Van ' + van.vehicleNo)})`;
         if (iframe && targetQ !== currentQuery) {
           currentQuery = targetQ;
           iframe.src = buildGoogleEmbedUrl(targetQ, currentZoom, currentMapType);
@@ -575,6 +619,12 @@
     const pillVanNo = document.getElementById("pill_vanNo");
     const pillVanSpeed = document.getElementById("pill_vanSpeed");
     const pillVanDist = document.getElementById("pill_vanDist");
+
+    const footerVanNo = document.getElementById("footer_vanNo");
+    const footerVanRoute = document.getElementById("footer_vanRoute");
+    const footerVanCoords = document.getElementById("footer_vanCoords");
+    const footerVanAddress = document.getElementById("footer_vanAddress");
+    const footerGoogleMapsDir = document.getElementById("footer_googleMapsDir");
 
     const speedVal = Math.round(van.speed || 0);
 
@@ -625,5 +675,18 @@
     if (pillVanNo) pillVanNo.textContent = van.vehicleNo;
     if (pillVanSpeed) pillVanSpeed.textContent = `${speedVal} km/h`;
     if (pillVanDist) pillVanDist.textContent = `${van.distanceFromCampusKm} km to Campus`;
+
+    // Footer Location Summary
+    if (footerVanNo) footerVanNo.textContent = van.vehicleNo;
+    if (footerVanRoute) footerVanRoute.textContent = van.routeName || "School Route";
+    if (footerVanCoords && van.latitude && van.longitude) {
+      footerVanCoords.textContent = `${Number(van.latitude).toFixed(6)}° N, ${Number(van.longitude).toFixed(6)}° E`;
+    }
+    if (footerVanAddress) {
+      footerVanAddress.textContent = van.isInsideGeofence ? "Prem Nagar Campus, Tapowan Public School" : (van.address || `${van.distanceFromCampusKm} km from Prem Nagar Campus`);
+    }
+    if (footerGoogleMapsDir && van.latitude && van.longitude) {
+      footerGoogleMapsDir.href = `https://www.google.com/maps/dir/?api=1&destination=${van.latitude},${van.longitude}`;
+    }
   }
 })();
