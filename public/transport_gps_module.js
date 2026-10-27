@@ -1,7 +1,7 @@
 // public/transport_gps_module.js
-// High-Definition Live GPS Map Tracking & Telematics Engine for Tapowan Public School
-// Features: Reverse-Engineered Google Maps Hybrid/Roadmap/Satellite/Traffic Layers
-// Covering the entire Ramgarh – Hazaribagh – Barhi Transit Corridor (NH-20 / NH-33)
+// Real Google Maps Live Site & Telematics Tracking Engine for Tapowan Public School
+// Displays the Official Interactive Google Maps Web Interface (Real Site) with
+// Ramgarh & Hazaribagh Regional Jump Controls, Live Telematics HUD, and Fleet Tracking
 
 (function () {
   const SCHOOL_COORDS = {
@@ -11,133 +11,56 @@
     radiusMeters: 50.0
   };
 
-  // Ramgarh - Hazaribagh Regional Landmark Coordinates (NH-20 / NH-33 Corridor)
+  // Ramgarh - Hazaribagh Regional Corridor Presets (NH-20 / NH-33)
   const REGION_PRESETS = {
     campus: {
       name: "🏫 Tapowan Campus (Prem Nagar)",
+      query: "23.8209682,85.5119629(Tapowan+Public+School+Prem+Nagar)",
       lat: 23.8209682,
       lng: 85.5119629,
       zoom: 16
     },
     corridor: {
       name: "🛣️ Ramgarh - Hazaribagh Transit Corridor (NH-20)",
-      bounds: [
-        [23.5800, 85.3000], // Ramgarh South-West
-        [24.0600, 85.6200]  // Hazaribagh North-East
-      ]
+      query: "Ramgarh+to+Hazaribagh+NH20+Jharkhand",
+      zoom: 11
     },
     hazaribagh: {
       name: "📍 Hazaribagh Town Hub",
+      query: "Hazaribagh,+Jharkhand",
       lat: 23.9925,
       lng: 85.3637,
       zoom: 14
     },
     ramgarh: {
       name: "📍 Ramgarh Cantt Hub",
+      query: "Ramgarh+Cantt,+Jharkhand",
       lat: 23.6332,
       lng: 85.5149,
       zoom: 14
     }
   };
 
-  // Key Corridor Transit Hubs along NH-20
-  const CORRIDOR_HUBS = [
-    { name: "Hazaribagh Hub", lat: 23.9925, lng: 85.3637, type: "city" },
-    { name: "Demotand Chowk", lat: 23.9520, lng: 85.3900, type: "junction" },
-    { name: "Charhi", lat: 23.8780, lng: 85.4380, type: "town" },
-    { name: "Prem Nagar (Tapowan Campus)", lat: 23.8209682, lng: 85.5119629, type: "school" },
-    { name: "Mandu", lat: 23.7930, lng: 85.4740, type: "town" },
-    { name: "Kuju", lat: 23.7225, lng: 85.5080, type: "town" },
-    { name: "Ramgarh Cantt", lat: 23.6332, lng: 85.5149, type: "city" }
-  ];
-
-  let transportMap = null;
-  let vanMarker = null;
-  let schoolMarker = null;
-  let geofenceCircle = null;
-  let historyPolyline = null;
-  let corridorHubsLayer = null;
   let pollIntervalTimer = null;
   let activeTab = "map"; // "map" | "roster" | "setup"
-  let autoFollow = true;
+  let autoFollow = false; // off by default so user can freely interact with real Google Map
   let currentVehicleNo = "JH-02-VAN-01";
   let activeVehiclesList = [];
+  let currentMapType = "m"; // "m" = Roadmap / Streets, "k" = Satellite, "p" = Terrain
+  let currentQuery = REGION_PRESETS.campus.query;
+  let currentZoom = 15;
+  let lastLoadedIframeUrl = "";
 
-  // Tile layer handles
-  let googleHybridLayer = null;
-  let googleRoadmapLayer = null;
-  let googleSatelliteLayer = null;
-  let googleTerrainLayer = null;
-  let googleTrafficOverlay = null;
-  let osmStandardLayer = null;
-  let layerControl = null;
-
-  // Ensure Leaflet is loaded
-  function ensureLeafletLoaded(callback) {
-    if (typeof L !== "undefined") {
-      return callback();
-    }
-    const css = document.createElement("link");
-    css.rel = "stylesheet";
-    css.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-    document.head.appendChild(css);
-
-    const script = document.createElement("script");
-    script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
-    script.onload = () => callback();
-    document.head.appendChild(script);
+  // Helper to build real Google Maps embed URL
+  function buildGoogleEmbedUrl(query, zoom = 15, mapType = "m") {
+    return `https://maps.google.com/maps?q=${query}&t=${mapType}&z=${zoom}&output=embed`;
   }
 
-  // Custom Animated Van SVG Icon
-  function createVanIcon(heading = 0, isMoving = false, status = "Moving", speed = 0) {
-    const isOnline = (status === "Moving" || status === "Idle" || status === "At Campus");
-    const glowColor = isMoving ? "#22c55e" : (isOnline ? "#38bdf8" : "#94a3b8");
-    const speedText = isMoving ? `${Math.round(speed || 34)} km/h` : status;
-
-    const html = `
-      <div style="position:relative; width:44px; height:44px; display:flex; align-items:center; justify-content:center;">
-        ${isMoving ? `<div style="position:absolute; width:44px; height:44px; border-radius:50%; background:${glowColor}33; animation:vanPulse 1.5s infinite;"></div>` : ''}
-        <div style="width:36px; height:36px; border-radius:50%; background:#0f172a; border:2.5px solid ${glowColor}; box-shadow:0 4px 10px rgba(0,0,0,0.35); display:flex; align-items:center; justify-content:center; transform:rotate(${heading}deg); transition:transform 0.5s ease;">
-          <span style="font-size:18px; transform:rotate(-${heading}deg);">🚐</span>
-        </div>
-        <div style="position:absolute; bottom:-6px; background:#0f172a; color:#fff; font-size:9px; font-weight:800; padding:1px 6px; border-radius:10px; border:1px solid ${glowColor}; white-space:nowrap; box-shadow:0 2px 4px rgba(0,0,0,0.3);">
-          ${speedText}
-        </div>
-      </div>
-    `;
-
-    return L.divIcon({
-      className: "van-custom-marker",
-      html: html,
-      iconSize: [44, 44],
-      iconAnchor: [22, 22],
-      popupAnchor: [0, -22]
-    });
-  }
-
-  // School Campus Pin Icon
-  function createSchoolIcon() {
-    const html = `
-      <div style="position:relative; width:42px; height:42px; display:flex; align-items:center; justify-content:center;">
-        <div style="width:36px; height:36px; border-radius:50%; background:#d97706; border:2.5px solid #ffffff; box-shadow:0 4px 14px rgba(217,119,6,0.5); display:flex; align-items:center; justify-content:center;">
-          <span style="font-size:18px;">🏫</span>
-        </div>
-      </div>
-    `;
-    return L.divIcon({
-      className: "school-custom-marker",
-      html: html,
-      iconSize: [42, 42],
-      iconAnchor: [21, 21],
-      popupAnchor: [0, -21]
-    });
-  }
-
-  // Render Full Transport Dashboard with Map & Tabs
+  // Render Full Transport Dashboard with Real Google Maps & Tabs
   window.renderTransportGpsDashboard = function (container) {
     if (!container) return;
 
-    // Inject styles for van animation & leaflet controls
+    // Inject styles for van telemetry HUD & real Google Maps layout
     if (!document.getElementById("vanGpsStyles")) {
       const st = document.createElement("style");
       st.id = "vanGpsStyles";
@@ -148,24 +71,10 @@
         .van-tab-btn.active { background:#1e293b; color:#ffffff; }
         .van-tab-btn:not(.active) { background:#f1f5f9; color:#475569; border-color:#e2e8f0; }
         .van-tab-btn:not(.active):hover { background:#e2e8f0; color:#1e293b; }
-        .leaflet-control-layers {
-          border-radius: 10px !important;
-          box-shadow: 0 4px 14px rgba(0,0,0,0.18) !important;
-          border: 1.5px solid #cbd5e1 !important;
-          font-family: inherit !important;
-          font-size: 0.82rem !important;
-          font-weight: 600 !important;
-          padding: 8px 12px !important;
-          background: rgba(255, 255, 255, 0.95) !important;
-          backdrop-filter: blur(4px);
-        }
-        .leaflet-control-layers-base label, .leaflet-control-layers-overlays label {
-          margin-bottom: 4px !important;
-          display: flex !important;
-          align-items: center !important;
-          gap: 6px !important;
-          cursor: pointer !important;
-        }
+        .map-style-pill { padding:5px 11px; border-radius:6px; font-size:0.75rem; font-weight:700; cursor:pointer; border:1px solid #cbd5e1; background:#ffffff; color:#334155; transition:all 0.15s; }
+        .map-style-pill.active { background:#2563eb; color:#ffffff; border-color:#2563eb; }
+        .corridor-jump-btn { padding:5px 10px; font-size:0.75rem; font-weight:700; border-radius:6px; border:1px solid #e2e8f0; background:#ffffff; color:#1e293b; cursor:pointer; transition:all 0.15s; display:inline-flex; align-items:center; gap:4px; }
+        .corridor-jump-btn:hover { background:#f1f5f9; border-color:#cbd5e1; color:#0f172a; }
       `;
       document.head.appendChild(st);
     }
@@ -180,13 +89,13 @@
               <h2 style="margin:0; font-size:1.35rem; font-weight:800; color:#0f172a;">School Van & Bus GPS Live Tracking</h2>
             </div>
             <p style="margin:4px 0 0; color:#64748b; font-size:0.85rem;">
-              Real-time Google Maps satellite telematics & live traffic covering Ramgarh &bull; Mandu &bull; Charhi &bull; Prem Nagar &bull; Hazaribagh (NH-20)
+              Real Google Maps Live Site & Telematics covering Ramgarh &bull; Mandu &bull; Charhi &bull; Prem Nagar &bull; Hazaribagh (NH-20)
             </p>
           </div>
 
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <button type="button" class="van-tab-btn ${activeTab === 'map' ? 'active' : ''}" id="btn_vanTab_map">
-              <span>🗺️</span> Live GPS Tracker
+              <span>🌐</span> Real Google Map
             </button>
             <button type="button" class="van-tab-btn ${activeTab === 'roster' ? 'active' : ''}" id="btn_vanTab_roster">
               <span>📋</span> Route & Student Allocations
@@ -197,7 +106,7 @@
           </div>
         </div>
 
-        <!-- TAB 1: LIVE GPS MAP -->
+        <!-- TAB 1: REAL GOOGLE MAPS SITE & TELEMATICS -->
         <div id="vanTabContent_map" style="display:${activeTab === 'map' ? 'flex' : 'none'}; flex-direction:column; gap:16px;">
           <!-- Telematics HUD Cards -->
           <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:12px;">
@@ -239,58 +148,96 @@
             </div>
           </div>
 
-          <!-- Map Box & Toolbar -->
+          <!-- Map Box & Controls Toolbar -->
           <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; overflow:hidden; box-shadow:0 2px 6px rgba(0,0,0,0.04);">
             <!-- Map Action Controls Header -->
-            <div style="background:#f8fafc; border-bottom:1px solid #e2e8f0; padding:10px 16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                <span style="display:inline-flex; align-items:center; gap:5px; background:#dcfce7; color:#15803d; font-size:0.75rem; font-weight:800; padding:3px 10px; border-radius:20px;">
-                  <span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#16a34a;"></span>
-                  LIVE GPS FEED
-                </span>
-                <span style="display:inline-flex; align-items:center; gap:5px; background:#eff6ff; color:#1d4ed8; font-size:0.75rem; font-weight:800; padding:3px 10px; border-radius:20px; border:1px solid #bfdbfe;">
-                  <span>🛰️</span> Google Maps &bull; Ramgarh & Hazaribagh Corridor
-                </span>
-                <span id="mapVehicleSelectorWrap"></span>
+            <div style="background:#f8fafc; border-bottom:1px solid #e2e8f0; padding:12px 16px; display:flex; flex-direction:column; gap:10px;">
+              <!-- Top Row: Status, Vehicle Selector, Map Style Toggles -->
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                  <span style="display:inline-flex; align-items:center; gap:5px; background:#dcfce7; color:#15803d; font-size:0.75rem; font-weight:800; padding:3px 10px; border-radius:20px;">
+                    <span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#16a34a;"></span>
+                    LIVE GPS FEED
+                  </span>
+                  <span style="display:inline-flex; align-items:center; gap:5px; background:#eff6ff; color:#1d4ed8; font-size:0.75rem; font-weight:800; padding:3px 10px; border-radius:20px; border:1px solid #bfdbfe;">
+                    <span>🌐</span> Real Google Maps Site &bull; Ramgarh & Hazaribagh Corridor
+                  </span>
+                  <span id="mapVehicleSelectorWrap"></span>
+                </div>
+
+                <!-- Google Map Style Toggles -->
+                <div style="display:flex; align-items:center; gap:4px; background:#f1f5f9; padding:3px; border-radius:8px;">
+                  <button type="button" class="map-style-pill ${currentMapType === 'm' ? 'active' : ''}" id="btn_mapStyleRoad">
+                    🗺️ Streets
+                  </button>
+                  <button type="button" class="map-style-pill ${currentMapType === 'k' ? 'active' : ''}" id="btn_mapStyleSat">
+                    🛰️ Satellite
+                  </button>
+                  <button type="button" class="map-style-pill ${currentMapType === 'p' ? 'active' : ''}" id="btn_mapStyleTerrain">
+                    🏔️ Terrain
+                  </button>
+                </div>
               </div>
 
-              <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
-                <!-- Regional Quick-Focus Buttons -->
-                <div style="display:inline-flex; align-items:center; background:#e2e8f0; padding:2px; border-radius:8px; gap:2px;">
-                  <button type="button" id="btn_focusCampus" class="btn secondary" style="padding:4px 8px; font-size:0.75rem; font-weight:700; border-radius:5px; border:none; background:#ffffff; color:#0f172a;" title="Campus (Prem Nagar)">
-                    🏫 Campus
+              <!-- Bottom Row: Regional Quick-Focus Corridor Buttons & External Launch -->
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; border-top:1px solid #e2e8f0; padding-top:8px;">
+                <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                  <span style="font-size:0.72rem; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:0.5px;">Corridor Jump:</span>
+                  <button type="button" class="corridor-jump-btn" id="btn_focusCampus" title="Focus Tapowan Campus (Prem Nagar)">
+                    🏫 School Campus
                   </button>
-                  <button type="button" id="btn_focusCorridor" class="btn secondary" style="padding:4px 8px; font-size:0.75rem; font-weight:700; border-radius:5px; border:none; background:#ffffff; color:#0f172a;" title="Ramgarh - Hazaribagh NH-20 Highway Corridor">
+                  <button type="button" class="corridor-jump-btn" id="btn_focusTrackVan" style="background:#eff6ff; border-color:#93c5fd; color:#1d4ed8;" title="Track Real Van Position on Google Map">
+                    🚐 Track Active Van
+                  </button>
+                  <button type="button" class="corridor-jump-btn" id="btn_focusCorridor" title="Ramgarh - Hazaribagh NH-20 Highway Corridor">
                     🛣️ Ramgarh - Hazaribagh
                   </button>
-                  <button type="button" id="btn_focusHazaribagh" class="btn secondary" style="padding:4px 8px; font-size:0.75rem; font-weight:700; border-radius:5px; border:none; background:#ffffff; color:#0f172a;" title="Hazaribagh Town Hub">
+                  <button type="button" class="corridor-jump-btn" id="btn_focusHazaribagh" title="Hazaribagh Town Hub">
                     📍 Hazaribagh
                   </button>
-                  <button type="button" id="btn_focusRamgarh" class="btn secondary" style="padding:4px 8px; font-size:0.75rem; font-weight:700; border-radius:5px; border:none; background:#ffffff; color:#0f172a;" title="Ramgarh Cantt Hub">
+                  <button type="button" class="corridor-jump-btn" id="btn_focusRamgarh" title="Ramgarh Cantt Hub">
                     📍 Ramgarh
                   </button>
                 </div>
 
-                <button type="button" id="btn_mapCenterVan" class="btn secondary" style="padding:5px 12px; font-size:0.78rem; font-weight:700; border-radius:6px; display:inline-flex; align-items:center; gap:4px;">
-                  🚐 Center Van
-                </button>
-                <button type="button" id="btn_mapFollowToggle" class="btn secondary" style="padding:5px 12px; font-size:0.78rem; font-weight:700; border-radius:6px; background:#dcfce7; color:#15803d; display:inline-flex; align-items:center; gap:4px;">
-                  ⚡ Auto-Follow: ON
-                </button>
-                <button type="button" id="btn_mapSimulate" class="btn secondary" style="padding:5px 12px; font-size:0.78rem; font-weight:700; border-radius:6px; background:#fef3c7; border-color:#f59e0b; color:#b45309; display:inline-flex; align-items:center; gap:4px;" title="Test live movement animation on map">
-                  ▶ Test Motion Simulation
-                </button>
-                <a href="/driver-gps.html" target="_blank" class="btn secondary" style="padding:5px 12px; font-size:0.78rem; font-weight:700; border-radius:6px; background:#eff6ff; border-color:#3b82f6; color:#1d4ed8; text-decoration:none; display:inline-flex; align-items:center; gap:4px;">
-                  📱 Driver Mobile GPS
-                </a>
+                <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                  <button type="button" id="btn_mapFollowToggle" class="btn secondary" style="padding:5px 10px; font-size:0.78rem; font-weight:700; border-radius:6px; background:#f1f5f9; color:#475569; display:inline-flex; align-items:center; gap:4px;">
+                    ⚡ Auto-Follow: OFF
+                  </button>
+                  <button type="button" id="btn_mapSimulate" class="btn secondary" style="padding:5px 10px; font-size:0.78rem; font-weight:700; border-radius:6px; background:#fef3c7; border-color:#f59e0b; color:#b45309; display:inline-flex; align-items:center; gap:4px;" title="Test live movement animation on map">
+                    ▶ Test Motion Simulation
+                  </button>
+                  <a id="btn_openGoogleMapsApp" href="https://www.google.com/maps/search/?api=1&query=23.8209682,85.5119629" target="_blank" class="btn primary" style="padding:5px 12px; font-size:0.78rem; font-weight:800; border-radius:6px; text-decoration:none; display:inline-flex; align-items:center; gap:4px; background:#16a34a; border-color:#16a34a; color:#fff;" title="Open in Official Google Maps Application or Website">
+                    ↗️ Open in Google Maps App
+                  </a>
+                  <a href="/driver-gps.html" target="_blank" class="btn secondary" style="padding:5px 10px; font-size:0.78rem; font-weight:700; border-radius:6px; background:#eff6ff; border-color:#3b82f6; color:#1d4ed8; text-decoration:none; display:inline-flex; align-items:center; gap:4px;">
+                    📱 Driver Mobile GPS
+                  </a>
+                </div>
               </div>
             </div>
 
-            <!-- Leaflet Map Div -->
-            <div id="transportGpsMapContainer" style="width:100%; height:550px; background:#e2e8f0; position:relative;">
-              <div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; color:#64748b;">
-                <div class="spinner" style="width:36px; height:36px; border:3px solid #cbd5e1; border-top-color:#3b82f6; border-radius:50%; animation:spin 0.8s linear infinite; margin:0 auto 10px;"></div>
-                <div style="font-weight:700; font-size:0.9rem;">Initializing Google Maps Satellite & Telematics...</div>
+            <!-- Real Google Maps Embedded Site (Iframe) -->
+            <div id="transportGpsMapContainer" style="width:100%; height:580px; background:#f8fafc; position:relative; overflow:hidden;">
+              <iframe
+                id="realGoogleMapFrame"
+                src="${buildGoogleEmbedUrl(currentQuery, currentZoom, currentMapType)}"
+                style="width:100%; height:100%; border:none; display:block;"
+                allowfullscreen=""
+                loading="lazy"
+                referrerpolicy="no-referrer-when-downgrade">
+              </iframe>
+
+              <!-- Floating Live Sensor Pill over Map -->
+              <div id="mapFloatingVanPill" style="position:absolute; top:12px; left:12px; background:rgba(15, 23, 42, 0.92); color:#ffffff; padding:8px 14px; border-radius:10px; box-shadow:0 4px 14px rgba(0,0,0,0.3); font-size:0.8rem; font-weight:700; display:flex; align-items:center; gap:10px; z-index:10; pointer-events:auto; backdrop-filter:blur(6px); border:1px solid rgba(255,255,255,0.15);">
+                <div style="display:flex; align-items:center; gap:6px;">
+                  <span style="font-size:16px;">🚐</span>
+                  <span id="pill_vanNo" style="font-weight:800; color:#38bdf8;">JH-02-VAN-01</span>
+                </div>
+                <div style="height:12px; width:1px; background:#475569;"></div>
+                <div id="pill_vanSpeed" style="color:#22c55e; font-weight:800;">0 km/h</div>
+                <div style="height:12px; width:1px; background:#475569;"></div>
+                <div id="pill_vanDist" style="color:#fbbf24;">-- km to Campus</div>
               </div>
             </div>
           </div>
@@ -395,9 +342,6 @@
 
       if (tab === "map") {
         tabMap.classList.add("active");
-        if (transportMap) {
-          setTimeout(() => { transportMap.invalidateSize(); }, 200);
-        }
       } else if (tab === "roster") {
         tabRoster.classList.add("active");
       } else if (tab === "setup") {
@@ -421,12 +365,66 @@
       });
     }
 
+    // Update Google Maps Frame Function
+    const updateMapFrame = (query, zoom, type) => {
+      currentQuery = query || currentQuery;
+      currentZoom = zoom || currentZoom;
+      currentMapType = type || currentMapType;
+
+      const iframe = container.querySelector("#realGoogleMapFrame");
+      const targetUrl = buildGoogleEmbedUrl(currentQuery, currentZoom, currentMapType);
+      if (iframe && targetUrl !== lastLoadedIframeUrl) {
+        lastLoadedIframeUrl = targetUrl;
+        iframe.src = targetUrl;
+      }
+    };
+
+    // Google Map Style Toggles
+    const btnRoad = container.querySelector("#btn_mapStyleRoad");
+    const btnSat = container.querySelector("#btn_mapStyleSat");
+    const btnTerrain = container.querySelector("#btn_mapStyleTerrain");
+
+    const setActiveStyleBtn = (type) => {
+      [btnRoad, btnSat, btnTerrain].forEach(b => b && b.classList.remove("active"));
+      if (type === "m" && btnRoad) btnRoad.classList.add("active");
+      if (type === "k" && btnSat) btnSat.classList.add("active");
+      if (type === "p" && btnTerrain) btnTerrain.classList.add("active");
+    };
+
+    if (btnRoad) {
+      btnRoad.addEventListener("click", () => {
+        setActiveStyleBtn("m");
+        updateMapFrame(currentQuery, currentZoom, "m");
+      });
+    }
+    if (btnSat) {
+      btnSat.addEventListener("click", () => {
+        setActiveStyleBtn("k");
+        updateMapFrame(currentQuery, currentZoom, "k");
+      });
+    }
+    if (btnTerrain) {
+      btnTerrain.addEventListener("click", () => {
+        setActiveStyleBtn("p");
+        updateMapFrame(currentQuery, currentZoom, "p");
+      });
+    }
+
     // Regional Jump Buttons
     const btnFocusCampus = container.querySelector("#btn_focusCampus");
     if (btnFocusCampus) {
       btnFocusCampus.addEventListener("click", () => {
-        if (transportMap) {
-          transportMap.flyTo([REGION_PRESETS.campus.lat, REGION_PRESETS.campus.lng], REGION_PRESETS.campus.zoom, { duration: 1.2 });
+        updateMapFrame(REGION_PRESETS.campus.query, REGION_PRESETS.campus.zoom, currentMapType);
+      });
+    }
+
+    const btnFocusTrackVan = container.querySelector("#btn_focusTrackVan");
+    if (btnFocusTrackVan) {
+      btnFocusTrackVan.addEventListener("click", () => {
+        const van = activeVehiclesList.find(v => v.vehicleNo === currentVehicleNo) || activeVehiclesList[0];
+        if (van && van.latitude && van.longitude) {
+          const q = `${van.latitude},${van.longitude}(${encodeURIComponent(van.vehicleNo + ' - ' + (van.driverName || 'Van'))})`;
+          updateMapFrame(q, 16, currentMapType);
         }
       });
     }
@@ -434,40 +432,25 @@
     const btnFocusCorridor = container.querySelector("#btn_focusCorridor");
     if (btnFocusCorridor) {
       btnFocusCorridor.addEventListener("click", () => {
-        if (transportMap) {
-          transportMap.fitBounds(REGION_PRESETS.corridor.bounds, { padding: [30, 30], animate: true, duration: 1.2 });
-        }
+        updateMapFrame(REGION_PRESETS.corridor.query, REGION_PRESETS.corridor.zoom, currentMapType);
       });
     }
 
     const btnFocusHazaribagh = container.querySelector("#btn_focusHazaribagh");
     if (btnFocusHazaribagh) {
       btnFocusHazaribagh.addEventListener("click", () => {
-        if (transportMap) {
-          transportMap.flyTo([REGION_PRESETS.hazaribagh.lat, REGION_PRESETS.hazaribagh.lng], REGION_PRESETS.hazaribagh.zoom, { duration: 1.2 });
-        }
+        updateMapFrame(REGION_PRESETS.hazaribagh.query, REGION_PRESETS.hazaribagh.zoom, currentMapType);
       });
     }
 
     const btnFocusRamgarh = container.querySelector("#btn_focusRamgarh");
     if (btnFocusRamgarh) {
       btnFocusRamgarh.addEventListener("click", () => {
-        if (transportMap) {
-          transportMap.flyTo([REGION_PRESETS.ramgarh.lat, REGION_PRESETS.ramgarh.lng], REGION_PRESETS.ramgarh.zoom, { duration: 1.2 });
-        }
+        updateMapFrame(REGION_PRESETS.ramgarh.query, REGION_PRESETS.ramgarh.zoom, currentMapType);
       });
     }
 
-    // Map Action Buttons
-    const btnCenterVan = container.querySelector("#btn_mapCenterVan");
-    if (btnCenterVan) {
-      btnCenterVan.addEventListener("click", () => {
-        if (vanMarker && transportMap) {
-          transportMap.flyTo(vanMarker.getLatLng(), 16, { duration: 1 });
-        }
-      });
-    }
-
+    // Auto-Follow Toggle
     const btnFollowToggle = container.querySelector("#btn_mapFollowToggle");
     if (btnFollowToggle) {
       btnFollowToggle.addEventListener("click", () => {
@@ -478,6 +461,7 @@
       });
     }
 
+    // Simulation Button
     const btnSimulate = container.querySelector("#btn_mapSimulate");
     if (btnSimulate) {
       btnSimulate.addEventListener("click", async () => {
@@ -491,7 +475,7 @@
           const data = await res.json();
           if (data.ok) {
             if (typeof showToast === "function") showToast("Started Van Motion Simulation (Barhi to Tapowan Campus)", "success");
-            btnSimulate.textContent = "✓ Simulation Running (4s)";
+            btnSimulate.textContent = "✓ Simulation Running";
             setTimeout(() => { btnSimulate.textContent = "▶ Test Motion Simulation"; }, 15000);
             fetchLiveGpsData();
           }
@@ -501,161 +485,19 @@
       });
     }
 
-    // Initial tab state
+    // Initial state
     switchTab(activeTab);
-
-    // Initialize Leaflet Map with Google Maps Layers
-    ensureLeafletLoaded(() => {
-      initLeafletMap(container);
-    });
-  };
-
-  // Initialize Map Instance with Reverse-Engineered Google Maps Engine
-  function initLeafletMap(container) {
-    const mapDiv = document.getElementById("transportGpsMapContainer");
-    if (!mapDiv) return;
-
-    if (transportMap) {
-      try { transportMap.remove(); } catch(e){}
-      transportMap = null;
-    }
-
-    mapDiv.innerHTML = ""; // Clear loader
-
-    // Default center at Tapowan Public School Prem Nagar campus
-    transportMap = L.map("transportGpsMapContainer", {
-      center: [SCHOOL_COORDS.lat, SCHOOL_COORDS.lng],
-      zoom: 15,
-      zoomControl: true
-    });
-
-    // 1. Google Hybrid Layer (Satellite + Highway Networks + Settlement labels in English & Hindi)
-    googleHybridLayer = L.tileLayer("https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}", {
-      maxZoom: 20,
-      subdomains: ["0", "1", "2", "3"],
-      attribution: '&copy; <a href="https://maps.google.com" target="_blank">Google Maps</a> &bull; Ramgarh & Hazaribagh Satellite'
-    });
-
-    // 2. Google Roadmap Layer (Clean high-definition vector streets)
-    googleRoadmapLayer = L.tileLayer("https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}", {
-      maxZoom: 20,
-      subdomains: ["0", "1", "2", "3"],
-      attribution: '&copy; Google Maps Streets'
-    });
-
-    // 3. Google Satellite (Raw high-resolution photographic imagery)
-    googleSatelliteLayer = L.tileLayer("https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}", {
-      maxZoom: 20,
-      subdomains: ["0", "1", "2", "3"],
-      attribution: '&copy; Google Maps Satellite'
-    });
-
-    // 4. Google Terrain (Topographic contours and hill shading)
-    googleTerrainLayer = L.tileLayer("https://mt{s}.google.com/vt/lyrs=p&x={x}&y={y}&z={z}", {
-      maxZoom: 20,
-      subdomains: ["0", "1", "2", "3"],
-      attribution: '&copy; Google Maps Terrain'
-    });
-
-    // 5. OpenStreetMap Standard (Fallback)
-    osmStandardLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors'
-    });
-
-    // 6. Google Live Traffic Overlay (Real-time traffic congestion on NH-20 and regional roads)
-    googleTrafficOverlay = L.tileLayer("https://mt{s}.google.com/vt?lyrs=h,traffic|seconds_into_week:-1&style=15&x={x}&y={y}&z={z}", {
-      maxZoom: 20,
-      subdomains: ["0", "1", "2", "3"],
-      opacity: 0.9,
-      attribution: '&copy; Google Maps Live Real-Time Traffic'
-    });
-
-    // Add Default Primary Layers: Google Hybrid + Live Traffic
-    googleHybridLayer.addTo(transportMap);
-    googleTrafficOverlay.addTo(transportMap);
-
-    // School Campus Marker & 50m Geofence Circle
-    schoolMarker = L.marker([SCHOOL_COORDS.lat, SCHOOL_COORDS.lng], {
-      icon: createSchoolIcon()
-    }).addTo(transportMap);
-
-    schoolMarker.bindPopup(`
-      <div style="font-family:sans-serif; padding:4px;">
-        <div style="font-weight:800; font-size:0.95rem; color:#d97706;">🏫 Tapowan Public School</div>
-        <div style="font-size:0.8rem; color:#475569; margin-top:2px;">Prem Nagar Campus &bull; 50m Radius</div>
-        <div style="font-size:0.75rem; color:#16a34a; font-weight:700; margin-top:4px;">📍 NH-20 Ramgarh - Hazaribagh Corridor</div>
-      </div>
-    `);
-
-    geofenceCircle = L.circle([SCHOOL_COORDS.lat, SCHOOL_COORDS.lng], {
-      radius: SCHOOL_COORDS.radiusMeters,
-      color: "#16a34a",
-      fillColor: "#22c55e",
-      fillOpacity: 0.22,
-      weight: 2.5,
-      dashArray: "4, 4"
-    }).addTo(transportMap);
-
-    // History polyline
-    historyPolyline = L.polyline([], {
-      color: "#38bdf8",
-      weight: 4,
-      opacity: 0.85,
-      dashArray: "6, 6"
-    }).addTo(transportMap);
-
-    // Corridor Transit Hubs Layer
-    const hubMarkers = CORRIDOR_HUBS.map(hub => {
-      const isSchool = hub.type === "school";
-      const color = isSchool ? "#d97706" : (hub.type === "city" ? "#2563eb" : "#475569");
-      const icon = L.divIcon({
-        className: "hub-pin",
-        html: `<div style="background:${color}; color:#fff; font-size:10px; font-weight:800; padding:2px 6px; border-radius:12px; border:1.5px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,0.3); white-space:nowrap;">${hub.name}</div>`,
-        iconAnchor: [30, 10]
-      });
-      return L.marker([hub.lat, hub.lng], { icon: icon }).bindPopup(`<strong>${hub.name}</strong><br>NH-20 Transit Hub`);
-    });
-    corridorHubsLayer = L.layerGroup(hubMarkers).addTo(transportMap);
-
-    // Add Base & Overlay Controls
-    const baseLayers = {
-      "🛰️ Google Hybrid (Satellite + Roads)": googleHybridLayer,
-      "🗺️ Google Roadmap (Streets)": googleRoadmapLayer,
-      "🌍 Google Satellite (Raw)": googleSatelliteLayer,
-      "🏔️ Google Terrain (Contours)": googleTerrainLayer,
-      "🌐 OpenStreetMap Standard": osmStandardLayer
-    };
-
-    const overlayLayers = {
-      "🚦 Google Live Traffic Overlay": googleTrafficOverlay,
-      "🏫 School 50m Geofence": geofenceCircle,
-      "🛣️ Van Breadcrumb Path": historyPolyline,
-      "📍 NH-20 Corridor Transit Hubs": corridorHubsLayer
-    };
-
-    layerControl = L.control.layers(baseLayers, overlayLayers, {
-      position: "topright",
-      collapsed: false
-    }).addTo(transportMap);
-
-    // Leaflet Scale Control (Metric)
-    L.control.scale({ imperial: false, position: "bottomleft" }).addTo(transportMap);
-
-    // Initial Van Marker
-    vanMarker = L.marker([SCHOOL_COORDS.lat, SCHOOL_COORDS.lng], {
-      icon: createVanIcon(0, false, "Connecting...", 0)
-    }).addTo(transportMap);
+    lastLoadedIframeUrl = buildGoogleEmbedUrl(currentQuery, currentZoom, currentMapType);
 
     // Start Real-Time Telematics Polling (every 3.5 seconds)
     fetchLiveGpsData();
     if (pollIntervalTimer) clearInterval(pollIntervalTimer);
     pollIntervalTimer = setInterval(() => {
-      if (document.getElementById("transportGpsMapContainer") && activeTab === "map") {
+      if (document.getElementById("realGoogleMapFrame") && activeTab === "map") {
         fetchLiveGpsData();
       }
     }, 3500);
-  }
+  };
 
   // Update or render Vehicle Switcher Dropdown
   function updateVehicleSelector(vehicles) {
@@ -675,10 +517,11 @@
         const van = activeVehiclesList.find(v => v.vehicleNo === currentVehicleNo);
         if (van) {
           updateHudDisplays(van);
-          updateMapMarker(van);
-          fetchBreadcrumbTrail(van.vehicleNo);
-          if (vanMarker && transportMap) {
-            transportMap.flyTo(vanMarker.getLatLng(), 16, { duration: 1 });
+          if (autoFollow && van.latitude && van.longitude) {
+            const iframe = document.getElementById("realGoogleMapFrame");
+            const q = `${van.latitude},${van.longitude}(${encodeURIComponent(van.vehicleNo)})`;
+            currentQuery = q;
+            if (iframe) iframe.src = buildGoogleEmbedUrl(q, currentZoom, currentMapType);
           }
         }
       });
@@ -701,14 +544,22 @@
 
       currentVehicleNo = van.vehicleNo;
       updateHudDisplays(van);
-      updateMapMarker(van);
-      fetchBreadcrumbTrail(van.vehicleNo);
+
+      // If Auto-Follow is active, update Google Map to van's current location
+      if (autoFollow && van.latitude && van.longitude) {
+        const iframe = document.getElementById("realGoogleMapFrame");
+        const targetQ = `${van.latitude},${van.longitude}(${encodeURIComponent(van.vehicleNo)})`;
+        if (iframe && targetQ !== currentQuery) {
+          currentQuery = targetQ;
+          iframe.src = buildGoogleEmbedUrl(targetQ, currentZoom, currentMapType);
+        }
+      }
     } catch (e) {
       console.warn("GPS live fetch error:", e);
     }
   }
 
-  // Update HUD Cards with Live Sensor Data
+  // Update HUD Cards & Floating Pill with Live Sensor Data
   function updateHudDisplays(van) {
     const hudStatus = document.getElementById("hud_vanStatus");
     const hudVehicleName = document.getElementById("hud_vehicleName");
@@ -719,6 +570,13 @@
     const hudLastPing = document.getElementById("hud_lastPing");
     const hudDriverName = document.getElementById("hud_driverName");
     const hudCallBtn = document.getElementById("hud_driverCallBtn");
+    const btnOpenApp = document.getElementById("btn_openGoogleMapsApp");
+
+    const pillVanNo = document.getElementById("pill_vanNo");
+    const pillVanSpeed = document.getElementById("pill_vanSpeed");
+    const pillVanDist = document.getElementById("pill_vanDist");
+
+    const speedVal = Math.round(van.speed || 0);
 
     if (hudStatus) {
       const isOnline = van.isOnline;
@@ -732,7 +590,7 @@
     }
 
     if (hudVehicleName) hudVehicleName.textContent = `${van.vehicleNo} • ${van.routeName || 'School Van'}`;
-    if (hudSpeed) hudSpeed.innerHTML = `${Math.round(van.speed || 0)} <span style="font-size:0.8rem; font-weight:700; color:#64748b;">km/h</span>`;
+    if (hudSpeed) hudSpeed.innerHTML = `${speedVal} <span style="font-size:0.8rem; font-weight:700; color:#64748b;">km/h</span>`;
     if (hudIgnition) {
       const ign = van.ignition || (van.isOnline ? "ON" : "OFF");
       hudIgnition.textContent = `Engine / ACC: ${ign}`;
@@ -758,55 +616,14 @@
       hudCallBtn.href = `tel:${van.driverPhone}`;
       hudCallBtn.innerHTML = `📞 ${van.driverPhone} &bull; Call Driver`;
     }
-  }
 
-  // Update Van Marker Position & Popup
-  function updateMapMarker(van) {
-    if (!transportMap || !vanMarker) return;
-
-    const lat = van.latitude;
-    const lng = van.longitude;
-    const speed = van.speed || 0;
-    const isMoving = (van.status === "Moving");
-
-    vanMarker.setLatLng([lat, lng]);
-    vanMarker.setIcon(createVanIcon(van.heading || 0, isMoving, van.status, speed));
-
-    // Update Popup content
-    const popupHtml = `
-      <div style="font-family:sans-serif; min-width:190px; padding:4px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:4px; margin-bottom:6px;">
-          <strong style="color:#0f172a; font-size:0.95rem;">🚐 ${van.vehicleNo}</strong>
-          <span style="font-size:0.75rem; font-weight:800; color:${isMoving ? '#16a34a' : '#0284c7'};">${van.status}</span>
-        </div>
-        <div style="font-size:0.8rem; color:#475569; line-height:1.5;">
-          <div><strong>Speed:</strong> ${Math.round(speed)} km/h</div>
-          <div><strong>To Campus:</strong> ${van.distanceFromCampusKm} km (~${van.etaMinutes} mins)</div>
-          <div><strong>Corridor:</strong> NH-20 Ramgarh &bull; Hazaribagh</div>
-          <div><strong>Driver:</strong> ${van.driverName || 'Driver'}</div>
-        </div>
-        ${van.driverPhone ? `<a href="tel:${van.driverPhone}" style="display:block; text-align:center; background:#2563eb; color:#fff; font-size:0.75rem; font-weight:700; text-decoration:none; padding:5px 8px; border-radius:6px; margin-top:8px;">📞 Call Driver (${van.driverPhone})</a>` : ''}
-      </div>
-    `;
-    vanMarker.bindPopup(popupHtml);
-
-    // Auto-pan if enabled
-    if (autoFollow) {
-      transportMap.panTo([lat, lng], { animate: true, duration: 1 });
+    if (btnOpenApp && van.latitude && van.longitude) {
+      btnOpenApp.href = `https://www.google.com/maps/search/?api=1&query=${van.latitude},${van.longitude}`;
     }
-  }
 
-  // Fetch Breadcrumb Trail Path
-  async function fetchBreadcrumbTrail(vehicleNo) {
-    if (!historyPolyline) return;
-    try {
-      const res = await fetch(`/api/transport/gps/history?vehicleNo=${encodeURIComponent(vehicleNo)}&limit=100`);
-      if (!res.ok) return;
-      const data = await res.json();
-      if (data.ok && data.trail && data.trail.length) {
-        const pts = data.trail.map(t => [t.lat, t.lng]);
-        historyPolyline.setLatLngs(pts);
-      }
-    } catch(e){}
+    // Floating Map Sensor Pill
+    if (pillVanNo) pillVanNo.textContent = van.vehicleNo;
+    if (pillVanSpeed) pillVanSpeed.textContent = `${speedVal} km/h`;
+    if (pillVanDist) pillVanDist.textContent = `${van.distanceFromCampusKm} km to Campus`;
   }
 })();
