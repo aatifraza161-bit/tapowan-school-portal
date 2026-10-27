@@ -2228,6 +2228,10 @@ window.isSaasModuleEnabled = function(modKey) {
   if (modKey === "onlinePayments" && (set.has("fees") || set.has("dueManagement") || set.has("financeModule"))) {
     return true;
   }
+  // Automated IVR Calling is part of the school finance / fee reminder entitlement
+  if (modKey === "callAutomation" && (set.has("fees") || set.has("dueManagement") || set.has("callAutomation") || set.has("financeModule"))) {
+    return true;
+  }
   return false;
 };
 
@@ -2241,6 +2245,7 @@ function getVisibleModules() {
         initialMods = initialMods.filter(m => {
           if (saasSet.has(m)) return true;
           if (m === "onlinePayments" && (saasSet.has("fees") || saasSet.has("dueManagement") || saasSet.has("financeModule"))) return true;
+          if (m === "callAutomation" && (saasSet.has("fees") || saasSet.has("dueManagement") || saasSet.has("callAutomation") || saasSet.has("financeModule"))) return true;
           return false;
         });
       }
@@ -2270,6 +2275,7 @@ function getVisibleModules() {
     mods = mods.filter(m => {
       if (saasSet.has(m)) return true;
       if (m === "onlinePayments" && (saasSet.has("fees") || saasSet.has("dueManagement") || saasSet.has("financeModule"))) return true;
+      if (m === "callAutomation" && (saasSet.has("fees") || saasSet.has("dueManagement") || saasSet.has("callAutomation") || saasSet.has("financeModule"))) return true;
       return false;
     });
     if (mods.length === 0) mods = ["dashboard"];
@@ -14624,7 +14630,7 @@ const MODULE_ICONS = {
   exams: 'quiz', fees: 'account_balance_wallet', library: 'library_books', transport: 'directions_bus',
   hostel: 'apartment', payroll: 'payments', users: 'manage_accounts', timetable: 'calendar_month',
   booksAndDress: 'account_tree', bookSales: 'shopping_bag', whatsappAlerts: 'forum', dueManagement: 'receipt_long', holidays: 'event', backup: 'cloud_download', reportsAnalytics: 'insights',
-  weeklyEvaluation: 'grade', financeModule: 'account_balance', onlinePayments: 'payments'
+  weeklyEvaluation: 'grade', financeModule: 'account_balance', onlinePayments: 'payments', callAutomation: 'ring_volume'
 };
 
 if (refs.assistantOutput) {
@@ -14838,7 +14844,7 @@ const NAV_GROUPS = {
   'Academic': ['onlineClasses', 'subjects', 'exams', 'timetable', 'holidays', 'weeklyEvaluation'],
   'Analytics': ['reportsAnalytics'],
   'Daily': ['attendance', 'teacherAttendance'],
-  'Finance': ['fees', 'dueManagement', 'onlinePayments', 'payroll', 'booksAndDress', 'bookSales', 'whatsappAlerts'],
+  'Finance': ['fees', 'dueManagement', 'callAutomation', 'onlinePayments', 'payroll', 'booksAndDress', 'bookSales', 'whatsappAlerts'],
   'Resources': ['library', 'transport', 'hostel', 'users', 'backup']
 };
 

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tps-cache-v20261023-marksheet-table-fix';
+const CACHE_NAME = 'tps-cache-v20261027-call-automation-eval-fix';
 
 self.addEventListener('install', event => {
   self.skipWaiting();
