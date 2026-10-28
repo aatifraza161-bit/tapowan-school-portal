@@ -114,6 +114,17 @@
     const estd = getSettingVal('school_estd') || curr.estd || "Estd. 2012";
     const schoolCode = getSettingVal('school_code') || curr.code || curr.school_code || "TPS-MAIN";
     const schoolSlug = getSettingVal('school_slug') || curr.slug || "tapowan-main";
+    const city = getSettingVal('school_city') || curr.city || "";
+
+    const latitude = parseFloat(getSettingVal('school_latitude')) || (curr.latitude ? parseFloat(curr.latitude) : 23.8209682);
+    const longitude = parseFloat(getSettingVal('school_longitude')) || (curr.longitude ? parseFloat(curr.longitude) : 85.5119629);
+    const radiusMeters = parseFloat(getSettingVal('school_radius_meters')) || (curr.radiusMeters ? parseFloat(curr.radiusMeters) : 50.0);
+
+    const rawAreas = getSettingVal('school_transport_areas') || curr.transportAreas || "";
+    const transportAreas = rawAreas ? (Array.isArray(rawAreas) ? rawAreas : String(rawAreas).split(',').map(s=>s.trim()).filter(Boolean)) : [];
+
+    const rawVillages = getSettingVal('school_villages') || curr.villages || "";
+    const villages = rawVillages ? (Array.isArray(rawVillages) ? rawVillages : String(rawVillages).split(',').map(s=>s.trim()).filter(Boolean)) : [];
 
     return {
       name,
@@ -123,6 +134,7 @@
       affiliationNo: affNo,
       campus,
       address: campus,
+      city,
       phone,
       email,
       website,
@@ -135,7 +147,12 @@
       code: schoolCode,
       schoolCode,
       slug: schoolSlug,
-      schoolSlug
+      schoolSlug,
+      latitude,
+      longitude,
+      radiusMeters,
+      transportAreas,
+      villages
     };
   }
 

@@ -4,12 +4,17 @@
 // 100% Real Google Maps Site Embed — Zero Broken Image Tiles, High-Speed CDN, Live Vehicle Focus
 
 (function () {
-  const SCHOOL_COORDS = {
-    lat: 23.8209682,
-    lng: 85.5119629,
-    name: "Tapowan Public School (Prem Nagar)",
-    radiusMeters: 50.0
-  };
+  function getSchoolAnchor() {
+    const meta = (typeof window.getSchoolMeta === "function") ? window.getSchoolMeta() : {};
+    return {
+      lat: Number(meta.latitude) || 23.8209682,
+      lng: Number(meta.longitude) || 85.5119629,
+      name: meta.name || "School Campus",
+      address: meta.address || meta.campus || "Main Campus",
+      radiusMeters: Number(meta.radiusMeters) || 50.0
+    };
+  }
+  const SCHOOL_COORDS = getSchoolAnchor();
 
   // Haversine distance in km
   function getDistanceFromSchoolKm(lat, lng) {

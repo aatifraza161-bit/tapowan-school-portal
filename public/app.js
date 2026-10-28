@@ -10422,7 +10422,7 @@ function exportCurrentPdf() {
 }
 
 function printFeeReceipt(f) {
-  const schoolName = "Tapowan Public School";
+  const _schoolMeta = (typeof window.getSchoolMeta === "function") ? window.getSchoolMeta() : {}; const schoolName = _schoolMeta.name || "School ERP";
   const receiptNo = "RCP-" + (f.id || Date.now());
   const printDate = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
   const totalFee = parseFloat(f.totalFee) || 0;
@@ -10659,7 +10659,7 @@ function printDocumentByModule() {
       <div class="row"><strong>Marks:</strong> ${r.marksObtained}/${r.maxMarks} (${r.grade})</div></div>`).join("");
 
   } else if (currentModule === "fees") {
-    const schoolName = "Tapowan Public School";
+    const _schoolMeta = (typeof window.getSchoolMeta === "function") ? window.getSchoolMeta() : {}; const schoolName = _schoolMeta.name || "School ERP";
     const PRINT_FEE_TYPES = [
       { key: "tuitionFee",        label: "Tuition Fee",        icon: '<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px;">menu_book</span>' },
       { key: "transportFee",      label: "Transport Fee",      icon: '<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px;">directions_bus</span>' },
@@ -13853,7 +13853,7 @@ async function executePrint4in1Slip() {
 
 function buildSingleSlipHtmlForGrid(origF) {
   const f = window.getConsolidatedFeeRecord(origF);
-  const schoolName = "Tapowan Public School";
+  const _schoolMeta = (typeof window.getSchoolMeta === "function") ? window.getSchoolMeta() : {}; const schoolName = _schoolMeta.name || "School ERP";
   const slipNo = "FS-" + (f.id || Date.now());
   const printDate = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   const totalFee   = parseFloat(f.totalFee) || 0;
@@ -13955,7 +13955,7 @@ function buildSingleSlipHtmlForGrid(origF) {
     <div style="height:100%;display:flex;flex-direction:column;font-family:Arial,sans-serif;font-size:11px;border:1.5px solid #1e3a8a;border-radius:6px;box-sizing:border-box;">
       <div style="border-bottom:2px solid #1e3a8a;padding:12px 5px;text-align:center;">
         <div style="display:flex;align-items:center;justify-content:center;gap:8px;"><img src="logo.png" style="height:36px;object-fit:contain;" alt="Logo" /><div style="font-size:14px;font-weight:900;color:#1e3a8a;letter-spacing:0.5px;text-transform:uppercase;">${schoolName}</div></div>
-        <div style="font-size:10px;color:#1e3a8a;margin-top:1px;font-weight:700;">Prem Nagar Tapin North, Ramgarh(JH)</div>
+        <div style="font-size:10px;color:#1e3a8a;margin-top:1px;font-weight:700;">${(typeof window.getSchoolMeta === "function" ? (window.getSchoolMeta().address || window.getSchoolMeta().city) : "") || ""}</div>
         <div style="margin-top:5px;display:inline-block;background:#1e3a8a;color:#fff;padding:4px 14px;font-size:10px;font-weight:700;text-transform:uppercase;">FEE SLIP</div>
       </div>
       <div style="display:flex;justify-content:space-between;padding:3px 6px;background:#eef2ff;border-bottom:1px solid #c7d2fe;font-size:9px;color:#1e3a8a;">
@@ -14033,7 +14033,7 @@ function buildSingleSlipHtmlForGrid(origF) {
 
 function buildSingleFeeHtmlForGrid(origF) {
   const f = window.getConsolidatedFeeRecord(origF);
-  const schoolName = "Tapowan Public School";
+  const _schoolMeta = (typeof window.getSchoolMeta === "function") ? window.getSchoolMeta() : {}; const schoolName = _schoolMeta.name || "School ERP";
   const receiptNo = "RCP-" + (f.id || Date.now());
   const printDate = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   const totalFee = parseFloat(f.totalFee) || 0;
@@ -14105,7 +14105,7 @@ function buildSingleFeeHtmlForGrid(origF) {
     <div style="font-family:Arial,sans-serif;border:2px solid #1e3a8a;border-radius:10px;overflow:hidden;font-size:12px;display:flex;flex-direction:column;height:100%;box-sizing:border-box;">
       <div style="background:#1e3a8a;color:#fff;padding:15px;text-align:center;flex-shrink:0;">
         <div style="display:flex;align-items:center;justify-content:center;gap:10px;"><img src="logo.png" style="height:32px;object-fit:contain;" alt="Logo" /><div style="font-size:18px;font-weight:900;letter-spacing:1px;">${schoolName}</div></div>
-        <div style="font-size:11px;opacity:1;margin-top:4px;font-weight:600;letter-spacing:0.3px;">Prem Nagar Tapin North, Ramgarh(JH)</div>
+        <div style="font-size:11px;opacity:1;margin-top:4px;font-weight:600;letter-spacing:0.3px;">${(typeof window.getSchoolMeta === "function" ? (window.getSchoolMeta().address || window.getSchoolMeta().city) : "") || ""}</div>
         <div style="font-size:11px;opacity:0.9;margin-top:4px;">Fee Payment Receipt</div>
       </div>
       <div style="display:flex;justify-content:space-between;padding:8px 12px;background:#f0f4ff;border-bottom:1px solid #c7d2fe;font-size:12px;color:#1e3a8a;flex-shrink:0;">
@@ -15087,10 +15087,11 @@ function generateIdCardsHTML(store) {
   const students = store.students || [];
   if (!students.length) return '<p style="padding:32px;text-align:center;color:#64748b;font-family:sans-serif;">No students found. Add students first.</p>';
 
-  const schoolName  = 'Tapowan Public School';
-  const schoolAddr  = 'Prem Nagar, Tapin North';
-  const schoolDist  = 'Ramgarh(JH)';
-  const schoolPhone = '8757744973';
+  const _schoolMeta = (typeof window.getSchoolMeta === "function") ? window.getSchoolMeta() : {};
+  const schoolName  = _schoolMeta.name || 'School ERP';
+  const schoolAddr  = _schoolMeta.address || _schoolMeta.campus || '';
+  const schoolDist  = _schoolMeta.city || '';
+  const schoolPhone = _schoolMeta.phone || '';
 
   const uniqueClasses = [...new Set(students.map(s => s.className).filter(Boolean))].sort();
   const classOptions = uniqueClasses.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
@@ -18926,7 +18927,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
   window.printFeeReceipt = function(f) {
     f = window.getConsolidatedFeeRecord(f);
     const store = getStore();
-    const schoolName = "Tapowan Public School";
+    const _schoolMeta = (typeof window.getSchoolMeta === "function") ? window.getSchoolMeta() : {}; const schoolName = _schoolMeta.name || "School ERP";
     const receiptNo = "RCP-" + (f.id || Date.now());
     const printDate = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
 
@@ -18973,7 +18974,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
         <!-- Header -->
         <div style="background:#1e3a8a;color:#fff;padding:12px 10px;text-align:center;">
           <div style="display:flex;align-items:center;justify-content:center;gap:10px;"><img src="logo.png" style="height:40px;width:auto;object-fit:contain;" alt="Logo" /><div style="font-size:16px;font-weight:900;letter-spacing:0.5px;">${schoolName}</div></div>
-          <div style="font-size:11px;opacity:1;margin-top:3px;font-weight:600;">Prem Nagar Tapin North, Ramgarh(JH)</div>
+          <div style="font-size:11px;opacity:1;margin-top:3px;font-weight:600;">${(typeof window.getSchoolMeta === "function" ? (window.getSchoolMeta().address || window.getSchoolMeta().city) : "") || ""}</div>
           <div style="font-size:10px;opacity:0.85;margin-top:2px;">FEE PAYMENT RECEIPT</div>
         </div>
         <!-- Meta bar -->
@@ -19049,7 +19050,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
   window.printThermalFeeSlip = function(origF) {
     const f = window.getConsolidatedFeeRecord(origF);
     const store = getStore();
-    const schoolName = "Tapowan Public School";
+    const _schoolMeta = (typeof window.getSchoolMeta === "function") ? window.getSchoolMeta() : {}; const schoolName = _schoolMeta.name || "School ERP";
     const slipNo = "FS-" + (f.id || Date.now());
     const printDate = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 
@@ -19157,7 +19158,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
           <img src="logo.png" style="height:38px;object-fit:contain;" alt="Logo" />
           <div style="font-size:16px;font-weight:900;color:#1e3a8a;letter-spacing:0.5px;text-transform:uppercase;">${schoolName}</div>
         </div>
-        <div style="font-size:10px;color:#1e3a8a;margin-top:2px;font-weight:700;">Prem Nagar Tapin North, Ramgarh(JH)</div>
+        <div style="font-size:10px;color:#1e3a8a;margin-top:2px;font-weight:700;">${(typeof window.getSchoolMeta === "function" ? (window.getSchoolMeta().address || window.getSchoolMeta().city) : "") || ""}</div>
         <div style="margin-top:4px;display:inline-block;color:#a1a1aa;padding:0;font-size:11px;font-weight:800;text-transform:uppercase;">FEE SLIP</div>
       </div>
       <div style="display:flex;justify-content:space-between;padding:5px 8px;background:#fff;border-bottom:1px solid #1e3a8a;font-size:10px;color:#1e3a8a;font-weight:700;">
@@ -19283,7 +19284,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
   window.printFormalFeeSlip = function(origF) {
     const f = window.getConsolidatedFeeRecord(origF);
     const store = getStore();
-    const schoolName = "Tapowan Public School";
+    const _schoolMeta = (typeof window.getSchoolMeta === "function") ? window.getSchoolMeta() : {}; const schoolName = _schoolMeta.name || "School ERP";
     const slipNo = "FS-" + (f.id || Date.now());
     const printDate = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
 
@@ -19389,7 +19390,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
         <!-- Header -->
         <div style="border-bottom:2px solid #1e3a8a;padding:10px 10px;text-align:center;">
           <div style="display:flex;align-items:center;justify-content:center;gap:10px;"><img src="logo.png" style="height:48px;width:auto;object-fit:contain;" alt="Logo" /><div style="font-size:16px;font-weight:900;color:#1e3a8a;letter-spacing:0.5px;text-transform:uppercase;">${schoolName}</div></div>
-          <div style="font-size:11px;color:#1e3a8a;font-weight:700;margin-top:2px;">Prem Nagar Tapin North, Ramgarh(JH)</div>
+          <div style="font-size:11px;color:#1e3a8a;font-weight:700;margin-top:2px;">${(typeof window.getSchoolMeta === "function" ? (window.getSchoolMeta().address || window.getSchoolMeta().city) : "") || ""}</div>
           <div style="font-size:10px;color:#6b7280;margin-top:2px;">Affiliated to CBSE &nbsp;|&nbsp; Excellence in Education</div>
           <div style="margin-top:5px;display:inline-block;background:#1e3a8a;color:#fff;padding:4px 16px;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;">FEE SLIP</div>
         </div>
@@ -21462,7 +21463,7 @@ async function sendSmsFeeSlip(feeId) {
       if (!f.rollNo) f.rollNo = student.rollNo || student.roll || "";
     }
 
-    const schoolName = "Tapowan Public School";
+    const _schoolMeta = (typeof window.getSchoolMeta === "function") ? window.getSchoolMeta() : {}; const schoolName = _schoolMeta.name || "School ERP";
     const slipNo = "FS-" + (f.id || Date.now());
     const printDate = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
     const totalFee = parseFloat(f.totalFee) || 0;
@@ -24039,11 +24040,12 @@ async function renderDueManagementForm(cfg, studentOptions, classOptions, initia
 function getVillageList() {
   let saved = [];
   try { saved = JSON.parse(localStorage.getItem("tps_custom_villages") || "[]"); } catch(e){}
-  const store = getStore();
-  const fromStudents = (store.students || []).map(s => s.village).filter(Boolean);
+  const store = (typeof getStore === "function") ? getStore() : {};
+  const fromStudents = (store.students || []).map(s => s.village || s.address).filter(Boolean);
   const fromAdmissions = (store.admissions || []).map(a => a.village).filter(Boolean);
-  const defaults = ["Prem Nagar", "Tapowan", "Barhi", "Padma", "Barkatha", "Chouparan", "Hazaribagh", "Ranchi", "Patna"];
-  return Array.from(new Set([...saved, ...fromStudents, ...fromAdmissions, ...defaults].map(v => String(v).trim()))).filter(Boolean).sort();
+  const schoolMeta = (typeof window.getSchoolMeta === "function") ? window.getSchoolMeta() : {};
+  const fromSettings = Array.isArray(schoolMeta.villages) && schoolMeta.villages.length ? schoolMeta.villages : (schoolMeta.city ? [schoolMeta.city] : []);
+  return Array.from(new Set([...fromSettings, ...saved, ...fromStudents, ...fromAdmissions].map(v => String(v).trim()))).filter(Boolean).sort();
 }
 
 function saveCustomVillage(v) {
@@ -24117,7 +24119,7 @@ function getPrevSchoolList() {
   const store = getStore();
   const fromStudents = (store.students || []).map(s => s.prevSchool).filter(Boolean);
   const fromAdmissions = (store.admissions || []).map(a => a.prevSchool).filter(Boolean);
-  const defaults = ["Tapowan Public School", "St. Xavier School", "DAV Public School", "Kendriya Vidyalaya", "Government Primary School", "Saraswati Shishu Mandir"];
+  const schoolMeta = (typeof window.getSchoolMeta === "function") ? window.getSchoolMeta() : {}; const curSchoolName = schoolMeta.name || "School"; const defaults = [curSchoolName, "St. Xavier School", "DAV Public School", "Kendriya Vidyalaya", "Government Primary School", "Saraswati Shishu Mandir"];
   return Array.from(new Set([...saved, ...fromStudents, ...fromAdmissions, ...defaults].map(p => String(p).trim()))).filter(Boolean).sort();
 }
 
@@ -24140,20 +24142,10 @@ function getTransportAreaList() {
   const fromStudents = (store.students || []).map(s => s.transportArea).filter(Boolean);
   const fromAdmissions = (store.admissions || []).map(a => a.transportArea).filter(Boolean);
   const fromRoutes = (store.transport || []).map(t => t.pickupPoint || t.routeName).filter(Boolean);
-  const defaults = [
-    "None / Not Availed",
-    "Prem Nagar",
-    "Tapowan Campus",
-    "Barhi",
-    "Padma",
-    "Barkatha",
-    "Chouparan",
-    "Hazaribagh",
-    "Konra",
-    "Gome",
-    "Ranchi Road"
-  ];
-  return Array.from(new Set([...defaults, ...saved, ...fromStudents, ...fromAdmissions, ...fromRoutes].map(t => String(t).trim()))).filter(Boolean);
+  const schoolMeta = (typeof window.getSchoolMeta === "function") ? window.getSchoolMeta() : {};
+  const fromSettings = Array.isArray(schoolMeta.transportAreas) ? schoolMeta.transportAreas : [];
+  const defaults = ["None / Not Availed"];
+  return Array.from(new Set([...defaults, ...fromSettings, ...saved, ...fromStudents, ...fromAdmissions, ...fromRoutes].map(t => String(t).trim()))).filter(Boolean);
 }
 
 function saveCustomTransportArea(t) {
