@@ -16,7 +16,7 @@ window.slipTemplates = [
             <img src="${d.logoSrc}" style="height:42px;object-fit:contain;" alt="Logo" />
             <div style="font-size:18px;font-weight:900;color:#1e3a8a !important;letter-spacing:0.5px;text-transform:uppercase;">${d.schoolName}</div>
           </div>
-          <div style="font-size:11px;color:#1e3a8a !important;margin-top:1px;font-weight:800;">Prem Nagar Tapin North, Ramgarh(JH)</div>
+          <div style="font-size:11px;color:#1e3a8a !important;margin-top:1px;font-weight:800;">${d.schoolAddr || (typeof window !== "undefined" && window.getSchoolMeta ? window.getSchoolMeta().campus : "Main Campus")}</div>
           <div style="margin-top:6px;display:inline-block;background-color:#1e3a8a !important;color:#ffffff !important;padding:6px 18px;font-size:12px;font-weight:900;text-transform:uppercase;border-radius:2px;">FEE SLIP</div>
         </div>
         <div style="display:flex;justify-content:space-between;padding:6px 10px;background-color:rgba(238,242,255,0.85);border-bottom:1px solid #c7d2fe;font-size:11px;color:#1e3a8a !important;font-weight:800;">
@@ -107,7 +107,7 @@ window.slipTemplates = [
             <img src="${d.logoSrc}" style="height:42px;object-fit:contain;" alt="Logo" />
             <div style="font-size:18px;font-weight:900;color:#1e3a8a !important;letter-spacing:0.5px;text-transform:uppercase;">${d.schoolName}</div>
           </div>
-          <div style="font-size:11px;color:#1e3a8a !important;margin-top:1px;font-weight:800;">Prem Nagar Tapin North, Ramgarh(JH)</div>
+          <div style="font-size:11px;color:#1e3a8a !important;margin-top:1px;font-weight:800;">${d.schoolAddr || (typeof window !== "undefined" && window.getSchoolMeta ? window.getSchoolMeta().campus : "Main Campus")}</div>
           <div style="margin-top:6px;display:inline-block;background-color:#1e3a8a !important;color:#ffffff !important;padding:6px 18px;font-size:12px;font-weight:900;text-transform:uppercase;border-radius:2px;">FEE SLIP</div>
         </div>
         <div style="display:flex;justify-content:space-between;padding:6px 10px;background-color:rgba(238,242,255,0.85);border-bottom:1px solid #c7d2fe;font-size:11px;color:#1e3a8a !important;font-weight:800;">
@@ -198,7 +198,7 @@ window.slipTemplates = [
             <img src="${d.logoSrc}" style="height:42px;object-fit:contain;" alt="Logo" />
             <div style="font-size:18px;font-weight:900;color:#1e3a8a !important;letter-spacing:0.5px;text-transform:uppercase;">${d.schoolName}</div>
           </div>
-          <div style="font-size:11px;color:#1e3a8a !important;margin-top:1px;font-weight:800;">Prem Nagar Tapin North, Ramgarh(JH)</div>
+          <div style="font-size:11px;color:#1e3a8a !important;margin-top:1px;font-weight:800;">${d.schoolAddr || (typeof window !== "undefined" && window.getSchoolMeta ? window.getSchoolMeta().campus : "Main Campus")}</div>
           <div style="margin-top:6px;display:inline-block;background-color:#1e3a8a !important;color:#ffffff !important;padding:6px 18px;font-size:12px;font-weight:900;text-transform:uppercase;border-radius:2px;">FEE SLIP</div>
         </div>
         <div style="display:flex;justify-content:space-between;padding:6px 10px;background-color:rgba(238,242,255,0.85);border-bottom:1px solid #c7d2fe;font-size:11px;color:#1e3a8a !important;font-weight:800;">
@@ -289,7 +289,7 @@ window.slipTemplates = [
             <img src="${d.logoSrc}" style="height:42px;object-fit:contain;" alt="Logo" />
             <div style="font-size:18px;font-weight:900;color:#1e3a8a !important;letter-spacing:0.5px;text-transform:uppercase;">${d.schoolName}</div>
           </div>
-          <div style="font-size:11px;color:#1e3a8a !important;margin-top:1px;font-weight:800;">Prem Nagar Tapin North, Ramgarh(JH)</div>
+          <div style="font-size:11px;color:#1e3a8a !important;margin-top:1px;font-weight:800;">${d.schoolAddr || (typeof window !== "undefined" && window.getSchoolMeta ? window.getSchoolMeta().campus : "Main Campus")}</div>
           <div style="margin-top:6px;display:inline-block;background-color:#1e3a8a !important;color:#ffffff !important;padding:6px 18px;font-size:12px;font-weight:900;text-transform:uppercase;border-radius:2px;">FEE SLIP</div>
         </div>
         <div style="display:flex;justify-content:space-between;padding:6px 10px;background-color:rgba(238,242,255,0.85);border-bottom:1px solid #c7d2fe;font-size:11px;color:#1e3a8a !important;font-weight:800;">
@@ -380,7 +380,7 @@ window.slipTemplates = [
             <img src="${d.logoSrc}" style="height:42px;object-fit:contain;" alt="Logo" />
             <div style="font-size:18px;font-weight:900;color:#1e3a8a !important;letter-spacing:0.5px;text-transform:uppercase;">${d.schoolName}</div>
           </div>
-          <div style="font-size:11px;color:#1e3a8a !important;margin-top:1px;font-weight:800;">Prem Nagar Tapin North, Ramgarh(JH)</div>
+          <div style="font-size:11px;color:#1e3a8a !important;margin-top:1px;font-weight:800;">${d.schoolAddr || (typeof window !== "undefined" && window.getSchoolMeta ? window.getSchoolMeta().campus : "Main Campus")}</div>
           <div style="margin-top:6px;display:inline-block;background-color:#1e3a8a !important;color:#ffffff !important;padding:6px 18px;font-size:12px;font-weight:900;text-transform:uppercase;border-radius:2px;">FEE SLIP</div>
         </div>
         <div style="display:flex;justify-content:space-between;padding:6px 10px;background-color:rgba(238,242,255,0.85);border-bottom:1px solid #c7d2fe;font-size:11px;color:#1e3a8a !important;font-weight:800;">
@@ -471,7 +471,7 @@ window.slipTemplates = [
             <img src="${d.logoSrc}" style="height:42px;object-fit:contain;" alt="Logo" />
             <div style="font-size:18px;font-weight:900;color:#1e3a8a !important;letter-spacing:0.5px;text-transform:uppercase;">${d.schoolName}</div>
           </div>
-          <div style="font-size:11px;color:#1e3a8a !important;margin-top:1px;font-weight:800;">Prem Nagar Tapin North, Ramgarh(JH)</div>
+          <div style="font-size:11px;color:#1e3a8a !important;margin-top:1px;font-weight:800;">${d.schoolAddr || (typeof window !== "undefined" && window.getSchoolMeta ? window.getSchoolMeta().campus : "Main Campus")}</div>
           <div style="margin-top:6px;display:inline-block;background-color:#1e3a8a !important;color:#ffffff !important;padding:6px 18px;font-size:12px;font-weight:900;text-transform:uppercase;border-radius:2px;">FEE SLIP</div>
         </div>
         <div style="display:flex;justify-content:space-between;padding:6px 10px;background-color:rgba(238,242,255,0.85);border-bottom:1px solid #c7d2fe;font-size:11px;color:#1e3a8a !important;font-weight:800;">
@@ -562,7 +562,7 @@ window.slipTemplates = [
             <img src="${d.logoSrc}" style="height:42px;object-fit:contain;" alt="Logo" />
             <div style="font-size:18px;font-weight:900;color:#1e3a8a !important;letter-spacing:0.5px;text-transform:uppercase;">${d.schoolName}</div>
           </div>
-          <div style="font-size:11px;color:#1e3a8a !important;margin-top:1px;font-weight:800;">Prem Nagar Tapin North, Ramgarh(JH)</div>
+          <div style="font-size:11px;color:#1e3a8a !important;margin-top:1px;font-weight:800;">${d.schoolAddr || (typeof window !== "undefined" && window.getSchoolMeta ? window.getSchoolMeta().campus : "Main Campus")}</div>
           <div style="margin-top:6px;display:inline-block;background-color:#1e3a8a !important;color:#ffffff !important;padding:6px 18px;font-size:12px;font-weight:900;text-transform:uppercase;border-radius:2px;">FEE SLIP</div>
         </div>
         <div style="display:flex;justify-content:space-between;padding:6px 10px;background-color:rgba(238,242,255,0.85);border-bottom:1px solid #c7d2fe;font-size:11px;color:#1e3a8a !important;font-weight:800;">
@@ -653,7 +653,7 @@ window.slipTemplates = [
             <img src="${d.logoSrc}" style="height:42px;object-fit:contain;" alt="Logo" />
             <div style="font-size:18px;font-weight:900;color:#1e3a8a !important;letter-spacing:0.5px;text-transform:uppercase;">${d.schoolName}</div>
           </div>
-          <div style="font-size:11px;color:#1e3a8a !important;margin-top:1px;font-weight:800;">Prem Nagar Tapin North, Ramgarh(JH)</div>
+          <div style="font-size:11px;color:#1e3a8a !important;margin-top:1px;font-weight:800;">${d.schoolAddr || (typeof window !== "undefined" && window.getSchoolMeta ? window.getSchoolMeta().campus : "Main Campus")}</div>
           <div style="margin-top:6px;display:inline-block;background-color:#1e3a8a !important;color:#ffffff !important;padding:6px 18px;font-size:12px;font-weight:900;text-transform:uppercase;border-radius:2px;">FEE SLIP</div>
         </div>
         <div style="display:flex;justify-content:space-between;padding:6px 10px;background-color:rgba(238,242,255,0.85);border-bottom:1px solid #c7d2fe;font-size:11px;color:#1e3a8a !important;font-weight:800;">
@@ -744,7 +744,7 @@ window.slipTemplates = [
             <img src="${d.logoSrc}" style="height:42px;object-fit:contain;" alt="Logo" />
             <div style="font-size:18px;font-weight:900;color:#1e3a8a !important;letter-spacing:0.5px;text-transform:uppercase;">${d.schoolName}</div>
           </div>
-          <div style="font-size:11px;color:#1e3a8a !important;margin-top:1px;font-weight:800;">Prem Nagar Tapin North, Ramgarh(JH)</div>
+          <div style="font-size:11px;color:#1e3a8a !important;margin-top:1px;font-weight:800;">${d.schoolAddr || (typeof window !== "undefined" && window.getSchoolMeta ? window.getSchoolMeta().campus : "Main Campus")}</div>
           <div style="margin-top:6px;display:inline-block;background-color:#1e3a8a !important;color:#ffffff !important;padding:6px 18px;font-size:12px;font-weight:900;text-transform:uppercase;border-radius:2px;">FEE SLIP</div>
         </div>
         <div style="display:flex;justify-content:space-between;padding:6px 10px;background-color:rgba(238,242,255,0.85);border-bottom:1px solid #c7d2fe;font-size:11px;color:#1e3a8a !important;font-weight:800;">
@@ -835,7 +835,7 @@ window.slipTemplates = [
             <img src="${d.logoSrc}" style="height:42px;object-fit:contain;" alt="Logo" />
             <div style="font-size:18px;font-weight:900;color:#1e3a8a !important;letter-spacing:0.5px;text-transform:uppercase;">${d.schoolName}</div>
           </div>
-          <div style="font-size:11px;color:#1e3a8a !important;margin-top:1px;font-weight:800;">Prem Nagar Tapin North, Ramgarh(JH)</div>
+          <div style="font-size:11px;color:#1e3a8a !important;margin-top:1px;font-weight:800;">${d.schoolAddr || (typeof window !== "undefined" && window.getSchoolMeta ? window.getSchoolMeta().campus : "Main Campus")}</div>
           <div style="margin-top:6px;display:inline-block;background-color:#1e3a8a !important;color:#ffffff !important;padding:6px 18px;font-size:12px;font-weight:900;text-transform:uppercase;border-radius:2px;">FEE SLIP</div>
         </div>
         <div style="display:flex;justify-content:space-between;padding:6px 10px;background-color:rgba(238,242,255,0.85);border-bottom:1px solid #c7d2fe;font-size:11px;color:#1e3a8a !important;font-weight:800;">

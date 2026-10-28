@@ -4350,8 +4350,8 @@
               <img src="${logoSrc}" style="max-width:21mm; max-height:19.5mm; object-fit:contain;" alt="Logo" onerror="this.src='school_logo.png'" />
             </div>
             <div style="flex:1; text-align:center; padding:0 3px;">
-              <div style="font-family:'Cinzel', serif, 'Times New Roman'; font-size:15.2pt; font-weight:900; color:#1e3a8a; letter-spacing:0.8px; line-height:1.05; margin:1px 0;">TAPOWAN PUBLIC SCHOOL</div>
-              <div style="font-size:6pt; font-weight:700; color:#334155; margin-bottom:1.5px;">Prem Nagar, Banjee, Tapin, Ramgarh, Jharkhand - 825314 | Helpline: 87577 44973, 62991 22869</div>
+              <div style="font-family:'Cinzel', serif, 'Times New Roman'; font-size:15.2pt; font-weight:900; color:#1e3a8a; letter-spacing:0.8px; line-height:1.05; margin:1px 0;">${(getSchoolName() || "SCHOOL").toUpperCase()}</div>
+              <div style="font-size:6pt; font-weight:700; color:#334155; margin-bottom:1.5px;">${getSchoolAddr() || "School Campus"} | Helpline: ${getSchoolPhone() || ""}</div>
               <div style="margin:1px 0;">
                 <span contenteditable="true" style="background:#1e3a8a; color:#ffffff; font-size:7.2pt; font-weight:800; padding:1px 12px; border-radius:2.5px; letter-spacing:0.6px; display:inline-block; cursor:text;">${displayExamTitle}</span>
               </div>
@@ -4368,8 +4368,8 @@
 
           <!-- School & Center Bar -->
           <div style="display:flex; justify-content:space-between; background:#f1f5f9; border:1px solid #cbd5e1; padding:1.5px 5px; font-size:6.8pt; margin-bottom:2px;">
-            <div><strong>School Code & Name:</strong> 825314 - TAPOWAN PUBLIC SCHOOL, RAMGARH</div>
-            <div style="text-align:right;"><strong>Exam Centre:</strong> TPS MAIN CAMPUS (RAMGARH)</div>
+            <div><strong>School Code & Name:</strong> ${getSchoolCode() || "SCH-01"} - ${(getSchoolName() || "SCHOOL").toUpperCase()}</div>
+            <div style="text-align:right;"><strong>Exam Centre:</strong> ${(getSchoolName() || "SCHOOL").toUpperCase()} MAIN CAMPUS</div>
           </div>
 
           <!-- Details Grid & Photo -->
@@ -4461,7 +4461,7 @@
           <div style="text-align:center; width:30%; position:relative;">
             <div style="position:absolute; top:-12px; left:20%; border:1px dashed #b91c1c; color:#b91c1c; font-size:5pt; font-weight:800; padding:1px 4px; border-radius:50%; transform:rotate(-12deg); opacity:0.7;">SEAL</div>
             <div style="border-top:1px solid #475569; margin-bottom:2px; width:80%; margin-left:auto; margin-right:auto;"></div>
-            <div style="font-size:5.6pt; font-weight:600; color:#334155; line-height:1.15;"><strong>प्रधानाचार्य / Principal</strong><br>Tapowan Public School</div>
+            <div style="font-size:5.6pt; font-weight:600; color:#334155; line-height:1.15;"><strong>प्रधानाचार्य / Principal</strong><br>${getSchoolName()}</div>
           </div>
         </div>
 
@@ -4977,7 +4977,7 @@
                 CBSE AFFILIATED PATTERN • AN ENGLISH MEDIUM CO-ED INSTITUTION
               </div>
               <div style="font-family:'Cinzel', 'Times New Roman', serif; font-size:17.5pt; font-weight:900; color:#0f2b5c; letter-spacing:1.2px; line-height:1.1; margin-bottom:1px; text-shadow: 0 1px 2px rgba(15,43,92,0.1);">
-                TAPOWAN PUBLIC SCHOOL
+                ${(getSchoolName() || 'SCHOOL').toUpperCase()}
               </div>
               <div style="font-size:7pt; font-weight:700; color:#475569; margin-bottom:3px;">
                 ${getSchoolAddr() || 'School Campus'} | Helpline: ${getSchoolPhone() || ''}
@@ -5008,8 +5008,8 @@
 
           <!-- School & Center Bar -->
           <div style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; border:1px solid #cbd5e1; border-left:3.5px solid #0f2b5c; padding:2.5px 8px; font-size:7.8pt; margin-bottom:5px; border-radius:4px;">
-            <div><strong style="color:#0f2b5c;">School Code & Name:</strong> 825314 • TAPOWAN PUBLIC SCHOOL, RAMGARH</div>
-            <div style="text-align:right;"><strong style="color:#0f2b5c;">Exam Centre:</strong> TPS MAIN CAMPUS (RAMGARH)</div>
+            <div><strong style="color:#0f2b5c;">School Code & Name:</strong> ${getSchoolCode() || "SCH-01"} • ${(getSchoolName() || "SCHOOL").toUpperCase()}</div>
+            <div style="text-align:right;"><strong style="color:#0f2b5c;">Exam Centre:</strong> ${(getSchoolName() || "SCHOOL").toUpperCase()} MAIN CAMPUS</div>
           </div>
 
           <!-- Student Profile Dossier & Photo -->
@@ -5458,7 +5458,7 @@ function generateDynamicMarksheet(exam, themeId, config) {
 
     return `
       <!-- JAC 10TH INSPIRED ADMIT CARD WITH SECURITY MICRO-TEXT PATTERN -->
-      <div style="width:100%; height:100%; box-sizing:border-box; border:2.5px double #991b1b; padding:4mm 5mm 3mm 5mm; display:flex; flex-direction:column; justify-content:space-between; background-color:#ffffff; background-image:url(&quot;data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='36' viewBox='0 0 180 36'><text x='0' y='12' font-family='sans-serif' font-size='5' font-weight='800' fill='rgba(153,27,27,0.045)' letter-spacing='0.5'>TAPOWAN PUBLIC SCHOOL</text><text x='20' y='28' font-family='sans-serif' font-size='5' font-weight='800' fill='rgba(153,27,27,0.045)' letter-spacing='0.5'>TAPOWAN PUBLIC SCHOOL</text></svg>&quot;); background-repeat:repeat; font-family:'Times New Roman', Times, serif; color:#000000; position:relative; overflow:hidden;">
+      <div style="width:100%; height:100%; box-sizing:border-box; border:2.5px double #991b1b; padding:4mm 5mm 3mm 5mm; display:flex; flex-direction:column; justify-content:space-between; background-color:#ffffff; background-image:url(&quot;data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='36' viewBox='0 0 180 36'><text x='0' y='12' font-family='sans-serif' font-size='5' font-weight='800' fill='rgba(153,27,27,0.045)' letter-spacing='0.5'>${(getSchoolName() || 'SCHOOL').toUpperCase()}</text><text x='20' y='28' font-family='sans-serif' font-size='5' font-weight='800' fill='rgba(153,27,27,0.045)' letter-spacing='0.5'>${(getSchoolName() || 'SCHOOL').toUpperCase()}</text></svg>&quot;); background-repeat:repeat; font-family:'Times New Roman', Times, serif; color:#000000; position:relative; overflow:hidden;">
         
         <!-- Center Emblem Watermark -->
         <img src="${logoSrc}" style="position:absolute; top:52%; left:50%; transform:translate(-50%,-50%); width:180px; height:180px; object-fit:contain; opacity:0.06; pointer-events:none; z-index:0;" alt="" onerror="this.style.display='none';" />
@@ -5479,10 +5479,10 @@ function generateDynamicMarksheet(exam, themeId, config) {
             <!-- Titles -->
             <div style="flex:1; text-align:center; padding:0 4px;">
               <div style="font-size:15pt; font-weight:900; color:#991b1b; letter-spacing:0.5px; line-height:1;">
-                TAPOWAN PUBLIC SCHOOL
+                ${(getSchoolName() || 'SCHOOL').toUpperCase()}
               </div>
               <div style="font-size:9.5pt; font-weight:900; color:#991b1b; letter-spacing:1px; margin-top:1px;">
-                RAMGARH, JHARKHAND
+                ${(getSchoolAddr() || '').toUpperCase()}
               </div>
               <div style="font-size:8.5pt; font-weight:900; color:#991b1b; letter-spacing:0.5px; margin-top:2px; text-transform:uppercase;">
                 ${examName || 'ANNUAL SECONDARY EXAMINATION - 2026'}
@@ -5639,7 +5639,7 @@ function generateDynamicMarksheet(exam, themeId, config) {
 
     return `
       <!-- JAC BOARD AUTHENTIC CERTIFICATE WITH MICRO-TEXT SECURITY PATTERN -->
-      <div style="width:100%; height:277mm; min-height:277mm; max-height:277mm; box-sizing:border-box; border:3px double #991b1b; padding:6mm 8mm 6mm 8mm; display:flex; flex-direction:column; justify-content:space-between; background-color:#ffffff; background-image:url(&quot;data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='36' viewBox='0 0 180 36'><text x='0' y='12' font-family='sans-serif' font-size='5' font-weight='800' fill='rgba(153,27,27,0.045)' letter-spacing='0.5'>TAPOWAN PUBLIC SCHOOL</text><text x='20' y='28' font-family='sans-serif' font-size='5' font-weight='800' fill='rgba(153,27,27,0.045)' letter-spacing='0.5'>TAPOWAN PUBLIC SCHOOL</text></svg>&quot;); background-repeat:repeat; font-family:'Times New Roman', Times, serif; color:#000000; position:relative; overflow:hidden;">
+      <div style="width:100%; height:277mm; min-height:277mm; max-height:277mm; box-sizing:border-box; border:3px double #991b1b; padding:6mm 8mm 6mm 8mm; display:flex; flex-direction:column; justify-content:space-between; background-color:#ffffff; background-image:url(&quot;data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='36' viewBox='0 0 180 36'><text x='0' y='12' font-family='sans-serif' font-size='5' font-weight='800' fill='rgba(153,27,27,0.045)' letter-spacing='0.5'>${(getSchoolName() || 'SCHOOL').toUpperCase()}</text><text x='20' y='28' font-family='sans-serif' font-size='5' font-weight='800' fill='rgba(153,27,27,0.045)' letter-spacing='0.5'>${(getSchoolName() || 'SCHOOL').toUpperCase()}</text></svg>&quot;); background-repeat:repeat; font-family:'Times New Roman', Times, serif; color:#000000; position:relative; overflow:hidden;">
         
         <!-- Central Giant Emblem Watermark -->
         <img src="${logoSrc}" style="position:absolute; top:52%; left:50%; transform:translate(-50%,-50%); width:320px; height:320px; object-fit:contain; opacity:0.06; pointer-events:none; z-index:0;" alt="" onerror="this.style.display='none';" />
@@ -5662,10 +5662,10 @@ function generateDynamicMarksheet(exam, themeId, config) {
             <!-- Main Council Titles -->
             <div style="flex:1; text-align:center; padding:0 8px;">
               <div style="font-size:20pt; font-weight:900; color:#991b1b; letter-spacing:1px; line-height:1; text-shadow:0 1px 1px rgba(153,27,27,0.1);">
-                TAPOWAN PUBLIC SCHOOL
+                ${(getSchoolName() || 'SCHOOL').toUpperCase()}
               </div>
               <div style="font-size:13pt; font-weight:900; color:#991b1b; letter-spacing:2px; margin-top:2px;">
-                RAMGARH, JHARKHAND
+                ${(getSchoolAddr() || '').toUpperCase()}
               </div>
               <div style="font-size:10.5pt; font-weight:900; color:#991b1b; letter-spacing:1px; margin-top:3px; text-transform:uppercase;">
                 ${exam.examName || 'ANNUAL SECONDARY EXAMINATION - 2026'}
@@ -5952,7 +5952,7 @@ function generateDynamicMarksheet(exam, themeId, config) {
       template = template.replace(/{motherName}/g, student.motherName || '-');
       template = template.replace(/{examName}/g, examName || '-');
       
-      const schoolName = store.schoolProfile ? store.schoolProfile.schoolName : "Tapowan Public School";
+      const schoolName = getSchoolName();
       template = template.replace(/{schoolName}/g, schoolName);
       
       const photoUrl = getStudentPhotoUri(student, student.id || student.admissionNo) || DEFAULT_SCHOOL_LOGO;
@@ -6248,7 +6248,7 @@ function generateDynamicMarksheet(exam, themeId, config) {
       template = template.replace(/{grade}/g, exam.grade || '-');
       template = template.replace(/{resultStatus}/g, exam.resultStatus || '-');
       
-      const schoolName = store.schoolProfile ? store.schoolProfile.schoolName : "Tapowan Public School";
+      const schoolName = getSchoolName();
       template = template.replace(/{schoolName}/g, schoolName);
       
       const photoUrl = getStudentPhotoUri(exam, exam.admissionNo || exam.admNo) || DEFAULT_SCHOOL_LOGO;
@@ -6269,7 +6269,7 @@ function generateDynamicMarksheet(exam, themeId, config) {
 
   function getDetailedGraphResultHtml(exam, theme, config) {
     const store = typeof getStore !== 'undefined' ? getStore() : {};
-    const schoolName = store.schoolName || "TAPOWAN PUBLIC SCHOOL";
+    const schoolName = (getSchoolName() || "SCHOOL").toUpperCase();
     const c = config || { color: '#0f172a', font: "'Times New Roman', serif", border: 'solid', bgColor: '#ffffff', bgType: 'solid', bgImage: 'none' };
     const fontColorStyle = c.fontColor ? `color: ${c.fontColor} !important;` : '';
     const bgStyle = c.bgImage && c.bgImage !== 'none' ? `background-image: url('${c.bgImage}'); background-size: cover; background-position: center;` : (c.bgType === 'gradient' ? `background: linear-gradient(135deg, ${c.bgColor}, ${c.bgColor2});` : `background-color: ${c.bgColor};`);
@@ -6400,9 +6400,9 @@ function generateDynamicMarksheet(exam, themeId, config) {
                 <div style="margin: 0 90px;">
                     <h1 style="margin: 0; font-size: 20px; font-weight: bold; color: ${c.color}; text-transform: uppercase;">${schoolName}</h1>
                     <div style="font-weight: bold; font-size: 12px; margin: 2px 0;">U-DISE NO. ${store.schoolDise || '20241202412'}</div>
-                    <div style="font-size: 10px; font-style: italic; margin-bottom: 2px;">${store.schoolAddress || 'Prem Nagar, Tapin North, Ramgarh Jharkhand.'}</div>
+                    <div style="font-size: 10px; font-style: italic; margin-bottom: 2px;">${store.schoolAddress || getSchoolAddr() || 'School Campus'}</div>
                     <div style="font-size: 10px;">
-                        <span style="margin-right: 15px;">E-mail: ${store.schoolEmail || 'thetapowanpublicschool@gmail.com'}</span>
+                        <span style="margin-right: 15px;">E-mail: ${store.schoolEmail || getSchoolEmail() || ''}</span>
                         <span>Contact: ${store.schoolPhone || '+91 62011 67306'}</span>
                     </div>
                 </div>
@@ -6595,7 +6595,7 @@ function getMarksheetHtml(exam, theme, config) {
       const displayThemePercentage = (evalStatus && evalStatus.overallStats && evalStatus.overallStats.percentage > 0) ? evalStatus.overallStats.percentage : (exam.percentage || 0);
       const displayThemeGrade = (exam.grade && exam.grade !== 'null' && exam.grade !== 'undefined') ? ((evalStatus.overallStats.grandTotal > 0 && exam.totalMarks != evalStatus.overallStats.grandTotal) ? getGrade(displayThemePercentage) : exam.grade) : getGrade(displayThemePercentage);
 
-      const schoolName = "Tapowan Public School";
+      const schoolName = getSchoolName();
       const admNo = exam.admissionNo || '-';
 
       if (theme === 'state') {
@@ -8812,7 +8812,7 @@ function getConsolidatedResultHtml(stdGroup, reqExams, student, config) {
     const c = config || { color: '#0f172a', font: "'Times New Roman', serif", border: 'solid' };
     const borderVal = c.border === 'none' ? 'none' : `4px ${c.border} ${c.color}`;
     const photoUrl = getStudentPhotoUri(student, student?.id || student?.admissionNo) || getStudentPhotoUri(stdGroup.exams[0]?.studentPhoto, stdGroup.exams[0]?.admissionNo) || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='%23e2e8f0' viewBox='0 0 24 24'><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>";
-    const schoolName = "Tapowan Public School";
+    const schoolName = getSchoolName();
     const bgStyle = config.bgImage !== 'none' ? `background-image: url('${config.bgImage}'); background-size: cover; background-position: center;` : (config.bgType === 'gradient' ? `background: linear-gradient(135deg, ${config.bgColor}, ${config.bgColor2});` : `background-color: ${config.bgColor};`);
     const fontColorStyle = config.fontColor ? `color: ${config.fontColor} !important;` : '';
     

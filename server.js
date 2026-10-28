@@ -179,6 +179,27 @@ const {
 
 const app = express();
 
+let _cachedSchoolName = process.env.SCHOOL_NAME || null;
+function getServerSchoolNameSync() { return _cachedSchoolName || process.env.SCHOOL_NAME || "School"; }
+let _cachedSchoolNameTime = 0;
+async function getServerSchoolName() {
+  if (process.env.SCHOOL_NAME) return process.env.SCHOOL_NAME;
+  const now = Date.now();
+  if (_cachedSchoolName && (now - _cachedSchoolNameTime) < 60000) {
+    return _cachedSchoolName;
+  }
+  try {
+    const res = await db.execute({ sql: "SELECT value FROM settings WHERE key = 'school_name' LIMIT 1" }).catch(() => null);
+    if (res && res.rows && res.rows.length > 0 && res.rows[0].value) {
+      _cachedSchoolName = String(res.rows[0].value).trim();
+      _cachedSchoolNameTime = now;
+      return _cachedSchoolName;
+    }
+  } catch (_) {}
+  return "School";
+}
+
+
 // ── Next-Generation High-Performance Zstandard (zstd) / Brotli / Gzip Compression ──
 function zstdCompressionMiddleware(options = {}) {
   const threshold = options.threshold !== undefined ? options.threshold : 0;
@@ -2775,7 +2796,8 @@ SPECIAL ADMIN POWERS & AUTHORIZATION:
 - You can add school announcements using: [ACTION: ADD_NOTIFICATION, msg: "Text"]
 ` : "";
 
-  return `You are "Vidya", the internal School Management Assistant for Tapowan Public School.
+  const _sName = getServerSchoolNameSync();
+  return `You are "Vidya", the internal School Management Assistant for ${_sName}.
 You are a highly efficient, friendly, and professional staff assistant.
 Speak in whatever language the user uses (Hindi, English, or Hinglish).
 Max response length: 4-5 sentences.
@@ -3107,7 +3129,8 @@ ${allStudentsList}
 
     let systemInstruction = "";
     if (isAdmin) {
-      systemInstruction = `You are the Direct Database Access Tool for the Tapowan Public School Administrator.
+      const _sNameDb = await getServerSchoolName();
+    systemInstruction = `You are the Direct Database Access Tool for the ${_sNameDb} Administrator.
 The user is the SYSTEM ADMINISTRATOR. They have full legal and administrative rights to all data.
 DATA CONTEXT:
 ${dynamicContext}
@@ -3707,7 +3730,8 @@ Detailed Dues: ${sf.map(f => `${f.term}: ₹${f.balance}`).join(", ") || "None"}
         console.warn("[Voice AI] DB fetch failed", e);
     }
     
-    let systemInstruction = `You are Vidya AI, the Tapowan Public School Receptionist answering a phone call.
+    const _sNameRec = await getServerSchoolName();
+  let systemInstruction = `You are Vidya AI, the ${_sNameRec} Receptionist answering a phone call.
 You have direct database access.
 DATA CONTEXT:
 ${dynamicContext}
@@ -5677,7 +5701,7 @@ app.post("/api/voice-notifications/send", authRequired, async (req, res) => {
           sql: `INSERT INTO app_notices (title, content, date, category, is_active, created_at) VALUES (?, ?, ?, 'Voice Announcement', 1, CURRENT_TIMESTAMP)`,
           args: [
             `🎙️ ${cleanTitle}`,
-            cleanMessage || "🎙️ Voice Announcement from Tapowan Public School. Auto-playing audio announcement.",
+            cleanMessage || `🎙️ Voice Announcement from ${await getServerSchoolName()}. Auto-playing audio announcement.`,
             today
           ]
         });
@@ -7047,7 +7071,8 @@ app.post("/api/voice-receptionist", authRequired, express.json(), async (req, re
       phone: t.phone
     }));
 
-    const systemPrompt = `You are an AI receptionist for Tapowan Public School. Be polite, concise, and helpful. Keep your answers brief (1-3 short sentences max) because you are speaking out loud.
+    const _sNameAi = await getServerSchoolName();
+    const systemPrompt = `You are an AI receptionist for ${_sNameAi}. Be polite, concise, and helpful. Keep your answers brief (1-3 short sentences max) because you are speaking out loud.
 IMPORTANT: You MUST respond ONLY in Hindi (using Latin/Hinglish script or Devanagari). Never reply in English.
 If the visitor asks about a student, look them up in the provided JSON data. If they ask about fees, provide the due amount.
 If the visitor mentions a student name (e.g. "alim amber"), look for an exact match first. Only if an exact match is NOT found, then use your best judgement to find the closest match based on phonetic or spelling variations (e.g. "aalim amber", "alim raza").
@@ -7220,8 +7245,8 @@ if (!process.env.IS_CLOUD) {
       cert.validity.notAfter.setFullYear(cert.validity.notBefore.getFullYear() + 10);
 
       const attrs = [
-        { name: 'commonName', value: 'Tapowan Public School' },
-        { name: 'organizationName', value: 'Tapowan Public School' },
+        { name: 'commonName', value: (process.env.SCHOOL_NAME || 'EduCore School') },
+        { name: 'organizationName', value: (process.env.SCHOOL_NAME || 'EduCore School') },
         { name: 'countryName', value: 'IN' }
       ];
       cert.setSubject(attrs);

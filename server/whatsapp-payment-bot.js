@@ -256,7 +256,7 @@ async function notifyAdminNewPayment(paymentData, waSock = null) {
     });
 
     const alertMessage = 
-`🔔 *TAPOWAN PUBLIC SCHOOL — NEW PAYMENT ALERT*
+`🔔 *${(process.env.SCHOOL_NAME || 'School').toUpperCase()} — NEW PAYMENT ALERT*
 ───────────────────────────────
 👤 *Student:* ${student_name}
 🎓 *Class:* ${class_name}${roll_no ? ` | *Roll:* ${roll_no}` : ''}
@@ -671,7 +671,7 @@ _${schoolName || 'School'} — Automated Finance Gateway_`;
   // Send WhatsApp Receipt to Student / Parent if phone available
   if (settings.autoNotifyStudent && result.studentPhone) {
     const studentReceiptMsg = 
-`🏫 *TAPOWAN PUBLIC SCHOOL*
+`🏫 *${(process.env.SCHOOL_NAME || 'School').toUpperCase()}*
 🎉 *FEE PAYMENT VERIFIED & APPROVED*
 ───────────────────────────────
 Dear Parent / Student,

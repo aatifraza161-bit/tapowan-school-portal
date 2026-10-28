@@ -16,7 +16,7 @@ const { initiateCall } = require('./calls');
 const { sendWhatsAppMessage } = require('./whatsapp-payment-bot');
 
 const SCHOOL_UPI_VPA = '6201167306@ucobank';
-const SCHOOL_PAYEE_NAME = 'TAPOWAN PUBLIC SCHOOL';
+const SCHOOL_PAYEE_NAME = (process.env.SCHOOL_NAME || 'School').toUpperCase();
 const SCHOOL_MERCHANT_CODE = '8299';
 const SCHOOL_ORG_ID = '159028';
 
@@ -360,8 +360,8 @@ async function handleIvrKeypress({
 
     if (targetPhone) {
       const waMessage = 
-`🏫 *TAPOWAN PUBLIC SCHOOL*
-📍 *Prem Nagar, Tapin North, Ramgarh, Jharkhand*
+`🏫 **
+📍 **
 ───────────────────────────────
 🔔 *FEE PAYMENT LINK & OFFICIAL UPI QR*
 

@@ -1,6 +1,6 @@
 // public/transport_gps_module.js
 // Official Real Google Maps Tracking & Telematics Engine for Tapowan Public School
-// Covering Prem Nagar Campus, Ramgarh Cantt, Mandu, Charhi, and Hazaribagh (NH-20 Corridor)
+// Covering Campus, Ramgarh Cantt, Mandu, Charhi, and Hazaribagh (NH-20 Corridor)
 // 100% Real Google Maps Site Embed — Zero Broken Image Tiles, High-Speed CDN, Live Vehicle Focus
 
 (function () {
@@ -32,11 +32,11 @@
   // Ramgarh - Hazaribagh Regional Corridor Presets (NH-20 / NH-33)
   const REGION_PRESETS = {
     campus: {
-      name: "🏫 Tapowan Campus (Prem Nagar)",
+      name: `🏫 ${schoolMeta.name || "School"} Campus`,
       lat: 23.8209682,
       lng: 85.5119629,
       zoom: 17,
-      query: "23.8209682,85.5119629(Tapowan+Public+School+Prem+Nagar)"
+      query: `${anchor.lat},${anchor.lng}(${encodeURIComponent(schoolMeta.name || "School")})`
     },
     corridor: {
       name: "🛣️ Ramgarh - Hazaribagh Corridor (NH-20)",
@@ -153,7 +153,7 @@
             <div class="van-hud-card">
               <div style="font-size:0.72rem; font-weight:800; text-transform:uppercase; color:#64748b; letter-spacing:0.5px;">Distance to Campus</div>
               <div id="hud_vanDistance" style="font-size:1.45rem; font-weight:900; color:#d97706; line-height:1.1;">-- <span style="font-size:0.8rem; font-weight:700; color:#64748b;">km</span></div>
-              <div id="hud_geofence" style="font-size:0.75rem; color:#64748b; font-weight:600;">Prem Nagar (50m Geofence)</div>
+              <div id="hud_geofence" style="font-size:0.75rem; color:#64748b; font-weight:600;">Campus (${anchor.radiusMeters || 50}m Geofence)</div>
             </div>
 
             <div class="van-hud-card">
@@ -216,7 +216,7 @@
                   <button type="button" class="corridor-jump-btn ${currentViewMode === 'route' ? 'active' : ''}" id="btn_focusRoute" style="background:#f0fdf4; border-color:#86efac; color:#166534;" title="Show real Google turn-by-turn driving route between the Van and Campus">
                     🛣️ Route: Van to School
                   </button>
-                  <button type="button" class="corridor-jump-btn ${currentViewMode === 'campus' ? 'active' : ''}" id="btn_focusCampus" title="Focus Tapowan Campus (Prem Nagar 50m Geofence)">
+                  <button type="button" class="corridor-jump-btn ${currentViewMode === 'campus' ? 'active' : ''}" id="btn_focusCampus" title="Focus Campus Geofence">
                     🏫 School Campus
                   </button>
                   <button type="button" class="corridor-jump-btn ${currentViewMode === 'corridor' ? 'active' : ''}" id="btn_focusCorridor" title="Show complete Ramgarh to Hazaribagh highway corridor">
@@ -287,7 +287,7 @@
                 </span>
                 <span style="display:flex; align-items:center; gap:4px;">
                   <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#d97706;"></span>
-                  <span>Prem Nagar Campus</span>
+                  <span>Campus</span>
                 </span>
                 <span style="display:flex; align-items:center; gap:4px;">
                   <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#3b82f6;"></span>
@@ -307,7 +307,7 @@
                     <span id="footer_vanNo">JH-02-VAN-01</span> &bull; <span id="footer_vanRoute" style="color:#64748b; font-weight:600;">Main Campus Route</span>
                   </div>
                   <div style="font-size:0.82rem; color:#475569; margin-top:2px;">
-                    <strong>Live Van Position:</strong> <span id="footer_vanCoords" style="font-family:monospace; color:#2563eb; font-weight:700;">23.819633° N, 85.511890° E</span> &bull; <span id="footer_vanAddress" style="color:#16a34a; font-weight:700;">Prem Nagar Campus, Tapowan Public School</span>
+                    <strong>Live Van Position:</strong> <span id="footer_vanCoords" style="font-family:monospace; color:#2563eb; font-weight:700;">23.819633° N, 85.511890° E</span> &bull; <span id="footer_vanAddress" style="color:#16a34a; font-weight:700;">${schoolMeta.name || "School"} Campus</span>
                   </div>
                 </div>
               </div>
@@ -847,7 +847,7 @@
                   distanceFromCampusKm: dist,
                   isInsideGeofence: isAtCampus,
                   etaMinutes: eta,
-                  address: r.address || (isAtCampus ? "Prem Nagar Campus, Tapowan Public School" : `En Route (${dist} km from campus)`),
+                  address: r.address || (isAtCampus ? `${schoolMeta.name || "School"} Campus` : `En Route (${dist} km from campus)`),
                   ageSeconds: ageSeconds
                 };
               });
@@ -987,7 +987,7 @@
       footerVanCoords.textContent = `${Number(van.latitude).toFixed(6)}° N, ${Number(van.longitude).toFixed(6)}° E`;
     }
     if (footerVanAddress) {
-      footerVanAddress.textContent = van.isInsideGeofence ? "Prem Nagar Campus, Tapowan Public School" : (van.address || `${van.distanceFromCampusKm} km from Prem Nagar Campus`);
+      footerVanAddress.textContent = van.isInsideGeofence ? `${schoolMeta.name || "School"} Campus` : (van.address || `${van.distanceFromCampusKm} km from Campus`);
     }
     if (footerGoogleMapsDir && van.latitude && van.longitude) {
       footerGoogleMapsDir.href = `https://www.google.com/maps/dir/?api=1&destination=${van.latitude},${van.longitude}`;

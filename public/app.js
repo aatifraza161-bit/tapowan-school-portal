@@ -2830,7 +2830,7 @@ function generateAdmissionPDF(student) {
   // Header
   doc.setFillColor(248, 250, 252); doc.rect(0, 0, 210, 45, 'F');
   doc.setFontSize(24); doc.setTextColor(...primary); doc.setFont("helvetica", "bold");
-  doc.text("TAPOWAN PUBLIC SCHOOL", 105, 20, { align: "center" });
+  doc.text(((typeof window !== "undefined" && window.getSchoolMeta ? window.getSchoolMeta().name : "SCHOOL") || "SCHOOL").toUpperCase(), 105, 20, { align: "center" });
   doc.setFontSize(10); doc.setTextColor(100); doc.text("Quality Education for a Brighter Future", 105, 28, { align: "center" });
   doc.setFontSize(14); doc.setTextColor(0); doc.text("STUDENT ADMISSION FORM", 105, 38, { align: "center" });
   
@@ -4054,7 +4054,7 @@ function renderTable() {
           }
         }
         if (key === "postedBy") {
-          return `<td style="white-space:nowrap; font-weight:600; color:#334155;"><span class="material-symbols-outlined" style="font-size:15px; vertical-align:middle; margin-right:3px; color:#2563eb;">account_balance</span>${escapeHtml(val || item.postedBy || 'Tapowan Admin')}</td>`;
+          return `<td style="white-space:nowrap; font-weight:600; color:#334155;"><span class="material-symbols-outlined" style="font-size:15px; vertical-align:middle; margin-right:3px; color:#2563eb;">account_balance</span>${escapeHtml(val || item.postedBy || ((typeof window !== "undefined" && window.getSchoolMeta ? window.getSchoolMeta().name : "School") + " Admin"))}</td>`;
         }
         if (key === "title") {
           const isUrgent = item.priority === "Urgent";
@@ -9984,13 +9984,13 @@ function buildTimetableCardHtml(daySelect, dayRecords, uniqueClasses, headerCols
         <div style="display:flex;align-items:center;gap:12px;">
           <img src="logo.png" style="width:40px;height:40px;object-fit:contain;" onerror="this.style.display='none'">
           <div>
-            <div style="font-size:19px;font-weight:900;color:#1e3a8a;letter-spacing:0.5px;line-height:1.1;">TAPOWAN PUBLIC SCHOOL</div>
+            <div style="font-size:19px;font-weight:900;color:#1e3a8a;letter-spacing:0.5px;line-height:1.1;">${((typeof window !== "undefined" && window.getSchoolMeta ? window.getSchoolMeta().name : "SCHOOL") || "SCHOOL").toUpperCase()}</div>
             <div style="font-size:11px;font-weight:800;color:#dc2626;letter-spacing:0.5px;margin-top:2px;text-transform:uppercase;">CLASS ROUTINE 2026–27  •  ${dayTitle}</div>
           </div>
         </div>
         <div style="text-align:right;">
           <div style="display:inline-block;background:#eff6ff;color:#2563eb;border:1.5px solid #bfdbfe;padding:3px 12px;border-radius:9999px;font-size:10.5px;font-weight:700;">Final Bell: 12:25 NOON</div>
-          <div style="font-size:9px;color:#64748b;font-weight:600;margin-top:2px;">Campus: Prem Nagar  •  Zero-Clash Verified</div>
+          <div style="font-size:9px;color:#64748b;font-weight:600;margin-top:2px;">Campus: ${(typeof window !== "undefined" && window.getSchoolMeta ? window.getSchoolMeta().campus : "Main Campus")}  •  Zero-Clash Verified</div>
         </div>
       </div>
 
@@ -10013,8 +10013,8 @@ function buildTimetableCardHtml(daySelect, dayRecords, uniqueClasses, headerCols
 
       <!-- Footer -->
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:9px;color:#64748b;font-weight:600;">
-        <div>Tapowan Public School ERP • Official Academic Routine</div>
-        <div>CBSE Pattern • 7 Daily Periods • 20 Min Recess • Prem Nagar Campus</div>
+        <div> ERP • Official Academic Routine</div>
+        <div> Pattern • 7 Daily Periods • 20 Min Recess • </div>
       </div>
     </div>
   `;
@@ -10644,7 +10644,7 @@ function printDocumentByModule() {
   // ── Students → Premium ID Cards ──────────────────────────────────────────
   if (currentModule === "students") {
     const fullHtml = generateIdCardsHTML(store);
-    openPrintWindowOrFallback(fullHtml, "Tapowan Public School — Student ID Cards Studio", { isInteractiveStudio: true });
+    openPrintWindowOrFallback(fullHtml, ((typeof window !== "undefined" && window.getSchoolMeta ? window.getSchoolMeta().name : "School") + " — Student ID Cards Studio"), { isInteractiveStudio: true });
     return;
   }
 
@@ -16098,7 +16098,7 @@ function patchApp() {
       if (currentModule === 'students') {
         const store = getStore();
         const fullHtml = generateIdCardsHTML(store);
-        openPrintWindowOrFallback(fullHtml, "Tapowan Public School — Student ID Cards Studio", { isInteractiveStudio: true });
+        openPrintWindowOrFallback(fullHtml, ((typeof window !== "undefined" && window.getSchoolMeta ? window.getSchoolMeta().name : "School") + " — Student ID Cards Studio"), { isInteractiveStudio: true });
       } else {
         _origPrint();
       }
@@ -17122,7 +17122,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
         <div style="background:linear-gradient(135deg,#0f4c75,#1b6ca8);padding:20px 28px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
           <div style="display:flex;align-items:center;gap:15px;">
             <div>
-              <div style="color:rgba(255,255,255,0.7);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.12em;margin-bottom:4px;">Tapowan Public School</div>
+              <div style="color:rgba(255,255,255,0.7);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.12em;margin-bottom:4px;">${((typeof window !== "undefined" && window.getSchoolMeta ? window.getSchoolMeta().name : "School") || "School").toUpperCase()}</div>
               <div style="color:#fff;font-size:1.4rem;font-weight:800;letter-spacing:-0.01em;display:flex;align-items:center;gap:8px;"><span class="material-symbols-outlined" style="font-size:26px;">account_balance</span> Finance & Investment Centre</div>
             </div>
             <span class="material-symbols-outlined finance-header-toggle" style="font-size:24px;color:#fff;opacity:0.8;cursor:pointer;transition:opacity 0.2s;" title="Toggle Global Finance Visibility">
@@ -20296,7 +20296,8 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
 (function () {
   "use strict";
 
-  const DEFAULT_TEMPLATE = `🏫 *Tapowan Public School*
+  const _sName = (typeof window !== "undefined" && window.getSchoolMeta ? window.getSchoolMeta().name : "School");
+  const DEFAULT_TEMPLATE = `🏫 *${_sName}*
 📢 Fee Due Reminder
 
 Dear *{parentName}*,
@@ -21410,7 +21411,7 @@ async function sendSmsFeeSlip(feeId) {
   const dueAmt = parseFloat(f.dueMgmtAmount) || 0;
   if (dueAmt > 0) feeLines.push(`Prev.Dues: Rs.${dueAmt.toLocaleString("en-IN")}`);
 
-  let msg = `Tapowan Public School\n`;
+  let msg = `${(typeof window !== "undefined" && window.getSchoolMeta ? window.getSchoolMeta().name : "School")}\n`;
   msg += `Fee Receipt - ${f.payId ? f.payId : today}\n`;
   msg += `Student: ${f.studentName || "N/A"}\n`;
   msg += `Class: ${f.className || "N/A"}`;
@@ -23210,7 +23211,7 @@ window.openAnnouncementPreview = function(id) {
             <span class="material-symbols-outlined" style="font-size:28px; color:#1e3a8a;">school</span>
           </div>
           <div>
-            <h2 style="margin:0; font-size:1.25rem; font-weight:800; letter-spacing:0.3px; color:#ffffff;">TAPOWAN PUBLIC SCHOOL</h2>
+            <h2 style="margin:0; font-size:1.25rem; font-weight:800; letter-spacing:0.3px; color:#ffffff;">${((typeof window !== "undefined" && window.getSchoolMeta ? window.getSchoolMeta().name : "SCHOOL") || "SCHOOL").toUpperCase()}</h2>
             <p style="margin:2px 0 0 0; font-size:0.8rem; color:#bfdbfe; font-weight:500;">Official Notice & Broadcast Portal</p>
           </div>
         </div>
@@ -23235,7 +23236,7 @@ window.openAnnouncementPreview = function(id) {
         </h3>
 
         <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px 16px; margin-bottom:18px; display:flex; justify-content:space-between; font-size:0.82rem; color:#475569; flex-wrap:wrap; gap:8px;">
-          <div style="display:flex; align-items:center; gap:4px;"><strong>Posted By:</strong> <span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle; color:#64748b;">account_balance</span> ${escapeHtml(ann.postedBy || 'Tapowan Admin')}</div>
+          <div style="display:flex; align-items:center; gap:4px;"><strong>Posted By:</strong> <span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle; color:#64748b;">account_balance</span> ${escapeHtml(ann.postedBy || ((typeof window !== "undefined" && window.getSchoolMeta ? window.getSchoolMeta().name : "School") + " Admin"))}</div>
           <div style="display:flex; align-items:center; gap:4px;"><strong>Audience:</strong> <span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle; color:#64748b;">target</span> ${escapeHtml(ann.targetAudience || 'All School')}</div>
           <div><strong>Priority:</strong> <span style="font-weight:700; color:${isUrgent ? '#dc2626' : '#2563eb'};">${ann.priority || 'Normal'}</span></div>
         </div>
@@ -23260,7 +23261,8 @@ window.shareAnnouncementWhatsApp = function(id) {
   const ann = (store.announcements || []).find(a => String(a.id) === String(id));
   if (!ann) return showToast("Announcement not found", "error");
 
-  const text = `*🏫 TAPOWAN PUBLIC SCHOOL*\n*📢 OFFICIAL NOTICE*\n--------------------------------\n*📌 Title:* ${ann.title || 'Announcement'}\n*🏷️ Category:* ${ann.category || 'General'}\n*🎯 Target:* ${ann.targetAudience || 'All School'}\n*📅 Date:* ${ann.date || 'Today'}\n*🏛️ From:* ${ann.postedBy || 'School Admin'}\n--------------------------------\n\n${ann.message || ''}\n\n_Tapowan Public School, Online Portal_`;
+  const _annSchool = (typeof window !== "undefined" && window.getSchoolMeta ? window.getSchoolMeta().name : "School");
+          const text = `*🏫 ${_annSchool.toUpperCase()}*\n*📢 OFFICIAL NOTICE*\n--------------------------------\n*📌 Title:* ${ann.title || 'Announcement'}\n*🏷️ Category:* ${ann.category || 'General'}\n*🎯 Target:* ${ann.targetAudience || 'All School'}\n*📅 Date:* ${ann.date || 'Today'}\n*🏛️ From:* ${ann.postedBy || 'School Admin'}\n--------------------------------\n\n${ann.message || ''}\n\n_${(typeof window !== "undefined" && window.getSchoolMeta ? window.getSchoolMeta().name : "School")}, Online Portal_`;
 
   window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
 };

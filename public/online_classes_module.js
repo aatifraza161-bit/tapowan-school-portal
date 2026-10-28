@@ -3022,7 +3022,7 @@
                   <span class="zoom-meeting-title-text" id="zoomMeetingTitleText">
                     ${isInspecting 
                       ? (isStealth ? '🕵️ Stealth Spy: ' : '👁️ Admin Observing: ') + safeTitle + ' (' + safeClass + ')' 
-                      : 'TAPOWAN PUBLIC SCHOOL\'s Zoom Meeting'}
+                      : ((typeof window !== 'undefined' && window.getSchoolMeta ? window.getSchoolMeta().name : 'School') + '\'s Live Meeting')}
                   </span>
                   
                   ${isInspecting ? `
@@ -3096,7 +3096,7 @@
               <!-- Meeting Canvas -->
               <div class="zoom-stage-canvas" id="zoomStageCanvas">
                 <!-- Pencil Sketch Centered Image (Hidden when inspecting) -->
-                <img id="zoomSketchPortrait" class="zoom-sketch-image" src="/zoom_sample_sketch.png" alt="TAPOWAN PUBLIC SCHOOL" style="display: ${isInspecting ? 'none' : 'block'};" />
+                <img id="zoomSketchPortrait" class="zoom-sketch-image" src="/zoom_sample_sketch.png" alt="${typeof window !== 'undefined' && window.getSchoolMeta ? window.getSchoolMeta().name : 'School'}" style="display: ${isInspecting ? 'none' : 'block'};" />
                 
                 <!-- Live Video Element (Turns on when camera starts) -->
                 <video id="liveClassMainVideo" class="zoom-live-video-element" autoplay playsinline muted style="display: none;"></video>
@@ -3142,7 +3142,7 @@
                     <span>👨‍🏫 Host: ${safeHost} (${safeClass})</span>
                   ` : `
                     <span class="material-symbols-outlined" id="zoomNameMicIcon" style="font-size: 15px; color: #ef4444;">mic_off</span>
-                    <span>TAPOWAN PUBLIC SCHOOL</span>
+                    <span>${((typeof window !== 'undefined' && window.getSchoolMeta ? window.getSchoolMeta().name : 'School') || 'School').toUpperCase()}</span>
                   `}
                 </div>
 
@@ -3160,7 +3160,7 @@
                       <div style="display: flex; align-items: center; gap: 10px;">
                         <div class="zoom-nav-avatar" style="width: 28px; height: 28px; font-size: 11px; background: #4338ca; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; font-weight: 700;">TP</div>
                         <div>
-                          <div style="font-size: 12.5px; font-weight: 700; color: #fff;">TAPOWAN PUBLIC SCHOOL</div>
+                          <div style="font-size: 12.5px; font-weight: 700; color: #fff;">${((typeof window !== 'undefined' && window.getSchoolMeta ? window.getSchoolMeta().name : 'School') || 'School').toUpperCase()}</div>
                           <div style="font-size: 10.5px; color: #a1a1aa;">${isInspecting ? (isStealth ? 'Incognito Spy' : 'Admin Observer') : 'Host, me'}</div>
                         </div>
                       </div>
@@ -3185,7 +3185,7 @@
                   </div>
                   <div class="zoom-drawer-body" id="zoomChatMessagesContainer">
                     <div style="background: rgba(255,255,255,0.04); padding: 10px 12px; border-radius: 8px; font-size: 12px; color: #a1a1aa;">
-                      Welcome to TAPOWAN Live Meeting. Messages sent here are visible to all students and teachers.
+                      Welcome to School Live Meeting. Messages sent here are visible to all students and teachers.
                     </div>
                   </div>
                   <div style="padding: 12px 16px; border-top: 1px solid #27272a; display: flex; flex-direction: column; gap: 8px;">
@@ -3420,7 +3420,7 @@
                 </div>
                 <div style="background: #18181b; border: 1px solid #27272a; border-radius: 12px; padding: 20px; min-height: 400px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
                   <span class="material-symbols-outlined" style="font-size: 48px; color: #0b5cff; margin-bottom: 12px;">chat_bubble</span>
-                  <div style="font-size: 16px; font-weight: 700; color: #fff;">TAPOWAN General Discussion Channel Active</div>
+                  <div style="font-size: 16px; font-weight: 700; color: #fff;">General Discussion Channel Active</div>
                   <div style="font-size: 13px; color: #a1a1aa; max-width: 440px; margin-top: 6px;">Use the in-meeting chat drawer during active video classes or broadcast alerts to students.</div>
                   <button onclick="window.zoomSwitchTab('home'); setTimeout(window.zoomToggleChat, 100);" style="margin-top: 16px; background: #0b5cff; color: white; border: none; padding: 9px 20px; border-radius: 8px; font-weight: 700; cursor: pointer;">Open In-Meeting Chat Drawer</button>
                 </div>
@@ -4013,7 +4013,7 @@
       if (container) {
         const msgDiv = document.createElement('div');
         msgDiv.style.cssText = 'background: #27272a; padding: 8px 12px; border-radius: 8px; margin-top: 6px;';
-        msgDiv.innerHTML = '<div style="font-size: 11px; font-weight: 700; color: #38bdf8; margin-bottom: 2px;">TAPOWAN (Host)</div><div style="font-size: 12.5px; color: #fff;">' + escapeHtml(val) + '</div>';
+        msgDiv.innerHTML = '<div style="font-size: 11px; font-weight: 700; color: #38bdf8; margin-bottom: 2px;">' + ((typeof window !== "undefined" && window.getSchoolMeta ? window.getSchoolMeta().name : "School")) + ' (Host)</div><div style="font-size: 12.5px; color: #fff;">' + escapeHtml(val) + '</div>';
         container.appendChild(msgDiv);
         container.scrollTop = container.scrollHeight;
       }
