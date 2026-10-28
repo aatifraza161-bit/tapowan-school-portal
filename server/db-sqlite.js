@@ -192,7 +192,8 @@ const db = {
         'Content-Type': 'application/json',
         'Accept-Encoding': 'zstd, br, gzip'
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(10000)
     });
 
     if (!res.ok) {
@@ -249,7 +250,8 @@ const db = {
         'Content-Type': 'application/json',
         'Accept-Encoding': 'zstd, br, gzip'
       },
-      body: JSON.stringify({ requests })
+      body: JSON.stringify({ requests }),
+      signal: AbortSignal.timeout(15000)
     });
 
     if (!res.ok) {
@@ -706,9 +708,18 @@ async function _insert(moduleName, payload) {
   const values = [payload.id, ...fields.map(f => payload[f] ?? "")];
   
   const res = await getDb(moduleName).execute({ sql: `INSERT INTO ${moduleName} (${cols}) VALUES (${placeholders})`, args: values });
-  invalidateStoreCache();
   const finalId = payload.id || Number(res.lastInsertRowid);
-  return await getById(moduleName, finalId);
+  const insertedRow = await getById(moduleName, finalId);
+  if (memoryStoreCache && Array.isArray(memoryStoreCache[moduleName]) && insertedRow) {
+    const existingIdx = memoryStoreCache[moduleName].findIndex(r => String(r.id) === String(insertedRow.id));
+    if (existingIdx !== -1) {
+      memoryStoreCache[moduleName][existingIdx] = insertedRow;
+    } else {
+      memoryStoreCache[moduleName].unshift(insertedRow);
+    }
+  }
+  invalidateStoreCache();
+  return insertedRow;
 }
 
 async function insert(moduleName, payload) {
@@ -797,7 +808,14 @@ async function _update(moduleName, id, payload) {
           } catch (e) {}
       }
   }
-  return await getById(moduleName, id);
+  const updatedRow = await getById(moduleName, id);
+  if (memoryStoreCache && Array.isArray(memoryStoreCache[moduleName]) && updatedRow) {
+    const idx = memoryStoreCache[moduleName].findIndex(r => String(r.id) === String(id));
+    if (idx !== -1) {
+      memoryStoreCache[moduleName][idx] = updatedRow;
+    }
+  }
+  return updatedRow;
 }
 
 async function update(moduleName, id, payload) {
@@ -841,6 +859,9 @@ async function _remove(moduleName, id) {
           } catch(e) {}
       }
   }
+  if (memoryStoreCache && Array.isArray(memoryStoreCache[moduleName])) {
+    memoryStoreCache[moduleName] = memoryStoreCache[moduleName].filter(r => String(r.id) !== String(finalId));
+  }
   invalidateStoreCache();
   return await getDb(moduleName).execute({ sql: `DELETE FROM ${moduleName} WHERE id = ?`, args: [finalId] });
 }
@@ -877,8 +898,10 @@ Object.keys(MODULES).forEach(m => {
   tableColsCache[m] = ['id', ...MODULES[m]];
 });
 
-function invalidateStoreCache() {
-  memoryStoreCache = null;
+function invalidateStoreCache(fullPurge = false) {
+  if (fullPurge) {
+    memoryStoreCache = null;
+  }
   memoryStoreCacheTime = 0;
   lastStoreVersion = Date.now();
 }
@@ -1217,20 +1240,23 @@ async function getStore(forceRefresh = false) {
     return memoryStoreCache;
   }
 
-  const store = {};
   const moduleKeys = Object.keys(MODULES).filter(m => m !== "faceEmbeddings");
-  // Parallel edge pipeline
+  const store = memoryStoreCache ? { ...memoryStoreCache } : {};
 
   try {
-    const results = await Promise.allSettled(moduleKeys.map(m => rawList(m)));
-    moduleKeys.forEach((m, idx) => {
-      if (results[idx].status === "fulfilled") {
-        store[m] = results[idx].value;
-      } else {
-        console.error(`[getStore] Failed to load module '${m}':`, results[idx].reason);
-        store[m] = [];
-      }
-    });
+    const BATCH_SIZE = 6;
+    for (let i = 0; i < moduleKeys.length; i += BATCH_SIZE) {
+      const chunk = moduleKeys.slice(i, i + BATCH_SIZE);
+      const results = await Promise.allSettled(chunk.map(m => rawList(m)));
+      chunk.forEach((m, idx) => {
+        if (results[idx].status === "fulfilled") {
+          store[m] = results[idx].value;
+        } else {
+          console.error(`[getStore] Failed to load module '${m}':`, results[idx].reason?.message || results[idx].reason);
+          if (!store[m]) store[m] = [];
+        }
+      });
+    }
     memoryStoreCache = store;
     memoryStoreCacheTime = Date.now();
     return store;

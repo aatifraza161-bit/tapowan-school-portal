@@ -646,10 +646,23 @@ function isTeacherOrAbove(user) {
   return getRoleLevel(user?.role) >= 2;
 }
 
-function authRequired(req, res, next) {
-  const authHeader = req.headers.authorization;
+function extractAuthToken(req) {
+  const authHeader = req.headers?.authorization;
   if (authHeader && authHeader.startsWith("Bearer ")) {
-    const token = authHeader.split(" ")[1];
+    return authHeader.split(" ")[1];
+  }
+  if (req.query && req.query.token) {
+    return req.query.token;
+  }
+  if (req.headers && req.headers["x-access-token"]) {
+    return req.headers["x-access-token"];
+  }
+  return null;
+}
+
+function authRequired(req, res, next) {
+  const token = extractAuthToken(req);
+  if (token) {
     const verifiedUser = verifyStatelessToken(token);
     if (verifiedUser) {
       req.session = req.session || {};
@@ -664,9 +677,8 @@ function authRequired(req, res, next) {
 }
 
 function adminRequired(req, res, next) {
-  const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith("Bearer ")) {
-    const token = authHeader.split(" ")[1];
+  const token = extractAuthToken(req);
+  if (token) {
     const verifiedUser = verifyStatelessToken(token);
     if (verifiedUser) {
       req.session = req.session || {};
@@ -679,9 +691,8 @@ function adminRequired(req, res, next) {
 }
 
 function canWrite(req, res, next) {
-  const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith("Bearer ")) {
-    const token = authHeader.split(" ")[1];
+  const token = extractAuthToken(req);
+  if (token) {
     const verifiedUser = verifyStatelessToken(token);
     if (verifiedUser) {
       req.session = req.session || {};
@@ -696,9 +707,8 @@ function canWrite(req, res, next) {
 }
 
 function canDelete(req, res, next) {
-  const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith("Bearer ")) {
-    const token = authHeader.split(" ")[1];
+  const token = extractAuthToken(req);
+  if (token) {
     const verifiedUser = verifyStatelessToken(token);
     if (verifiedUser) {
       req.session = req.session || {};
@@ -1387,8 +1397,16 @@ app.get("/api/online-payments/check-pending", async (req, res) => {
 });
 
 // 5. Get All Pending Online Payments for Web Admin Approval
-app.get("/api/online-payments/pending", authRequired, async (req, res) => {
+app.get("/api/online-payments/pending", async (req, res) => {
   try {
+    const token = extractAuthToken(req);
+    let user = req.session?.user;
+    if (token) {
+      user = verifyStatelessToken(token);
+    }
+    if (!user) {
+      return res.json({ ok: false, count: 0, payments: [] });
+    }
     const result = await db.execute({
       sql: `SELECT id, admission_no, student_name, class_name, roll_no, amount, status, payId, payment_method, utr_number, remarks, created_at 
             FROM app_online_payments 

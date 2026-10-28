@@ -1908,7 +1908,7 @@ async function api(path, options = {}) {
     const payload = await response.json().catch(() => ({}));
     // Auto-redirect to login if session expired — but ONLY if we were previously logged in
     // This prevents background polling from kicking the user out during/right after login
-    if (response.status === 401 && !path.includes("/auth/login") && !path.includes("/auth/me") && !path.includes("/auth/signup")) {
+    if (response.status === 401 && !path.includes("/auth/login") && !path.includes("/auth/me") && !path.includes("/auth/signup") && !path.includes("/online-payments/pending")) {
       if (currentUser && !window._sessionRedirectCooldown) {
         window._sessionRedirectCooldown = true;
         console.warn("[Session Expired] Redirecting to login...");
