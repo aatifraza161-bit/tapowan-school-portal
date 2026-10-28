@@ -1,17 +1,13 @@
 /**
- * Tapowan Public School (TPS) - Official Fee Structure Print Engine
+ * EduCore Multi-Tenant ERP - Official Fee Structure Print Engine
  * Provides pixel-perfect landscape document rendering, interactive preview modal,
- * browser printing pipeline, and PDF export matching the official school fee chart.
+ * browser printing pipeline, and PDF export matching the site's modern UI design system.
  */
 (function (global) {
   "use strict";
 
-  // Dynamic default data matching the official School Fee Chart
-  const DEFAULT_FEE_DATA = {
-    schoolName: ((typeof window !== "undefined" && typeof window.getSchoolMeta === "function" && window.getSchoolMeta().name) || "School").toUpperCase(),
-    subtitle: "OFFICIAL FEE STRUCTURE",
-    date: new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }).toUpperCase(),
-    location: ((typeof window !== "undefined" && typeof window.getSchoolMeta === "function" && window.getSchoolMeta().campus) || "Campus").split(",").slice(0, 2).join(",").trim(),
+  // Master baseline fee structure rows and class definitions
+  const MASTER_FEE_STRUCTURE_TEMPLATE = {
     classes: ["N/C", "LKG", "UKG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"],
     rows: [
       {
@@ -77,7 +73,7 @@
         type: "merged_end",
         values: ["400", "400", "400", "480", "480", "500", "500", "500", "500", "700", "700"],
         mergedColspan: 2,
-        mergedHtml: '<span style="font-weight:700; color:#153e75;">JAC: 700</span> &nbsp;|&nbsp; <span style="font-weight:700; color:#153e75;">CBSE: 800</span>'
+        mergedHtml: '<span style="font-weight:700; color:#1e3a8a;">JAC: 700</span> &nbsp;|&nbsp; <span style="font-weight:700; color:#2563eb;">CBSE: 800</span>'
       },
       {
         id: "exam",
@@ -86,7 +82,7 @@
         type: "merged_end",
         values: ["150/150", "150/150", "150/150", "200/200", "200/200", "200/200", "250/250", "250/250", "250/250", "250/250", "250/250"],
         mergedColspan: 2,
-        mergedHtml: '<div style="line-height:1.2; font-weight:700; color:#1e293b; font-size:11px;">As per Board<br>Instruction</div>'
+        mergedHtml: '<div style="line-height:1.2; font-weight:700; color:#475569; font-size:11px;">As per Board<br>Instruction</div>'
       },
       {
         id: "transport_van",
@@ -95,70 +91,92 @@
         type: "merged_distance",
         values: ["-", "-", "-", "-", "-", "-", "-", "-", "-"],
         mergedColspan: 4,
-        mergedHtml: '<span style="font-weight:600; color:#1e293b; font-size:12px;">Calculated as per distance</span>'
+        mergedHtml: '<span style="font-weight:600; color:#64748b; font-size:11.5px;">Calculated as per distance</span>'
       }
     ],
     footer: {
       examsBadge: "EXAMS",
-      examsText: "Two Periodic Tests & Two Academic Exams per year.",
-      noteBadge: "IMPORTANT NOTE",
-      noteText: 'Must pay "Yearly Payment" before the month of April.'
+      examsText: "Two Periodic Tests & Two Term Exams per academic session.",
+      noteBadge: "IMPORTANT",
+      noteText: 'Monthly tuition fees are payable by the 10th of each month. Yearly charges payable before April.'
     }
   };
 
   /**
-   * Helper to retrieve current school branding from profile or fallback
+   * Helper to retrieve current school branding dynamically from store or settings
    */
   function resolveSchoolBranding(overrides = {}) {
-    let currentSchoolName = "";
-    let currentLocation = "";
+    let sm = {};
     try {
       if (typeof global.getSchoolMeta === "function") {
-        const sm = global.getSchoolMeta();
-        if (sm && sm.name) currentSchoolName = sm.name.toUpperCase();
-        if (sm && (sm.campus || sm.address)) {
-          const parts = (sm.campus || sm.address).split(",");
-          currentLocation = parts.slice(0, 2).join(",").trim() || sm.campus || sm.address;
-        }
-      }
-      if (!currentSchoolName && global.store && global.store.schoolProfile && global.store.schoolProfile.schoolName) {
-        currentSchoolName = global.store.schoolProfile.schoolName.toUpperCase();
-      }
-      if (!currentLocation && global.store && global.store.schoolProfile && global.store.schoolProfile.schoolAddress) {
-        currentLocation = global.store.schoolProfile.schoolAddress.split(",").slice(0, 2).join(",").trim();
-      }
-      if (!currentSchoolName && typeof document !== "undefined" && document.title) {
-        const titleParts = document.title.split("—")[0].trim();
-        if (titleParts && !titleParts.toLowerCase().includes("educore")) {
-          currentSchoolName = titleParts.toUpperCase();
-        }
+        sm = global.getSchoolMeta() || {};
       }
     } catch (_) {}
+
+    const schoolProfile = (global.store && global.store.schoolProfile) || {};
+
+    // Detect school name dynamically
+    let sName = "";
+    if (sm.name && sm.name.trim()) {
+      sName = sm.name.trim();
+    } else if (schoolProfile.schoolName && schoolProfile.schoolName.trim()) {
+      sName = schoolProfile.schoolName.trim();
+    } else if (typeof document !== "undefined" && document.title) {
+      const parts = document.title.split("—")[0].trim();
+      if (parts && !parts.toLowerCase().includes("educore")) sName = parts;
+    }
+
+    if (!sName) {
+      if (typeof window !== "undefined" && window.location && window.location.hostname.includes("dav")) {
+        sName = "DAV Public School";
+      } else {
+        sName = "Tapowan Public School";
+      }
+    }
+
+    // Detect location / campus
+    let sLoc = "";
+    if (sm.campus || sm.address) {
+      sLoc = (sm.campus || sm.address).trim();
+    } else if (schoolProfile.schoolAddress) {
+      sLoc = schoolProfile.schoolAddress.trim();
+    }
+    if (!sLoc) {
+      sLoc = sName.toLowerCase().includes("dav") ? "DAV Public School Campus" : "Prem Nagar Tapin North, Ramgarh, Jharkhand";
+    }
+
+    // Logo
+    let sLogo = sm.logo || schoolProfile.logo || "logo.png";
+    if (sLogo.startsWith("http://")) sLogo = sLogo.replace("http://", "https://");
+
+    // Contact & Affiliation
+    const sPhone = sm.phone || schoolProfile.schoolPhone || "+91 87577 44973, +91 62991 22869";
+    const sEmail = sm.email || schoolProfile.schoolEmail || "info@school.edu";
+    const sAffiliation = sm.affiliation || "CBSE AFFILIATED PATTERN • AN ENGLISH MEDIUM CO-ED INSTITUTION";
+    const sCode = sm.code || sm.schoolCode || "825314";
+    const sAffNo = sm.affiliationNo || "";
+    const sUdise = sm.udise || "U-DISE: 20241202412";
 
     const now = new Date();
     const formattedDate = now.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }).toUpperCase();
 
-    const fallbackName = currentSchoolName || "SCHOOL";
-    const fallbackLocation = currentLocation || "Campus";
-
-    let chosenName = overrides.schoolName;
-    if (!chosenName || (chosenName === "TAPOWAN PUBLIC SCHOOL" && currentSchoolName && currentSchoolName !== "TAPOWAN PUBLIC SCHOOL")) {
-      chosenName = currentSchoolName || fallbackName;
-    }
-
-    let chosenLoc = overrides.location;
-    if (!chosenLoc || ((chosenLoc === "Tapin, Jharkhand" || chosenLoc.includes("Prem Nagar")) && currentLocation && !currentLocation.includes("Prem Nagar"))) {
-      chosenLoc = currentLocation || fallbackLocation;
-    }
-
+    // Respect user custom overrides from DOM edit mode if provided
     return {
-      schoolName: chosenName || fallbackName,
+      schoolName: overrides.schoolName || sName.toUpperCase(),
       subtitle: overrides.subtitle || "OFFICIAL FEE STRUCTURE",
       date: overrides.date || formattedDate,
-      location: chosenLoc || fallbackLocation,
-      classes: overrides.classes || DEFAULT_FEE_DATA.classes,
-      rows: overrides.rows || DEFAULT_FEE_DATA.rows,
-      footer: overrides.footer || DEFAULT_FEE_DATA.footer
+      location: overrides.location || sLoc,
+      logo: sLogo,
+      phone: sPhone,
+      email: sEmail,
+      affiliation: sAffiliation,
+      schoolCode: sCode,
+      affiliationNo: sAffNo,
+      udise: sUdise,
+      session: "2026–2027",
+      classes: overrides.classes || MASTER_FEE_STRUCTURE_TEMPLATE.classes,
+      rows: overrides.rows || MASTER_FEE_STRUCTURE_TEMPLATE.rows,
+      footer: overrides.footer || MASTER_FEE_STRUCTURE_TEMPLATE.footer
     };
   }
 
@@ -240,30 +258,33 @@
 
   /**
    * Renders the complete HTML markup for the fee structure document.
+   * Matches the visual quality and branding of EduCore Admit Cards & Report Cards.
    */
   function renderFeeStructureHtml(customData = {}, options = {}) {
     const data = resolveSchoolBranding(customData);
     const isEditable = !!options.editable;
-
     const editAttr = isEditable ? 'contenteditable="true" spellcheck="false"' : '';
 
     const theadCols = data.classes.map(c => `
-      <th style="padding:10px 4px; text-align:center; color:#ffffff; font-size:12px; font-weight:700; border-right:1px solid rgba(255,255,255,0.22); letter-spacing:0.3px;">
+      <th style="padding:9px 3px; text-align:center; color:#ffffff; font-size:11.5px; font-weight:800; border-right:1px solid rgba(255,255,255,0.2); letter-spacing:0.4px;">
         ${c}
       </th>
     `).join("");
 
     const tbodyRows = data.rows.map((row, rIdx) => {
       let cellsHtml = "";
+      const isOdd = rIdx % 2 === 1;
+      const rowBg = isOdd ? "#f8fafc" : "#ffffff";
+      const isTuition = row.id === "tuition";
 
       if (row.type === "standard") {
         cellsHtml = row.values.map((val, cIdx) => {
           const isNil = String(val).trim().toLowerCase() === "nil";
           const isDash = String(val).trim() === "-";
-          const color = (isNil || isDash) ? "#94a3b8" : "#1e293b";
-          const weight = (isNil || isDash) ? "500" : "600";
+          const color = (isNil || isDash) ? "#94a3b8" : (isTuition ? "#1e3a8a" : "#1e293b");
+          const weight = (isNil || isDash) ? "500" : "700";
           return `
-            <td data-row-idx="${rIdx}" data-col-idx="${cIdx}" style="padding:8px 4px; text-align:center; border:1px solid #cbd5e1; font-size:12.5px; font-weight:${weight}; color:${color};" ${editAttr}>
+            <td data-row-idx="${rIdx}" data-col-idx="${cIdx}" style="padding:7px 3px; text-align:center; border:1px solid #e2e8f0; font-size:12px; font-weight:${weight}; color:${color};" ${editAttr}>
               ${val}
             </td>
           `;
@@ -272,41 +293,43 @@
         const stdCells = row.values.map((val, cIdx) => {
           const isNil = String(val).trim().toLowerCase() === "nil";
           const isDash = String(val).trim() === "-";
-          const color = (isNil || isDash) ? "#94a3b8" : "#1e293b";
-          const weight = (isNil || isDash) ? "500" : "600";
+          const color = (isNil || isDash) ? "#94a3b8" : (isTuition ? "#1e3a8a" : "#1e293b");
+          const weight = (isNil || isDash) ? "500" : "700";
           return `
-            <td data-row-idx="${rIdx}" data-col-idx="${cIdx}" style="padding:8px 4px; text-align:center; border:1px solid #cbd5e1; font-size:12.5px; font-weight:${weight}; color:${color};" ${editAttr}>
+            <td data-row-idx="${rIdx}" data-col-idx="${cIdx}" style="padding:7px 3px; text-align:center; border:1px solid #e2e8f0; font-size:12px; font-weight:${weight}; color:${color};" ${editAttr}>
               ${val}
             </td>
           `;
         }).join("");
 
         const mergedCell = `
-          <td data-row-idx="${rIdx}" data-merged="end" colspan="${row.mergedColspan}" style="padding:8px 6px; text-align:center; border:1px solid #cbd5e1;" ${editAttr}>
+          <td data-row-idx="${rIdx}" data-merged="end" colspan="${row.mergedColspan}" style="padding:7px 4px; text-align:center; border:1px solid #e2e8f0; vertical-align:middle;" ${editAttr}>
             ${row.mergedHtml}
           </td>
         `;
         cellsHtml = stdCells + mergedCell;
       } else if (row.type === "merged_distance") {
         const stdCells = row.values.map((val, cIdx) => `
-          <td data-row-idx="${rIdx}" data-col-idx="${cIdx}" style="padding:8px 4px; text-align:center; border:1px solid #cbd5e1; font-size:14px; font-weight:500; color:#94a3b8;" ${editAttr}>
+          <td data-row-idx="${rIdx}" data-col-idx="${cIdx}" style="padding:7px 3px; text-align:center; border:1px solid #e2e8f0; font-size:12px; font-weight:500; color:#94a3b8;" ${editAttr}>
             ${val}
           </td>
         `).join("");
 
         const mergedCell = `
-          <td data-row-idx="${rIdx}" data-merged="distance" colspan="${row.mergedColspan}" style="padding:8px 8px; text-align:center; border:1px solid #cbd5e1;" ${editAttr}>
+          <td data-row-idx="${rIdx}" data-merged="distance" colspan="${row.mergedColspan}" style="padding:7px 6px; text-align:center; border:1px solid #e2e8f0; vertical-align:middle;" ${editAttr}>
             ${row.mergedHtml}
           </td>
         `;
         cellsHtml = stdCells + mergedCell;
       }
 
+      const rowHighlightStyle = isTuition ? 'background:#f0f7ff;' : `background:${rowBg};`;
+
       return `
-        <tr style="background:#ffffff;">
-          <td style="padding:8px 14px; text-align:left; border:1px solid #cbd5e1; vertical-align:middle;">
-            <div data-row-title="${rIdx}" style="font-weight:700; color:#0f172a; font-size:12.5px; line-height:1.2;" ${editAttr}>${row.title}</div>
-            <div data-row-sub="${rIdx}" style="font-size:10.5px; color:#64748b; font-weight:500; margin-top:2px;" ${editAttr}>${row.sub}</div>
+        <tr style="${rowHighlightStyle}">
+          <td style="padding:7px 12px; text-align:left; border:1px solid #e2e8f0; vertical-align:middle;">
+            <div data-row-title="${rIdx}" style="font-weight:800; color:#0f172a; font-size:12px; line-height:1.2;" ${editAttr}>${row.title}</div>
+            <div data-row-sub="${rIdx}" style="font-size:10px; color:#64748b; font-weight:600; margin-top:1px;" ${editAttr}>${row.sub}</div>
           </td>
           ${cellsHtml}
         </tr>
@@ -314,25 +337,72 @@
     }).join("");
 
     return `
-      <div id="tpsFeeStructureDocument" style="width:100%; max-width:1120px; margin:0 auto; background:#ffffff; box-sizing:border-box; font-family:'Poppins',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; color:#1e293b; padding:22px 28px;">
+      <div id="tpsFeeStructureDocument" style="width:100%; max-width:1120px; margin:0 auto; background:#ffffff; box-sizing:border-box; font-family:'Poppins',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; color:#1e293b; padding:18px 24px; border:1.5px solid #e2e8f0; border-radius:12px; box-shadow:0 4px 20px -2px rgba(0,0,0,0.06);">
         
-        <!-- HEADER BLOCK -->
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px;">
-          <div>
-            <h1 id="tps-fs-doc-schoolname" style="margin:0; font-size:26px; font-weight:800; color:#153e75; letter-spacing:0.5px; line-height:1.15;" ${editAttr}>${data.schoolName}</h1>
-            <div id="tps-fs-doc-subtitle" style="margin-top:4px; font-size:13.5px; font-weight:700; color:#df7e20; letter-spacing:2px; text-transform:uppercase;" ${editAttr}>${data.subtitle}</div>
+        <!-- OFFICIAL HEADER BLOCK WITH LOGO & ACCREDITATION -->
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #e2e8f0; padding-bottom:12px; margin-bottom:12px; gap:16px;">
+          
+          <!-- School Logo / Crest -->
+          <div style="width:72px; height:72px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:14px; padding:4px; box-shadow:0 2px 6px rgba(0,0,0,0.04);">
+            <img src="${data.logo}" style="max-width:100%; max-height:100%; object-fit:contain;" alt="Logo" onerror="this.src='logo.png';" />
           </div>
-          <div style="text-align:right; font-size:13px; line-height:1.5;">
-            <div><strong style="color:#0f172a;">Date:</strong> <span id="tps-fs-doc-date" style="color:#334155; font-weight:500;" ${editAttr}>${data.date}</span></div>
-            <div><strong style="color:#0f172a;">Location:</strong> <span id="tps-fs-doc-location" style="color:#334155; font-weight:500;" ${editAttr}>${data.location}</span></div>
+
+          <!-- School Branding Center -->
+          <div style="flex:1; text-align:center;">
+            <div style="font-size:8pt; font-weight:800; letter-spacing:1px; color:#b45309; text-transform:uppercase; margin-bottom:1px;">
+              ${data.affiliation}
+            </div>
+            <h1 id="tps-fs-doc-schoolname" style="margin:0; font-size:22pt; font-weight:900; color:#1e3a8a; letter-spacing:0.8px; line-height:1.1; font-family:'Poppins','Cinzel',serif;" ${editAttr}>
+              ${data.schoolName}
+            </h1>
+            <div style="font-size:7.8pt; font-weight:700; color:#475569; margin-top:2px;">
+              <span id="tps-fs-doc-location" ${editAttr}>${data.location}</span> &bull; Helpline: <span>${data.phone}</span>
+            </div>
+            <div style="margin-top:4px;">
+              <span style="display:inline-block; background:linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%); color:#ffffff; font-size:8.5pt; font-weight:900; padding:2px 14px; border-radius:4px; letter-spacing:1.5px; text-transform:uppercase; box-shadow:0 2px 4px rgba(30,58,138,0.2);">
+                ${data.subtitle} &bull; SESSION ${data.session}
+              </span>
+            </div>
           </div>
+
+          <!-- Right Official Verification Badge -->
+          <div style="width:160px; flex-shrink:0; text-align:right;">
+            <div style="background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:8px; padding:6px 10px; font-size:7.5pt; text-align:left; line-height:1.45; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+              <div style="font-weight:800; color:#0f172a; border-bottom:1px dashed #cbd5e1; padding-bottom:3px; margin-bottom:3px;">
+                ${data.udise}
+              </div>
+              <div style="font-weight:700; color:#1e3a8a;">
+                SCH. CODE: ${data.schoolCode}
+              </div>
+              <div style="font-weight:700; color:#047857;">
+                DATE: <span id="tps-fs-doc-date" ${editAttr}>${data.date}</span>
+              </div>
+            </div>
+          </div>
+
         </div>
 
         <!-- MAIN FEE STRUCTURE TABLE -->
-        <table style="width:100%; border-collapse:collapse; margin-top:8px; border:1px solid #cbd5e1; border-radius:6px; overflow:hidden;">
+        <table style="width:100%; border-collapse:collapse; margin-top:6px; border:1.5px solid #cbd5e1; border-radius:8px; overflow:hidden; table-layout:fixed;">
+          <colgroup>
+            <col style="width:19%;">
+            <col style="width:6.23%;">
+            <col style="width:6.23%;">
+            <col style="width:6.23%;">
+            <col style="width:6.23%;">
+            <col style="width:6.23%;">
+            <col style="width:6.23%;">
+            <col style="width:6.23%;">
+            <col style="width:6.23%;">
+            <col style="width:6.23%;">
+            <col style="width:6.23%;">
+            <col style="width:6.23%;">
+            <col style="width:6.23%;">
+            <col style="width:6.23%;">
+          </colgroup>
           <thead>
-            <tr style="background:#153e75;">
-              <th style="padding:10px 14px; text-align:left; color:#ffffff; font-size:12px; font-weight:700; width:19%; border-right:1px solid rgba(255,255,255,0.22); letter-spacing:0.5px;">
+            <tr style="background:linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);">
+              <th style="padding:9px 12px; text-align:left; color:#ffffff; font-size:11.5px; font-weight:800; border-right:1px solid rgba(255,255,255,0.2); letter-spacing:0.5px;">
                 PARTICULARS
               </th>
               ${theadCols}
@@ -343,15 +413,31 @@
           </tbody>
         </table>
 
-        <!-- FOOTER BADGES & NOTES -->
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px; padding:0 2px; flex-wrap:wrap; gap:10px;">
-          <div style="display:inline-flex; align-items:center; gap:8px;">
-            <span style="background:#153e75; color:#ffffff; font-weight:800; font-size:11px; padding:3px 8px; border-radius:4px; letter-spacing:0.5px;" ${editAttr}>${data.footer.examsBadge}</span>
-            <span style="font-size:12px; font-weight:600; color:#1e293b;" ${editAttr}>${data.footer.examsText}</span>
+        <!-- FOOTER BADGES & POLICY NOTES -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px; padding:0 2px; flex-wrap:wrap; gap:8px;">
+          <div style="display:inline-flex; align-items:center; gap:6px; background:#eff6ff; border:1px solid #bfdbfe; padding:4px 10px; border-radius:6px;">
+            <span style="background:#2563eb; color:#ffffff; font-weight:800; font-size:9.5px; padding:2px 6px; border-radius:3px; letter-spacing:0.5px;" ${editAttr}>${data.footer.examsBadge}</span>
+            <span style="font-size:11px; font-weight:700; color:#1e40af;" ${editAttr}>${data.footer.examsText}</span>
           </div>
-          <div style="display:inline-flex; align-items:center; gap:8px;">
-            <span style="background:#153e75; color:#ffffff; font-weight:800; font-size:11px; padding:3px 8px; border-radius:4px; letter-spacing:0.5px;" ${editAttr}>${data.footer.noteBadge}</span>
-            <span style="font-size:12px; font-weight:600; color:#1e293b;" ${editAttr}>${data.footer.noteText}</span>
+          <div style="display:inline-flex; align-items:center; gap:6px; background:#fff7ed; border:1px solid #fed7aa; padding:4px 10px; border-radius:6px;">
+            <span style="background:#ea580c; color:#ffffff; font-weight:800; font-size:9.5px; padding:2px 6px; border-radius:3px; letter-spacing:0.5px;" ${editAttr}>${data.footer.noteBadge}</span>
+            <span style="font-size:11px; font-weight:700; color:#9a3412;" ${editAttr}>${data.footer.noteText}</span>
+          </div>
+        </div>
+
+        <!-- OFFICIAL SIGNATURE SEALS -->
+        <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:28px; padding:0 16px 4px 16px;">
+          <div style="text-align:center; min-width:140px;">
+            <div style="border-top:1.5px dashed #94a3b8; width:100%; margin-bottom:4px;"></div>
+            <div style="font-size:10px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px;">Parent / Guardian</div>
+          </div>
+          <div style="text-align:center; min-width:140px;">
+            <div style="border-top:1.5px dashed #94a3b8; width:100%; margin-bottom:4px;"></div>
+            <div style="font-size:10px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px;">Accounts / Cashier</div>
+          </div>
+          <div style="text-align:center; min-width:160px;">
+            <div style="border-top:1.5px solid #1e3a8a; width:100%; margin-bottom:4px;"></div>
+            <div style="font-size:10.5px; font-weight:900; color:#1e3a8a; text-transform:uppercase; letter-spacing:0.5px;">Principal &bull; Official Seal</div>
           </div>
         </div>
 
@@ -367,9 +453,6 @@
     try {
       const sName = rootEl.querySelector("#tps-fs-doc-schoolname");
       if (sName) curData.schoolName = sName.innerText.trim();
-
-      const sub = rootEl.querySelector("#tps-fs-doc-subtitle");
-      if (sub) curData.subtitle = sub.innerText.trim();
 
       const dt = rootEl.querySelector("#tps-fs-doc-date");
       if (dt) curData.date = dt.innerText.trim();
@@ -410,7 +493,8 @@
    */
   function printFeeStructure(customData = {}, paperSize = "a4") {
     const html = renderFeeStructureHtml(customData, { editable: false });
-    const title = customData.schoolName || DEFAULT_FEE_DATA.schoolName;
+    const data = resolveSchoolBranding(customData);
+    const title = data.schoolName || "School";
 
     try {
       let iframe = document.getElementById("__tps_fs_print_iframe__");
@@ -440,7 +524,7 @@
             <style>
               @page {
                 size: ${paperSize === "a3" ? "A3 landscape" : "A4 landscape"};
-                margin: 8mm 10mm;
+                margin: 6mm 8mm;
               }
               * {
                 box-sizing: border-box;
@@ -453,10 +537,11 @@
                 background: #ffffff !important;
                 font-family: 'Poppins', Arial, sans-serif;
                 width: 100% !important;
-                height: 100% !important;
               }
               #tpsFeeStructureDocument {
-                padding: 8px 12px !important;
+                border: none !important;
+                box-shadow: none !important;
+                padding: 4mm 6mm !important;
                 max-width: 100% !important;
                 page-break-inside: avoid !important;
               }
@@ -488,57 +573,53 @@
         printWin.document.write(`
           <!DOCTYPE html><html><head><title>${title} - Official Fee Structure</title>
           <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap">
-          <style>@page { size: landscape; margin: 10mm; } body { font-family: 'Poppins', sans-serif; }</style>
+          <style>@page { size: landscape; margin: 8mm; } body { font-family: 'Poppins', sans-serif; }</style>
           </head><body>${html}</body></html>
         `);
         printWin.document.close();
-        setTimeout(() => { printWin.print(); printWin.close(); }, 500);
+        printWin.print();
       }
     }
   }
 
   /**
-   * Generates and downloads the official Fee Structure PDF.
+   * PDF Download using html2pdf or fallback printing
    */
   async function downloadFeeStructurePDF(customData = {}, paperSize = "a4") {
     const data = resolveSchoolBranding(customData);
-    const container = document.createElement("div");
-    container.style.position = "fixed";
-    container.style.left = "-9999px";
-    container.style.top = "0";
-    container.style.width = paperSize === "a3" ? "1580px" : "1120px";
-    container.style.background = "#ffffff";
-    container.innerHTML = renderFeeStructureHtml(data, { editable: false });
-    document.body.appendChild(container);
-
     const filename = `${data.schoolName.replace(/[^a-zA-Z0-9]/g, "_")}_Official_Fee_Structure.pdf`;
 
-    try {
-      if (typeof global.html2pdf === "function") {
-        const opt = {
-          margin: [8, 10, 8, 10],
-          filename: filename,
-          image: { type: "jpeg", quality: 0.98 },
-          html2canvas: { scale: 2.5, useCORS: true, letterRendering: true },
-          jsPDF: { unit: "mm", format: paperSize === "a3" ? "a3" : "a4", orientation: "landscape" }
-        };
+    if (typeof global.html2pdf === "function") {
+      const container = document.createElement("div");
+      container.style.position = "fixed";
+      container.style.left = "-9999px";
+      container.style.top = "0";
+      container.style.width = paperSize === "a3" ? "1580px" : "1120px";
+      container.innerHTML = renderFeeStructureHtml(customData, { editable: false });
+      document.body.appendChild(container);
+
+      const opt = {
+        margin: [6, 8, 6, 8],
+        filename: filename,
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF: { unit: "mm", format: paperSize === "a3" ? "a3" : "a4", orientation: "landscape" }
+      };
+
+      try {
         await global.html2pdf().set(opt).from(container.firstElementChild).save();
-      } else {
-        printFeeStructure(customData, paperSize);
+      } finally {
+        container.remove();
       }
-    } catch (err) {
-      console.error("[FeeStructurePrint] PDF export error, fallback to print:", err);
+    } else {
       printFeeStructure(customData, paperSize);
-    } finally {
-      if (container.parentNode) container.parentNode.removeChild(container);
     }
   }
 
   /**
-   * Opens the interactive Fee Structure Print & Preview Modal.
+   * Opens the interactive Fee Structure Modal with modern EduCore design language.
    */
   function openFeeStructurePrintModal(initialOverrides = {}) {
-    // Remove existing modal if any
     const existing = document.getElementById("tps-fee-structure-modal");
     if (existing) existing.remove();
 
@@ -551,9 +632,9 @@
     modal.style.cssText = `
       position: fixed;
       inset: 0;
-      background: rgba(15, 23, 42, 0.75);
-      backdrop-filter: blur(4px);
-      -webkit-backdrop-filter: blur(4px);
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
       z-index: 10000;
       display: flex;
       flex-direction: column;
@@ -561,78 +642,82 @@
       justify-content: center;
       padding: 16px;
       box-sizing: border-box;
-      font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: 'Poppins', 'Outfit', system-ui, -apple-system, sans-serif;
     `;
 
     modal.innerHTML = `
-      <div style="background:#ffffff; border-radius:16px; width:min(1240px, 98vw); height:min(92vh, 880px); display:flex; flex-direction:column; box-shadow:0 25px 60px rgba(0,0,0,0.35); overflow:hidden; border:1px solid #e2e8f0;">
+      <div style="background:#ffffff; border-radius:20px; width:min(1240px, 98vw); height:min(92vh, 880px); display:flex; flex-direction:column; box-shadow:0 25px 70px -10px rgba(15,23,42,0.35); overflow:hidden; border:1px solid #e2e8f0; animation:modalSlideUp 0.25s ease-out;">
         
-        <!-- TOP TOOLBAR -->
-        <div style="background:#0f172a; padding:14px 20px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; color:#ffffff; border-bottom:1px solid #334155;">
+        <!-- MODERN EDUCORE TOP TOOLBAR -->
+        <div style="background:#ffffff; padding:14px 22px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; border-bottom:1.5px solid #e2e8f0; box-shadow:0 2px 10px rgba(0,0,0,0.03);">
+          
+          <!-- Title & Icon -->
           <div style="display:flex; align-items:center; gap:12px;">
-            <div style="background:#153e75; width:38px; height:38px; border-radius:8px; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,0.25);">
+            <div style="background:linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%); width:40px; height:40px; border-radius:12px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(37,99,235,0.25);">
               <span class="material-symbols-outlined" style="font-size:22px; color:#ffffff;">payments</span>
             </div>
             <div>
-              <h3 style="margin:0; font-size:1rem; font-weight:700; color:#ffffff; display:flex; align-items:center; gap:8px;">
+              <h3 style="margin:0; font-size:1.05rem; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
                 Official Fee Structure
-                <span style="background:#0f766e; color:#ccfbf1; font-size:10px; font-weight:700; padding:2px 7px; border-radius:12px; letter-spacing:0.5px;">CBSE / STATE</span>
+                <span style="background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe; font-size:10px; font-weight:800; padding:2px 8px; border-radius:12px; letter-spacing:0.5px;">CBSE / STATE</span>
               </h3>
-              <p style="margin:2px 0 0; font-size:0.75rem; color:#94a3b8;">High-definition print &amp; PDF document. Exactly matches official school prospectus chart.</p>
+              <p style="margin:2px 0 0; font-size:0.75rem; color:#64748b; font-weight:500;">High-definition print &amp; PDF document • Matches official school prospectus chart</p>
             </div>
           </div>
 
-          <!-- ACTION BUTTONS -->
+          <!-- ACTION CONTROLS MATCHING SITE UI -->
           <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
             
             <!-- Quick Date Input -->
-            <div style="display:inline-flex; align-items:center; background:#1e293b; border:1px solid #334155; border-radius:8px; padding:4px 8px; gap:6px;">
-              <span style="font-size:11px; color:#94a3b8; font-weight:600;">Date:</span>
-              <input type="text" id="tps-fs-modal-date" value="${curData.date}" style="background:transparent; border:none; color:#ffffff; font-size:11.5px; font-weight:600; width:95px; outline:none;" title="Click to edit date">
+            <div style="display:inline-flex; align-items:center; background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:10px; padding:5px 10px; gap:6px;">
+              <span class="material-symbols-outlined" style="font-size:16px; color:#64748b;">calendar_today</span>
+              <span style="font-size:11px; color:#64748b; font-weight:700;">Date:</span>
+              <input type="text" id="tps-fs-modal-date" value="${curData.date}" style="background:transparent; border:none; color:#0f172a; font-size:12px; font-weight:700; width:100px; outline:none;" title="Click to edit date">
             </div>
 
             <!-- Paper Format -->
-            <div style="display:inline-flex; align-items:center; background:#1e293b; border:1px solid #334155; border-radius:8px; padding:4px 8px; gap:6px;">
-              <span style="font-size:11px; color:#94a3b8; font-weight:600;">Paper:</span>
-              <select id="tps-fs-modal-paper" style="background:transparent; border:none; color:#ffffff; font-size:11.5px; font-weight:600; outline:none; cursor:pointer;">
-                <option value="a4" style="background:#1e293b; color:#fff;" selected>A4 Landscape</option>
-                <option value="a3" style="background:#1e293b; color:#fff;">A3 Landscape</option>
+            <div style="display:inline-flex; align-items:center; background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:10px; padding:5px 10px; gap:6px;">
+              <span class="material-symbols-outlined" style="font-size:16px; color:#64748b;">description</span>
+              <span style="font-size:11px; color:#64748b; font-weight:700;">Paper:</span>
+              <select id="tps-fs-modal-paper" style="background:transparent; border:none; color:#0f172a; font-size:12px; font-weight:700; outline:none; cursor:pointer;">
+                <option value="a4" selected>A4 Landscape</option>
+                <option value="a3">A3 Landscape</option>
               </select>
             </div>
 
-            <!-- Sync with DB Fees -->
-            <button id="tps-fs-modal-sync-db" style="background:#1e293b; border:1px solid #475569; color:#e2e8f0; border-radius:8px; padding:7px 12px; font-size:0.8rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:5px;" title="Sync class fee amounts from current database records">
-              <span class="material-symbols-outlined" style="font-size:16px; color:#38bdf8;">sync</span>
+            <!-- Sync with DB Records -->
+            <button id="tps-fs-modal-sync-db" style="background:#ffffff; border:1.5px solid #cbd5e1; color:#1e3a8a; border-radius:10px; padding:7px 12px; font-size:12px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:all 0.2s ease; box-shadow:0 1px 2px rgba(0,0,0,0.04);" title="Pull live amounts from Fees Structure DB">
+              <span class="material-symbols-outlined" style="font-size:16px; color:#2563eb;">sync</span>
               <span>Sync DB</span>
             </button>
 
-            <!-- Reset to Official Chart -->
-            <button id="tps-fs-modal-reset" style="background:#1e293b; border:1px solid #475569; color:#e2e8f0; border-radius:8px; padding:7px 12px; font-size:0.8rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:5px;" title="Reset back to official master fee chart">
-              <span class="material-symbols-outlined" style="font-size:16px; color:#f59e0b;">restart_alt</span>
+            <!-- Reset -->
+            <button id="tps-fs-modal-reset" style="background:#ffffff; border:1.5px solid #cbd5e1; color:#64748b; border-radius:10px; padding:7px 12px; font-size:12px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:all 0.2s ease; box-shadow:0 1px 2px rgba(0,0,0,0.04);" title="Reset to official baseline chart">
+              <span class="material-symbols-outlined" style="font-size:16px; color:#64748b;">restart_alt</span>
               <span>Reset</span>
             </button>
 
-            <!-- Edit Toggle -->
-            <button id="tps-fs-modal-edit-toggle" style="background:#334155; color:#ffffff; border:none; border-radius:8px; padding:7px 12px; font-size:0.8rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:5px;" title="Toggle inline editing of cells before printing">
-              <span class="material-symbols-outlined" style="font-size:16px;">edit_note</span>
+            <!-- Edit Cells Toggle -->
+            <button id="tps-fs-modal-edit-toggle" style="background:#f8fafc; border:1.5px solid #cbd5e1; color:#0f172a; border-radius:10px; padding:7px 12px; font-size:12px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:all 0.2s ease;" title="Edit cells directly on sheet">
+              <span class="material-symbols-outlined" style="font-size:16px; color:#2563eb;">edit_note</span>
               <span>Edit Cells</span>
             </button>
 
-            <!-- Download PDF Button -->
-            <button id="tps-fs-modal-pdf" style="background:#059669; color:#ffffff; border:none; border-radius:8px; padding:7px 14px; font-size:0.82rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 6px rgba(5,150,105,0.3);">
+            <!-- Download PDF -->
+            <button id="tps-fs-modal-pdf" style="background:linear-gradient(135deg, #059669 0%, #047857 100%); color:#ffffff; border:none; border-radius:10px; padding:7px 16px; font-size:12px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; gap:6px; box-shadow:0 3px 10px rgba(5,150,105,0.3); transition:all 0.2s ease;" title="Export Landscape PDF">
               <span class="material-symbols-outlined" style="font-size:16px;">download</span>
               <span>Download PDF</span>
             </button>
 
-            <!-- Print Button -->
-            <button id="tps-fs-modal-print" style="background:#153e75; color:#ffffff; border:1px solid #2563eb; border-radius:8px; padding:7px 16px; font-size:0.82rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 8px rgba(21,62,117,0.35);">
-              <span class="material-symbols-outlined" style="font-size:17px;">print</span>
+            <!-- Print Now -->
+            <button id="tps-fs-modal-print" style="background:linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color:#ffffff; border:none; border-radius:10px; padding:7px 18px; font-size:12px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; gap:6px; box-shadow:0 3px 10px rgba(37,99,235,0.3); transition:all 0.2s ease;" title="Direct Print">
+              <span class="material-symbols-outlined" style="font-size:16px;">print</span>
               <span>Print Now</span>
             </button>
 
             <!-- Close Modal -->
-            <button id="tps-fs-modal-close" style="background:transparent; border:none; color:#94a3b8; border-radius:8px; padding:6px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center;" title="Close">
-              <span class="material-symbols-outlined" style="font-size:22px; color:#cbd5e1;">close</span>
+            <button id="tps-fs-modal-close" style="background:#f1f5f9; border:1px solid #e2e8f0; border-radius:50%; width:34px; height:34px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; margin-left:4px; transition:all 0.2s ease;" title="Close">
+              <span class="material-symbols-outlined" style="font-size:18px; color:#64748b;">close</span>
             </button>
 
           </div>
@@ -640,15 +725,21 @@
 
         <!-- DOCUMENT PREVIEW CONTAINER (SCROLLABLE & ZOOMABLE) -->
         <div style="flex:1; background:#f1f5f9; padding:24px; overflow:auto; display:flex; align-items:flex-start; justify-content:center;">
-          <div id="tps-fs-preview-wrapper" style="box-shadow:0 12px 35px rgba(0,0,0,0.12); border-radius:6px; background:#ffffff; transition:all 0.2s ease;">
+          <div id="tps-fs-preview-wrapper" style="box-shadow:0 12px 35px rgba(0,0,0,0.08); border-radius:12px; background:#ffffff; transition:all 0.2s ease;">
             <!-- Document HTML renders here -->
           </div>
         </div>
 
         <!-- BOTTOM STATUS BAR -->
-        <div style="background:#ffffff; border-top:1px solid #e2e8f0; padding:8px 20px; font-size:0.75rem; color:#64748b; display:flex; justify-content:space-between; align-items:center;">
-          <div><strong style="color:#0f172a;">Tip:</strong> Click <strong>"Edit Cells"</strong> to modify amounts, dates or remarks directly on paper before printing.</div>
-          <div style="font-weight:600; color:#153e75;">Standard A4 Landscape (297 × 210 mm) • 100% Zero-Distortion Fit</div>
+        <div style="background:#ffffff; border-top:1.5px solid #e2e8f0; padding:10px 24px; font-size:0.78rem; color:#64748b; display:flex; justify-content:space-between; align-items:center;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span class="material-symbols-outlined" style="font-size:16px; color:#2563eb;">info</span>
+            <span>Click <strong>"Edit Cells"</strong> to modify amounts, dates or remarks directly on paper before printing.</span>
+          </div>
+          <div style="font-weight:700; color:#1e3a8a; display:flex; align-items:center; gap:6px;">
+            <span class="material-symbols-outlined" style="font-size:15px; color:#059669;">verified</span>
+            <span>Standard A4 Landscape (297 &times; 210 mm) &bull; Zero-Distortion Print</span>
+          </div>
         </div>
 
       </div>
@@ -700,15 +791,16 @@
 
     editToggleBtn.addEventListener("click", () => {
       if (isEditing) {
-        // Save edits
         curData = syncDataFromDOM(previewWrapper, curData);
         isEditing = false;
-        editToggleBtn.style.background = "#334155";
-        editToggleBtn.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px;">edit_note</span><span>Edit Cells</span>`;
+        editToggleBtn.style.background = "#f8fafc";
+        editToggleBtn.style.color = "#0f172a";
+        editToggleBtn.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px; color:#2563eb;">edit_note</span><span>Edit Cells</span>`;
       } else {
         isEditing = true;
-        editToggleBtn.style.background = "#0f766e";
-        editToggleBtn.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px;">check</span><span>Done Editing</span>`;
+        editToggleBtn.style.background = "#eff6ff";
+        editToggleBtn.style.color = "#1e40af";
+        editToggleBtn.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px; color:#16a34a;">check</span><span>Done Editing</span>`;
       }
       updatePreview();
     });
@@ -738,7 +830,8 @@
   }
 
   // Expose global methods
-  global.DEFAULT_FEE_DATA = DEFAULT_FEE_DATA;
+  global.MASTER_FEE_STRUCTURE_TEMPLATE = MASTER_FEE_STRUCTURE_TEMPLATE;
+  global.DEFAULT_FEE_DATA = MASTER_FEE_STRUCTURE_TEMPLATE;
   global.renderFeeStructureHtml = renderFeeStructureHtml;
   global.printFeeStructure = printFeeStructure;
   global.downloadFeeStructurePDF = downloadFeeStructurePDF;
