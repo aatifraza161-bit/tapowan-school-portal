@@ -479,9 +479,9 @@
    */
   window.testSampleVoiceTts = function () {
     const sampleText = selectedLanguage === 'en'
-      ? "Hello! This is an automated fee reminder from Tapowan Public School. Your pending fee is 1500 Rupees. Press 1 now for your payment link and Q-R code."
+      ? "Hello! This is an automated fee reminder from ${(typeof window.getSchoolMeta === 'function' && window.getSchoolMeta().name) || 'the School'}. Your pending fee is 1500 Rupees. Press 1 now for your payment link and Q-R code."
       : (selectedLanguage === 'hinglish'
-        ? "Namaste! Yeh Tapowan Public School se automated fee reminder call hai. Aapki pending school fee 1500 rupaye hai. Instant payment link aur Q-R code paane ke liye 1 dabayein."
+        ? "Namaste! Yeh ${(typeof window.getSchoolMeta === 'function' && window.getSchoolMeta().name) || 'School'} se automated fee reminder call hai. Aapki pending school fee 1500 rupaye hai. Instant payment link aur Q-R code paane ke liye 1 dabayein."
         : "नमस्ते! यह तपोवन पब्लिक स्कूल से एक ऑटोमेटेड फीस सूचना है। आपकी कुल बकाया फीस 1500 रुपये है। पेमेंट लिंक और क्यू-आर कोड के लिए अभी 1 दबाएं।");
 
     const ttsUrl = `/api/calls/ivr/tts-audio?text=${encodeURIComponent(sampleText)}&lang=${selectedLanguage}`;

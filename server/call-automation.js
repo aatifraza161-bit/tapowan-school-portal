@@ -212,23 +212,23 @@ function buildIvrScript({ studentName, className, dueAmount, lang = 'hi', admiss
   if (lang === 'en') {
     if (isFaculty) {
       return {
-        speechText: `Hello ${cleanName} Sir! This is an automated fee reminder from Tapowan Public School. Kindly clear the outstanding fee balance of ${cleanAmt} Rupees. Press 1 now to immediately receive your official payment link and UPI Q-R code on WhatsApp, or press 2 to speak with the school fee counter.`,
+        speechText: `Hello ${cleanName} Sir! This is an automated fee reminder from ${schoolName}. Kindly clear the outstanding fee balance of ${cleanAmt} Rupees. Press 1 now to immediately receive your official payment link and UPI Q-R code on WhatsApp, or press 2 to speak with the school fee counter.`,
         ackText: `Thank you ${cleanName} Sir! Your payment link and official UPI Q-R code have been sent to your WhatsApp number. Have a great day!`
       };
     }
     return {
-      speechText: `Hello! This is an automated fee reminder from Tapowan Public School for student ${cleanName}, ${cName || 'Class'}. Your outstanding school fee balance is ${cleanAmt} Rupees. Press 1 now to immediately receive your official payment link and UPI Q-R code on WhatsApp, or press 2 to speak with the school fee counter.`,
+      speechText: `Hello! This is an automated fee reminder from ${schoolName} for student ${cleanName}, ${cName || 'Class'}. Your outstanding school fee balance is ${cleanAmt} Rupees. Press 1 now to immediately receive your official payment link and UPI Q-R code on WhatsApp, or press 2 to speak with the school fee counter.`,
       ackText: `Thank you! Your payment link and official UPI Q-R code have been sent to your WhatsApp number. Have a great day!`
     };
   } else if (lang === 'hinglish') {
     if (isFaculty) {
       return {
-        speechText: `Namaste ${cleanName} Sir! Yeh Tapowan Public School se fee reminder call hai. Aapki pending fee ${cleanAmt} rupaye clear karne ki request hai. WhatsApp payment link aur UPI Q-R code ke liye abhi 1 dabayein, ya school se baat karne ke liye 2 dabayein.`,
+        speechText: `Namaste ${cleanName} Sir! Yeh ${schoolName} se fee reminder call hai. Aapki pending fee ${cleanAmt} rupaye clear karne ki request hai. WhatsApp payment link aur UPI Q-R code ke liye abhi 1 dabayein, ya school se baat karne ke liye 2 dabayein.`,
         ackText: `Dhanyawaad ${cleanName} Sir! Aapka payment link aur Q-R code aapke registered WhatsApp number par bhej diya gaya hai. Shubh din!`
       };
     }
     return {
-      speechText: `Namaste! Yeh Tapowan Public School se automated fee reminder call hai. Dear student ${cleanName}, ${cName || 'Class'}, aapki pending school fee ${cleanAmt} rupaye hai. Instant WhatsApp payment link aur UPI Q-R code paane ke liye abhi 1 dabayein, ya school se baat karne ke liye 2 dabayein.`,
+      speechText: `Namaste! Yeh ${schoolName} se automated fee reminder call hai. Dear student ${cleanName}, ${cName || 'Class'}, aapki pending school fee ${cleanAmt} rupaye hai. Instant WhatsApp payment link aur UPI Q-R code paane ke liye abhi 1 dabayein, ya school se baat karne ke liye 2 dabayein.`,
       ackText: `Dhanyawaad! Aapka payment link aur Q-R code aapke registered WhatsApp number par bhej diya gaya hai. Shubh din!`
     };
   } else {
@@ -291,7 +291,7 @@ async function initiateIvrCall({
   // Initiate WebRTC Call with automated IVR role and extra payload
   const callResult = await initiateCall({
     callerId: 'tps_fee_automation',
-    callerName: 'Tapowan Fee Alert (Automated)',
+    callerName: `${schoolName} Fee Alert`,
     callerRole: 'automated_fee_ivr',
     callerAvatar: 'https://tapowan-school.vercel.app/public/tps_logo_new.png',
     receiverId: admissionNo,
@@ -385,7 +385,7 @@ https://tapowan-school.vercel.app
 ℹ️ *Submission Instructions:*
 After completing payment, please enter the 12-digit Bank Reference Number (UTR / RRN) in your TPS Mobile App or WhatsApp to receive your official digital fee receipt.
 ───────────────────────────────
-_Automated School Finance Service • Tapowan Public School_`;
+_Automated School Finance Service • ${schoolName}_`;
 
       try {
         waSent = await sendWhatsAppMessage(targetPhone, waMessage);

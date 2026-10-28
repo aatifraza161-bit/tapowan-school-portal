@@ -63,7 +63,7 @@
               <span class="material-symbols-outlined" style="color: #2563eb; font-size: 22px;">verified</span>
             </div>
             <div style="font-size: 1.15rem; font-weight: 800; color: #1e3a8a; font-family: monospace;">6201167306@ucobank</div>
-            <div style="font-size: 0.78rem; color: #3b82f6; margin-top: 4px;">Tapowan Public School • UCO Bank</div>
+            <div style="font-size: 0.78rem; color: #3b82f6; margin-top: 4px;">${(typeof window.getSchoolMeta === 'function' && window.getSchoolMeta().name) || 'School'} • Official Bank Account</div>
           </div>
         </div>
 

@@ -1,7 +1,12 @@
 // Exam Management Module - Advanced UI and Logic
 (function() {
   let activeExamTab = 'entry'; // 'entry', 'admit', 'result'
-  const SCHOOL_NAME = "Tapowan Public School";
+  const getSchoolMeta = () => (typeof window.getSchoolMeta === 'function' ? window.getSchoolMeta() : {});
+  const getSchoolName = () => (getSchoolMeta().name || "School ERP");
+  const getSchoolLogo = () => (getSchoolMeta().logo || "logo.png");
+  const getSchoolAddr = () => (getSchoolMeta().address || "");
+  const getSchoolPhone = () => (getSchoolMeta().phone || "");
+  const SCHOOL_NAME = getSchoolName();
 
   // Modular Alert Interceptor: routes to showToast or appAlert, eliminating native alerts
   const alert = function(msg) {
@@ -4039,7 +4044,7 @@
 
 
   // --- 500 DYNAMIC LAYOUTS ENGINE ---
-  const DEFAULT_SCHOOL_LOGO = 'school_logo.png';
+  const DEFAULT_SCHOOL_LOGO = (typeof window.getSchoolMeta === 'function' && window.getSchoolMeta().logo) || 'logo.png';
   
   function getOptions500(prefix) {
       let opts = '<option value="tps_official_2026" selected>⭐ TPS Official Admit Card 2026-27 (Official Design)</option><option value="jac_board_tps">🏛️ JAC Board Class 10 Style (Security Micro-Text)</option><option value="jac12">JAC 11th/12th Admit Card</option><option value="consolidated_cbse">2-Page Annual Consolidated (Multiple Exams)</option><option value="custom_blank">Blank A4 (Design Your Own)</option><option value="detailed_graph">Detailed Graph (Watermark & Chart)</option><option value="primary">Primary Format (Colorful)</option><option value="cbse">CBSE Format Layout</option><option value="state">State Board Layout</option><option value="tho">Talent Hunt Olympiad (THO)</option>';
@@ -4478,21 +4483,21 @@
       if(t.headerAlign === 'center') {
           headerHtml = `<div style="text-align:center; padding-bottom: 15px; border-bottom: 2px solid ${c.color};">
               <img src="${DEFAULT_SCHOOL_LOGO}" style="width: 60px; height: 60px; margin-bottom: 5px;" />
-              <h1 style="margin:0; font-size:28px; color:${c.color}; text-transform:uppercase;">Tapowan Public School</h1>
+              <h1 style="margin:0; font-size:28px; color:${c.color}; text-transform:uppercase;">${getSchoolName()}</h1>
               <div style="background: ${c.color}; color: ${c.fontColor || '#fff'}; display:inline-block; padding:3px 15px; border-radius:20px; font-weight:bold; margin-top:8px; font-size: 18px;">ADMIT CARD - <span contenteditable="true">${examName}</span></div>
           </div>`;
       } else if (t.headerAlign === 'left') {
           headerHtml = `<div style="display:flex; align-items:center; gap: 15px; padding-bottom: 15px; border-bottom: 2px solid ${c.color};">
               <img src="${DEFAULT_SCHOOL_LOGO}" style="width: 70px; height: 70px;" />
               <div>
-                  <h1 style="margin:0; font-size:26px; color:${c.color}; text-transform:uppercase;">Tapowan Public School</h1>
+                  <h1 style="margin:0; font-size:26px; color:${c.color}; text-transform:uppercase;">${getSchoolName()}</h1>
                   <div style="font-weight:bold; color: inherit; margin-top:4px; font-size: 16px;">ADMIT CARD - <span contenteditable="true">${examName}</span></div>
               </div>
           </div>`;
       } else {
           headerHtml = `<div style="display:flex; justify-content:space-between; align-items:center; padding-bottom: 15px; border-bottom: 2px solid ${c.color}; background:${c.color}11; padding: 15px; border-radius: 8px;">
               <div>
-                  <h1 style="margin:0; font-size:24px; color:${c.color}; text-transform:uppercase;">Tapowan Public School</h1>
+                  <h1 style="margin:0; font-size:24px; color:${c.color}; text-transform:uppercase;">${getSchoolName()}</h1>
                   <div style="font-weight:bold; margin-top:4px; font-size: 16px;">ADMIT CARD - <span contenteditable="true">${examName}</span></div>
               </div>
               <img src="${DEFAULT_SCHOOL_LOGO}" style="width: 60px; height: 60px;" />
@@ -4975,7 +4980,7 @@
                 TAPOWAN PUBLIC SCHOOL
               </div>
               <div style="font-size:7pt; font-weight:700; color:#475569; margin-bottom:3px;">
-                Prem Nagar, Banjee, Tapin, Ramgarh, Jharkhand - 825314 | Helpline: +91 87577 44973, 62991 22869
+                ${getSchoolAddr() || 'School Campus'} | Helpline: ${getSchoolPhone() || ''}
               </div>
               <div style="margin:1px 0;">
                 <span contenteditable="true" style="background:linear-gradient(180deg, #0f2b5c 0%, #1e3a8a 100%); color:#ffffff; font-size:8.5pt; font-weight:900; padding:2px 14px; border-radius:3.5px; letter-spacing:0.6px; display:inline-block; border:1px solid #d97706; box-shadow:0 1.5px 3px rgba(15,43,92,0.15);">
@@ -5291,7 +5296,7 @@ function generateDynamicMarksheet(exam, themeId, config) {
       if(t.headerAlign === 'center') {
           headerHtml = `<div style="text-align:center; padding-bottom: 20px; border-bottom: 3px solid ${c.color}; margin-bottom: 25px;">
               <img src="${DEFAULT_SCHOOL_LOGO}" style="width: 80px; height: 80px; margin-bottom: 10px;" />
-              <h1 style="margin:0; font-size:32px; font-weight:900; color:${c.color}; text-transform:uppercase;">Tapowan Public School</h1>
+              <h1 style="margin:0; font-size:32px; font-weight:900; color:${c.color}; text-transform:uppercase;">${getSchoolName()}</h1>
               <div style="background: ${c.color}; color: ${c.fontColor || '#fff'}; display:inline-block; padding:6px 20px; border-radius:4px; font-weight:bold; margin-top:12px; font-size:16px;">PROGRESS REPORT - <span contenteditable="true">${exam.examName}</span></div>
           </div>`;
       } else {
@@ -5299,7 +5304,7 @@ function generateDynamicMarksheet(exam, themeId, config) {
               <div style="display:flex; align-items:center; gap:20px;">
                   <img src="${DEFAULT_SCHOOL_LOGO}" style="width: 80px; height: 80px;" />
                   <div>
-                      <h1 style="margin:0; font-size:28px; font-weight:900; color:${c.color}; text-transform:uppercase;">Tapowan Public School</h1>
+                      <h1 style="margin:0; font-size:28px; font-weight:900; color:${c.color}; text-transform:uppercase;">${getSchoolName()}</h1>
                       <div style="font-size:18px; font-weight:bold; color: inherit; margin-top:5px;">PROGRESS REPORT - <span contenteditable="true">${exam.examName}</span></div>
                   </div>
               </div>
@@ -5391,7 +5396,7 @@ function generateDynamicMarksheet(exam, themeId, config) {
   // =========================================================================
   function getJac10AdmitCardHtml(student, examName, config) {
     const store = typeof getStore !== 'undefined' ? getStore() : {};
-    const schoolName = store.schoolProfile && store.schoolProfile.schoolName ? store.schoolProfile.schoolName : "TAPOWAN PUBLIC SCHOOL, RAMGARH";
+    const schoolName = (store.schoolProfile && store.schoolProfile.schoolName ? store.schoolProfile.schoolName : getSchoolName().toUpperCase());
     const logoSrc = DEFAULT_SCHOOL_LOGO;
     const qrSrc = 'qr.png';
     const rollCode = '27019';
@@ -5565,7 +5570,7 @@ function generateDynamicMarksheet(exam, themeId, config) {
   // =========================================================================
   function getJacBoardResultHtml(exam, config) {
     const store = typeof getStore !== 'undefined' ? getStore() : {};
-    const schoolName = store.schoolProfile && store.schoolProfile.schoolName ? store.schoolProfile.schoolName : "TAPOWAN PUBLIC SCHOOL, RAMGARH";
+    const schoolName = (store.schoolProfile && store.schoolProfile.schoolName ? store.schoolProfile.schoolName : getSchoolName().toUpperCase());
     const logoSrc = DEFAULT_SCHOOL_LOGO;
     const qrSrc = 'qr.png';
     const msNo = (exam.rollNo ? String(190000 + parseInt(exam.rollNo, 10)) : '191864');
@@ -6030,7 +6035,7 @@ function generateDynamicMarksheet(exam, themeId, config) {
            <div style="position: absolute; top: -50px; right: -50px; width: 150px; height: 150px; background: ${c.color}33; border-radius: 50%; opacity: 0.5;"></div>
            <div style="display:flex; align-items:center; justify-content:center; border-bottom: 2px dashed ${c.color}; padding-bottom: 15px; margin-bottom: 20px;">
                <div style="text-align:center;">
-                   <img src="${DEFAULT_SCHOOL_LOGO}" style="width: 60px; height: 60px; margin-bottom: 5px; display:inline-block;" /><br/>\n                    <h2 style="margin:0; color: ${c.color}; font-size: 26px; font-weight: 800; text-transform: uppercase; display:inline-block;">Tapowan Public School</h2>
+                   <img src="${DEFAULT_SCHOOL_LOGO}" style="width: 60px; height: 60px; margin-bottom: 5px; display:inline-block;" /><br/>\n                    <h2 style="margin:0; color: ${c.color}; font-size: 26px; font-weight: 800; text-transform: uppercase; display:inline-block;">${getSchoolName()}</h2>
                    <div style="display:inline-block; background: #ef4444; color: white; padding: 5px 15px; border-radius: 20px; font-weight: bold; margin-top: 10px; font-size: 14px;">ADMIT CARD - <span contenteditable="true">${examName}</span></div>
                </div>
            </div>
@@ -6073,7 +6078,7 @@ function generateDynamicMarksheet(exam, themeId, config) {
       return `
         <div style="width: 100%; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; border: ${borderCss}; font-family: ${c.font}; padding: 20px; background: transparent; page-break-inside: avoid; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
             <div style="text-align:center; border-bottom: 2px solid ${c.color}; padding-bottom: 15px; margin-bottom: 20px;">
-                <img src="${DEFAULT_SCHOOL_LOGO}" style="width: 60px; height: 60px; margin-bottom: 5px; display:inline-block;" /><br/>\n                 <h2 style="margin:0; color: ${c.color}; font-size: 24px; font-family: serif; text-transform: uppercase; display:inline-block;">Tapowan Public School</h2>
+                <img src="${DEFAULT_SCHOOL_LOGO}" style="width: 60px; height: 60px; margin-bottom: 5px; display:inline-block;" /><br/>\n                 <h2 style="margin:0; color: ${c.color}; font-size: 24px; font-family: serif; text-transform: uppercase; display:inline-block;">${getSchoolName()}</h2>
                 <h3 style="margin:10px 0 0 0; color: inherit; font-size: 18px; text-decoration: underline;">ADMIT CARD - <span contenteditable="true">${examName}</span></h3>
             </div>
             <div style="display: flex; gap: 20px;">
@@ -6117,7 +6122,7 @@ function generateDynamicMarksheet(exam, themeId, config) {
             <div style="padding: 10px; position: relative; flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
                 <div style="text-align:center; padding-bottom: 5px; margin-bottom: 10px;">
                     <img src="${DEFAULT_SCHOOL_LOGO}" style="width: 50px; height: 50px; margin-bottom: 3px; display:inline-block;" /><br/>
-                     <h1 style="margin:0; color: inherit; font-size: 20px; text-transform: uppercase; display:inline-block;">Tapowan Public School</h1>
+                     <h1 style="margin:0; color: inherit; font-size: 20px; text-transform: uppercase; display:inline-block;">${getSchoolName()}</h1>
                     <div style="margin-top:10px; display:block; width:100%; box-sizing:border-box; background: ${c.color}; color: ${c.fontColor || '#fff'}; padding:5px 15px; font-weight:bold; font-size:14px; text-align:center;">
                         ADMIT CARD - ${examName.toUpperCase()}
                     </div>

@@ -19,7 +19,8 @@
       if (!f.rollNo) f.rollNo = student.rollNo || student.roll || "";
     }
 
-    const schoolName = "Tapowan Public School";
+    const _schoolMeta = (typeof window.getSchoolMeta === 'function') ? window.getSchoolMeta() : {};
+    const schoolName = _schoolMeta.name || "School ERP";
     const slipNo = "FS-" + (f.id || Date.now());
     const printDate = new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
     const totalFee = parseFloat(f.totalFee) || 0;
@@ -71,7 +72,7 @@
           <img src="logo.png" style="height:42px;object-fit:contain;" alt="Logo" />
           <div style="font-size:18px;font-weight:900;color:#1e3a8a;letter-spacing:0.5px;text-transform:uppercase;">${schoolName}</div>
         </div>
-        <div style="font-size:11px;color:#1e3a8a;margin-top:1px;font-weight:700;">Prem Nagar Tapin North, Ramgarh(JH)</div>
+        <div style="font-size:11px;color:#1e3a8a;margin-top:1px;font-weight:700;">${_schoolMeta.address || _schoolMeta.city || ''}</div>
         <div style="margin-top:6px;display:inline-block;background:#1e3a8a;color:#fff;padding:6px 18px;font-size:12px;font-weight:800;text-transform:uppercase;border-radius:2px;">FEE SLIP</div>
       </div>
       <div style="display:flex;justify-content:space-between;padding:6px 10px;background:#eef2ff;border-bottom:1px solid #c7d2fe;font-size:11px;color:#1e3a8a;font-weight:700;">

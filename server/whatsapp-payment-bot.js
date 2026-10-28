@@ -271,7 +271,7 @@ Reply to this message with:
 \`APPROVE ${utrStr} ${settings.approvalPassword || '<PASSWORD>'}\`
 _Or reply:_ \`${utrStr} ${settings.approvalPassword || '<PASSWORD>'}\`
 ───────────────────────────────
-_Tapowan Public School — Online Finance Gateway_`;
+_${schoolName || 'School'} — Online Finance Gateway_`;
 
     let sentCount = 0;
     for (const adminPhone of settings.authorizedNumbers) {
@@ -554,7 +554,7 @@ async function processInboundWhatsAppMessage(senderPhone, rawMessageText, waSock
 💰 *Total Amount:* ₹${totalAmt.toLocaleString('en-IN')}
 🏛️ Official receipts generated & dues cleared in database.
 ───────────────────────────────
-_Tapowan Public School_`;
+_${schoolName || 'School'}_`;
 
     await sendWhatsAppMessage(senderPhone, reply, waSock);
     return { ok: true, approvedCount };
@@ -664,7 +664,7 @@ Payment for *${payment.student_name}* (Adm: ${payment.admission_no}) of *₹${pa
 🏛️ *Status:* Verified & Receipt Generated in Fees
 💸 *Due Record:* Outstanding Cleared (Balance = ₹0)
 ───────────────────────────────
-_Tapowan Public School — Automated Finance Gateway_`;
+_${schoolName || 'School'} — Automated Finance Gateway_`;
 
   await sendWhatsAppMessage(senderPhone, successAdminReply, waSock);
 
@@ -686,7 +686,7 @@ Your online fee payment has been successfully verified!
 ✨ *Status:* Fully Paid & Receipt Created
 
 Thank you for your timely payment!
-_Tapowan Public School, Prem Nagar Tapin North_`;
+_${schoolName || 'School'}_`;
 
     await sendWhatsAppMessage(result.studentPhone, studentReceiptMsg, waSock);
   }

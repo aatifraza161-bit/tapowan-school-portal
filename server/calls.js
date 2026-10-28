@@ -2031,7 +2031,7 @@ async function dispatchVoiceNotificationPush({
           body: message || '',
           audioUrl: audioUrl,
           ttsText: ttsText,
-          senderName: senderName || 'Tapowan Public School',
+          senderName: senderName || process.env.SCHOOL_NAME || 'School',
           durationSec: String(durationSec || 0),
           targetType: targetType || 'all',
           targetClass: targetClass || '',
@@ -2089,7 +2089,7 @@ async function dispatchVoiceNotificationPush({
             message: message,
             audioUrl: audioUrl,
             ttsText: ttsText,
-            senderName: senderName || 'Tapowan Public School',
+            senderName: senderName || process.env.SCHOOL_NAME || 'School',
             durationSec: String(durationSec || 0),
             targetType: targetType || 'all',
             targetClass: targetClass || '',
@@ -2128,7 +2128,7 @@ async function dispatchMediaNotificationPush({
   targetType = 'all',
   targetClass = '',
   targetId = '',
-  senderName = 'Tapowan Public School'
+  senderName = process.env.SCHOOL_NAME || 'School'
 }) {
   let tokens = [];
 
@@ -2240,7 +2240,7 @@ async function dispatchMediaNotificationPush({
           mediaUrl: mediaUrl || '',
           videoUrl: videoUrl || '',
           mediaType: mediaType || 'image',
-          senderName: senderName || 'Tapowan Public School',
+          senderName: senderName || process.env.SCHOOL_NAME || 'School',
           targetType: targetType || 'all',
           targetClass: targetClass || '',
           targetId: targetId || ''
@@ -2300,7 +2300,7 @@ async function dispatchMediaNotificationPush({
             imageUrl: mediaUrl || '',
             videoUrl: videoUrl || '',
             mediaType: mediaType || 'image',
-            senderName: senderName || 'Tapowan Public School',
+            senderName: senderName || process.env.SCHOOL_NAME || 'School',
             targetType: targetType || 'all',
             targetClass: targetClass || '',
             targetId: targetId || ''

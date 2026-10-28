@@ -9,7 +9,7 @@ const { db, runRaw } = require("./db-sqlite");
 const SCHOOL_COORDS = {
   lat: 23.8209682,
   lng: 85.5119629,
-  name: "Tapowan Public School (Prem Nagar)",
+  name: (process.env.SCHOOL_NAME || "Tapowan Public School (Prem Nagar)"),
   radiusMeters: 50.0
 };
 
@@ -128,7 +128,7 @@ router.get("/gps/live", async (req, res) => {
         distanceFromCampusKm: distanceKm,
         isInsideGeofence: isInsideGeofence,
         etaMinutes: etaMins,
-        address: r.address || (isInsideGeofence ? "Tapowan Public School Campus" : `En Route (~${distanceKm} km to school)`),
+        address: r.address || (isInsideGeofence ? (process.env.SCHOOL_NAME ? process.env.SCHOOL_NAME + " Campus" : "School Campus") : `En Route (~${distanceKm} km to school)`),
         lastUpdated: r.updated_at || new Date().toISOString(),
         ageSeconds: ageSeconds
       };
