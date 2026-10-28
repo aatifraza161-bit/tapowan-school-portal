@@ -90,7 +90,17 @@
 
     const curr = window.currentSchool || {};
 
-    const name = getSettingVal('school_name') || curr.name || curr.school_name || "Tapowan Public School";
+    let _defaultSchool = "Tapowan Public School";
+    let _defaultCampus = "Prem Nagar Tapin North, Ramgarh, Jharkhand - 825314";
+    if (typeof window !== "undefined") {
+      const h = (window.location && window.location.hostname || "").toLowerCase();
+      const t = (document.title || "").toLowerCase();
+      if (h.includes("dav") || t.includes("dav")) {
+        _defaultSchool = "DAV Public School";
+        _defaultCampus = "DAV Public School Campus";
+      }
+    }
+    const name = getSettingVal('school_name') || curr.name || curr.school_name || _defaultSchool;
     const tagline = getSettingVal('school_tagline') || curr.tagline || "Quality Education for a Brighter Future";
 
     const board = getSettingVal('affiliation_board') || curr.affiliation_board || curr.affiliationBoard || "";
@@ -101,7 +111,7 @@
       if (affNo) affiliation += ` • Affiliation No. ${affNo}`;
     }
 
-    const campus = getSettingVal('school_address') || curr.address || curr.campus || aiAddress || "Prem Nagar Tapin North, Ramgarh, Jharkhand - 825314";
+    const campus = getSettingVal('school_address') || curr.address || curr.campus || aiAddress || _defaultCampus;
     const phone = getSettingVal('school_phone') || curr.phone || "+91 74880 61954, +91 95256 40237";
     const email = getSettingVal('school_email') || curr.email || "info@tapowanpublicschool.com";
     const website = getSettingVal('school_website') || curr.website || (window.location && window.location.host ? window.location.host : "tapowan-school.pages.dev");

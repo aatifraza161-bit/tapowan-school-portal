@@ -6,12 +6,12 @@
 (function (global) {
   "use strict";
 
-  // Authoritative default data matching the official Tapowan Public School Fee Chart
+  // Dynamic default data matching the official School Fee Chart
   const DEFAULT_FEE_DATA = {
-    schoolName: "TAPOWAN PUBLIC SCHOOL",
+    schoolName: ((typeof window !== "undefined" && typeof window.getSchoolMeta === "function" && window.getSchoolMeta().name) || "School").toUpperCase(),
     subtitle: "OFFICIAL FEE STRUCTURE",
-    date: "16 Dec 2025",
-    location: "Tapin, Jharkhand",
+    date: new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }).toUpperCase(),
+    location: ((typeof window !== "undefined" && typeof window.getSchoolMeta === "function" && window.getSchoolMeta().campus) || "Campus").split(",").slice(0, 2).join(",").trim(),
     classes: ["N/C", "LKG", "UKG", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"],
     rows: [
       {
@@ -110,26 +110,55 @@
    * Helper to retrieve current school branding from profile or fallback
    */
   function resolveSchoolBranding(overrides = {}) {
-    let meta = JSON.parse(JSON.stringify(DEFAULT_FEE_DATA));
+    let currentSchoolName = "";
+    let currentLocation = "";
     try {
       if (typeof global.getSchoolMeta === "function") {
         const sm = global.getSchoolMeta();
-        if (sm.name) meta.schoolName = sm.name.toUpperCase();
-        if (sm.address || sm.campus) {
-          const parts = (sm.address || sm.campus).split(",");
-          meta.location = parts.slice(0, 2).join(",").trim() || sm.address;
+        if (sm && sm.name) currentSchoolName = sm.name.toUpperCase();
+        if (sm && (sm.campus || sm.address)) {
+          const parts = (sm.campus || sm.address).split(",");
+          currentLocation = parts.slice(0, 2).join(",").trim() || sm.campus || sm.address;
+        }
+      }
+      if (!currentSchoolName && global.store && global.store.schoolProfile && global.store.schoolProfile.schoolName) {
+        currentSchoolName = global.store.schoolProfile.schoolName.toUpperCase();
+      }
+      if (!currentLocation && global.store && global.store.schoolProfile && global.store.schoolProfile.schoolAddress) {
+        currentLocation = global.store.schoolProfile.schoolAddress.split(",").slice(0, 2).join(",").trim();
+      }
+      if (!currentSchoolName && typeof document !== "undefined" && document.title) {
+        const titleParts = document.title.split("—")[0].trim();
+        if (titleParts && !titleParts.toLowerCase().includes("educore")) {
+          currentSchoolName = titleParts.toUpperCase();
         }
       }
     } catch (_) {}
 
+    const now = new Date();
+    const formattedDate = now.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }).toUpperCase();
+
+    const fallbackName = currentSchoolName || "SCHOOL";
+    const fallbackLocation = currentLocation || "Campus";
+
+    let chosenName = overrides.schoolName;
+    if (!chosenName || (chosenName === "TAPOWAN PUBLIC SCHOOL" && currentSchoolName && currentSchoolName !== "TAPOWAN PUBLIC SCHOOL")) {
+      chosenName = currentSchoolName || fallbackName;
+    }
+
+    let chosenLoc = overrides.location;
+    if (!chosenLoc || ((chosenLoc === "Tapin, Jharkhand" || chosenLoc.includes("Prem Nagar")) && currentLocation && !currentLocation.includes("Prem Nagar"))) {
+      chosenLoc = currentLocation || fallbackLocation;
+    }
+
     return {
-      schoolName: overrides.schoolName || meta.schoolName,
-      subtitle: overrides.subtitle || meta.subtitle,
-      date: overrides.date || meta.date,
-      location: overrides.location || meta.location,
-      classes: overrides.classes || meta.classes,
-      rows: overrides.rows || meta.rows,
-      footer: overrides.footer || meta.footer
+      schoolName: chosenName || fallbackName,
+      subtitle: overrides.subtitle || "OFFICIAL FEE STRUCTURE",
+      date: overrides.date || formattedDate,
+      location: chosenLoc || fallbackLocation,
+      classes: overrides.classes || DEFAULT_FEE_DATA.classes,
+      rows: overrides.rows || DEFAULT_FEE_DATA.rows,
+      footer: overrides.footer || DEFAULT_FEE_DATA.footer
     };
   }
 
@@ -661,7 +690,7 @@
     });
 
     resetBtn.addEventListener("click", () => {
-      curData = resolveSchoolBranding(DEFAULT_FEE_DATA);
+      curData = resolveSchoolBranding({});
       dateInput.value = curData.date;
       updatePreview();
       if (typeof global.showToast === "function") {

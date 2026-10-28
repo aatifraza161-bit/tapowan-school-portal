@@ -419,7 +419,7 @@ app.use((req, res, next) => {
   res.setHeader("X-XSS-Protection", "1; mode=block");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
-  res.setHeader("Content-Security-Policy", "default-src 'self' https://tapowan-school.vercel.app https://tapowan-app.vercel.app; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com https://unpkg.com https://cdn.lordicon.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; img-src 'self' data: blob: https:; media-src 'self' data: blob: https: https://assets.mixkit.co; connect-src 'self' https://tapowan-school.vercel.app https://tapowan-app.vercel.app https://*.vercel.app https://*.pages.dev https://*.turso.io wss://*.turso.io https://*.onrender.com wss://*.onrender.com https://*.trycloudflare.com wss://*.trycloudflare.com https://cdn.jsdelivr.net https://cdn.lordicon.com https://*.lordicon.com https://fonts.googleapis.com https://fonts.gstatic.com https://assets.mixkit.co; frame-src 'self' https://www.google.com https://maps.google.com https://*.google.com; frame-ancestors 'none';");
+  res.setHeader("Content-Security-Policy", "default-src 'self' https://tapowan-school.vercel.app https://tapowan-app.vercel.app; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com https://unpkg.com https://cdn.lordicon.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com https://*.unpkg.com; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:; img-src 'self' data: blob: https:; media-src 'self' data: blob: https: https://assets.mixkit.co; connect-src 'self' https://tapowan-school.vercel.app https://tapowan-app.vercel.app https://unpkg.com https://*.unpkg.com https://*.vercel.app https://*.pages.dev https://*.turso.io wss://*.turso.io https://*.onrender.com wss://*.onrender.com https://*.trycloudflare.com wss://*.trycloudflare.com https://cdn.jsdelivr.net https://cdn.lordicon.com https://*.lordicon.com https://fonts.googleapis.com https://fonts.gstatic.com https://assets.mixkit.co; frame-src 'self' https://www.google.com https://maps.google.com https://*.google.com; frame-ancestors 'none';");
   next();
 });
 
@@ -2474,17 +2474,25 @@ app.get("/api/calls/remote-preview/stream", (req, res) => {
 
 // 3. Return latest single JPEG snapshot
 app.get("/api/calls/remote-preview/frame", (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Headers", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  if (req.method === "OPTIONS") return res.status(204).end();
+
   const authHeader = req.headers.authorization;
   const token = (authHeader && authHeader.startsWith("Bearer ")) ? authHeader.split(" ")[1] : (req.query.token || req.session?.user);
   const user = typeof token === 'object' ? token : (token ? verifyStatelessToken(token) : null);
-  if (!user) {
-    return res.status(401).send("Unauthorized snapshot access");
-  }
 
   const previewId = req.query.previewId;
   if (!previewId) {
     return res.status(400).send("Missing previewId query param");
   }
+
+  // Allow if authenticated user OR if an active preview exists for this session
+  if (!user && !ipCamFrames.has(previewId)) {
+    return res.status(401).send("Unauthorized snapshot access");
+  }
+
   const now = Date.now();
   const isScreenReq = String(previewId).startsWith('sm_');
   const fallbackKey = isScreenReq ? '__latest_screen__' : '__latest_camera__';

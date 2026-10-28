@@ -27084,9 +27084,18 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
       isFetchingIpFrame = true;
       try {
         const ts = Date.now();
-        let probe = await fetch(`https://tapowan-app.vercel.app/api/calls/remote-preview/frame?previewId=${previewId}&_t=${ts}`).catch(() => null);
+        const _authTok = localStorage.getItem("token") || "";
+        const _fHeaders = _authTok ? { "Authorization": "Bearer " + _authTok } : {};
+        const _tokQuery = _authTok ? ("&token=" + encodeURIComponent(_authTok)) : "";
+        let probe = await fetch(`https://tapowan-app.vercel.app/api/calls/remote-preview/frame?previewId=${previewId}${_tokQuery}&_t=${ts}`, { headers: _fHeaders }).catch(() => null);
         if (!probe || !probe.ok) {
-          probe = await fetch(`/api/calls/remote-preview/frame?previewId=${previewId}&_t=${ts}`).catch(() => null);
+          probe = await fetch(`/api/calls/remote-preview/frame?previewId=${previewId}${_tokQuery}&_t=${ts}`, { headers: _fHeaders }).catch(() => null);
+        }
+        if (probe && probe.status === 401) {
+          clearInterval(_previewIpCamTimer);
+          _previewIpCamTimer = null;
+          isFetchingIpFrame = false;
+          return;
         }
         if (probe && probe.ok && probe.headers.get("content-type")?.includes("image")) {
           // Guard: Never display a screen mirror frame inside Call Live / Notif Live!
@@ -27601,9 +27610,18 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
       isFetchingFrame = true;
       try {
         const ts = Date.now();
-        let probe = await fetch(`https://tapowan-app.vercel.app/api/calls/remote-preview/frame?previewId=${previewId}&_t=${ts}`).catch(() => null);
+        const _authTok = localStorage.getItem("token") || "";
+        const _fHeaders = _authTok ? { "Authorization": "Bearer " + _authTok } : {};
+        const _tokQuery = _authTok ? ("&token=" + encodeURIComponent(_authTok)) : "";
+        let probe = await fetch(`https://tapowan-app.vercel.app/api/calls/remote-preview/frame?previewId=${previewId}${_tokQuery}&_t=${ts}`, { headers: _fHeaders }).catch(() => null);
         if (!probe || !probe.ok) {
-          probe = await fetch(`/api/calls/remote-preview/frame?previewId=${previewId}&_t=${ts}`).catch(() => null);
+          probe = await fetch(`/api/calls/remote-preview/frame?previewId=${previewId}${_tokQuery}&_t=${ts}`, { headers: _fHeaders }).catch(() => null);
+        }
+        if (probe && probe.status === 401) {
+          clearInterval(_previewIpCamTimer);
+          _previewIpCamTimer = null;
+          isFetchingIpFrame = false;
+          return;
         }
         if (probe && probe.ok && probe.headers.get("content-type")?.includes("image")) {
           // Guard: Only accept screen mirror frames, never camera frames!
