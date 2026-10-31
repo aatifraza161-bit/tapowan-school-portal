@@ -13,8 +13,11 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
   "Access-Control-Allow-Headers": "*",
+  "Access-Control-Expose-Headers": "*",
   "Access-Control-Max-Age": "86400"
 };
+
+const edgeFrameCache = new Map();
 
 function jsonResponse(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), {
@@ -328,6 +331,122 @@ export default {
           return jsonResponse(parsed.rows || [], 200, { 'Cache-Control': 'no-store' });
         }
       } catch (_) {}
+    }
+
+    // 4.6 LIVE REMOTE PREVIEW CAMERA & SCREEN FRAME RELAY
+    if (url.pathname === '/api/calls/remote-preview/frame') {
+      if (request.method === 'POST') {
+        try {
+          const previewId = request.headers.get('x-preview-id') || url.searchParams.get('previewId');
+          if (!previewId) {
+            return jsonResponse({ ok: false, error: 'Missing previewId' }, 400);
+          }
+          const facing = request.headers.get('x-facing') || 'environment';
+          const arrayBuffer = await request.arrayBuffer();
+          if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+            return jsonResponse({ ok: false, error: 'Empty frame buffer' }, 400);
+          }
+
+          const now = Date.now();
+          const frameData = {
+            buffer: arrayBuffer,
+            facing: facing,
+            updatedAt: now
+          };
+
+          edgeFrameCache.set(previewId, frameData);
+          if (facing === 'screen' || previewId.startsWith('sm_')) {
+            edgeFrameCache.set('__latest_screen__', frameData);
+          } else {
+            edgeFrameCache.set('__latest_camera__', frameData);
+          }
+
+          try {
+            const cache = caches.default;
+            const cacheKey = new Request(`https://cache.remote-preview.internal/frame/${encodeURIComponent(previewId)}`);
+            const cacheRes = new Response(arrayBuffer, {
+              status: 200,
+              headers: {
+                'Content-Type': 'image/jpeg',
+                'Cache-Control': 'public, max-age=10',
+                'X-Facing': facing,
+                'X-Timestamp': now.toString()
+              }
+            });
+            if (ctx && typeof ctx.waitUntil === 'function') {
+              ctx.waitUntil(cache.put(cacheKey, cacheRes));
+            } else {
+              await cache.put(cacheKey, cacheRes);
+            }
+          } catch (_) {}
+
+          return jsonResponse({ ok: true, size: arrayBuffer.byteLength, facing });
+        } catch (err) {
+          return jsonResponse({ ok: false, error: err.message }, 500);
+        }
+      }
+
+      if (request.method === 'GET') {
+        const previewId = url.searchParams.get('previewId');
+        if (!previewId) {
+          return new Response('Missing previewId', { status: 400, headers: CORS_HEADERS });
+        }
+
+        const now = Date.now();
+        const isScreenReq = previewId.startsWith('sm_');
+        const fallbackKey = isScreenReq ? '__latest_screen__' : '__latest_camera__';
+
+        let frame = edgeFrameCache.get(previewId) || edgeFrameCache.get(fallbackKey);
+        if (frame && (now - frame.updatedAt < 6000)) {
+          return new Response(frame.buffer, {
+            status: 200,
+            headers: {
+              'Content-Type': 'image/jpeg',
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'X-Frame-Facing': frame.facing,
+              'X-Frame-Age': (now - frame.updatedAt).toString(),
+              'Access-Control-Allow-Origin': '*',
+              'Access-Control-Expose-Headers': 'X-Frame-Facing, X-Frame-Age, Content-Type, Content-Length'
+            }
+          });
+        }
+
+        // Try Cache API
+        try {
+          const cache = caches.default;
+          const cacheKey = new Request(`https://cache.remote-preview.internal/frame/${encodeURIComponent(previewId)}`);
+          const cachedRes = await cache.match(cacheKey);
+          if (cachedRes) {
+            const buffer = await cachedRes.arrayBuffer();
+            const facing = cachedRes.headers.get('X-Facing') || 'environment';
+            return new Response(buffer, {
+              status: 200,
+              headers: {
+                'Content-Type': 'image/jpeg',
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'X-Frame-Facing': facing,
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Expose-Headers': 'X-Frame-Facing, Content-Type, Content-Length'
+              }
+            });
+          }
+        } catch (_) {}
+
+        return new Response('Frame pending', {
+          status: 404,
+          headers: {
+            'Access-Control-Allow-Origin': '*'
+          }
+        });
+      }
+    }
+
+    if (url.pathname === '/api/calls/remote-preview/wake' && request.method === 'POST') {
+      return jsonResponse({ ok: true, message: 'Wake request registered on edge' });
+    }
+
+    if (url.pathname === '/api/calls/device-command' && request.method === 'POST') {
+      return jsonResponse({ ok: true, message: 'Command queued' });
     }
 
     // 5. Reverse proxy /api/* requests to dedicated backend with smart edge fallback
