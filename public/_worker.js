@@ -348,39 +348,26 @@ export default {
           }
 
           const now = Date.now();
+          const isScreenReq = previewId.startsWith('sm_');
+          const fallbackKey = isScreenReq ? '__latest_screen__' : '__latest_camera__';
+          const prevFrame = edgeFrameCache.get(previewId) || edgeFrameCache.get(fallbackKey);
+          const frameIndex = (prevFrame && typeof prevFrame.index === 'number') ? (prevFrame.index + 1) : 1;
+
           const frameData = {
             buffer: arrayBuffer,
             facing: facing,
-            updatedAt: now
+            updatedAt: now,
+            index: frameIndex
           };
 
           edgeFrameCache.set(previewId, frameData);
-          if (facing === 'screen' || previewId.startsWith('sm_')) {
+          if (facing === 'screen' || isScreenReq) {
             edgeFrameCache.set('__latest_screen__', frameData);
           } else {
             edgeFrameCache.set('__latest_camera__', frameData);
           }
 
-          try {
-            const cache = caches.default;
-            const cacheKey = new Request(`https://cache.remote-preview.internal/frame/${encodeURIComponent(previewId)}`);
-            const cacheRes = new Response(arrayBuffer, {
-              status: 200,
-              headers: {
-                'Content-Type': 'image/jpeg',
-                'Cache-Control': 'public, max-age=10',
-                'X-Facing': facing,
-                'X-Timestamp': now.toString()
-              }
-            });
-            if (ctx && typeof ctx.waitUntil === 'function') {
-              ctx.waitUntil(cache.put(cacheKey, cacheRes));
-            } else {
-              await cache.put(cacheKey, cacheRes);
-            }
-          } catch (_) {}
-
-          return jsonResponse({ ok: true, size: arrayBuffer.byteLength, facing });
+          return jsonResponse({ ok: true, size: arrayBuffer.byteLength, facing, frameIndex });
         } catch (err) {
           return jsonResponse({ ok: false, error: err.message }, 500);
         }
@@ -397,7 +384,7 @@ export default {
         const fallbackKey = isScreenReq ? '__latest_screen__' : '__latest_camera__';
 
         let frame = edgeFrameCache.get(previewId) || edgeFrameCache.get(fallbackKey);
-        if (frame && (now - frame.updatedAt < 6000)) {
+        if (frame && (now - frame.updatedAt < 5000)) {
           return new Response(frame.buffer, {
             status: 200,
             headers: {
@@ -405,34 +392,20 @@ export default {
               'Cache-Control': 'no-cache, no-store, must-revalidate',
               'X-Frame-Facing': frame.facing,
               'X-Frame-Age': (now - frame.updatedAt).toString(),
+              'X-Frame-Index': (frame.index || 1).toString(),
+              'X-Frame-Timestamp': (frame.updatedAt || now).toString(),
               'Access-Control-Allow-Origin': '*',
-              'Access-Control-Expose-Headers': 'X-Frame-Facing, X-Frame-Age, Content-Type, Content-Length'
+              'Access-Control-Expose-Headers': 'X-Frame-Facing, X-Frame-Age, X-Frame-Index, X-Frame-Timestamp, Content-Type, Content-Length'
             }
           });
         }
 
-        // Try Cache API
-        try {
-          const cache = caches.default;
-          const cacheKey = new Request(`https://cache.remote-preview.internal/frame/${encodeURIComponent(previewId)}`);
-          const cachedRes = await cache.match(cacheKey);
-          if (cachedRes) {
-            const buffer = await cachedRes.arrayBuffer();
-            const facing = cachedRes.headers.get('X-Facing') || 'environment';
-            return new Response(buffer, {
-              status: 200,
-              headers: {
-                'Content-Type': 'image/jpeg',
-                'Cache-Control': 'no-cache, no-store, must-revalidate',
-                'X-Frame-Facing': facing,
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Expose-Headers': 'X-Frame-Facing, Content-Type, Content-Length'
-              }
-            });
+        return new Response('Frame pending or expired', {
+          status: 404,
+          headers: {
+            'Access-Control-Allow-Origin': '*'
           }
-        } catch (_) {}
-
-        return new Response('Frame pending', {
+        });
           status: 404,
           headers: {
             'Access-Control-Allow-Origin': '*'
