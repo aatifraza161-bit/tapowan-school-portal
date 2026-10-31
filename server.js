@@ -45,6 +45,76 @@ const JWT_SECRET = process.env.SESSION_SECRET || '4254c771cea1bcdedfad1481015103
 const TOKEN_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 // Global Token Revocation & Invalidation Store
+
+// ── CLOUDFLARE BUCKET STORAGE ENGINE (Zero Base64 in Database) ──
+const CF_PHOTO_ACCOUNT_ID = '30b707dde181ce401075961b1826a749';
+const CF_PHOTO_KV_ID = '2fbd52f02543477895a1b7c3471ad09b';
+const CF_PHOTO_TOKEN = 'cfoat_4I1rbypT_b34Vj3YNb4rtied2yzpOGTc0NJ6rD9Egqg.E5Ms-W0E0WTihbGM8i5y9ph2Ejp0inN-eiZLJvbpg2E';
+
+async function uploadImageToCloudflareBucket(moduleName, targetId, photoData) {
+  if (!photoData || typeof photoData !== 'string') return photoData;
+  if (!photoData.startsWith('data:image') && !photoData.startsWith('data:application') && String(photoData).length < 200) {
+    return photoData; // Already a URL
+  }
+  try {
+    const commaIdx = photoData.indexOf(',');
+    let b64 = photoData;
+    let mime = 'image/webp';
+    if (commaIdx !== -1) {
+      const meta = photoData.substring(0, commaIdx);
+      b64 = photoData.substring(commaIdx + 1).replace(/\s/g, '');
+      const mimeMatch = meta.match(/data:([^;]+);base64/);
+      if (mimeMatch) mime = mimeMatch[1];
+    }
+    const ext = mime.includes('jpeg') || mime.includes('jpg') ? 'jpg' : (mime.includes('png') ? 'png' : 'webp');
+    const cleanId = String(targetId || ('img_' + Date.now())).trim().replace(/[\/\\]/g, '_');
+    const key = `${moduleName === 'teachers' ? 'teacher' : 'student'}_${cleanId}`;
+
+    const url = `https://api.cloudflare.com/client/v4/accounts/${CF_PHOTO_ACCOUNT_ID}/storage/kv/namespaces/${CF_PHOTO_KV_ID}/values/${key}`;
+    const buf = Buffer.from(b64, 'base64');
+    await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Authorization': 'Bearer ' + CF_PHOTO_TOKEN,
+        'Content-Type': mime
+      },
+      body: buf
+    });
+
+    const cdnUrl = `https://jarvis-tv.pages.dev/api/photo/${moduleName}/${cleanId}.${ext}`;
+    console.log(`[Cloudflare Bucket] Successfully uploaded image for ${moduleName}/${cleanId} (${buf.length} bytes) -> ${cdnUrl}`);
+    return cdnUrl;
+  } catch (err) {
+    console.error('[Cloudflare Bucket] Upload error:', err.message);
+    return photoData;
+  }
+}
+
+async function sanitizeArgsForCloudflareBucket(sql, args) {
+  if (!Array.isArray(args) || args.length === 0) return args;
+  const isStudentOrTeacher = /students|teachers|admissions/i.test(sql);
+  if (!isStudentOrTeacher) return args;
+
+  const newArgs = [...args];
+  for (let i = 0; i < newArgs.length; i++) {
+    const arg = newArgs[i];
+    if (typeof arg === 'string' && (arg.startsWith('data:image') || (arg.length > 500 && /^[A-Za-z0-9+/=]+$/.test(arg.substring(0, 100))))) {
+      let targetId = 'img_' + Date.now();
+      for (const other of newArgs) {
+        if (typeof other === 'string' && /^[0-9]+(\/[0-9]+)?$/.test(other)) {
+          targetId = other;
+          break;
+        } else if (typeof other === 'number') {
+          targetId = String(other);
+        }
+      }
+      const mod = /teachers/i.test(sql) ? 'teachers' : 'students';
+      newArgs[i] = await uploadImageToCloudflareBucket(mod, targetId, arg);
+    }
+  }
+  return newArgs;
+}
+
 const invalidatedTokensMap = new Map();
 setInterval(() => {
   const now = Date.now();
@@ -531,6 +601,15 @@ app.get([
   const rootApkPath = path.join(__dirname, reqFile);
   const rootDefaultApkPath = path.join(__dirname, 'TPS-Original-App.apk');
 
+  if (process.env.VERCEL) {
+    const targetUrl = 'https://github.com/aatifraza161-bit/tapowan-school-portal/releases/latest/download/TPS-Original-App.apk';
+    res.writeHead(302, {
+      Location: targetUrl,
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache'
+    });
+    return res.end();
+  }
   if (fs.existsSync(localApkPath)) {
     return res.sendFile(localApkPath);
   }
@@ -1865,7 +1944,8 @@ app.post("/api/db/query", dbProxyLimiter, async (req, res) => {
     }
 
     const upperSql = sql.trim().toUpperCase();
-    const result = await db.execute({ sql, args: Array.isArray(args) ? args : [] });
+    const sanitizedArgs = await sanitizeArgsForCloudflareBucket(sql, Array.isArray(args) ? args : []);
+    const result = await db.execute({ sql, args: sanitizedArgs });
     if (upperSql.startsWith("INSERT") || upperSql.startsWith("UPDATE") || upperSql.startsWith("DELETE") || upperSql.startsWith("REPLACE")) {
       if (typeof invalidateStoreCache === "function") invalidateStoreCache();
     }
@@ -4251,6 +4331,12 @@ app.post("/api/modules/:moduleName", authRequired, async (req, res) => {
         return res.status(403).json({ error: "Only admins can manage users" });
       }
       let payload = req.body || {};
+    // Cloudflare Zero-Base64 Storage Guard
+    if ((moduleName === 'students' || moduleName === 'teachers' || moduleName === 'admissions') && payload.photo) {
+      const pId = payload.id || payload.admissionNo || payload.employeeNo || ('new_' + Date.now());
+      payload.photo = await uploadImageToCloudflareBucket(moduleName, pId, payload.photo);
+      payload.photoUrl = payload.photo;
+    }
       if (!payload.password || typeof payload.password !== 'string' || payload.password.trim().length < 8) {
         return res.status(400).json({ error: "Password is required and must be at least 8 characters long" });
       }
@@ -4558,6 +4644,12 @@ app.put("/api/modules/:moduleName/:id", authRequired, async (req, res) => {
         delete req.body.facePhoto;
         req.body.facePhoto = null;
       }
+    }
+
+    // Cloudflare Zero-Base64 Storage Guard on Update
+    if ((moduleName === 'students' || moduleName === 'teachers' || moduleName === 'admissions') && req.body && req.body.photo) {
+      req.body.photo = await uploadImageToCloudflareBucket(moduleName, id, req.body.photo);
+      req.body.photoUrl = req.body.photo;
     }
 
     // ── FINANCIAL VALIDATION ON UPDATE ──
