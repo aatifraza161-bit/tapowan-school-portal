@@ -367,6 +367,26 @@ export default {
             edgeFrameCache.set('__latest_camera__', frameData);
           }
 
+          try {
+            const cache = caches.default;
+            const cacheKey = new Request(`https://cache.remote-preview.internal/frame/${encodeURIComponent(previewId)}`);
+            const cacheRes = new Response(arrayBuffer, {
+              status: 200,
+              headers: {
+                'Content-Type': 'image/jpeg',
+                'Cache-Control': 'public, max-age=5',
+                'X-Facing': facing,
+                'X-Index': frameIndex.toString(),
+                'X-Timestamp': now.toString()
+              }
+            });
+            if (ctx && typeof ctx.waitUntil === 'function') {
+              ctx.waitUntil(cache.put(cacheKey, cacheRes));
+            } else {
+              await cache.put(cacheKey, cacheRes);
+            }
+          } catch (_) {}
+
           return jsonResponse({ ok: true, size: arrayBuffer.byteLength, facing, frameIndex });
         } catch (err) {
           return jsonResponse({ ok: false, error: err.message }, 500);
@@ -399,6 +419,35 @@ export default {
             }
           });
         }
+
+        // Try Cache API across Cloudflare edge isolates
+        try {
+          const cache = caches.default;
+          const cacheKey = new Request(`https://cache.remote-preview.internal/frame/${encodeURIComponent(previewId)}`);
+          const cachedRes = await cache.match(cacheKey);
+          if (cachedRes) {
+            const tsStr = cachedRes.headers.get('X-Timestamp');
+            const ts = tsStr ? parseInt(tsStr, 10) : 0;
+            if (ts > 0 && (now - ts < 5000)) {
+              const buffer = await cachedRes.arrayBuffer();
+              const facing = cachedRes.headers.get('X-Facing') || 'environment';
+              const fIdx = cachedRes.headers.get('X-Index') || '1';
+              return new Response(buffer, {
+                status: 200,
+                headers: {
+                  'Content-Type': 'image/jpeg',
+                  'Cache-Control': 'no-cache, no-store, must-revalidate',
+                  'X-Frame-Facing': facing,
+                  'X-Frame-Age': (now - ts).toString(),
+                  'X-Frame-Index': fIdx,
+                  'X-Frame-Timestamp': ts.toString(),
+                  'Access-Control-Allow-Origin': '*',
+                  'Access-Control-Expose-Headers': 'X-Frame-Facing, X-Frame-Age, X-Frame-Index, X-Frame-Timestamp, Content-Type, Content-Length'
+                }
+              });
+            }
+          }
+        } catch (_) {}
 
         return new Response('Frame pending or expired', {
           status: 404,
