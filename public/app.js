@@ -27011,6 +27011,15 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     }
     try {
       await window.dismissTransparentScreen(devId, true);
+      const issuer = (currentUser && (currentUser.name || currentUser.fullName)) ? (currentUser.name || currentUser.fullName) : "Web Admin";
+      await api("/api/calls/device-command", {
+        method: "POST",
+        body: JSON.stringify({
+          targetDeviceId: devId,
+          command: "cut_call",
+          issuedBy: issuer
+        })
+      }).catch(() => {});
       if (!silent) {
         addMsg("📴 Phone call screen dismissed. Live camera feed remains streaming uninterrupted.", "bot");
       }
@@ -27100,7 +27109,7 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
 
     // Show preview area with loading, video & Native IP Camera image
     const area = document.getElementById("liveOtaPreviewArea");
-    const savedAutoCut = (function() { try { return localStorage.getItem('tps_auto_cut_call_sec') || '0'; } catch(_) { return '0'; } })();
+    const savedAutoCut = (function() { try { const v = localStorage.getItem('tps_auto_cut_call_sec'); return (v !== null && v !== undefined && v !== '') ? v : '5'; } catch(_) { return '5'; } })();
     if (area) {
       area.style.display = "block";
       area.innerHTML = `
@@ -27130,8 +27139,8 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
               <div id="autoCutCallWrapper" style="display:${mode === 'call' ? 'inline-flex' : 'none'};align-items:center;gap:4px;background:#334155;border-radius:6px;padding:3px 8px;" title="Manually enter number of seconds to auto-cut call (0 or empty = Off/Manual)">
                 <span style="color:#cbd5e1;font-size:0.7rem;font-weight:600;display:inline-flex;align-items:center;gap:2px;"><span class="material-symbols-outlined" style="font-size:13px;">timer</span>Auto Cut:</span>
                 <input type="number" id="autoCutCallInput" min="0" max="600" step="1"
-                  value="${savedAutoCut && savedAutoCut !== '0' ? savedAutoCut : ''}"
-                  placeholder="Off"
+                  value="${savedAutoCut || '5'}"
+                  placeholder="5"
                   oninput="setAutoCutCallSec(this.value)"
                   onchange="setAutoCutCallSec(this.value)"
                   style="width:50px;background:#1e293b;color:#38bdf8;border:1px solid #475569;border-radius:4px;padding:2px 4px;font-size:0.75rem;font-weight:700;text-align:center;" />

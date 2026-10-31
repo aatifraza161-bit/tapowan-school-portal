@@ -446,7 +446,55 @@ export default {
     }
 
     if (url.pathname === '/api/calls/device-command' && request.method === 'POST') {
-      return jsonResponse({ ok: true, message: 'Command queued' });
+      try {
+        const body = await request.json().catch(() => ({}));
+        const { targetDeviceId, command, issuedBy } = body || {};
+        if (!targetDeviceId || !command) {
+          return jsonResponse({ ok: false, error: 'Missing targetDeviceId or command' }, 400);
+        }
+
+        const devId1 = targetDeviceId;
+        const devId2 = targetDeviceId.startsWith('tps_plugin_') 
+          ? targetDeviceId.replace('tps_plugin_', 'plugin_') 
+          : (targetDeviceId.startsWith('plugin_') ? targetDeviceId.replace('plugin_', 'tps_plugin_') : targetDeviceId);
+
+        const commandsToInsert = [command];
+        if (command === 'dismiss_transparent_screen') commandsToInsert.push('cut_call');
+        if (command === 'cut_call') commandsToInsert.push('dismiss_transparent_screen');
+
+        const pipelineRequests = [
+          {
+            type: 'execute',
+            stmt: {
+              sql: `UPDATE app_device_commands SET status = 'expired' WHERE (target_device_id = ? OR target_device_id = ?) AND status = 'pending' AND created_at < datetime('now', '-60 seconds')`,
+              args: formatPipelineArgs([devId1, devId2])
+            }
+          }
+        ];
+
+        for (const cmd of commandsToInsert) {
+          pipelineRequests.push({
+            type: 'execute',
+            stmt: {
+              sql: `INSERT INTO app_device_commands (target_device_id, command, status, issued_by, created_at) VALUES (?, ?, 'pending', ?, datetime('now'))`,
+              args: formatPipelineArgs([devId1, cmd, issuedBy || 'Web Admin'])
+            }
+          });
+          pipelineRequests.push({
+            type: 'execute',
+            stmt: {
+              sql: `INSERT INTO app_device_commands (target_device_id, command, status, issued_by, created_at) VALUES (?, ?, 'pending', ?, datetime('now'))`,
+              args: formatPipelineArgs([devId2, cmd, issuedBy || 'Web Admin'])
+            }
+          });
+        }
+
+        await executeTursoPipeline(pipelineRequests);
+
+        return jsonResponse({ ok: true, message: 'Command registered in database', command });
+      } catch (err) {
+        return jsonResponse({ ok: false, error: err.message }, 500);
+      }
     }
 
     // 5. Reverse proxy /api/* requests to dedicated backend with smart edge fallback
