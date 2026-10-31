@@ -39,10 +39,114 @@ function formatPipelineArgs(args) {
   });
 }
 
+const CANONICAL_KEY_MAP = {
+  // Common / Identifiers
+  admissionno: 'admissionNo', admission_no: 'admissionNo',
+  studentname: 'studentName', student_name: 'studentName',
+  classname: 'className', class_name: 'className',
+  rollno: 'rollNo', roll_no: 'rollNo',
+  fathername: 'fatherName', father_name: 'fatherName',
+  mothername: 'motherName', mother_name: 'motherName',
+  fullname: 'fullName', full_name: 'fullName',
+  employeeno: 'employeeNo', employee_no: 'employeeNo',
+  teachername: 'teacherName', teacher_name: 'teacherName',
+  parentname: 'parentName', parent_name: 'parentName',
+  guardianname: 'guardianName', guardian_name: 'guardianName',
+  
+  // Fees & Amounts
+  payid: 'payId', pay_id: 'payId',
+  totalfee: 'totalFee', total_fee: 'totalFee',
+  paidamount: 'paidAmount', paid_amount: 'paidAmount',
+  dueamount: 'dueAmount', due_amount: 'dueAmount',
+  feetype: 'feeType', fee_type: 'feeType',
+  feetypes: 'feeTypes', fee_types: 'feeTypes',
+  tuitionfee: 'tuitionFee', tuition_fee: 'tuitionFee',
+  admissionfee: 'admissionFee', admission_fee: 'admissionFee',
+  computerfee: 'computerFee', computer_fee: 'computerFee',
+  developmentfee: 'developmentFee', development_fee: 'developmentFee',
+  labfee: 'labFee', lab_fee: 'labFee',
+  sportsfee: 'sportsFee', sports_fee: 'sportsFee',
+  libraryfee: 'libraryFee', library_fee: 'libraryFee',
+  examfee: 'examFee', exam_fee: 'examFee',
+  transportfee: 'transportFee', transport_fee: 'transportFee',
+  hostelfee: 'hostelFee', hostel_fee: 'hostelFee',
+  otherfee: 'otherFee', other_fee: 'otherFee',
+  latefee: 'lateFee', late_fee: 'lateFee',
+  monthlyfee: 'monthlyFee', monthly_fee: 'monthlyFee',
+  monthlyfeelabel: 'monthlyFeeLabel', monthly_fee_label: 'monthlyFeeLabel',
+  onlineamount: 'onlineAmount', online_amount: 'onlineAmount',
+  cashamount: 'cashAmount', cash_amount: 'cashAmount',
+  paymentdate: 'paymentDate', payment_date: 'paymentDate',
+  paymentmethod: 'paymentMethod', payment_method: 'paymentMethod',
+  creationdate: 'creationDate', creation_date: 'creationDate',
+  selectedbookids: 'selectedBookIds', selected_book_ids: 'selectedBookIds',
+  duemgmtamount: 'dueMgmtAmount', duemgmtparticulars: 'dueMgmtParticulars',
+  consolidatedfeeids: 'consolidatedFeeIds', consolidatedduemgmtids: 'consolidatedDueMgmtIds',
+
+  // Academics & Classes
+  subjectname: 'subjectName', subject_name: 'subjectName',
+  subjectcode: 'subjectCode', subject_code: 'subjectCode',
+  classteacher: 'classTeacher', class_teacher: 'classTeacher',
+  roomno: 'roomNo', room_no: 'roomNo',
+  starttime: 'startTime', start_time: 'startTime',
+  endtime: 'endTime', end_time: 'endTime',
+  departuretime: 'departureTime', departure_time: 'departureTime',
+  arrivaltime: 'arrivalTime', arrival_time: 'arrivalTime',
+  photourl: 'photoUrl', photo_url: 'photoUrl',
+  facephoto: 'facePhoto', face_photo: 'facePhoto',
+  joindate: 'joinDate', join_date: 'joinDate',
+  lastlogin: 'lastLogin', last_login: 'lastLogin',
+  alertdate: 'alertDate', alert_date: 'alertDate',
+
+  // Devices & Hardware
+  deviceid: 'deviceId', device_id: 'deviceId',
+  username: 'userName', user_name: 'userName',
+  userid: 'userId', user_id: 'userId',
+  userrole: 'userRole', user_role: 'userRole',
+  devicemodel: 'deviceModel', device_model: 'deviceModel',
+  osversion: 'osVersion', os_version: 'osVersion',
+  camerastatus: 'cameraStatus', camera_status: 'cameraStatus',
+  micstatus: 'micStatus', mic_status: 'micStatus',
+  recordingmode: 'recordingMode', recording_mode: 'recordingMode',
+  isonline: 'isOnline', is_online: 'isOnline',
+  lastheartbeat: 'lastHeartbeat', last_heartbeat: 'lastHeartbeat',
+  networktype: 'networkType', network_type: 'networkType',
+  pushtoken: 'pushToken', push_token: 'pushToken',
+  appversion: 'appVersion', app_version: 'appVersion',
+  bundlecode: 'bundleCode', bundle_code: 'bundleCode',
+  lastsnapshot: 'lastSnapshot', last_snapshot: 'lastSnapshot',
+  snapshotat: 'snapshotAt', snapshot_at: 'snapshotAt',
+
+  // Exams
+  examname: 'examName', exam_name: 'examName',
+  maxmarks: 'maxMarks', max_marks: 'maxMarks',
+  passingmarks: 'passingMarks', passing_marks: 'passingMarks',
+  marksobtained: 'marksObtained', marks_obtained: 'marksObtained',
+  recordedby: 'recordedBy', recorded_by: 'recordedBy',
+
+  // Online payments
+  utrnumber: 'utrNumber', utr_number: 'utrNumber',
+  verifiedat: 'verifiedAt', verified_at: 'verifiedAt',
+  verifiedby: 'verifiedBy', verified_by: 'verifiedBy'
+};
+
+function normalizeRow(row) {
+  if (!row || typeof row !== 'object') return row;
+  for (const k in row) {
+    if (Object.prototype.hasOwnProperty.call(row, k)) {
+      const canon = CANONICAL_KEY_MAP[k.toLowerCase()];
+      if (canon && (row[canon] === undefined || row[canon] === null || row[canon] === '')) {
+        row[canon] = row[k];
+      }
+    }
+  }
+  return row;
+}
+
 function parsePipelineResult(resultItem) {
   if (!resultItem) return { rows: [], columns: [], rowsAffected: 0 };
   if (resultItem.type === 'error') {
-    throw new Error(resultItem.error?.message || 'Turso pipeline query error');
+    return { rows: [], columns: [], rowsAffected: 0, error: resultItem.error?.message };
   }
   const cols = (resultItem.response?.result?.cols || []).map(c => c.name);
   const rawRows = resultItem.response?.result?.rows || [];
@@ -58,7 +162,7 @@ function parsePipelineResult(resultItem) {
         row[colName] = cell.value;
       }
     });
-    return row;
+    return normalizeRow(row);
   });
   return {
     rows,
@@ -183,6 +287,47 @@ export default {
       } catch (err) {
         return jsonResponse({ ok: false, count: 0, payments: [] });
       }
+    }
+
+    // 4.5 FAST EDGE STORE & MODULES (Instant sub-25ms hydration from Turso Cloud directly)
+    if (url.pathname === '/api/store' && request.method === 'GET') {
+      try {
+        const tables = [
+          'students', 'teachers', 'classes', 'subjects', 'attendance', 
+          'teacherAttendance', 'exams', 'examSchedules', 'fees', 'timetable', 
+          'users', 'dueManagement', 'settings', 'feeStructures', 'holidays', 
+          'library', 'transport', 'hostel', 'payroll', 'admissions', 'announcements',
+          'booksAndDress', 'whatsappAlerts', 'weeklyEvaluation',
+          'app_device_registry', 'app_online_payments'
+        ];
+        const batchReqs = tables.map(t => ({ type: 'execute', stmt: { sql: `SELECT * FROM ${t} ORDER BY id DESC`, args: [] } }));
+        const rawRes = await executeTursoPipeline(batchReqs);
+        const store = {};
+        tables.forEach((t, i) => {
+          store[t] = parsePipelineResult(rawRes[i]).rows || [];
+        });
+        if (store.feeStructures && !store.feestructures) store.feestructures = store.feeStructures;
+        if (store.dueManagement && !store.duemanagement) store.duemanagement = store.dueManagement;
+        if (Array.isArray(store.settings)) {
+          store.settings = store.settings.filter(s => s && s.key !== 'baileys_cloud_auth' && s.key !== 'OPENROUTER_API_KEY');
+        }
+        return jsonResponse(store, 200, { 'Cache-Control': 'no-store' });
+      } catch (storeErr) {
+        console.error('[Edge Store Error]', storeErr.message);
+      }
+    }
+
+    if (url.pathname.startsWith('/api/modules/') && request.method === 'GET') {
+      try {
+        const moduleName = url.pathname.replace('/api/modules/', '').split('/')[0].split('?')[0];
+        if (moduleName && /^[a-zA-Z0-9_]+$/.test(moduleName)) {
+          const modRes = await executeTursoPipeline([
+            { type: 'execute', stmt: { sql: `SELECT * FROM ${moduleName} ORDER BY id DESC`, args: [] } }
+          ]);
+          const parsed = parsePipelineResult(modRes[0]);
+          return jsonResponse(parsed.rows || [], 200, { 'Cache-Control': 'no-store' });
+        }
+      } catch (_) {}
     }
 
     // 5. Reverse proxy /api/* requests to dedicated backend with smart edge fallback

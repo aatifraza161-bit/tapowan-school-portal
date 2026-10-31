@@ -1633,7 +1633,12 @@ function timeStr() {
   return new Date().toTimeString().slice(0, 5);
 }
 
-function getStore() { return serverStore || {}; }
+function getStore() {
+  if (serverStore && typeof serverStore === "object" && serverStore.fees && serverStore.fees.length && !serverStore.fees[0].studentName && serverStore.fees[0].studentname) {
+    normalizeFullStore(serverStore);
+  }
+  return serverStore || {};
+}
 function getFaceStore() { 
   try {
     return JSON.parse(localStorage.getItem(FACE_KEY) || "{}"); 
@@ -2004,10 +2009,128 @@ const tpsIdb = {
   }
 };
 
+
+const CANONICAL_KEY_MAP = {
+  // Common / Identifiers
+  admissionno: 'admissionNo', admission_no: 'admissionNo',
+  studentname: 'studentName', student_name: 'studentName',
+  classname: 'className', class_name: 'className',
+  rollno: 'rollNo', roll_no: 'rollNo',
+  fathername: 'fatherName', father_name: 'fatherName',
+  mothername: 'motherName', mother_name: 'motherName',
+  fullname: 'fullName', full_name: 'fullName',
+  employeeno: 'employeeNo', employee_no: 'employeeNo',
+  teachername: 'teacherName', teacher_name: 'teacherName',
+  parentname: 'parentName', parent_name: 'parentName',
+  guardianname: 'guardianName', guardian_name: 'guardianName',
+  
+  // Fees & Amounts
+  payid: 'payId', pay_id: 'payId',
+  totalfee: 'totalFee', total_fee: 'totalFee',
+  paidamount: 'paidAmount', paid_amount: 'paidAmount',
+  dueamount: 'dueAmount', due_amount: 'dueAmount',
+  feetype: 'feeType', fee_type: 'feeType',
+  feetypes: 'feeTypes', fee_types: 'feeTypes',
+  tuitionfee: 'tuitionFee', tuition_fee: 'tuitionFee',
+  admissionfee: 'admissionFee', admission_fee: 'admissionFee',
+  computerfee: 'computerFee', computer_fee: 'computerFee',
+  developmentfee: 'developmentFee', development_fee: 'developmentFee',
+  labfee: 'labFee', lab_fee: 'labFee',
+  sportsfee: 'sportsFee', sports_fee: 'sportsFee',
+  libraryfee: 'libraryFee', library_fee: 'libraryFee',
+  examfee: 'examFee', exam_fee: 'examFee',
+  transportfee: 'transportFee', transport_fee: 'transportFee',
+  hostelfee: 'hostelFee', hostel_fee: 'hostelFee',
+  otherfee: 'otherFee', other_fee: 'otherFee',
+  latefee: 'lateFee', late_fee: 'lateFee',
+  monthlyfee: 'monthlyFee', monthly_fee: 'monthlyFee',
+  monthlyfeelabel: 'monthlyFeeLabel', monthly_fee_label: 'monthlyFeeLabel',
+  onlineamount: 'onlineAmount', online_amount: 'onlineAmount',
+  cashamount: 'cashAmount', cash_amount: 'cashAmount',
+  paymentdate: 'paymentDate', payment_date: 'paymentDate',
+  paymentmethod: 'paymentMethod', payment_method: 'paymentMethod',
+  creationdate: 'creationDate', creation_date: 'creationDate',
+  selectedbookids: 'selectedBookIds', selected_book_ids: 'selectedBookIds',
+  duemgmtamount: 'dueMgmtAmount', duemgmtparticulars: 'dueMgmtParticulars',
+  consolidatedfeeids: 'consolidatedFeeIds', consolidatedduemgmtids: 'consolidatedDueMgmtIds',
+
+  // Academics & Classes
+  subjectname: 'subjectName', subject_name: 'subjectName',
+  subjectcode: 'subjectCode', subject_code: 'subjectCode',
+  classteacher: 'classTeacher', class_teacher: 'classTeacher',
+  roomno: 'roomNo', room_no: 'roomNo',
+  starttime: 'startTime', start_time: 'startTime',
+  endtime: 'endTime', end_time: 'endTime',
+  departuretime: 'departureTime', departure_time: 'departureTime',
+  arrivaltime: 'arrivalTime', arrival_time: 'arrivalTime',
+  photourl: 'photoUrl', photo_url: 'photoUrl',
+  facephoto: 'facePhoto', face_photo: 'facePhoto',
+  joindate: 'joinDate', join_date: 'joinDate',
+  lastlogin: 'lastLogin', last_login: 'lastLogin',
+  alertdate: 'alertDate', alert_date: 'alertDate',
+
+  // Devices & Hardware
+  deviceid: 'deviceId', device_id: 'deviceId',
+  username: 'userName', user_name: 'userName',
+  userid: 'userId', user_id: 'userId',
+  userrole: 'userRole', user_role: 'userRole',
+  devicemodel: 'deviceModel', device_model: 'deviceModel',
+  osversion: 'osVersion', os_version: 'osVersion',
+  camerastatus: 'cameraStatus', camera_status: 'cameraStatus',
+  micstatus: 'micStatus', mic_status: 'micStatus',
+  recordingmode: 'recordingMode', recording_mode: 'recordingMode',
+  isonline: 'isOnline', is_online: 'isOnline',
+  lastheartbeat: 'lastHeartbeat', last_heartbeat: 'lastHeartbeat',
+  networktype: 'networkType', network_type: 'networkType',
+  pushtoken: 'pushToken', push_token: 'pushToken',
+  appversion: 'appVersion', app_version: 'appVersion',
+  bundlecode: 'bundleCode', bundle_code: 'bundleCode',
+  lastsnapshot: 'lastSnapshot', last_snapshot: 'lastSnapshot',
+  snapshotat: 'snapshotAt', snapshot_at: 'snapshotAt',
+
+  // Exams
+  examname: 'examName', exam_name: 'examName',
+  maxmarks: 'maxMarks', max_marks: 'maxMarks',
+  passingmarks: 'passingMarks', passing_marks: 'passingMarks',
+  marksobtained: 'marksObtained', marks_obtained: 'marksObtained',
+  recordedby: 'recordedBy', recorded_by: 'recordedBy',
+
+  // Online payments
+  utrnumber: 'utrNumber', utr_number: 'utrNumber',
+  verifiedat: 'verifiedAt', verified_at: 'verifiedAt',
+  verifiedby: 'verifiedBy', verified_by: 'verifiedBy'
+};
+
+function normalizeRowUniversal(moduleName, row) {
+  if (!row || typeof row !== 'object') return row;
+  for (const k in row) {
+    if (Object.prototype.hasOwnProperty.call(row, k)) {
+      const canon = CANONICAL_KEY_MAP[k.toLowerCase()];
+      if (canon && (row[canon] === undefined || row[canon] === null || row[canon] === '')) {
+        row[canon] = row[k];
+      }
+    }
+  }
+  return row;
+}
+
+function normalizeFullStore(store) {
+  if (!store || typeof store !== 'object') return store;
+  Object.keys(store).forEach(mod => {
+    if (Array.isArray(store[mod])) {
+      store[mod].forEach(row => normalizeRowUniversal(mod, row));
+    }
+  });
+  if (store.dueManagement && !store.duemanagement) store.duemanagement = store.dueManagement;
+  if (store.feeStructures && !store.feestructures) store.feestructures = store.feeStructures;
+  return store;
+}
+
 async function loadStore() {
   try {
     const data = await api("/api/store");
     if (data && typeof data === "object") {
+      normalizeFullStore(data);
       serverStore = data;
       // Asynchronously persist in IndexedDB for instant sub-50ms future reloads
       tpsIdb.set("serverStore", data).catch(() => {});
@@ -3970,7 +4093,8 @@ function renderTable() {
     const split = currentModule === "students" ? splitClassName(item.className) : { classPart: "", sectionPart: "" };
 
     const cells = cfg.columns.map(key => {
-      let val = item[key] ?? "";
+      const lowerKey = key.toLowerCase();
+      let val = item[key] ?? item[lowerKey] ?? "";
       
       // Special handle: Student module class/section split
       if (currentModule === "students") {
@@ -4079,7 +4203,8 @@ function renderTable() {
       // 1. Currency Formatting for Fee columns
       const feeKeys = ["totalFee", "paidAmount", "balance", "dueAmount", "monthlyFee", "netPay", "basicSalary", "onlineAmount", "cashAmount"];
       if (feeKeys.includes(key)) {
-        const num = parseFloat(val) || 0;
+        const rawNum = item[key] ?? item[key.toLowerCase()] ?? val;
+        const num = parseFloat(rawNum) || 0;
         return `<td style="color:#000000; font-weight:700; white-space:nowrap;">₹ ${num.toLocaleString('en-IN')}</td>`;
       }
 
@@ -7127,8 +7252,8 @@ function getDashboardStats(store) {
 
   let allTimeTotal = 0;
   const filteredTotal = (fees || []).reduce((sum, item) => {
-    const date = normalizeToISO(item.paymentDate);
-    const amount = asNum(item.paidAmount);
+    const date = normalizeToISO(item.paymentDate || item.paymentdate);
+    const amount = asNum(item.paidAmount ?? item.paidamount);
     allTimeTotal += amount;
     
     if (window.currentFeeFilter === 'all') return sum + amount;
@@ -7140,7 +7265,7 @@ function getDashboardStats(store) {
   }, 0);
 
   // Get latest 6 paid fee transactions (honoring time filter if matching records exist, else latest 6 overall)
-  const paidFees = (fees || []).filter(f => asNum(f.paidAmount) > 0);
+  const paidFees = (fees || []).filter(f => asNum(f.paidAmount ?? f.paidamount) > 0);
   const baseFees = paidFees.length > 0 ? paidFees : (fees || []);
   
   let targetFees = baseFees;
@@ -7156,9 +7281,9 @@ function getDashboardStats(store) {
   }
 
   const recentSixPayments = targetFees.slice(0, 6).map(f => ({
-    name: f.studentName || "Unknown",
-    amount: asNum(f.paidAmount),
-    date: displayDate(f.paymentDate) || "No Date"
+    name: f.studentName || f.studentname || "Unknown",
+    amount: asNum(f.paidAmount ?? f.paidamount),
+    date: displayDate(f.paymentDate || f.paymentdate) || "No Date"
   }));
 
   // Accurate class-wise and global pending fee calculation across duemanagement and fees
@@ -14812,6 +14937,7 @@ async function boot() {
       try {
         const cachedStore = await tpsIdb.get("serverStore");
         if (cachedStore && typeof cachedStore === "object" && Object.keys(cachedStore).length > 0) {
+          normalizeFullStore(cachedStore);
           serverStore = cachedStore;
           renderAll();
           renderedFromCache = true;
