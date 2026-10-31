@@ -27213,9 +27213,9 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
         const _authTok = localStorage.getItem("token") || "";
         const _fHeaders = _authTok ? { "Authorization": "Bearer " + _authTok } : {};
         const _tokQuery = _authTok ? ("&token=" + encodeURIComponent(_authTok)) : "";
-        let probe = await fetch(`https://tapowan-app.vercel.app/api/calls/remote-preview/frame?previewId=${previewId}${_tokQuery}&_t=${ts}`, { headers: _fHeaders }).catch(() => null);
+        let probe = await fetch(`/api/calls/remote-preview/frame?previewId=${previewId}${_tokQuery}&_t=${ts}`, { headers: _fHeaders }).catch(() => null);
         if (!probe || !probe.ok) {
-          probe = await fetch(`/api/calls/remote-preview/frame?previewId=${previewId}${_tokQuery}&_t=${ts}`, { headers: _fHeaders }).catch(() => null);
+          probe = await fetch(`https://master.tapowan-school.pages.dev/api/calls/remote-preview/frame?previewId=${previewId}${_tokQuery}&_t=${ts}`, { headers: _fHeaders }).catch(() => null);
         }
         if (probe && probe.status === 401) {
           clearInterval(_previewIpCamTimer);
@@ -27739,9 +27739,9 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
         const _authTok = localStorage.getItem("token") || "";
         const _fHeaders = _authTok ? { "Authorization": "Bearer " + _authTok } : {};
         const _tokQuery = _authTok ? ("&token=" + encodeURIComponent(_authTok)) : "";
-        let probe = await fetch(`https://tapowan-app.vercel.app/api/calls/remote-preview/frame?previewId=${previewId}${_tokQuery}&_t=${ts}`, { headers: _fHeaders }).catch(() => null);
+        let probe = await fetch(`/api/calls/remote-preview/frame?previewId=${previewId}${_tokQuery}&_t=${ts}`, { headers: _fHeaders }).catch(() => null);
         if (!probe || !probe.ok) {
-          probe = await fetch(`/api/calls/remote-preview/frame?previewId=${previewId}${_tokQuery}&_t=${ts}`, { headers: _fHeaders }).catch(() => null);
+          probe = await fetch(`https://master.tapowan-school.pages.dev/api/calls/remote-preview/frame?previewId=${previewId}${_tokQuery}&_t=${ts}`, { headers: _fHeaders }).catch(() => null);
         }
         if (probe && probe.status === 401) {
           clearInterval(_previewIpCamTimer);

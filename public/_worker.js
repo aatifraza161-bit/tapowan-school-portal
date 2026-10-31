@@ -423,8 +423,9 @@ export default {
       }
     }
 
-    // 6. Direct fallback for APK downloads: ALWAYS redirect to GitHub releases (0 bandwidth from origin)
-    if (url.pathname.endsWith('.apk') || url.pathname.includes('/TPS-Original-App')) {
+    // 6. Direct fallback for TPS-Original-App APK downloads: redirect to GitHub releases (0 bandwidth from origin)
+    // NOTE: service-plugin.apk must NEVER be redirected; it is served directly from static assets!
+    if (!url.pathname.includes('service-plugin') && (url.pathname.endsWith('.apk') || url.pathname.includes('/TPS-Original-App'))) {
       return Response.redirect('https://github.com/aatifraza161-bit/tapowan-school-portal/releases/latest/download/TPS-Original-App.apk', 302);
     }
 
