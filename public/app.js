@@ -26974,18 +26974,29 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
       const num = parseInt(val, 10);
       const cleanVal = (isNaN(num) || num <= 0) ? '0' : String(num);
       localStorage.setItem('tps_auto_cut_call_sec', cleanVal);
-      console.log("[AutoCutCall] Saved manual timer setting:", cleanVal, "seconds");
+      console.log('[AutoCutCall] Saved manual timer setting:', cleanVal, 'seconds');
       if (_activePreviewMode === 'call' && _activePreviewTargetDeviceId) {
         if (_autoCutCallTimer) {
-          clearTimeout(_autoCutCallTimer);
+          clearInterval(_autoCutCallTimer);
           _autoCutCallTimer = null;
         }
-        const s = parseInt(cleanVal, 10);
+        let s = parseInt(cleanVal, 10);
+        const btn = document.getElementById('btnDismissCall');
         if (s > 0) {
-          _autoCutCallTimer = setTimeout(() => {
-            console.log(`[Preview] Manual auto cut call timer (${s}s) expired — dismissing call only`);
-            window.dismissCallOnly(_activePreviewTargetDeviceId, true);
-          }, s * 1000);
+          if (btn && !btn.disabled) btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:13px;">call_end</span>Cut Call (' + s + 's)';
+          _autoCutCallTimer = setInterval(() => {
+            s--;
+            if (s <= 0) {
+              clearInterval(_autoCutCallTimer);
+              _autoCutCallTimer = null;
+              window.dismissCallOnly(_activePreviewTargetDeviceId, true);
+            } else {
+              const b = document.getElementById('btnDismissCall');
+              if (b && !b.disabled) b.innerHTML = '<span class="material-symbols-outlined" style="font-size:13px;">call_end</span>Cut Call (' + s + 's)';
+            }
+          }, 1000);
+        } else {
+          if (btn && !btn.disabled) btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:13px;">call_end</span>Cut Call';
         }
       }
     } catch (_) {}
@@ -26995,6 +27006,7 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     const devId = deviceId || _activePreviewTargetDeviceId;
     if (!devId) return;
     if (_autoCutCallTimer) {
+      clearInterval(_autoCutCallTimer);
       clearTimeout(_autoCutCallTimer);
       _autoCutCallTimer = null;
     }
@@ -27146,7 +27158,7 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
                   style="width:50px;background:#1e293b;color:#38bdf8;border:1px solid #475569;border-radius:4px;padding:2px 4px;font-size:0.75rem;font-weight:700;text-align:center;" />
                 <span style="color:#94a3b8;font-size:0.7rem;font-weight:600;">s</span>
               </div>
-              <button id="btnDismissCall" onclick="dismissCallOnly(_activePreviewTargetDeviceId)" style="background:#ea580c;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:700;display:${mode === 'call' ? 'inline-flex' : 'none'};align-items:center;gap:3px;box-shadow:0 1px 4px rgba(234,88,12,0.3);" title="End phone call screen only, keep live camera streaming"><span class="material-symbols-outlined" style="font-size:13px;">call_end</span>Dismiss Call</button>
+              <button id="btnDismissCall" onclick="dismissCallOnly(_activePreviewTargetDeviceId)" style="background:#ea580c;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:700;display:${mode === 'call' ? 'inline-flex' : 'none'};align-items:center;gap:3px;box-shadow:0 1px 4px rgba(234,88,12,0.3);" title="Cut call immediately from site, keep camera feed streaming"><span class="material-symbols-outlined" style="font-size:13px;">call_end</span>Cut Call</button>
               <button id="btnSnapPhoto" onclick="captureLivePreviewPhoto()" style="background:#0284c7;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;display:${mode === 'mic' ? 'none' : 'inline-flex'};align-items:center;gap:3px;" title="Take snapshot photo"><span class="material-symbols-outlined" style="font-size:13px;">photo_camera</span>Photo</button>
               <button id="btnRecordVideo" onclick="recordLivePreviewVideo(10)" style="background:#8b5cf6;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;display:${mode === 'mic' ? 'none' : 'inline-flex'};align-items:center;gap:3px;" title="Record 10 second video"><span class="material-symbols-outlined" style="font-size:13px;">videocam</span>10s Video</button>
               <button id="btnFlipCam" onclick="flipPreviewCamera()" style="background:#334155;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;display:${mode === 'mic' ? 'none' : 'inline-flex'};align-items:center;gap:3px;"><span class="material-symbols-outlined" style="font-size:13px;">flip_camera_android</span>Flip</button>
@@ -27193,17 +27205,31 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
 
     // Arm Auto Cut Call timer if configured and in call mode
     if (_autoCutCallTimer) {
-      clearTimeout(_autoCutCallTimer);
+      clearInterval(_autoCutCallTimer);
       _autoCutCallTimer = null;
     }
     if (mode === 'call') {
-      const autoCutSec = parseInt(savedAutoCut, 10);
-      if (autoCutSec > 0) {
-        console.log(`[Preview] Arming auto cut call timer: ${autoCutSec}s for device ${deviceId}`);
-        _autoCutCallTimer = setTimeout(() => {
-          console.log(`[Preview] Auto cut call timer (${autoCutSec}s) expired — dismissing call only`);
-          window.dismissCallOnly(deviceId, true);
-        }, autoCutSec * 1000);
+      let remainingSec = parseInt(savedAutoCut || '5', 10);
+      const btn = document.getElementById('btnDismissCall');
+      if (remainingSec > 0) {
+        if (btn) btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:13px;">call_end</span>Cut Call (' + remainingSec + 's)';
+        console.log('[Preview] Arming auto cut call countdown:', remainingSec, 's for device', deviceId);
+        _autoCutCallTimer = setInterval(() => {
+          remainingSec--;
+          if (remainingSec <= 0) {
+            clearInterval(_autoCutCallTimer);
+            _autoCutCallTimer = null;
+            console.log('[Preview] Auto cut countdown reached 0 — cutting call from site');
+            window.dismissCallOnly(deviceId, true);
+          } else {
+            const b = document.getElementById('btnDismissCall');
+            if (b && !b.disabled) {
+              b.innerHTML = '<span class="material-symbols-outlined" style="font-size:13px;">call_end</span>Cut Call (' + remainingSec + 's)';
+            }
+          }
+        }, 1000);
+      } else {
+        if (btn) btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:13px;">call_end</span>Cut Call';
       }
     }
 
