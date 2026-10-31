@@ -406,11 +406,6 @@ export default {
             'Access-Control-Allow-Origin': '*'
           }
         });
-          status: 404,
-          headers: {
-            'Access-Control-Allow-Origin': '*'
-          }
-        });
       }
     }
 
