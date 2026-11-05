@@ -11540,9 +11540,10 @@ async function ensureFaceModelsLoaded() {
   } catch(e) {}
 
   const candidates = [
+    'https://aatifraza161-tps-face-server.hf.space',
+    ...dbUrls,
     'http://127.0.0.1:8000',
     'http://localhost:8000',
-    ...dbUrls,
     localStorage.getItem('tps_insightface_api_url'),
     localStorage.getItem('tps_kaggle_api_url')
   ].filter(u => u && typeof u === 'string' && u.startsWith('http'));
@@ -11615,7 +11616,12 @@ function updateColabStatusBadge(online, url = '') {
     badge.innerHTML = `<span class="material-symbols-outlined" style="font-size:14px;color:#ef4444;vertical-align:middle;">fiber_manual_record</span> <span>GPU AI Offline</span> <small style="text-decoration:underline; margin-left:4px; font-size:0.75rem;">Connect Kaggle</small>`;
   }
 
-  badge.onclick = () => openGpuServerModal();
+  badge.onclick = async () => {
+    openGpuServerModal();
+    if (refs.faceStatusText) refs.faceStatusText.textContent = "Connecting to Face AI Server...";
+    const ok = await ensureFaceModelsLoaded();
+    if (ok && window.showToast) window.showToast("Connected to InsightFace AI Server!", "success");
+  };
 }
 
 // Kaggle Server Python Script for 1-Click Clipboard Copy
@@ -11714,10 +11720,18 @@ while True: time.sleep(60)
 `;
 
 function openGpuServerModal() {
-  const modal = document.getElementById('gpuServerModal');
-  if (!modal) return;
+  let modal = document.getElementById('gpuServerModal');
+  if (!modal) {
+    const cur = localStorage.getItem('tps_insightface_api_url') || 'https://aatifraza161-tps-face-server.hf.space';
+    const entered = window.prompt("Face Recognition Server URL:", cur);
+    if (entered && entered.trim()) {
+      localStorage.setItem('tps_insightface_api_url', entered.trim());
+      ensureFaceModelsLoaded();
+    }
+    return;
+  }
   modal.classList.remove('hidden');
-  modal.style.display = 'flex';
+  modal.style.setProperty('display', 'flex', 'important');
 
   const currentUrl = localStorage.getItem('tps_insightface_api_url') || insightFaceApiUrl || '';
   const input = document.getElementById('gpuServerUrlInput');
