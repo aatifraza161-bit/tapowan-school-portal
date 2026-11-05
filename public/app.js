@@ -830,11 +830,41 @@ const printableModules = new Set([
   "onlinePayments", "booksAndDress", "bookSales", "admissions",
   "transport", "users", "reportsAnalytics", "weeklyEvaluation"
 ]);
-let currentModule = "dashboard";
+function getInitialModule() {
+  try {
+    const hash = String(window.location.hash || '').replace(/^#\/?/, '').trim();
+    if (hash && (moduleConfig[hash] || typeof window.isSaasModuleEnabled !== 'function' || window.isSaasModuleEnabled(hash))) {
+      return hash;
+    }
+    const saved = sessionStorage.getItem('tps_active_module') || localStorage.getItem('tps_last_module');
+    if (saved && (moduleConfig[saved] || typeof window.isSaasModuleEnabled !== 'function' || window.isSaasModuleEnabled(saved))) {
+      return saved;
+    }
+  } catch (_) {}
+  return "dashboard";
+}
+let currentModule = getInitialModule();
 try {
   Object.defineProperty(window, 'currentModule', {
     get() { return currentModule; },
-    set(val) { currentModule = val; },
+    set(val) { 
+      currentModule = val;
+      try {
+        if (val && val !== 'dashboard') {
+          sessionStorage.setItem('tps_active_module', val);
+          localStorage.setItem('tps_last_module', val);
+          if (window.location.hash !== '#' + val) {
+            window.history.replaceState(null, '', '#' + val);
+          }
+        } else if (val === 'dashboard') {
+          sessionStorage.setItem('tps_active_module', 'dashboard');
+          localStorage.setItem('tps_last_module', 'dashboard');
+          if (window.location.hash && window.location.hash !== '#' && window.location.hash !== '#dashboard') {
+            window.history.replaceState(null, '', window.location.pathname + window.location.search);
+          }
+        }
+      } catch (_) {}
+    },
     configurable: true
   });
 } catch (e) {
@@ -1475,7 +1505,7 @@ function setMobileSidebarOpen(open) {
 }
 window.setMobileSidebarOpen = setMobileSidebarOpen;
 
-window.navigateToModule = function(modName) {
+window.navigateToModule = function(modName, updateHistory = true) {
   if (typeof window.isSaasModuleEnabled === 'function' && !window.isSaasModuleEnabled(modName)) {
     console.warn(`[Module Entitlement] Module '${modName}' is not enabled. Redirecting to dashboard.`);
     modName = 'dashboard';
@@ -1485,8 +1515,47 @@ window.navigateToModule = function(modName) {
   editStudentId = null;
   currentModule = modName;
   window.currentModule = modName;
+
+  // Persist across page reloads & browser refresh
+  try {
+    if (modName && modName !== 'dashboard') {
+      sessionStorage.setItem('tps_active_module', modName);
+      localStorage.setItem('tps_last_module', modName);
+      if (updateHistory) {
+        const targetHash = '#' + modName;
+        if (window.location.hash !== targetHash) {
+          window.history.pushState(null, '', targetHash);
+        }
+      }
+    } else {
+      sessionStorage.setItem('tps_active_module', 'dashboard');
+      localStorage.setItem('tps_last_module', 'dashboard');
+      if (updateHistory && window.location.hash) {
+        window.history.pushState(null, '', window.location.pathname + window.location.search);
+      }
+    }
+  } catch (_) {}
+
   if (refs.searchInput) refs.searchInput.value = '';
   if (typeof isMobileLayout === 'function' && isMobileLayout()) setMobileSidebarOpen(false);
+
+  if (modName === 'appLiveUsers') {
+    const st = getStore();
+    if (!st.app_student_sessions || st.app_student_sessions.length === 0) {
+      fetch('/api/modules/app_student_sessions')
+        .then(r => r.json())
+        .then(data => {
+          if (Array.isArray(data) && data.length > 0) {
+            st.app_student_sessions = data;
+            if (currentModule === 'appLiveUsers') {
+              renderTable();
+            }
+          }
+        })
+        .catch(() => {});
+    }
+  }
+
   renderAll();
   try {
     const items = document.querySelectorAll('.mobile-bottom-item[data-mod]');
@@ -1496,6 +1565,22 @@ window.navigateToModule = function(modName) {
   const mainEl = document.querySelector('.main');
   if (mainEl) mainEl.scrollTop = 0;
 };
+
+// Listen to browser Back / Forward buttons & URL hash changes
+window.addEventListener('hashchange', () => {
+  const hash = String(window.location.hash || '').replace(/^#\/?/, '').trim();
+  const target = hash || 'dashboard';
+  if (target !== currentModule && (moduleConfig[target] || typeof window.isSaasModuleEnabled !== 'function' || window.isSaasModuleEnabled(target))) {
+    window.navigateToModule(target, false);
+  }
+});
+window.addEventListener('popstate', () => {
+  const hash = String(window.location.hash || '').replace(/^#\/?/, '').trim();
+  const target = hash || 'dashboard';
+  if (target !== currentModule && (moduleConfig[target] || typeof window.isSaasModuleEnabled !== 'function' || window.isSaasModuleEnabled(target))) {
+    window.navigateToModule(target, false);
+  }
+});
 window.switchModule = window.navigateToModule;
 
 window.switchModuleFromMobile = function(modName) {
@@ -2298,6 +2383,9 @@ async function logout() {
   localStorage.removeItem("token");
   localStorage.removeItem("tps_user");
   sessionStorage.removeItem("tps_user");
+  sessionStorage.removeItem("tps_active_module");
+  localStorage.removeItem("tps_last_module");
+  try { if (window.location.hash) window.history.replaceState(null, '', window.location.pathname); } catch (_) {}
   await api("/api/auth/logout", { method: "POST" });
 }
 
@@ -15413,6 +15501,11 @@ async function boot() {
     // ── STAGE 1: SUB-50MS INSTANT DASHBOARD HYDRATION FROM LOCAL CACHE ──
     if (token && cachedUser) {
       currentUser = cachedUser;
+      const initialMod = getInitialModule();
+      if (initialMod && initialMod !== 'dashboard') {
+        currentModule = initialMod;
+        window.currentModule = initialMod;
+      }
       applyAuthUI(currentUser);
       try {
         const cachedStore = await tpsIdb.get("serverStore");
