@@ -451,6 +451,34 @@ export default {
       }
     }
 
+    // 4.4 ULTRA-FAST EDGE STORE SIGNATURE & VERSION (Direct Turso pipeline, 0 auto-logout risk)
+    if (url.pathname === '/api/store/signature' && request.method === 'GET') {
+      try {
+        const coreModules = ['students', 'admissions', 'teachers', 'classes', 'subjects', 'attendance', 'fees', 'dueManagement', 'exams', 'announcements', 'booksAndDress', 'feeStructures'];
+        const batchReqs = coreModules.flatMap(m => [
+          { type: 'execute', stmt: { sql: `SELECT COUNT(*) as cnt FROM ${m}`, args: [] } },
+          { type: 'execute', stmt: { sql: `SELECT * FROM ${m} ORDER BY id DESC LIMIT 3`, args: [] } }
+        ]);
+        const rawRes = await executeTursoPipeline(batchReqs);
+        const sigParts = coreModules.map((m, idx) => {
+          const cntRes = parsePipelineResult(rawRes[idx * 2]);
+          const sampleRes = parsePipelineResult(rawRes[idx * 2 + 1]);
+          const cnt = (cntRes.rows && cntRes.rows[0] && (cntRes.rows[0].cnt ?? cntRes.rows[0]['COUNT(*)'])) || 0;
+          const rows = sampleRes.rows || [];
+          if (cnt === 0) return `${m}:0`;
+          const sample = rows.map(r => `${r.id || ''}:${r.paidAmount || r.status || r.date || r.paymentDate || ''}`).join(',');
+          return `${m}:${cnt}:[${sample}]`;
+        });
+        return jsonResponse({ ok: true, signature: sigParts.join('|') }, 200, { 'Cache-Control': 'no-store' });
+      } catch (sigErr) {
+        return jsonResponse({ ok: true, signature: 'edge_sig_' + Math.floor(Date.now() / 60000) }, 200, { 'Cache-Control': 'no-store' });
+      }
+    }
+
+    if (url.pathname === '/api/store/version' && request.method === 'GET') {
+      return jsonResponse({ ok: true, v: Date.now() }, 200, { 'Cache-Control': 'no-store' });
+    }
+
     // 4.5 FAST EDGE STORE & MODULES (Instant sub-25ms hydration from Turso Cloud directly)
     if (url.pathname === '/api/store' && request.method === 'GET') {
       try {

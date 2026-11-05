@@ -1983,7 +1983,7 @@ async function api(path, options = {}) {
           signal: controller.signal,
           ...restOptions
         });
-        if (fallbackRes.ok || fallbackRes.status < 500) {
+        if (fallbackRes.ok || (fallbackRes.status < 500 && fallbackRes.status !== 401 && fallbackRes.status !== 403)) {
           response = fallbackRes;
         }
       } catch (_) {}
@@ -2002,19 +2002,7 @@ async function api(path, options = {}) {
   }
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
-    // Auto-redirect to login if session expired — but ONLY if we were previously logged in
-    // This prevents background polling from kicking the user out during/right after login
-    if (response.status === 401 && !path.includes("/auth/login") && !path.includes("/auth/me") && !path.includes("/auth/signup") && !path.includes("/online-payments/pending") && !path.includes("/modules/") && !path.includes("/db/")) {
-      if (currentUser && !window._sessionRedirectCooldown) {
-        window._sessionRedirectCooldown = true;
-        console.warn("[Session Expired] Redirecting to login...");
-        applyAuthUI(null);
-        showToast("⚠ Session expired. Please log in again.", "warn");
-        // Cooldown: don't fire again for 3 seconds (prevents toast spam)
-        setTimeout(() => { window._sessionRedirectCooldown = false; }, 3000);
-      }
-      throw new Error("Session expired");
-    }
+    
     const fullMessage = payload.message ? `${payload.error}: ${payload.message}` : payload.error;
     throw new Error(fullMessage || "Request failed");
   }
@@ -2354,9 +2342,20 @@ function applyAuthUI(session) {
 }
 
 async function getSessionUser() {
-  const data = await api("/api/auth/me");
-  if (data.token) localStorage.setItem("token", data.token);
-  return data.user;
+  try {
+    const data = await api("/api/auth/me");
+    if (data && data.token) localStorage.setItem("token", data.token);
+    return data && data.user ? data.user : null;
+  } catch (err) {
+    console.warn("[getSessionUser] Network error checking session with server:", err.message);
+    const cached = localStorage.getItem("tps_user") || sessionStorage.getItem("tps_user");
+    if (cached && localStorage.getItem("token")) {
+      try {
+        return JSON.parse(cached);
+      } catch (_) {}
+    }
+    return null;
+  }
 }
 
 async function login(username, password) {
@@ -15532,7 +15531,7 @@ async function boot() {
     let user = await userPromise;
 
     if (!user) {
-      if (!renderedFromCache || !localStorage.getItem("token")) {
+      if (!localStorage.getItem("token")) {
         applyAuthUI(null);
         return;
       }
@@ -16859,11 +16858,8 @@ function patchApp() {
           needsStoreDownload = true;
         }
       } catch (sigErr) {
-        if (sigErr?.message === "Session expired" || !currentUser || !localStorage.getItem("token")) {
-          return;
-        }
-        // Fallback to direct check if signature route is temporarily unavailable
-        needsStoreDownload = true;
+        // Signature check temporarily unavailable; skip this cycle smoothly
+        return;
       }
 
       if (needsStoreDownload) {

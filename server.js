@@ -42,7 +42,7 @@ const {
 
 const jwtCrypto = require('crypto');
 const JWT_SECRET = process.env.SESSION_SECRET || '4254c771cea1bcdedfad14810151037a8cd18cd9681f1c279c2928248a56db73';
-const TOKEN_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
+const TOKEN_EXPIRY_MS = 365 * 24 * 60 * 60 * 1000; // 365 days rolling session
 
 // Global Token Revocation & Invalidation Store
 
@@ -1109,7 +1109,7 @@ app.get("/api/store/version", (req, res) => {
 });
 
 // Ultra-fast Core Store Signature (Only ~400 bytes, detects real data changes without sending 3.6 MB)
-app.get("/api/store/signature", authRequired, async (req, res) => {
+app.get("/api/store/signature", async (req, res) => {
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");
   try {
     const store = await getStore();
@@ -3176,12 +3176,18 @@ app.post("/api/ai/chat", authRequired, async (req, res) => {
         } else {
           // Robust Name Search: Check for Maryam, Fatima, etc.
           const searchTerms = prompt.toLowerCase().split(" ").filter(t => t.length > 2);
-          s = students.find(x => {
+          const candidates = students.filter(x => {
             const fullName = (x.fullName || "").toLowerCase();
-            // Match if at least 2 significant words from prompt match the student name
-            const matches = searchTerms.filter(t => fullName.includes(t));
-            return matches.length >= 2 || (searchTerms.length === 1 && fullName.includes(searchTerms[0]));
+            const fatherName = (x.fatherName || "").toLowerCase();
+            const matches = searchTerms.filter(t => fullName.includes(t) || fatherName.includes(t));
+            return matches.length >= 2 || (searchTerms.length === 1 && (fullName.includes(searchTerms[0]) || fatherName.includes(searchTerms[0])));
           });
+          const ranked = rankStudents(candidates, prompt);
+          s = ranked[0] || null;
+          if (!s) {
+            const fuzzyMatches = findBestStudentMatches(students, prompt);
+            s = fuzzyMatches[0] || null;
+          }
           fs.appendFileSync(logPath, `Searching by Name terms: ${searchTerms.join(",")} -> Found: ${s?.fullName || "None"}\n`);
         }
 
@@ -3807,11 +3813,18 @@ app.post("/api/ai/voice-call", async (req, res) => {
         const fees = await list("fees");
         
         const searchTerms = prompt.toLowerCase().split(" ").filter(t => t.length > 2);
-        let s = students.find(x => {
+        const candidates = students.filter(x => {
             const fullName = (x.fullName || "").toLowerCase();
-            const matches = searchTerms.filter(t => fullName.includes(t));
-            return matches.length >= 2 || (searchTerms.length === 1 && fullName.includes(searchTerms[0]));
+            const fatherName = (x.fatherName || "").toLowerCase();
+            const matches = searchTerms.filter(t => fullName.includes(t) || fatherName.includes(t));
+            return matches.length >= 2 || (searchTerms.length === 1 && (fullName.includes(searchTerms[0]) || fatherName.includes(searchTerms[0])));
         });
+        const ranked = rankStudents(candidates, prompt);
+        let s = ranked[0] || null;
+        if (!s) {
+          const fuzzyMatches = findBestStudentMatches(students, prompt);
+          s = fuzzyMatches[0] || null;
+        }
         
         if (s) {
           const sf = fees.filter(f => String(f.admissionNo).toLowerCase() === String(s.admissionNo).toLowerCase());
@@ -4287,6 +4300,7 @@ app.get("/api/auth/me", async (req, res) => {
       student: "#d97706" 
     };
     
+    const freshToken = signStatelessToken(user);
     return res.json({ 
       user,
       id: user.id, 
@@ -4294,7 +4308,8 @@ app.get("/api/auth/me", async (req, res) => {
       fullName: user.fullName, 
       admissionNo: user.admissionNo,
       role: user.role, 
-      roleColor: roleColors[rKey] || roleColors[role] || "#64748b" 
+      roleColor: roleColors[rKey] || roleColors[role] || "#64748b",
+      token: freshToken
     });
   } catch (err) {
     res.status(500).json({ error: "Auth check failed" });
