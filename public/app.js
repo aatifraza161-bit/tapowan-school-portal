@@ -1996,15 +1996,25 @@ async function api(path, options = {}) {
   } finally {
     clearTimeout(timeoutId);
   }
+  if (!response.ok) {
+    let errorMessage = `Request failed (${response.status})`;
+    const cType = response.headers.get("content-type") || "";
+    if (cType.includes("application/json")) {
+      const payload = await response.json().catch(() => ({}));
+      errorMessage = payload.message ? `${payload.error}: ${payload.message}` : (payload.error || errorMessage);
+    } else {
+      const text = await response.text().catch(() => "");
+      if (text && text.length < 200 && !text.includes("<!DOCTYPE") && !text.includes("<html")) {
+        errorMessage = text.trim();
+      } else {
+        errorMessage = `Server temporarily unavailable (${response.status} ${response.statusText || ""})`.trim();
+      }
+    }
+    throw new Error(errorMessage);
+  }
   const contentType = response.headers.get("content-type") || "";
   if (contentType.includes("text/html")) {
-    throw new Error("Vercel/Netlify Deployment Protection is active. Please use the production URL or disable Authentication in project settings.");
-  }
-  if (!response.ok) {
-    const payload = await response.json().catch(() => ({}));
-    
-    const fullMessage = payload.message ? `${payload.error}: ${payload.message}` : payload.error;
-    throw new Error(fullMessage || "Request failed");
+    throw new Error(`Endpoint '${path}' returned an unexpected HTML response instead of JSON. The service may be updating.`);
   }
   return response.json();
 }
@@ -11600,7 +11610,7 @@ const KAGGLE_GPU_PYTHON_CODE = `# -*- coding: utf-8 -*-
 
 import os, sys, subprocess, time, re, urllib.request, requests
 
-TURSO_PROXY_URL = 'https://tapowan-school.vercel.app/api/db/batch'
+TURSO_PROXY_URL = 'https://tapowan-school.pages.dev/api/db/batch'
 
 def log(m): print(m, flush=True)
 
