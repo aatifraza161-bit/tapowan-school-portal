@@ -2230,7 +2230,10 @@ async function loadStore() {
     if (err?.message === "Session expired" || !currentUser || !localStorage.getItem("token")) {
       return;
     }
-    console.error("loadStore failed:", err);
+    console.warn("loadStore background refresh failed, retaining in-memory data:", err?.message || err);
+    if (serverStore && Object.keys(serverStore).length > 0) {
+      return serverStore;
+    }
     throw err;
   }
 }
@@ -6269,7 +6272,19 @@ async function addRecord(moduleName, formData) {
     if (!record.status) record.status = "Active";
   }
   await api(`/api/modules/${moduleName}`, { method: "POST", body: JSON.stringify(record) });
-  await loadStore();
+  // Optimistically remove from in-memory store so UI updates immediately without lag
+  if (serverStore && Array.isArray(serverStore[moduleName])) {
+    serverStore[moduleName] = serverStore[moduleName].filter(r => String(r.id) !== String(id));
+    tpsIdb.set("serverStore", serverStore).catch(() => {});
+    renderAll();
+  }
+
+  try {
+    await loadStore();
+    renderAll();
+  } catch (syncErr) {
+    console.warn("[removeRecord] Background store refresh notice:", syncErr.message);
+  }
 }
 
 async function removeRecord(moduleName, id) {

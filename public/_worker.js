@@ -18,6 +18,8 @@ const CORS_HEADERS = {
 };
 
 const edgeFrameCache = new Map();
+let edgeStoreCache = null;
+let edgeStoreCacheTime = 0;
 const JWT_SECRET = '4254c771cea1bcdedfad14810151037a8cd18cd9681f1c279c2928248a56db73';
 
 async function signStatelessTokenEdge(user) {
@@ -481,6 +483,9 @@ export default {
 
     // 4.5 FAST EDGE STORE & MODULES (Instant sub-25ms hydration from Turso Cloud directly)
     if (url.pathname === '/api/store' && request.method === 'GET') {
+      if (edgeStoreCache && (Date.now() - edgeStoreCacheTime < 10000)) {
+        return jsonResponse(edgeStoreCache, 200, { 'Cache-Control': 'no-store' });
+      }
       try {
         const tables = [
           'students', 'teachers', 'classes', 'subjects', 'attendance', 
@@ -501,9 +506,15 @@ export default {
         if (Array.isArray(store.settings)) {
           store.settings = store.settings.filter(s => s && s.key !== 'baileys_cloud_auth' && s.key !== 'OPENROUTER_API_KEY');
         }
+        edgeStoreCache = store;
+        edgeStoreCacheTime = Date.now();
         return jsonResponse(store, 200, { 'Cache-Control': 'no-store' });
       } catch (storeErr) {
         console.error('[Edge Store Error]', storeErr.message);
+        if (edgeStoreCache) {
+          return jsonResponse(edgeStoreCache, 200, { 'Cache-Control': 'no-store' });
+        }
+        return jsonResponse({ ok: false, error: storeErr.message }, 500);
       }
     }
 
@@ -522,6 +533,8 @@ export default {
 
     // 4.5.1 EDGE MODULE RECORD DELETION (DELETE) — Direct Turso Cloud Execution
     if (url.pathname.startsWith('/api/modules/') && request.method === 'DELETE') {
+      edgeStoreCache = null;
+      edgeStoreCacheTime = 0;
       try {
         const parts = url.pathname.replace('/api/modules/', '').split('/');
         const moduleName = parts[0];
@@ -541,6 +554,8 @@ export default {
 
     // 4.5.2 EDGE MODULE RECORD UPDATE (PUT) — Direct Turso Cloud Execution
     if (url.pathname.startsWith('/api/modules/') && request.method === 'PUT') {
+      edgeStoreCache = null;
+      edgeStoreCacheTime = 0;
       try {
         const parts = url.pathname.replace('/api/modules/', '').split('/');
         const moduleName = parts[0];
