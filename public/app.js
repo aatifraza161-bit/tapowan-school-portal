@@ -11520,7 +11520,11 @@ async function fetchDirectFromTurso(sql, args = []) {
 }
 
 // --- Pure InsightFace ArcFace 512-D GPU Integration (Kaggle & Colab) ---
-let insightFaceApiUrl = localStorage.getItem('tps_insightface_api_url') || '';
+let insightFaceApiUrl = localStorage.getItem('tps_insightface_api_url') || 'https://aatifraza161-tps-face-server.hf.space';
+if (!insightFaceApiUrl || insightFaceApiUrl.includes('trycloudflare.com')) {
+  insightFaceApiUrl = 'https://aatifraza161-tps-face-server.hf.space';
+  try { localStorage.setItem('tps_insightface_api_url', insightFaceApiUrl); } catch(e) {}
+}
 let insightFaceMode = 'server';
 
 async function ensureFaceModelsLoaded() {
