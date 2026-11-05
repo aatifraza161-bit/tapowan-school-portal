@@ -824,7 +824,12 @@ const moduleIcons = {
 };
 
 const moduleOrder = Object.keys(moduleConfig);
-const printableModules = new Set(["students", "exams", "fees", "announcements", "dueManagement", "timetable"]);
+const printableModules = new Set([
+  "dashboard", "students", "teachers", "attendance", "teacherAttendance",
+  "exams", "fees", "dueManagement", "announcements", "timetable",
+  "onlinePayments", "booksAndDress", "bookSales", "admissions",
+  "transport", "users", "reportsAnalytics", "weeklyEvaluation"
+]);
 let currentModule = "dashboard";
 try {
   Object.defineProperty(window, 'currentModule', {
@@ -1800,7 +1805,8 @@ const ALLOWED_API_ORIGINS = new Set([
   "https://tapowan-school.vercel.app",
   "https://tapowan-app.vercel.app",
   "https://tapowan-school.pages.dev",
-  "https://master.tapowan-school.pages.dev"
+  "https://master.tapowan-school.pages.dev",
+  "https://tapowan-whatsapp-gateway.onrender.com"
 ]);
 
 function isAllowedApiOrigin(urlStr) {
@@ -1881,7 +1887,7 @@ async function api(path, options = {}) {
     if ((response.status === 405 || response.status === 502) && window.location.hostname.includes("pages.dev")) {
       try {
         console.warn(`[api] Relative ${path} returned ${response.status} on pages.dev. Failing over to direct backend...`);
-        const fallbackUrl = `https://tapowan-school.vercel.app${path}`;
+        const fallbackUrl = `https://tapowan-whatsapp-gateway.onrender.com${path}`;
         const fallbackRes = await fetch(fallbackUrl, {
           credentials: "include",
           headers: { 
@@ -1913,7 +1919,7 @@ async function api(path, options = {}) {
     const payload = await response.json().catch(() => ({}));
     // Auto-redirect to login if session expired — but ONLY if we were previously logged in
     // This prevents background polling from kicking the user out during/right after login
-    if (response.status === 401 && !path.includes("/auth/login") && !path.includes("/auth/me") && !path.includes("/auth/signup") && !path.includes("/online-payments/pending")) {
+    if (response.status === 401 && !path.includes("/auth/login") && !path.includes("/auth/me") && !path.includes("/auth/signup") && !path.includes("/online-payments/pending") && !path.includes("/modules/") && !path.includes("/db/")) {
       if (currentUser && !window._sessionRedirectCooldown) {
         window._sessionRedirectCooldown = true;
         console.warn("[Session Expired] Redirecting to login...");
@@ -3678,15 +3684,79 @@ function getCurrentList() {
   const search = refs.searchInput.value.trim().toLowerCase();
 
   if (currentModule === "appLiveUsers") {
+    // Proactive background fetch if sessions not yet loaded
+    if ((!store.app_student_sessions || store.app_student_sessions.length === 0) && !window._fetchingAppSessions) {
+      window._fetchingAppSessions = true;
+      fetch('/api/modules/app_student_sessions')
+        .then(r => r.json())
+        .then(data => {
+          window._fetchingAppSessions = false;
+          if (Array.isArray(data) && data.length > 0) {
+            const st = getStore();
+            st.app_student_sessions = data;
+            if (currentModule === 'appLiveUsers') {
+              renderTable();
+            }
+          }
+        })
+        .catch(() => { window._fetchingAppSessions = false; });
+    }
+
     let rawList = (store.app_student_sessions || []).slice();
-    // Sort: Active first, then latest last_active_at
+    const sessionMap = new Map();
+    rawList.forEach(s => {
+      const key = String(s.admission_no || s.admissionNo || '').trim().toLowerCase();
+      if (key) sessionMap.set(key, s);
+    });
+
+    // Enrich existing sessions with student profile authority & phone details
+    (store.students || []).forEach(st => {
+      const key = String(st.admissionNo || '').trim().toLowerCase();
+      if (!key) return;
+      const sess = sessionMap.get(key);
+      if (sess) {
+        if (sess.allow_profile_edit === undefined) sess.allow_profile_edit = st.allow_profile_edit;
+        if (!sess.allowed_edit_fields) sess.allowed_edit_fields = st.allowed_edit_fields;
+        if (!sess.phone) sess.phone = st.phone || st.phone1;
+        if (!sess.roll_no) sess.roll_no = st.rollNo;
+        if (!sess.class_name) sess.class_name = st.className;
+      } else {
+        // Also include student in directory as not logged in yet
+        rawList.push({
+          id: st.id,
+          admission_no: st.admissionNo,
+          student_name: st.fullName || st.studentName || 'Student',
+          class_name: st.className || '—',
+          roll_no: st.rollNo || '—',
+          phone: st.phone || st.phone1 || '',
+          status: 'never_logged_in',
+          device_os: '—',
+          last_login_at: null,
+          last_active_at: null,
+          allow_profile_edit: st.allow_profile_edit,
+          allowed_edit_fields: st.allowed_edit_fields
+        });
+      }
+    });
+
+    // Sort: Active first, then latest last_active_at, then not logged in
     rawList.sort((a, b) => {
       const isAActive = a.status === 'active' && (Date.now() - new Date(a.last_active_at).getTime()) < 120000;
       const isBActive = b.status === 'active' && (Date.now() - new Date(b.last_active_at).getTime()) < 120000;
       if (isAActive && !isBActive) return -1;
       if (!isAActive && isBActive) return 1;
-      return new Date(b.last_active_at || 0) - new Date(a.last_active_at || 0);
+
+      const aHasLogin = Boolean(a.last_login_at);
+      const bHasLogin = Boolean(b.last_login_at);
+      if (aHasLogin && !bHasLogin) return -1;
+      if (!aHasLogin && bHasLogin) return 1;
+
+      if (aHasLogin && bHasLogin) {
+        return new Date(b.last_active_at || b.last_login_at || 0) - new Date(a.last_active_at || a.last_login_at || 0);
+      }
+      return String(a.class_name || '').localeCompare(String(b.class_name || '')) || String(a.roll_no || '').localeCompare(String(b.roll_no || ''));
     });
+
     if (search) {
       rawList = rawList.filter(item => {
         return (item.student_name && item.student_name.toLowerCase().includes(search)) ||
@@ -3799,7 +3869,7 @@ function renderTable() {
   // Handle timetable banner
   const tableWrapEl = refs.tableWrap || document.querySelector(".table-wrap");
   let timingBanner = document.getElementById("timetableTimingsBanner");
-  if (currentModule === "timetable") {
+    if (currentModule === "timetable") {
     if (!timingBanner && tableWrapEl && tableWrapEl.parentNode) {
       timingBanner = document.createElement("div");
       timingBanner.id = "timetableTimingsBanner";
@@ -4109,6 +4179,8 @@ function renderTable() {
           const isLive = item.status === "active" && (Date.now() - new Date(item.last_active_at).getTime()) < 120000;
           if (isLive) {
             return `<td><span class="live-status-pill online"><span class="live-pulse-dot"></span> Active Now</span></td>`;
+          } else if (item.status === "never_logged_in" || !item.last_login_at) {
+            return `<td><span class="live-status-pill offline" style="background:#f8fafc;color:#64748b;border:1px solid #e2e8f0;"><span class="offline-dot" style="background:#cbd5e1;"></span> Not Logged In</span></td>`;
           } else {
             return `<td><span class="live-status-pill offline"><span class="offline-dot"></span> Inactive</span></td>`;
           }
@@ -4131,6 +4203,9 @@ function renderTable() {
           return `<td><span class="badge" style="background:#f1f5f9;color:#334155;font-weight:600;">${val || '—'}</span></td>`;
         }
         if (key === "last_active_at" || key === "last_login_at") {
+          if (!val) {
+            return `<td style="color:#94a3b8; font-size:0.82rem; text-align:center;">—</td>`;
+          }
           const rel = typeof formatRelativeTime === "function" ? formatRelativeTime(val) : String(val || "—");
           const icon = key === "last_active_at" 
             ? '<span class="material-symbols-outlined" style="font-size:13px;color:#10b981;vertical-align:middle;margin-right:2px;">fiber_manual_record</span>' 
@@ -4138,6 +4213,9 @@ function renderTable() {
           return `<td style="color:#334155; font-size:0.85rem; white-space:nowrap;"><span title="${val || ''}">${icon}${rel}</span></td>`;
         }
         if (key === "device_os") {
+          if (!val || val === '—') {
+            return `<td><span style="font-size:11px;color:#94a3b8;background:#f8fafc;padding:3px 8px;border-radius:6px;border:1px solid #e2e8f0;white-space:nowrap;">Not Installed</span></td>`;
+          }
           return `<td><span style="font-size:11px;color:#475569;background:#f8fafc;padding:3px 8px;border-radius:6px;border:1px solid #e2e8f0;white-space:nowrap;display:inline-flex;align-items:center;gap:3px;"><span class="material-symbols-outlined" style="font-size:13px;color:#3b82f6;">smartphone</span> ${val || 'Android'}</span></td>`;
         }
       }
@@ -5558,89 +5636,295 @@ function startGenericEditById(moduleName, recordId) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// UNIVERSAL POPUP-BLOCKED RESILIENT PRINT ENGINE
+// UNIVERSAL POPUP-BLOCKED RESILIENT PRINT ENGINE (TV & PHONE SYNC)
 // ═══════════════════════════════════════════════════════════════════════
+let currentPrintZoom = 1.0;
+
+function broadcastPrintToRemote(url, title) {
+  const payload = JSON.stringify({
+    type: "tv_print_ready",
+    url: url,
+    title: title || "Tapowan School Document"
+  });
+
+  // 1. Send via HiveMQ MQTT
+  try {
+    if (window.tvMqttClient && window.tvMqttClient.isConnected()) {
+      const msg = new Paho.MQTT.Message(payload);
+      msg.destinationName = "tps/school/tv_touchpad_85511";
+      window.tvMqttClient.send(msg);
+    }
+  } catch (_) {}
+
+  // 2. Send via Cloudflare WebSocket
+  try {
+    if (window.remoteWs && window.remoteWs.readyState === WebSocket.OPEN) {
+      window.remoteWs.send(payload);
+    }
+  } catch (_) {}
+}
+
 function openInPagePrintStudioModal(html, title) {
   let modal = document.getElementById("tpsPrintStudioModal");
   if (!modal) {
     modal = document.createElement("div");
     modal.id = "tpsPrintStudioModal";
-    modal.style.cssText = "position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px;box-sizing:border-box;";
+    modal.style.cssText = "position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(15,23,42,0.88);backdrop-filter:blur(10px);z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px;box-sizing:border-box;";
     modal.innerHTML = `
-      <div style="background:#ffffff;border-radius:16px;width:100%;max-width:1250px;height:95vh;display:flex;flex-direction:column;box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);overflow:hidden;border:1px solid #cbd5e1;">
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;background:#0f172a;color:#ffffff;border-bottom:1px solid #334155;">
-          <div style="display:flex;align-items:center;gap:10px;">
-            <span class="material-symbols-outlined" style="font-size:24px;color:#60a5fa;">print</span>
-            <div>
-              <div id="tpsPrintStudioTitle" style="font-weight:800;font-size:1.05rem;color:#f8fafc;">Print Studio</div>
-              <div style="font-size:0.72rem;color:#94a3b8;">Interactive Print Studio &amp; Document Viewer</div>
+      <div style="background:#ffffff;border-radius:18px;width:100%;max-width:1300px;height:95vh;display:flex;flex-direction:column;box-shadow:0 30px 60px -12px rgba(0,0,0,0.6);overflow:hidden;border:1px solid #38bdf8;">
+        <!-- Top Toolbar -->
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 16px;background:linear-gradient(135deg, #0f172a, #1e293b);color:#ffffff;border-bottom:2px solid #0284c7;flex-wrap:nowrap;gap:8px;">
+          <div style="display:flex;align-items:center;gap:10px;min-width:0;overflow:hidden;">
+            <div style="background:linear-gradient(135deg,#0284c7,#00f3ff);width:34px;height:34px;border-radius:8px;display:grid;place-items:center;flex-shrink:0;box-shadow:0 0 10px rgba(0,243,255,0.4);">
+              <span class="material-symbols-outlined" style="font-size:20px;color:#020617;font-weight:900;">print</span>
+            </div>
+            <div style="min-width:0;overflow:hidden;">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <div id="tpsPrintStudioTitle" style="font-weight:800;font-size:0.95rem;color:#f8fafc;letter-spacing:0.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Print Studio</div>
+                <span style="background:rgba(0,243,255,0.18);color:#00f3ff;border:1px solid #00f3ff;padding:1px 6px;border-radius:8px;font-size:0.62rem;font-weight:800;letter-spacing:0.5px;flex-shrink:0;">📺 TV READY</span>
+              </div>
+              <div style="font-size:0.68rem;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Document Viewer &bull; TV-to-Phone Printing</div>
             </div>
           </div>
-          <div style="display:flex;align-items:center;gap:10px;">
-            <button id="tpsPrintStudioDirectPrintBtn" type="button" style="background:#2563eb;color:#ffffff;border:none;padding:8px 18px;border-radius:8px;font-weight:700;font-size:0.85rem;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(37,99,235,0.3);">
-              <span class="material-symbols-outlined" style="font-size:18px;">print</span>
-              <span>Print Now</span>
+
+          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;flex-wrap:nowrap;">
+            <!-- Send to Phone / Scan QR Button -->
+            <button id="tpsPrintStudioSendPhoneBtn" type="button" style="background:linear-gradient(135deg, #0284c7, #06b6d4);color:#ffffff;border:none;padding:6px 12px;border-radius:8px;font-weight:800;font-size:0.78rem;cursor:pointer;display:flex;align-items:center;gap:5px;box-shadow:0 0 12px rgba(6,182,212,0.45);white-space:nowrap;">
+              <span class="material-symbols-outlined" style="font-size:16px;">qr_code_scanner</span>
+              <span>📲 Send to Phone</span>
             </button>
-            <button id="tpsPrintStudioNewTabBtn" type="button" style="background:#334155;color:#e2e8f0;border:1px solid #475569;padding:8px 14px;border-radius:8px;font-weight:600;font-size:0.82rem;cursor:pointer;display:flex;align-items:center;gap:6px;">
-              <span class="material-symbols-outlined" style="font-size:18px;">open_in_new</span>
-              <span>Open in Tab</span>
+
+            <!-- Zoom Controls -->
+            <div style="display:inline-flex;background:rgba(15,23,42,0.8);border:1px solid #475569;border-radius:8px;overflow:hidden;">
+              <button id="tpsPrintStudioZoomOutBtn" type="button" title="Zoom Out" style="background:transparent;border:none;color:#cbd5e1;padding:5px 8px;cursor:pointer;display:grid;place-items:center;">
+                <span class="material-symbols-outlined" style="font-size:15px;">zoom_out</span>
+              </button>
+              <span id="tpsPrintStudioZoomLabel" style="font-size:0.72rem;font-weight:700;color:#94a3b8;padding:5px 2px;min-width:34px;text-align:center;">100%</span>
+              <button id="tpsPrintStudioZoomInBtn" type="button" title="Zoom In" style="background:transparent;border:none;color:#cbd5e1;padding:5px 8px;cursor:pointer;display:grid;place-items:center;">
+                <span class="material-symbols-outlined" style="font-size:15px;">zoom_in</span>
+              </button>
+            </div>
+
+            <!-- Download Button -->
+            <button id="tpsPrintStudioDownloadBtn" type="button" style="background:#334155;color:#e2e8f0;border:1px solid #475569;padding:6px 10px;border-radius:8px;font-weight:700;font-size:0.78rem;cursor:pointer;display:flex;align-items:center;gap:4px;white-space:nowrap;">
+              <span class="material-symbols-outlined" style="font-size:15px;">download</span>
+              <span>Save</span>
             </button>
-            <button id="tpsPrintStudioCloseBtn" type="button" style="background:rgba(255,255,255,0.1);color:#ffffff;border:none;width:32px;height:32px;border-radius:50%;font-size:1.2rem;cursor:pointer;display:grid;place-items:center;">
-              <span class="material-symbols-outlined" style="font-size:20px;">close</span>
+
+            <!-- Direct Print Button -->
+            <button id="tpsPrintStudioDirectPrintBtn" type="button" style="background:#2563eb;color:#ffffff;border:none;padding:6px 12px;border-radius:8px;font-weight:700;font-size:0.78rem;cursor:pointer;display:flex;align-items:center;gap:4px;box-shadow:0 2px 6px rgba(37,99,235,0.3);white-space:nowrap;">
+              <span class="material-symbols-outlined" style="font-size:15px;">print</span>
+              <span>Direct Print</span>
+            </button>
+
+            <!-- Close Button -->
+            <button id="tpsPrintStudioCloseBtn" type="button" title="Close" style="background:rgba(255,255,255,0.15);color:#ffffff;border:none;width:32px;height:32px;border-radius:50%;cursor:pointer;display:grid;place-items:center;flex-shrink:0;">
+              <span class="material-symbols-outlined" style="font-size:18px;">close</span>
             </button>
           </div>
         </div>
-        <div style="flex:1;position:relative;background:#f8fafc;">
-          <iframe id="tpsPrintStudioIframe" style="width:100%;height:100%;border:none;background:#ffffff;"></iframe>
+
+        <!-- Document Viewer Body -->
+        <div style="flex:1;position:relative;background:#e2e8f0;overflow:hidden;">
+          <iframe id="tpsPrintStudioIframe" style="width:100%;height:100%;border:none;background:#ffffff;transform-origin:top center;transition:transform 0.15s ease;"></iframe>
+
+          <!-- QR Code & Phone Remote Overlay Modal -->
+          <div id="tpsPrintStudioQrModal" style="display:none;position:fixed;inset:0;background:rgba(2,6,23,0.95);backdrop-filter:blur(12px);z-index:10000000;align-items:center;justify-content:center;padding:16px;">
+            <div style="background:#0f172a;border:2px solid #00f3ff;border-radius:18px;max-width:520px;width:95%;padding:24px;text-align:center;box-shadow:0 0 30px rgba(0,243,255,0.3);position:relative;color:#ffffff;">
+              <button id="tpsPrintStudioCloseQrBtn" type="button" style="position:absolute;top:12px;right:12px;background:rgba(255,255,255,0.15);color:#fff;border:none;width:32px;height:32px;border-radius:50%;cursor:pointer;display:grid;place-items:center;">
+                <span class="material-symbols-outlined" style="font-size:18px;">close</span>
+              </button>
+
+              <div style="font-size:1.25rem;font-weight:900;color:#00f3ff;margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:8px;">
+                <span class="material-symbols-outlined" style="font-size:26px;">devices</span>
+                <span>Print from Your Phone</span>
+              </div>
+              <div style="font-size:0.85rem;color:#94a3b8;margin-bottom:18px;">
+                Scan this QR code with any mobile camera, or check your connected Phone Remote to print immediately!
+              </div>
+
+              <!-- QR Code Display Box -->
+              <div id="tpsPrintStudioQrBox" style="background:#ffffff;padding:14px;border-radius:14px;display:inline-block;box-shadow:0 0 20px rgba(0,243,255,0.4);min-width:230px;min-height:230px;display:inline-flex;align-items:center;justify-content:center;">
+                <div id="tpsPrintStudioQrLoading" style="color:#0f172a;font-weight:700;font-size:13px;display:flex;flex-direction:column;align-items:center;gap:8px;">
+                  <span class="material-symbols-outlined" style="font-size:32px;color:#0284c7;">hourglass_empty</span>
+                  <span>Generating Secure Cloud Link…</span>
+                </div>
+                <img id="tpsPrintStudioQrImg" src="" alt="Print QR Code" style="display:none;width:220px;height:220px;border-radius:8px;" />
+              </div>
+
+              <!-- Direct URL Box -->
+              <div style="margin-top:16px;">
+                <div style="font-size:0.75rem;color:#64748b;margin-bottom:4px;">Direct Web Link:</div>
+                <div id="tpsPrintStudioDocLink" style="font-family:monospace;font-size:0.8rem;background:rgba(2,6,23,0.8);border:1px solid #334155;color:#38bdf8;padding:6px 10px;border-radius:8px;word-break:break-all;user-select:all;">https://jarvis-tv.pages.dev/print/...</div>
+              </div>
+
+              <div style="margin-top:18px;display:flex;gap:10px;justify-content:center;">
+                <button id="tpsPrintStudioPushRemoteBtn" type="button" style="background:#0284c7;color:#fff;border:none;padding:9px 16px;border-radius:8px;font-weight:800;font-size:0.82rem;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 0 10px rgba(2,132,199,0.5);">
+                  <span class="material-symbols-outlined" style="font-size:18px;">cell_tower</span>
+                  <span>Broadcast to Phone Remote</span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     `;
     document.body.appendChild(modal);
 
+    // Event Listeners
     const closeBtn = document.getElementById("tpsPrintStudioCloseBtn");
     if (closeBtn) closeBtn.onclick = () => { modal.style.display = "none"; };
     modal.onclick = (e) => {
       if (e.target === modal) modal.style.display = "none";
     };
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && modal.style.display !== "none") {
-        modal.style.display = "none";
+      if ((e.key === "Escape" || e.key === "Back") && modal.style.display !== "none") {
+        const qrModal = document.getElementById("tpsPrintStudioQrModal");
+        if (qrModal && qrModal.style.display !== "none") {
+          qrModal.style.display = "none";
+        } else {
+          modal.style.display = "none";
+        }
       }
     });
 
+    // Zoom Controls
+    const zoomInBtn = document.getElementById("tpsPrintStudioZoomInBtn");
+    const zoomOutBtn = document.getElementById("tpsPrintStudioZoomOutBtn");
+    const zoomLabel = document.getElementById("tpsPrintStudioZoomLabel");
+    function updateZoom(newZoom) {
+      currentPrintZoom = Math.max(0.6, Math.min(2.0, Math.round(newZoom * 10) / 10));
+      if (zoomLabel) zoomLabel.textContent = Math.round(currentPrintZoom * 100) + "%";
+      const ifr = document.getElementById("tpsPrintStudioIframe");
+      if (ifr) {
+        try {
+          ifr.style.transform = `scale(${currentPrintZoom})`;
+          ifr.style.transformOrigin = "top center";
+          if (currentPrintZoom > 1.0) {
+            ifr.style.height = `${100 / currentPrintZoom}%`;
+            ifr.style.width = `${100 / currentPrintZoom}%`;
+          } else {
+            ifr.style.height = "100%";
+            ifr.style.width = "100%";
+          }
+        } catch (_) {}
+      }
+    }
+    if (zoomInBtn) zoomInBtn.onclick = () => updateZoom(currentPrintZoom + 0.15);
+    if (zoomOutBtn) zoomOutBtn.onclick = () => updateZoom(currentPrintZoom - 0.15);
+
+    // Direct Print
     const printBtn = document.getElementById("tpsPrintStudioDirectPrintBtn");
     if (printBtn) {
       printBtn.onclick = () => {
         const ifr = document.getElementById("tpsPrintStudioIframe");
         if (ifr && ifr.contentWindow) {
-          ifr.contentWindow.focus();
-          ifr.contentWindow.print();
+          try {
+            ifr.contentWindow.focus();
+            ifr.contentWindow.print();
+          } catch (_) {}
+          if (typeof showToast === "function") {
+            showToast("Tip: On Smart TV, click '📲 Send to Phone' to print directly to WiFi printers!", "info", 5000);
+          }
         }
       };
     }
 
-    const newTabBtn = document.getElementById("tpsPrintStudioNewTabBtn");
-    if (newTabBtn) {
-      newTabBtn.onclick = () => {
+    // Download HTML
+    const dlBtn = document.getElementById("tpsPrintStudioDownloadBtn");
+    if (dlBtn) {
+      dlBtn.onclick = () => {
         if (window._currentPrintStudioHtml) {
           const blob = new Blob([window._currentPrintStudioHtml], { type: "text/html;charset=utf-8" });
           const blobUrl = URL.createObjectURL(blob);
           const a = document.createElement("a");
           a.href = blobUrl;
-          a.target = "_blank";
-          a.rel = "noopener noreferrer";
+          a.download = ((window._currentPrintStudioTitle || "document").toLowerCase().replace(/[^a-z0-9]+/g, "-")) + ".html";
           document.body.appendChild(a);
           a.click();
           setTimeout(() => {
             document.body.removeChild(a);
             URL.revokeObjectURL(blobUrl);
           }, 3000);
+          if (typeof showToast === "function") showToast("Document downloaded successfully", "success");
+        }
+      };
+    }
+
+    // Send to Phone / QR Code Action
+    const sendPhoneBtn = document.getElementById("tpsPrintStudioSendPhoneBtn");
+    const qrModal = document.getElementById("tpsPrintStudioQrModal");
+    const closeQrBtn = document.getElementById("tpsPrintStudioCloseQrBtn");
+    if (closeQrBtn) closeQrBtn.onclick = () => { qrModal.style.display = "none"; };
+
+    async function triggerSendToPhone() {
+      if (!qrModal) return;
+      qrModal.style.display = "flex";
+      const qrLoading = document.getElementById("tpsPrintStudioQrLoading");
+      const qrImg = document.getElementById("tpsPrintStudioQrImg");
+      const docLink = document.getElementById("tpsPrintStudioDocLink");
+
+      if (qrLoading) qrLoading.style.display = "flex";
+      if (qrImg) qrImg.style.display = "none";
+
+      try {
+        const res = await fetch("https://jarvis-tv.pages.dev/api/print/stash", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            html: window._currentPrintStudioHtml || "",
+            title: window._currentPrintStudioTitle || "Tapowan School Document"
+          })
+        });
+        const data = await res.json();
+        if (data && data.url) {
+          window._activePrintUrl = data.url;
+          if (docLink) docLink.textContent = data.url;
+          const qrBox = document.getElementById("tpsPrintStudioQrBox");
+          if (data.qrSvg && qrBox) {
+            qrBox.innerHTML = data.qrSvg.replace("<svg ", '<svg width="206" height="206" style="border-radius:6px;display:block;" ');
+          } else if (qrImg) {
+            qrImg.onload = () => {
+              if (qrLoading) qrLoading.style.display = "none";
+              qrImg.style.display = "block";
+            };
+            qrImg.onerror = () => {
+              if (qrLoading) qrLoading.innerHTML = '<span style="color:#f59e0b;font-size:12px;">Scan the link below</span>';
+              qrImg.style.display = "none";
+            };
+            qrImg.src = data.qrUrl || ("https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=" + encodeURIComponent(data.url));
+            if (qrImg.complete) {
+              if (qrLoading) qrLoading.style.display = "none";
+              qrImg.style.display = "block";
+            }
+          }
+
+          // Broadcast to Phone Remote via MQTT & WebSocket
+          broadcastPrintToRemote(data.url, window._currentPrintStudioTitle);
+          if (typeof showToast === "function") {
+            showToast("Document sent to connected Phone Remote & QR ready!", "success", 4000);
+          }
+        }
+      } catch (err) {
+        if (qrLoading) qrLoading.innerHTML = `<span style="color:#ef4444;">Failed to generate link: ${err.message}</span>`;
+      }
+    }
+
+    if (sendPhoneBtn) sendPhoneBtn.onclick = triggerSendToPhone;
+
+    const pushRemoteBtn = document.getElementById("tpsPrintStudioPushRemoteBtn");
+    if (pushRemoteBtn) {
+      pushRemoteBtn.onclick = () => {
+        if (window._activePrintUrl) {
+          broadcastPrintToRemote(window._activePrintUrl, window._currentPrintStudioTitle);
+          if (typeof showToast === "function") showToast("Broadcasted print document to Phone Remote!", "info");
         }
       };
     }
   }
 
   window._currentPrintStudioHtml = html;
+  window._currentPrintStudioTitle = title || "Print Studio";
   const titleEl = document.getElementById("tpsPrintStudioTitle");
   if (titleEl) titleEl.textContent = title || "Print Studio";
 
@@ -5657,6 +5941,21 @@ function openInPagePrintStudioModal(html, title) {
 
 function openPrintWindowOrFallback(html, title = "Print Document", options = {}) {
   const { autoPrint = false, isInteractiveStudio = false } = options;
+
+  const isTvMode = Boolean(
+    (typeof window !== "undefined" && (window.isTvPortal || window._isTv || location.search.includes("tv=1") || location.search.includes("tv=") || window.__JARVIS_TV__)) ||
+    /SmartTV|GoogleTV|Android.*TV|AFT|HbbTV|NetCast|Tizen|com\.tapowan\.jarvistv/i.test(navigator.userAgent)
+  );
+
+  // On Smart TV, or if interactive studio requested:
+  // ALWAYS open the interactive In-Page Print Studio modal with TV controls, QR Code & Phone Remote push!
+  if (isTvMode || isInteractiveStudio) {
+    openInPagePrintStudioModal(html, title);
+    if (typeof showToast === "function") {
+      showToast(isTvMode ? "📺 Opened TV Print Studio" : "Opened Print Studio in preview modal", "info");
+    }
+    return;
+  }
 
   let w = null;
   try {
@@ -5677,55 +5976,16 @@ function openPrintWindowOrFallback(html, title = "Print Document", options = {})
     }
   }
 
-  // If window.open was blocked by browser:
-  if (isInteractiveStudio) {
-    openInPagePrintStudioModal(html, title);
-    if (typeof showToast === "function") {
-      showToast("Opened Print Studio in preview modal", "info");
-    }
-    return;
-  }
-
-  // For non-interactive direct printable documents (Receipts, Slips, Reports):
-  try {
-    let iframe = document.getElementById("__tps_print_iframe__");
-    if (!iframe) {
-      iframe = document.createElement("iframe");
-      iframe.id = "__tps_print_iframe__";
-      iframe.style.position = "fixed";
-      iframe.style.right = "0";
-      iframe.style.bottom = "0";
-      iframe.style.width = "0";
-      iframe.style.height = "0";
-      iframe.style.border = "none";
-      iframe.style.visibility = "hidden";
-      iframe.style.zIndex = "-9999";
-      document.body.appendChild(iframe);
-    }
-
-    const doc = iframe.contentWindow.document;
-    doc.open();
-    doc.write(html);
-    doc.close();
-
-    if (typeof showToast === "function") {
-      showToast("Opening print dialog…", "info");
-    }
-
-    setTimeout(() => {
-      try {
-        iframe.contentWindow.focus();
-        iframe.contentWindow.print();
-      } catch (printErr) {
-        openInPagePrintStudioModal(html, title);
-      }
-    }, 450);
-  } catch (err) {
-    openInPagePrintStudioModal(html, title);
+  // If window.open was blocked by browser or running on mobile:
+  // Fallback to In-Page Print Studio Modal immediately!
+  openInPagePrintStudioModal(html, title);
+  if (typeof showToast === "function") {
+    showToast("Opened Print Studio preview", "info");
   }
 }
 window.openPrintWindowOrFallback = openPrintWindowOrFallback;
 window.openInPagePrintStudioModal = openInPagePrintStudioModal;
+
 
 function printStudentReport(student) {
   if (!student) return;
@@ -5931,7 +6191,24 @@ async function removeRecord(moduleName, id) {
       }
     }
   }
-  await api(`/api/modules/${moduleName}/${id}`, { method: "DELETE" });
+  try {
+    await api(`/api/modules/${moduleName}/${id}`, { method: "DELETE" });
+  } catch (err) {
+    console.warn(`[removeRecord] Standard API delete failed (${err.message}). Trying direct Edge DB delete...`);
+    try {
+      await api("/api/db/query", {
+        method: "POST",
+        body: JSON.stringify({
+          sql: `DELETE FROM ${moduleName} WHERE id = ? OR id = CAST(? AS INTEGER)`,
+          args: [id, id]
+        })
+      });
+      console.log(`[removeRecord] Successfully deleted ${moduleName}:${id} via Edge DB query.`);
+    } catch (fallbackErr) {
+      console.error("[removeRecord] Edge DB delete also failed:", fallbackErr.message);
+      throw err;
+    }
+  }
 
   // Cleanup Face Recognition Data if deleting a student or teacher
   if (moduleName === "students" || moduleName === "teachers") {
@@ -10726,9 +11003,207 @@ function buildPrintableHtml(title, contentHtml) {
   </body></html>`;
 }
 
+
+function buildDashboardPrintableSummary(store) {
+  const _schoolMeta = (typeof window.getSchoolMeta === "function") ? window.getSchoolMeta() : {};
+  const schoolName = _schoolMeta.name || "Tapowan Public School";
+  const students = store.students || [];
+  const teachers = store.teachers || [];
+  const fees = store.fees || [];
+  const dues = store.dueManagement || [];
+
+  let totalCollected = 0;
+  fees.forEach(f => { totalCollected += parseFloat(f.paidAmount) || 0; });
+
+  let totalOutstanding = 0;
+  dues.forEach(d => { totalOutstanding += parseFloat(d.balance) || 0; });
+
+  const classCounts = {};
+  students.forEach(s => {
+    const c = (s.className || "Unassigned").trim();
+    classCounts[c] = (classCounts[c] || 0) + 1;
+  });
+
+  const sortedClasses = Object.keys(classCounts).sort((a,b) => a.localeCompare(b, undefined, { numeric: true }));
+
+  return `
+    <div style="font-family:'Segoe UI',Roboto,Arial,sans-serif;color:#0f172a;max-width:900px;margin:0 auto;padding:10px;">
+      <div style="text-align:center;border-bottom:3px solid #1e3a8a;padding-bottom:14px;margin-bottom:20px;">
+        <h1 style="margin:0;font-size:26px;font-weight:900;color:#1e3a8a;letter-spacing:0.5px;">${schoolName}</h1>
+        <div style="font-size:14px;font-weight:700;color:#0284c7;margin-top:4px;">EXECUTIVE MANAGEMENT DASHBOARD REPORT</div>
+        <div style="font-size:12px;color:#64748b;margin-top:4px;">Generated on: ${new Date().toLocaleDateString("en-IN", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date().toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit' })}</div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;">
+        <div style="background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:10px;padding:12px;text-align:center;">
+          <div style="font-size:11px;font-weight:800;color:#0369a1;text-transform:uppercase;">Total Enrolled</div>
+          <div style="font-size:24px;font-weight:900;color:#0284c7;margin-top:4px;">${students.length}</div>
+          <div style="font-size:11px;color:#64748b;">Active Students</div>
+        </div>
+        <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:10px;padding:12px;text-align:center;">
+          <div style="font-size:11px;font-weight:800;color:#15803d;text-transform:uppercase;">Total Faculty</div>
+          <div style="font-size:24px;font-weight:900;color:#16a34a;margin-top:4px;">${teachers.length}</div>
+          <div style="font-size:11px;color:#64748b;">Teaching Staff</div>
+        </div>
+        <div style="background:#fefce8;border:1.5px solid #fef08a;border-radius:10px;padding:12px;text-align:center;">
+          <div style="font-size:11px;font-weight:800;color:#a16207;text-transform:uppercase;">Fees Collected</div>
+          <div style="font-size:20px;font-weight:900;color:#ca8a04;margin-top:4px;">₹${Math.round(totalCollected).toLocaleString("en-IN")}</div>
+          <div style="font-size:11px;color:#64748b;">Total Paid Amount</div>
+        </div>
+        <div style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:10px;padding:12px;text-align:center;">
+          <div style="font-size:11px;font-weight:800;color:#b91c1c;text-transform:uppercase;">Dues Balance</div>
+          <div style="font-size:20px;font-weight:900;color:#dc2626;margin-top:4px;">₹${Math.round(totalOutstanding).toLocaleString("en-IN")}</div>
+          <div style="font-size:11px;color:#64748b;">Outstanding Fee</div>
+        </div>
+      </div>
+
+      <h3 style="color:#1e3a8a;border-bottom:1.5px solid #e2e8f0;padding-bottom:6px;margin:20px 0 10px 0;font-size:15px;">Class Strength Distribution</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:24px;">
+        <thead>
+          <tr style="background:#1e3a8a;color:#ffffff;text-align:left;">
+            <th style="padding:7px 10px;border:1px solid #cbd5e1;">Class Name</th>
+            <th style="padding:7px 10px;border:1px solid #cbd5e1;text-align:right;">Student Count</th>
+            <th style="padding:7px 10px;border:1px solid #cbd5e1;text-align:right;">Percentage</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${sortedClasses.map(cls => {
+            const cnt = classCounts[cls];
+            const pct = students.length > 0 ? ((cnt / students.length) * 100).toFixed(1) : 0;
+            return `
+              <tr>
+                <td style="padding:6px 10px;border:1px solid #e2e8f0;font-weight:600;">${cls}</td>
+                <td style="padding:6px 10px;border:1px solid #e2e8f0;text-align:right;">${cnt}</td>
+                <td style="padding:6px 10px;border:1px solid #e2e8f0;text-align:right;color:#64748b;">${pct}%</td>
+              </tr>
+            `;
+          }).join("")}
+        </tbody>
+      </table>
+
+      <div style="margin-top:30px;display:flex;justify-content:space-between;padding-top:20px;border-top:1px solid #cbd5e1;font-size:12px;color:#475569;">
+        <div>Prepared by: <strong>Administrative Office</strong></div>
+        <div>Authorized Signatory: ________________________</div>
+      </div>
+    </div>
+  `;
+}
+
+function buildTeachersPrintableSummary(store) {
+  const _schoolMeta = (typeof window.getSchoolMeta === "function") ? window.getSchoolMeta() : {};
+  const schoolName = _schoolMeta.name || "Tapowan Public School";
+  const teachers = store.teachers || [];
+
+  return `
+    <div style="font-family:'Segoe UI',Roboto,Arial,sans-serif;color:#0f172a;max-width:960px;margin:0 auto;padding:10px;">
+      <div style="text-align:center;border-bottom:3px solid #1e3a8a;padding-bottom:14px;margin-bottom:20px;">
+        <h1 style="margin:0;font-size:24px;font-weight:900;color:#1e3a8a;">${schoolName}</h1>
+        <div style="font-size:14px;font-weight:700;color:#0284c7;margin-top:4px;">FACULTY &amp; STAFF DIRECTORY</div>
+        <div style="font-size:12px;color:#64748b;margin-top:4px;">Total Faculty Members: ${teachers.length} | Printed on: ${new Date().toLocaleDateString("en-IN")}</div>
+      </div>
+
+      <table style="width:100%;border-collapse:collapse;font-size:11px;">
+        <thead>
+          <tr style="background:#1e3a8a;color:#ffffff;text-align:left;">
+            <th style="padding:6px 8px;border:1px solid #cbd5e1;">Emp No</th>
+            <th style="padding:6px 8px;border:1px solid #cbd5e1;">Full Name</th>
+            <th style="padding:6px 8px;border:1px solid #cbd5e1;">Designation</th>
+            <th style="padding:6px 8px;border:1px solid #cbd5e1;">Department</th>
+            <th style="padding:6px 8px;border:1px solid #cbd5e1;">Mobile</th>
+            <th style="padding:6px 8px;border:1px solid #cbd5e1;">Qualification</th>
+            <th style="padding:6px 8px;border:1px solid #cbd5e1;text-align:center;">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${teachers.map(t => `
+            <tr>
+              <td style="padding:5px 8px;border:1px solid #e2e8f0;font-weight:700;">${t.employeeNo || t.id || "-"}</td>
+              <td style="padding:5px 8px;border:1px solid #e2e8f0;font-weight:600;">${t.fullName || "-"}</td>
+              <td style="padding:5px 8px;border:1px solid #e2e8f0;">${t.designation || "-"}</td>
+              <td style="padding:5px 8px;border:1px solid #e2e8f0;">${t.department || "-"}</td>
+              <td style="padding:5px 8px;border:1px solid #e2e8f0;">${t.phone || "-"}</td>
+              <td style="padding:5px 8px;border:1px solid #e2e8f0;">${t.qualification || "-"}</td>
+              <td style="padding:5px 8px;border:1px solid #e2e8f0;text-align:center;color:${t.status==='Active'?'#16a34a':'#dc2626'};font-weight:700;">${t.status || "Active"}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function buildAttendancePrintableSummary(store) {
+  const _schoolMeta = (typeof window.getSchoolMeta === "function") ? window.getSchoolMeta() : {};
+  const schoolName = _schoolMeta.name || "Tapowan Public School";
+  const records = store.attendance || [];
+  const selectedDate = (refs.dateFilter && refs.dateFilter.value) || new Date().toISOString().split("T")[0];
+  const filtered = records.filter(r => r.date === selectedDate);
+  const rows = filtered.length > 0 ? filtered : records.slice(0, 50);
+
+  return `
+    <div style="font-family:'Segoe UI',Roboto,Arial,sans-serif;color:#0f172a;max-width:960px;margin:0 auto;padding:10px;">
+      <div style="text-align:center;border-bottom:3px solid #1e3a8a;padding-bottom:14px;margin-bottom:20px;">
+        <h1 style="margin:0;font-size:24px;font-weight:900;color:#1e3a8a;">${schoolName}</h1>
+        <div style="font-size:14px;font-weight:700;color:#0284c7;margin-top:4px;">STUDENT ATTENDANCE REGISTER</div>
+        <div style="font-size:12px;color:#64748b;margin-top:4px;">Date: ${selectedDate} | Total Entries: ${rows.length}</div>
+      </div>
+
+      <table style="width:100%;border-collapse:collapse;font-size:11px;">
+        <thead>
+          <tr style="background:#1e3a8a;color:#ffffff;text-align:left;">
+            <th style="padding:6px 8px;border:1px solid #cbd5e1;">Roll No</th>
+            <th style="padding:6px 8px;border:1px solid #cbd5e1;">Student Name</th>
+            <th style="padding:6px 8px;border:1px solid #cbd5e1;">Class</th>
+            <th style="padding:6px 8px;border:1px solid #cbd5e1;text-align:center;">Status</th>
+            <th style="padding:6px 8px;border:1px solid #cbd5e1;">Arrival Time</th>
+            <th style="padding:6px 8px;border:1px solid #cbd5e1;">Remarks</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(r => {
+            const st = (r.status || "Present").toLowerCase();
+            const color = st === "present" ? "#16a34a" : st === "late" ? "#d97706" : "#dc2626";
+            return `
+              <tr>
+                <td style="padding:5px 8px;border:1px solid #e2e8f0;font-weight:700;">${r.rollNo || "-"}</td>
+                <td style="padding:5px 8px;border:1px solid #e2e8f0;font-weight:600;">${r.studentName || "-"}</td>
+                <td style="padding:5px 8px;border:1px solid #e2e8f0;">${r.className || "-"}</td>
+                <td style="padding:5px 8px;border:1px solid #e2e8f0;text-align:center;font-weight:800;color:${color};">${r.status || "Present"}</td>
+                <td style="padding:5px 8px;border:1px solid #e2e8f0;">${r.arrivalTime || "-"}</td>
+                <td style="padding:5px 8px;border:1px solid #e2e8f0;">${r.remarks || "-"}</td>
+              </tr>
+            `;
+          }).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
 function printDocumentByModule() {
   if (!printableModules.has(currentModule)) return;
   const store = getStore();
+
+  // ── Dashboard → Executive Summary ────────────────────────────────────────
+  if (currentModule === "dashboard") {
+    const fullHtml = buildPrintableHtml("Executive Dashboard Summary", buildDashboardPrintableSummary(store));
+    openPrintWindowOrFallback(fullHtml, "Executive Dashboard Summary", { autoPrint: true });
+    return;
+  }
+
+  // ── Teachers → Faculty Directory ─────────────────────────────────────────
+  if (currentModule === "teachers") {
+    const fullHtml = buildPrintableHtml("Faculty Directory", buildTeachersPrintableSummary(store));
+    openPrintWindowOrFallback(fullHtml, "Faculty Directory", { autoPrint: true });
+    return;
+  }
+
+  // ── Attendance → Daily Register ──────────────────────────────────────────
+  if (currentModule === "attendance" || currentModule === "teacherAttendance") {
+    const fullHtml = buildPrintableHtml("Daily Attendance Register", buildAttendancePrintableSummary(store));
+    openPrintWindowOrFallback(fullHtml, "Daily Attendance Register", { autoPrint: true });
+    return;
+  }
 
   // ── Timetable → Modern Card Routine Studio ──────────────────────────────
   if (currentModule === "timetable") {
@@ -14907,6 +15382,11 @@ async function boot() {
 
     // Check if query params contain username and password (e.g. from accidental native GET form submission)
     const urlParams = new URLSearchParams(window.location.search);
+    const qToken = urlParams.get("token");
+    if (qToken) {
+      localStorage.setItem("token", qToken);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
     const qUser = urlParams.get("username");
     const qPass = urlParams.get("password");
     if (qUser && qPass) {
@@ -14949,13 +15429,15 @@ async function boot() {
     }
 
     // ── STAGE 2: SILENT BACKGROUND SERVER REVALIDATION (PARALLEL) ──
+
     const userPromise = getSessionUser().catch(() => null);
     const storePromise = loadStore().catch(err => {
       if (!renderedFromCache) throw err;
       return null;
     });
 
-    const user = await userPromise;
+    let user = await userPromise;
+
     if (!user) {
       if (!renderedFromCache || !localStorage.getItem("token")) {
         applyAuthUI(null);
@@ -27040,6 +27522,61 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     }
   };
 
+  window._isTouchEnabled = true;
+  window.toggleScreenTouch = async function(deviceId) {
+    const devId = deviceId || _activePreviewTargetDeviceId || window._activePreviewTargetDeviceId;
+    console.log("[ToggleScreenTouch] Clicked. Target devId:", devId);
+    if (!devId) {
+      console.warn("[ToggleScreenTouch] Missing target device ID");
+      return;
+    }
+
+    window._isTouchEnabled = !window._isTouchEnabled;
+    const isEnabled = window._isTouchEnabled;
+    const btn = document.getElementById("btnToggleTouch");
+    const txt = document.getElementById("btnToggleTouchText");
+    const icon = document.getElementById("btnToggleTouchIcon");
+
+    if (btn) {
+      if (isEnabled) {
+        btn.style.background = "#059669";
+        btn.style.color = "#ffffff";
+        btn.style.boxShadow = "0 1px 6px rgba(5,150,105,0.4)";
+        btn.title = "Target phone touch is ENABLED. Click to block phone touch.";
+        if (txt) txt.textContent = "Touch: Enabled";
+        if (icon) icon.textContent = "touch_app";
+      } else {
+        btn.style.background = "#334155";
+        btn.style.color = "#cbd5e1";
+        btn.style.boxShadow = "none";
+        btn.title = "Target phone touch is BLOCKED. Click to enable phone touch.";
+        if (txt) txt.textContent = "Touch: Blocked";
+        if (icon) icon.textContent = "do_not_touch";
+      }
+    }
+
+    const command = isEnabled ? "enable_touch" : "disable_touch";
+    try {
+      const issuer = (currentUser && (currentUser.name || currentUser.fullName)) ? (currentUser.name || currentUser.fullName) : "Web Admin";
+      await api("/api/calls/device-command", {
+        method: "POST",
+        body: JSON.stringify({
+          targetDeviceId: devId,
+          command: command,
+          touchEnabled: isEnabled,
+          issuedBy: issuer
+        })
+      });
+      if (isEnabled) {
+        addMsg("👆 Target phone touch ENABLED. User can tap and interact with screen normally.", "bot");
+      } else {
+        addMsg("🔒 Target phone touch BLOCKED. Screen touch gestures are now locked.", "bot");
+      }
+    } catch (e) {
+      console.warn("[ToggleScreenTouch] Error:", e);
+    }
+  };
+
   window.togglePreviewAudioMute = function() {
     const a = document.getElementById("previewAudio");
     const btn = document.getElementById("btnToggleAudioMute");
@@ -27116,6 +27653,7 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
     const previewId = 'pv_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2,7);
     _activePreviewId = previewId;
     _activePreviewTargetDeviceId = deviceId;
+    window._activePreviewTargetDeviceId = deviceId;
     _activePreviewMode = mode;
     _hasAutoDismissedTransparentScreen = false;
 
@@ -27158,12 +27696,14 @@ Number of fee records=${fees.length}. Number of overdue records=${dues.length}.`
                   style="width:50px;background:#1e293b;color:#38bdf8;border:1px solid #475569;border-radius:4px;padding:2px 4px;font-size:0.75rem;font-weight:700;text-align:center;" />
                 <span style="color:#94a3b8;font-size:0.7rem;font-weight:600;">s</span>
               </div>
-              <button id="btnDismissCall" onclick="dismissCallOnly(_activePreviewTargetDeviceId)" style="background:#ea580c;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:700;display:${mode === 'call' ? 'inline-flex' : 'none'};align-items:center;gap:3px;box-shadow:0 1px 4px rgba(234,88,12,0.3);" title="Cut call immediately from site, keep camera feed streaming"><span class="material-symbols-outlined" style="font-size:13px;">call_end</span>Cut Call</button>
+              <button id="btnDismissCall" onclick="dismissCallOnly('${deviceId}')" style="background:#ea580c;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:700;display:${mode === 'call' ? 'inline-flex' : 'none'};align-items:center;gap:3px;box-shadow:0 1px 4px rgba(234,88,12,0.3);" title="Cut call immediately from site, keep camera feed streaming"><span class="material-symbols-outlined" style="font-size:13px;">call_end</span>Cut Call</button>
+              <button id="btnToggleTouch" onclick="toggleScreenTouch('${deviceId}')" style="background:#059669;border:none;border-radius:6px;padding:4px 10px;color:#ffffff;font-size:0.75rem;cursor:pointer;font-weight:600;display:${mode === 'mic' ? 'none' : 'inline-flex'};align-items:center;gap:3px;box-shadow:0 1px 6px rgba(5,150,105,0.4);" title="Target phone touch is ENABLED (user can tap screen). Click to block phone touch."><span class="material-symbols-outlined" id="btnToggleTouchIcon" style="font-size:13px;">touch_app</span><span id="btnToggleTouchText">Touch: Enabled</span></button>
+              
               <button id="btnSnapPhoto" onclick="captureLivePreviewPhoto()" style="background:#0284c7;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;display:${mode === 'mic' ? 'none' : 'inline-flex'};align-items:center;gap:3px;" title="Take snapshot photo"><span class="material-symbols-outlined" style="font-size:13px;">photo_camera</span>Photo</button>
               <button id="btnRecordVideo" onclick="recordLivePreviewVideo(10)" style="background:#8b5cf6;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;display:${mode === 'mic' ? 'none' : 'inline-flex'};align-items:center;gap:3px;" title="Record 10 second video"><span class="material-symbols-outlined" style="font-size:13px;">videocam</span>10s Video</button>
               <button id="btnFlipCam" onclick="flipPreviewCamera()" style="background:#334155;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;display:${mode === 'mic' ? 'none' : 'inline-flex'};align-items:center;gap:3px;"><span class="material-symbols-outlined" style="font-size:13px;">flip_camera_android</span>Flip</button>
-              <button id="btnStopTransparentScreen" onclick="dismissTransparentScreen(_activePreviewTargetDeviceId)" style="background:#475569;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;display:none;align-items:center;gap:3px;" title="Close transparent window on target phone"><span class="material-symbols-outlined" style="font-size:13px;">cancel_presentation</span>Stop Screen</button>
-              <button onclick="hardStopDeviceCamera(_activePreviewTargetDeviceId)" style="background:#dc2626;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:3px;"><span class="material-symbols-outlined" style="font-size:13px;">stop_circle</span>Stop</button>
+              <button id="btnStopTransparentScreen" onclick="dismissTransparentScreen('${deviceId}')" style="background:#475569;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;display:none;align-items:center;gap:3px;" title="Close transparent window on target phone"><span class="material-symbols-outlined" style="font-size:13px;">cancel_presentation</span>Stop Screen</button>
+              <button onclick="hardStopDeviceCamera('${deviceId}')" style="background:#dc2626;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:3px;"><span class="material-symbols-outlined" style="font-size:13px;">stop_circle</span>Stop</button>
               <button onclick="stopLivePreview()" style="background:#64748b;border:none;border-radius:6px;padding:4px 10px;color:#fff;font-size:0.75rem;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:3px;"><span class="material-symbols-outlined" style="font-size:13px;">close</span>Close</button>
             </div>
           </div>
@@ -33078,3 +33618,140 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 })();
 
+
+
+// ============================================================
+// TV Remote Switch & Assistant Command Module
+// ============================================================
+window.openTvRemoteSwitchModal = function() {
+  const existing = document.getElementById("tvRemoteSwitchModalOverlay");
+  if (existing) existing.remove();
+
+  const overlay = document.createElement("div");
+  overlay.id = "tvRemoteSwitchModalOverlay";
+  overlay.style.cssText = "position:fixed;inset:0;z-index:999999;background:rgba(15,23,42,0.7);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:16px;font-family:'Poppins',sans-serif;";
+  
+  overlay.innerHTML = `
+    <div style="background:#ffffff;border-radius:24px;width:100%;max-width:560px;max-height:92vh;overflow-y:auto;box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);border:1px solid #e2e8f0;display:flex;flex-direction:column;animation:modalScaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);">
+      <!-- Header -->
+      <div style="padding:20px 24px 16px 24px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg, #0284c7, #0369a1);display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 4px 12px rgba(2,132,199,0.3);">
+            <span class="material-symbols-outlined" style="font-size:24px;">tv</span>
+          </div>
+          <div>
+            <h3 style="font-size:1.15rem;font-weight:800;color:#0f172a;margin:0;">TV Remote Switch Module</h3>
+            <p style="font-size:0.75rem;color:#64748b;margin:2px 0 0 0;font-weight:600;">Control &amp; Command Smart TV Display</p>
+          </div>
+        </div>
+        <button type="button" onclick="document.getElementById('tvRemoteSwitchModalOverlay').remove()" style="background:#f1f5f9;border:none;color:#64748b;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;cursor:pointer;">
+          <span class="material-symbols-outlined" style="font-size:18px;">close</span>
+        </button>
+      </div>
+
+      <!-- Body -->
+      <div style="padding:20px 24px;display:flex;flex-direction:column;gap:16px;">
+        <!-- Status Card -->
+        <div style="padding:12px 16px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:14px;display:flex;justify-content:space-between;align-items:center;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="width:10px;height:10px;border-radius:50%;background:#10b981;box-shadow:0 0 8px #10b981;display:inline-block;"></span>
+            <span style="font-size:0.85rem;font-weight:700;color:#0369a1;">TV Display Gateway Ready</span>
+          </div>
+          <a href="https://jarvis-tv.pages.dev/remote" target="_blank" style="font-size:0.75rem;background:#e0f2fe;color:#0284c7;padding:4px 8px;border-radius:6px;font-weight:700;text-decoration:none;">📱 Open Web Remote &nearr;</a>
+        </div>
+
+        <!-- Big Launch Switch -->
+        <div style="background:linear-gradient(135deg,#f8fafc,#f1f5f9);border:1.5px solid #e2e8f0;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px;">
+          <div style="font-size:0.8rem;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:0.5px;">Power &amp; Display Switch</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <button type="button" onclick="window.sendTvRemoteSwitchCommand('__LAUNCH__')" style="padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg, #10b981, #059669);color:#ffffff;font-weight:800;font-size:0.9rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 12px rgba(16,185,129,0.3);transition:transform 0.1s;">
+              <span class="material-symbols-outlined" style="font-size:20px;">power_settings_new</span>
+              <span>Launch / Wake TV</span>
+            </button>
+            <button type="button" onclick="window.sendTvRemoteSwitchCommand('__RELOAD__')" style="padding:14px;border-radius:12px;border:1px solid #cbd5e1;background:#ffffff;color:#334155;font-weight:800;font-size:0.9rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:background 0.2s;">
+              <span class="material-symbols-outlined" style="font-size:20px;">refresh</span>
+              <span>Reload Screen</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Voice / Text Command Field -->
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <label style="font-size:0.8rem;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:0.5px;">Send TV Query / Command</label>
+          <div style="display:flex;gap:8px;">
+            <input type="text" id="tvRemoteCmdInput" placeholder="e.g. total due of class 7" style="flex:1;padding:12px 14px;border:1.5px solid #cbd5e1;border-radius:12px;font-size:0.9rem;font-weight:600;outline:none;" onkeydown="if(event.key==='Enter') document.getElementById('tvRemoteSendBtn').click()" />
+            <button type="button" id="tvRemoteSendBtn" onclick="const val=document.getElementById('tvRemoteCmdInput').value; if(val) window.sendTvRemoteSwitchCommand(val);" style="padding:12px 20px;border-radius:12px;border:none;background:linear-gradient(135deg, #0284c7, #0369a1);color:#ffffff;font-weight:800;font-size:0.88rem;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 4px 12px rgba(2,132,199,0.25);">
+              <span class="material-symbols-outlined" style="font-size:18px;">send</span> Send
+            </button>
+          </div>
+          <!-- Suggestion Chips -->
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">
+            <button type="button" onclick="document.getElementById('tvRemoteCmdInput').value='total due of class 7'; window.sendTvRemoteSwitchCommand('total due of class 7');" style="background:#f1f5f9;border:1px solid #e2e8f0;padding:5px 10px;border-radius:20px;font-size:0.75rem;font-weight:700;color:#334155;cursor:pointer;">💰 Total Due Class 7</button>
+            <button type="button" onclick="document.getElementById('tvRemoteCmdInput').value='total due of ruhan hasan and shifan hasan'; window.sendTvRemoteSwitchCommand('total due of ruhan hasan and shifan hasan');" style="background:#f1f5f9;border:1px solid #e2e8f0;padding:5px 10px;border-radius:20px;font-size:0.75rem;font-weight:700;color:#334155;cursor:pointer;">👨‍🎓 Dues: Ruhan & Shifan</button>
+            <button type="button" onclick="document.getElementById('tvRemoteCmdInput').value='class 2 total students'; window.sendTvRemoteSwitchCommand('class 2 total students');" style="background:#f1f5f9;border:1px solid #e2e8f0;padding:5px 10px;border-radius:20px;font-size:0.75rem;font-weight:700;color:#334155;cursor:pointer;">👥 Class 2 Students</button>
+            <button type="button" onclick="document.getElementById('tvRemoteCmdInput').value='class 7 all students'; window.sendTvRemoteSwitchCommand('class 7 all students');" style="background:#f1f5f9;border:1px solid #e2e8f0;padding:5px 10px;border-radius:20px;font-size:0.75rem;font-weight:700;color:#334155;cursor:pointer;">📋 Class 7 All</button>
+          </div>
+        </div>
+
+        <!-- Feedback Log / Notification -->
+        <div id="tvRemoteFeedbackBox" style="display:none;padding:10px 14px;border-radius:10px;font-size:0.82rem;font-weight:700;align-items:center;gap:8px;"></div>
+
+        <!-- Terminal ADB Reference -->
+        <div style="background:#0f172a;border-radius:14px;padding:14px;color:#94a3b8;font-family:monospace;font-size:0.74rem;display:flex;flex-direction:column;gap:6px;">
+          <div style="color:#38bdf8;font-weight:bold;margin-bottom:2px;">💻 Shell Command &amp; ADB Switch:</div>
+          <div><code style="color:#f1f5f9;">adb shell am broadcast -a com.tapowan.jarvistv.ACTION_LAUNCH</code></div>
+          <div><code style="color:#f1f5f9;">adb shell am broadcast -a com.tapowan.jarvistv.REMOTE_COMMAND --es query "total due of class 7"</code></div>
+          <div><code style="color:#f1f5f9;">adb shell am start -n com.tapowan.jarvistv/.MainActivity --es query "..."</code></div>
+          <div><code style="color:#34d399;">LAN Direct: curl "http://192.168.1.128:8080/launch"</code></div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+};
+
+window.sendTvRemoteSwitchCommand = async function(command) {
+  if (!command) return;
+  const fb = document.getElementById("tvRemoteFeedbackBox");
+  if (fb) {
+    fb.style.display = "flex";
+    fb.style.background = "#eff6ff";
+    fb.style.color = "#1d4ed8";
+    fb.style.border = "1px solid #bfdbfe";
+    fb.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">sync</span> Transmitting command to Smart TV...';
+  }
+
+  try {
+    // 1. Send to Cloudflare Edge Remote Gateway
+    const res = await fetch("https://jarvis-tv.pages.dev/api/remote/command", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        command: command,
+        client: (window.currentUser && (window.currentUser.name || window.currentUser.fullName)) ? (window.currentUser.name || window.currentUser.fullName) : "Web Portal Switch"
+      })
+    });
+    
+    // 2. Also try direct LAN ping in background (if same Wi-Fi)
+    fetch("http://192.168.1.128:8080/?q=" + encodeURIComponent(command), { mode: "no-cors" }).catch(() => {});
+
+    if (fb) {
+      fb.style.background = "#f0fdf4";
+      fb.style.color = "#15803d";
+      fb.style.border = "1px solid #bbf7d0";
+      fb.innerHTML = '✅ Command <b>"' + (command === '__LAUNCH__' ? 'Launch TV Assistant' : command) + '"</b> sent! TV waking up.';
+      setTimeout(() => { if (fb) fb.style.display = "none"; }, 4000);
+    }
+    if (window.showToast) {
+      window.showToast("TV Command Sent: " + (command === '__LAUNCH__' ? 'Launch TV' : command), "success");
+    }
+  } catch (err) {
+    if (fb) {
+      fb.style.background = "#fef2f2";
+      fb.style.color = "#b91c1c";
+      fb.style.border = "1px solid #fecaca";
+      fb.innerHTML = '❌ Transmission error: ' + err.message;
+    }
+  }
+};
