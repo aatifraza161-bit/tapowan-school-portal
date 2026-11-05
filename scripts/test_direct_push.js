@@ -15,12 +15,14 @@ async function testPush() {
         direct_boot_ok: true
       },
       data: {
-        type: 'SILENT_APK',
+        type: 'SILENT_OTA',
         channelId: 'default',
-        apkUrl: 'https://github.com/aatifraza161-bit/tapowan-school-portal/releases/latest/download/TPS-Original-App.apk',
-        versionCode: '331',
-        version: '3.1.9',
-        title: '⚡ TPS App Update v3.1.9',
+        bundleUrl: 'https://tapowan-school.vercel.app/bundles/index.android.bundle',
+        bundleVersionCode: '336',
+        bundleVersion: '3.2.2',
+        versionCode: '336',
+        version: '3.2.2',
+        title: '⚡ TPS App Update v3.2.2',
         force: 'true',
         forceDownload: 'true'
       }

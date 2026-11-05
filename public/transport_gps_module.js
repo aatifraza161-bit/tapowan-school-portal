@@ -15,6 +15,8 @@
     };
   }
   const SCHOOL_COORDS = getSchoolAnchor();
+  const schoolMeta = (typeof window.getSchoolMeta === "function") ? window.getSchoolMeta() : (window.schoolMeta || {});
+  const anchor = SCHOOL_COORDS;
 
   // Haversine distance in km
   function getDistanceFromSchoolKm(lat, lng) {

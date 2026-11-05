@@ -11918,7 +11918,12 @@ async function getInsightFace(imageSource) {
         fd.append('file', blob, 'frame.jpg');
         const ctrl = new AbortController();
         const tid = setTimeout(() => ctrl.abort(), 3500);
-        const response = await fetch(`${cloudApi}/extract`, { method: 'POST', body: fd, headers: { 'ngrok-skip-browser-warning': 'true' }, signal: ctrl.signal });
+        let response = await fetch(`${cloudApi}/extract`, { method: 'POST', body: fd, headers: { 'ngrok-skip-browser-warning': 'true' }, signal: ctrl.signal });
+        if (!response.ok && response.status === 404) {
+          try {
+            response = await fetch(`${cloudApi}/gradio_api/extract`, { method: 'POST', body: fd, headers: { 'ngrok-skip-browser-warning': 'true' }, signal: ctrl.signal });
+          } catch(e) {}
+        }
         clearTimeout(tid);
         if (response.ok) {
           const data = await response.json();
@@ -15220,7 +15225,12 @@ refs.syncAllStudentFacesBtn?.addEventListener("click", async () => {
                 fd.append('file', blob, 'face.jpg');
                 const ctrl = new AbortController();
                 const tid = setTimeout(() => ctrl.abort(), 4000);
-                const resp = await fetch(`${cloudApi}/extract`, { method: 'POST', body: fd, headers: { 'ngrok-skip-browser-warning': 'true' }, signal: ctrl.signal });
+                let resp = await fetch(`${cloudApi}/extract`, { method: 'POST', body: fd, headers: { 'ngrok-skip-browser-warning': 'true' }, signal: ctrl.signal });
+                if (!resp.ok && resp.status === 404) {
+                  try {
+                    resp = await fetch(`${cloudApi}/gradio_api/extract`, { method: 'POST', body: fd, headers: { 'ngrok-skip-browser-warning': 'true' }, signal: ctrl.signal });
+                  } catch(e) {}
+                }
                 clearTimeout(tid);
                 if (resp.ok) {
                   const data = await resp.json();

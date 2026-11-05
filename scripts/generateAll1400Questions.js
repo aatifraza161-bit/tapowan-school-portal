@@ -27,8 +27,8 @@ function loadEnv() {
 loadEnv();
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const TURSO_URL = 'https://tapowan-im-aatif.aws-ap-northeast-1.turso.io/v2/pipeline';
-const TURSO_TOKEN = process.env.TURSO_AUTH_TOKEN || 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODY1MTcyOTQsImlkIjoiMDE5ZmY0YWUtM2YwMS03YTYwLWI4NTgtMWQ4M2JlYjJkNzJkIiwia2lkIjoiblRLTmdsNnYyaFQ4LTlhT09uQV9JdERDc3BTdk9iejhSYzNuY0hSNUhOVSIsInJpZCI6ImZmMWI4YTE5LWFhZTgtNGM5MS1hNjFhLTlkMTY1NTQ1OTEyOCJ9.a-w2gyEauZrfLwqWAMh2QLqHmqOxIsziDu9WRBrCPmLaoZThvoDlPdW4VjQ6ST5hRYJj1E1R0sJELyNPg4zrBQ';
+const TURSO_URL = 'https://tapowan-v2-tapowan.aws-ap-south-1.turso.io/v2/pipeline';
+const TURSO_TOKEN = process.env.TURSO_AUTH_TOKEN || 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODkwOTIyMTUsImlkIjoiMDFhMDhlMzQtODMwMS03MDI0LTk5ZWQtMGQ0MmYwMGJiNjFlIiwia2lkIjoiVFRPdk5ISlFYZVAtX1FsNG9ZUXM4cTBTYXRiZzJ1UmVhYjlUbjFyem1tcyIsInJpZCI6ImVjNjc2YzExLTRhNGUtNGZhNi1hMTM1LTJmZDk4YTIxNzliMSJ9.RmzczPOvgV3Hd83byF7fMfQsCzlJnF8r9MCGtzTfZDj8k--VqtItniZN5GCiPfv4-dCEmDZaIWDGPOnM-EknDA';
 
 function getTodayISTString() {
   const now = new Date();
@@ -207,17 +207,19 @@ async function executePipeline(requests) {
 async function generateAIQuestions(gradeName, subjectName, topicStr, attempt = 1) {
   const isHindi = subjectName === 'Hindi';
   const prompt = `You are a senior CBSE curriculum teacher for Tapowan Public School.
-Generate exactly 20 authentic, rigorous Multiple Choice Questions (MCQs) for students of "${gradeName}" for the subject "${subjectName}".
+Generate exactly 20 authentic, rigorous Multiple Choice Questions (MCQs) for students of "${gradeName}" strictly for the subject "${subjectName}".
 Syllabus / Topics: ${topicStr}.
 Language: ${isHindi ? 'Hindi (Devanagari script)' : 'English'}.
 
-Rules:
-1. Questions must test real NCERT textbook concepts, formulas, grammar, experiments, or historical events for this specific grade level.
-2. Provide exactly 4 clear, plausible options per question.
-3. Provide correct_answer_index (0 for A, 1 for B, 2 for C, 3 for D).
-4. Provide a detailed, pedagogically sound explanation for why the answer is correct.
+CRITICAL RULES:
+1. All 20 questions MUST strictly belong to the subject "${subjectName}".
+2. Do NOT mix questions from other subjects (e.g., if subject is Social Science, include ONLY History, Geography, Civics, Economics; do NOT include Science or Math questions).
+3. Questions must test real NCERT textbook concepts for this specific grade level.
+4. Provide exactly 4 clear, plausible options per question.
+5. Provide correct_answer_index (0 for A, 1 for B, 2 for C, 3 for D).
+6. Provide a detailed explanation for the correct answer.
 
-Format output as pure JSON ONLY with no markdown or ticks:
+Format output as pure JSON ONLY with no markdown ticks:
 {
   "questions": [
     {
@@ -229,54 +231,10 @@ Format output as pure JSON ONLY with no markdown or ticks:
   ]
 }`;
 
-  // 1. Try Direct Google Gemini 3.6 Flash
-  if (GEMINI_API_KEY) {
-    try {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${GEMINI_API_KEY}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            responseMimeType: 'application/json',
-            temperature: 0.7
-          }
-        })
-      });
-
-      if (res.status === 429) {
-        console.warn(`⏳ [Gemini 429 Rate Limit] Pacing for ${gradeName} - ${subjectName}... Waiting 15s (Attempt ${attempt}/4)`);
-        await new Promise(r => setTimeout(r, 15000));
-        if (attempt < 4) {
-          return await generateAIQuestions(gradeName, subjectName, topicStr, attempt + 1);
-        }
-      }
-
-      if (res.ok) {
-        const data = await res.json();
-        const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (rawText) {
-          const parsed = JSON.parse(rawText);
-          if (parsed && Array.isArray(parsed.questions) && parsed.questions.length >= 10) {
-            return parsed.questions.slice(0, 20);
-          }
-        }
-      }
-    } catch (err) {
-      console.warn(`[Gemini Direct AI Error for ${gradeName} - ${subjectName}]:`, err.message);
-    }
-  }
-
-  // 2. Fallback to OpenRouter Free Models if Gemini Direct hits quota
-  const openRouterKey = process.env.OPENROUTER_API_KEY || 'OPENROUTER_API_KEY_PLACEHOLDER';
+  const openRouterKey = process.env.OPENROUTER_API_KEY || '';
   if (openRouterKey) {
-    const fallbackModels = [
-      'meta-llama/llama-3.3-70b-instruct:free',
-      'google/gemini-2.0-flash-exp:free',
-      'mistralai/mistral-7b-instruct:free',
-      'qwen/qwen-2.5-72b-instruct:free'
-    ];
-    for (const model of fallbackModels) {
+    const models = ['openrouter/free', 'google/gemma-4-31b-it:free', 'nvidia/nemotron-3-super-120b-a12b:free'];
+    for (const model of models) {
       try {
         const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
           method: 'POST',
@@ -288,27 +246,31 @@ Format output as pure JSON ONLY with no markdown or ticks:
           },
           body: JSON.stringify({
             model,
-            messages: [{ role: 'user', content: prompt }],
-            response_format: { type: 'json_object' },
-            temperature: 0.7
+            messages: [{ role: 'user', content: prompt }]
           })
         });
+
         if (res.ok) {
           const data = await res.json();
-          const rawText = data?.choices?.[0]?.message?.content;
-          if (rawText) {
-            const clean = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-            const parsed = JSON.parse(clean);
+          let rawText = data?.choices?.[0]?.message?.content || '';
+          rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+          const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
             if (parsed && Array.isArray(parsed.questions) && parsed.questions.length >= 10) {
               return parsed.questions.slice(0, 20);
             }
           }
+        } else if (res.status === 429) {
+          console.warn(`⏳ [OpenRouter Rate Limit] Waiting 5s for ${gradeName} - ${subjectName}...`);
+          await new Promise(r => setTimeout(r, 5000));
         }
       } catch (err) {
-        console.warn(`[OpenRouter Fallback (${model}) Error for ${gradeName} - ${subjectName}]:`, err.message);
+        console.warn(`[OpenRouter (${model}) Error for ${gradeName} - ${subjectName}]:`, err.message);
       }
     }
   }
+
   return [];
 }
 

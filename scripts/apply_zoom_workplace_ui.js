@@ -651,6 +651,7 @@ const replacementCode = `function renderOnlineClassesWorkspace() {
 
                 <!-- Live Inspect Video Element (Plays teacher stream when observing other classes) -->
                 <video id="liveClassInspectVideo" class="zoom-live-video-element" autoplay playsinline style="display: \${isInspecting ? 'block' : 'none'}; width: 100%; height: 100%; object-fit: contain; background: #000;"></video>
+                <audio id="liveClassInspectAudio" autoplay style="display: none;"></audio>
 
                 \${isInspecting ? \`
                   <!-- Floating Connection Status -->
@@ -1065,10 +1066,28 @@ const replacementCode = `function renderOnlineClassesWorkspace() {
         if (inspectVid.srcObject !== state.inspectRemoteStream) {
           inspectVid.srcObject = state.inspectRemoteStream;
         }
-        inspectVid.muted = Boolean(state.isInspectAudioMuted);
-        inspectVid.volume = state.inspectAudioVolume !== undefined ? state.inspectAudioVolume : 1;
-        inspectVid.play().catch(() => {});
+        inspectVid.playsInline = true;
+        inspectVid.autoplay = true;
+        inspectVid.style.display = 'block';
+        inspectVid.play().catch(err => {
+          inspectVid.muted = true;
+          inspectVid.play().catch(() => {});
+        });
       }
+      let aud = document.getElementById('liveClassInspectAudio');
+      if (!aud) {
+        aud = document.createElement('audio');
+        aud.id = 'liveClassInspectAudio';
+        aud.autoplay = true;
+        aud.style.display = 'none';
+        document.body.appendChild(aud);
+      }
+      if (aud.srcObject !== state.inspectRemoteStream) {
+        aud.srcObject = state.inspectRemoteStream;
+      }
+      aud.muted = Boolean(state.isInspectAudioMuted);
+      aud.volume = state.inspectAudioVolume !== undefined ? state.inspectAudioVolume : 1;
+      aud.play().catch(() => {});
     }
 
     // Inspection Controls Helpers
@@ -1076,6 +1095,8 @@ const replacementCode = `function renderOnlineClassesWorkspace() {
       state.isInspectAudioMuted = !state.isInspectAudioMuted;
       const vid = document.getElementById('liveClassInspectVideo');
       if (vid) vid.muted = state.isInspectAudioMuted;
+      const aud = document.getElementById('liveClassInspectAudio');
+      if (aud) aud.muted = state.isInspectAudioMuted;
       const btn = document.getElementById('zoomBtnInspectAudio');
       if (btn) {
         btn.innerHTML = state.isInspectAudioMuted
